@@ -1,9 +1,14 @@
+from concurrent.futures import ThreadPoolExecutor
+from unittest.mock import patch
+
 from django.contrib.auth.models import Group, Permission, User
-from django.db import connection
+from django.db import connection, connections
+from django.test import TransactionTestCase
 from rest_framework.test import APITestCase
 from rest_framework_simplejwt.tokens import AccessToken
 
-from .models import Tenant, TenantArea, TenantGroup, TenantGroupPermission, TenantMembership, TenantUserGroup
+from .login_protection import _consume
+from .models import LoginAttemptBudget, Tenant, TenantArea, TenantGroup, TenantGroupPermission, TenantMembership, TenantUserGroup
 from .serializers import MyTokenObtainPairSerializer, tenant_membership_payload
 
 
@@ -337,3 +342,59 @@ class TenantIdentityBoundaryTests(APITestCase):
         self.admin.refresh_from_db()
         self.assertTrue(self.admin.check_password(" stronger-passphrase "))
         self.assertEqual(self.refresh_session(token).status_code, 401)
+    @patch("users.views.authenticate", return_value=None)
+    @patch("users.login_protection.time", return_value=120)
+    def test_login_limit_is_shared_across_origins_and_resets_next_window(self, clock, authenticate):
+        path = "/api/users/login/"
+        for index in range(8):
+            payload = {"username": "Demo" if index % 2 else "demo", "password": "incorrect"}
+            response = self.client.post(path, payload, format="json", REMOTE_ADDR=f"192.0.2.{index + 1}")
+            self.assertEqual(response.status_code, 400)
+        payload = {"username": "demo", "password": "incorrect"}
+        response = self.client.post(path, payload, format="json", REMOTE_ADDR="192.0.2.20")
+        self.assertEqual(response.status_code, 429)
+        self.assertEqual(response.headers["Retry-After"], "60")
+        self.assertEqual(authenticate.call_count, 8)
+        clock.return_value = 180
+        self.assertEqual(self.client.post(path, payload, format="json").status_code, 400)
+
+    @patch("users.views.authenticate", return_value=None)
+    @patch("users.login_protection.time", return_value=120)
+    def test_origin_limit_ignores_forged_forwarded_address(self, _clock, authenticate):
+        for index in range(31):
+            response = self.client.post(
+                "/api/users/login/", {"username": f"example-{index}", "password": "incorrect"},
+                format="json", HTTP_X_FORWARDED_FOR=f"192.0.2.{index + 1}", REMOTE_ADDR="192.0.2.100",
+            )
+            self.assertEqual(response.status_code, 400 if index < 30 else 429)
+        self.assertEqual(authenticate.call_count, 30)
+
+    @patch("users.views.authenticate", return_value=None)
+    @patch("users.login_protection.time", return_value=120)
+    def test_admin_form_shares_login_budget_and_logs_no_credentials(self, _clock, _authenticate):
+        username, password = "unique-audit-subject", "unique-secret-synthetic"
+        with self.assertLogs("blandskron.auth.audit", level="INFO") as audit:
+            for _ in range(8):
+                self.client.post("/api/users/login/", {"username": username, "password": password}, format="json")
+            response = self.client.post("/admin/login/", {"username": username, "password": password})
+        self.assertContains(response, "Demasiados intentos")
+        self.assertIn('"channel": "django_admin"', audit.output[-1])
+        for entry in audit.output:
+            self.assertNotIn(username, entry)
+            self.assertNotIn(password, entry)
+        self.assertTrue(all(len(key) == 64 for key in LoginAttemptBudget.objects.values_list("key", flat=True)))
+
+
+class LoginBudgetConcurrencyTests(TransactionTestCase):
+    def test_parallel_connections_cannot_exceed_budget(self):
+        def attempt(_index):
+            try:
+                return _consume("account", "parallel-fixture", 2, 8)
+            finally:
+                connections.close_all()
+
+        with ThreadPoolExecutor(max_workers=12) as workers:
+            outcomes = list(workers.map(attempt, range(12)))
+
+        self.assertEqual(sum(outcomes), 8)
+        self.assertEqual(LoginAttemptBudget.objects.get().attempts, 8)
