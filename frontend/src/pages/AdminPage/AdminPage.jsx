@@ -17,14 +17,14 @@ import {
 import { useAuthContext } from "../../app/providers/AuthProvider";
 import { appRoutes } from "../../app/router/routes";
 import { isTenantAdmin } from "../../entities/auth/model/auth.user";
-import { createUser, listUsers } from "../../features/auth/api/user-management.api";
+import { listUsers } from "../../features/auth/api/user-management.api";
 import {
   TENANT_PERMISSION_OPTIONS,
   assignTenantUserGroup,
   createTenant,
   createTenantArea,
   createTenantGroup,
-  createTenantMembership,
+  provisionTenantUser,
   listTenantAreas,
   listTenantGroups,
   listTenantMemberships,
@@ -190,17 +190,9 @@ export function AdminPage({ onNavigate }) {
   async function handleCreateUser(event) {
     event.preventDefault();
     await runSave(async () => {
-      const user = await createUser(authClient, {
+      await provisionTenantUser(authClient, {
         ...userForm,
-        isActive: true,
-        groups: [],
-        permissions: [],
-      });
-      await createTenantMembership(authClient, {
         tenantId: selectedTenant.tenantId,
-        userId: user.id,
-        areaId: userForm.areaId,
-        role: userForm.role,
       });
       setUserForm({ username: "", email: "", firstName: "", lastName: "", password: "", role: "USER", areaId: "" });
     }, "Usuario creado y asignado a la empresa.");

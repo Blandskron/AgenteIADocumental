@@ -12,11 +12,12 @@
 - **Refresh Token:** Permite renovar el access token usando un refresh token válido.
 - **Perfil:** Endpoint para obtener los datos del usuario autenticado, incluyendo roles, grupos y permisos.
 
-### 2. **Gestión de Usuarios (CRUD)**
-- **Solo para administradores.**
-- Crear, listar, actualizar y eliminar usuarios.
-- Asignación de grupos y roles.
-- Serialización enriquecida con información de permisos y grupos.
+### 2. Gestión de usuarios
+
+- El superadministrador gestiona las identidades globales y puede vincular cuentas existentes.
+- Los cambios a grupos globales de Django también requieren superadministrador.
+- Los administradores de empresa consultan a sus miembros y crean cuentas nuevas con su membresía en una única solicitud.
+- El alta por empresa admite solo campos de identidad y datos de membresía. Los cambios posteriores a la membresía mantienen su empresa y su usuario.
 
 ### 3. **Infraestructura y Seguridad**
 - Generación automática de claves RSA para firmar los JWT.
@@ -34,7 +35,21 @@
 | POST   | `/api/users/logout/`        | Logout, invalida el refresh token                | Autenticado        |
 | GET    | `/api/users/me/`            | Perfil del usuario autenticado                   | Autenticado        |
 | POST   | `/api/users/token/refresh/` | Refresca el access token                         | Público            |
-| CRUD   | `/api/users/crud/`          | Gestión completa de usuarios (admin)             | Solo admin         |
+| GET | `/api/users/crud/` | Consulta de usuarios | Superadministrador o administrador de su empresa |
+| POST, PUT, PATCH, DELETE | `/api/users/crud/` y detalle | Gestión de identidades globales | Superadministrador |
+| POST | `/api/users/tenant-memberships/provision/` | Crea una cuenta nueva y su membresía. Recibe `tenant`, `username`, `password`, `role` y opcionalmente `area`, `email`, `first_name` y `last_name`. Devuelve la membresía. | Superadministrador o administrador de la empresa destino |
+| POST | `/api/users/tenant-memberships/` | Vincula una identidad existente | Superadministrador |
+
+## Verificar la autorización
+
+Desde la raíz, con PostgreSQL de Compose activo:
+
+```powershell
+docker compose -f docker/docker-compose.yml build auth-service
+docker compose -f docker/docker-compose.yml run --rm --no-deps -T --entrypoint python auth-service manage.py test users --noinput
+```
+
+Django crea una base de pruebas separada. Los casos incluyen alta autorizada, escritura de privilegios globales, intentos de vincular o modificar una identidad ajena y referencias a otra empresa. El [plan de modernización](MODERNIZATION.md) detalla los incrementos siguientes.
 
 ---
 
