@@ -1,5 +1,6 @@
 from django.contrib.auth.models import Group, Permission, User
 from django.db import transaction
+from django.db.models import F
 from rest_framework import serializers
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 
@@ -44,7 +45,9 @@ TENANT_ROLE_PERMISSIONS = {
 
 
 def tenant_membership_payload(user):
-    user_group_rows = TenantUserGroup.objects.select_related("group").filter(user_id=str(user.id))
+    user_group_rows = TenantUserGroup.objects.select_related("group").filter(
+        user_id=str(user.id), group__tenant_id=F("tenant_id")
+    )
     group_names_by_tenant = {}
     group_ids_by_tenant = {}
     for row in user_group_rows:
@@ -65,14 +68,15 @@ def tenant_membership_payload(user):
     )
     payload = []
     for membership in memberships:
+        area = membership.area if membership.area_id and membership.area.tenant_id == membership.tenant_id else None
         role_permissions = set(TENANT_ROLE_PERMISSIONS.get(membership.role, []))
         group_permissions = group_permissions_by_tenant.get(membership.tenant_id, set())
         payload.append({
             "membership_id": membership.membership_id,
             "tenant_id": membership.tenant_id,
             "tenant_name": membership.tenant.name,
-            "area_id": membership.area_id,
-            "area_name": membership.area.name if membership.area_id else None,
+            "area_id": area.pk if area else None,
+            "area_name": area.name if area else None,
             "role": membership.role,
             "groups": group_names_by_tenant.get(membership.tenant_id, []),
             "group_ids": group_ids_by_tenant.get(membership.tenant_id, []),
@@ -275,14 +279,31 @@ class TenantSerializer(serializers.ModelSerializer):
         read_only_fields = ("tenant_id", "created_by_user_id", "created_at", "updated_at")
 
 
-class TenantAreaSerializer(serializers.ModelSerializer):
+class TenantScopedSerializer(serializers.ModelSerializer):
+    tenant_relation = None
+
+    def validate(self, attrs):
+        tenant = attrs.get("tenant", self.instance.tenant if self.instance else None)
+        if self.instance and tenant.pk != self.instance.tenant_id:
+            raise serializers.ValidationError({"tenant": "La empresa no se puede cambiar."})
+        if self.tenant_relation:
+            relation = attrs.get(self.tenant_relation, getattr(self.instance, self.tenant_relation, None))
+            if relation is not None and relation.tenant_id != tenant.pk:
+                raise serializers.ValidationError({self.tenant_relation: "Debe pertenecer a la misma empresa."})
+        return attrs
+
+
+class TenantAreaSerializer(TenantScopedSerializer):
+    tenant_relation = "parent_area"
+
     class Meta:
         model = TenantArea
         fields = ("area_id", "tenant", "name", "parent_area", "metadata", "created_at", "updated_at")
         read_only_fields = ("area_id", "created_at", "updated_at")
 
 
-class TenantMembershipSerializer(serializers.ModelSerializer):
+class TenantMembershipSerializer(TenantScopedSerializer):
+    tenant_relation = "area"
     tenant_name = serializers.CharField(source="tenant.name", read_only=True)
     area_name = serializers.CharField(source="area.name", read_only=True)
     permissions = serializers.SerializerMethodField()
@@ -348,7 +369,7 @@ class TenantGroupPermissionSerializer(serializers.ModelSerializer):
         read_only_fields = ("created_at",)
 
 
-class TenantGroupSerializer(serializers.ModelSerializer):
+class TenantGroupSerializer(TenantScopedSerializer):
     permissions = serializers.ListField(child=serializers.CharField(), write_only=True, required=False)
     permission_codes = serializers.SerializerMethodField(read_only=True)
 
@@ -371,12 +392,14 @@ class TenantGroupSerializer(serializers.ModelSerializer):
     def get_permission_codes(self, group):
         return list(TenantGroupPermission.objects.filter(group=group).values_list("permission_code", flat=True))
 
+    @transaction.atomic
     def create(self, validated_data):
         permissions = validated_data.pop("permissions", [])
         group = TenantGroup.objects.create(**validated_data)
         self._set_permissions(group, permissions)
         return group
 
+    @transaction.atomic
     def update(self, instance, validated_data):
         permissions = validated_data.pop("permissions", None)
         group = super().update(instance, validated_data)
@@ -390,10 +413,32 @@ class TenantGroupSerializer(serializers.ModelSerializer):
             TenantGroupPermission.objects.create(group=group, permission_code=permission)
 
 
-class TenantUserGroupSerializer(serializers.ModelSerializer):
+class TenantUserGroupSerializer(TenantScopedSerializer):
+    tenant_relation = "group"
     group_name = serializers.CharField(source="group.name", read_only=True)
 
     class Meta:
         model = TenantUserGroup
         fields = ("tenant", "user_id", "group", "group_name", "created_at")
         read_only_fields = ("created_at",)
+
+    def validate(self, attrs):
+        attrs = super().validate(attrs)
+        if self.instance and attrs.get("user_id", self.instance.user_id) != self.instance.user_id:
+            raise serializers.ValidationError({"user_id": "El usuario de la asignación no se puede cambiar."})
+        return attrs
+
+    @staticmethod
+    def _lock_membership(tenant, user_id):
+        if not TenantMembership.objects.select_for_update().filter(tenant=tenant, user_id=user_id).first():
+            raise serializers.ValidationError({"user_id": "El usuario debe pertenecer a la misma empresa."})
+
+    @transaction.atomic
+    def create(self, validated_data):
+        self._lock_membership(validated_data["tenant"], validated_data["user_id"])
+        return super().create(validated_data)
+
+    @transaction.atomic
+    def update(self, instance, validated_data):
+        self._lock_membership(instance.tenant_id, instance.user_id)
+        return super().update(instance, validated_data)

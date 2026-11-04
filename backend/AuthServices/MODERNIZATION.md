@@ -19,8 +19,8 @@ Diagnóstico inicial sobre `main` en `fa74ac1`. Este es el primer servicio de la
 | Estado | ID | Incremento | Criterio de aceptación |
 |---|---|---|---|
 | En revisión | AUTH-000 | Mapa y diagnóstico Agents First | Alcance, fuentes, hallazgos, dependencias y orden de entrega documentados. |
-| En revisión | AUTH-001 | Proteger cuentas globales | El CRUD global y la vinculación de cuentas existentes requieren superadministrador. El alta por empresa es atómica y la UI usa esa ruta. Las pruebas positivas y negativas de Auth se ejecutan sobre PostgreSQL. |
-| Backlog | AUTH-002 | Aislar mutaciones de empresa | Validar origen, destino y pertenencia de áreas, grupos y sujetos para POST, PUT, PATCH y DELETE. Probar empresa suspendida, dos empresas y escritura concurrente. Detectar datos incoherentes antes de activar restricciones SQL. |
+| Hecha | AUTH-001 | Proteger cuentas globales | Integrada en main. Las mutaciones globales requieren superadministrador y el alta por empresa es atómica. |
+| En revisión | AUTH-002 | Aislar mutaciones de empresa | Se valida propiedad y relaciones en Auth. La API protege borrados con referencias históricas y los claims omiten vínculos ajenos. El diagnóstico SQL prepara el endurecimiento de persistencia. |
 | Backlog | AUTH-003 | Separar claves y bootstrap | El emisor posee la clave privada. Un verificador solo puede leer material público. Bootstrap explícito, configuración de demo limitada a loopback y plan de rotación con prueba de compatibilidad. |
 | Backlog | AUTH-004 | Endurecer el ciclo de sesión | Renovación con claims vigentes, revocación ante cambios sensibles, vigencia documentada y pruebas de firma, tipo, expiración y credenciales antiguas. Probar el impacto en los consumidores. |
 | Backlog | AUTH-005 | Reducir abuso y aplicar política de contraseñas | Validadores en todas las escrituras, límite verificable de intentos y registro de eventos administrativos sin secretos ni tokens. |
@@ -39,6 +39,15 @@ Diagnóstico inicial sobre `main` en `fa74ac1`. Este es el primer servicio de la
 La versión anterior aceptó la creación de una cuenta global por un administrador de empresa, la vinculación de una identidad ajena y el cambio de contraseña de una cuenta ya vinculada. Las pruebas se ejecutaron en un contenedor efímero con una base PostgreSQL separada.
 
 El parche bloquea esas solicitudes, la reasignación de una membresía y la escritura de permisos mediante grupos globales por un usuario con acceso de staff. Pasaron 11 pruebas en PostgreSQL, `manage.py check` y el build del frontend. Se comprobó que OpenAPI incluye el nuevo endpoint. La generación general del esquema sigue mostrando advertencias y un diagnóstico previo en `MeView`. El trabajo de saneamiento de relaciones existentes y estado de empresa continúa en AUTH-002.
+
+## Evidencia y seguimiento de AUTH-002
+
+- Las actualizaciones conservan la empresa del recurso. Las áreas, membresías y asignaciones validan que la relación pertenezca a la misma empresa.
+- Los administradores de empresas suspendidas pierden el acceso administrativo por esa membresía. El superadministrador conserva su acceso operativo.
+- Los claims omiten grupos de otra empresa y ocultan referencias de área incoherentes. Los permisos de grupo se reemplazan en una transacción.
+- El borrado de áreas requiere superadministrador por sus referencias documentales. El borrado de una membresía elimina sus asignaciones. La creación y actualización de asignaciones y el borrado de membresías bloquean la misma fila en PostgreSQL.
+- El [diagnóstico SQL](../../scripts/database/checks/tenant_relationships.sql) cuenta inconsistencias sin modificar datos. La base local devolvió cero en los cinco controles. El saneamiento de otras instalaciones, las restricciones de base y una prueba concurrente con sesiones independientes quedan como seguimiento de persistencia.
+- La revocación de permisos ya emitidos o reutilizados al renovar un JWT corresponde a AUTH-004.
 
 ## Criterio de cierre por PR
 
