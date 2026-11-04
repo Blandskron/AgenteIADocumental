@@ -33,9 +33,11 @@ def require_authenticated_user(
             credentials.credentials,
             read_public_key(settings.auth_jwt_public_key_path),
             algorithms=[settings.auth_jwt_algorithm],
-            options={"verify_aud": False},
+            options={"verify_aud": False, "require": ["exp", "user_id"]},
         )
-    except (InvalidTokenError, OSError) as exc:
+        if type(payload["user_id"]) is not int or payload["user_id"] <= 0 or type(payload["exp"]) is not int:
+            raise InvalidTokenError("Invalid identity or expiration claim.")
+    except (InvalidTokenError, OSError, TypeError, OverflowError) as exc:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid authentication token.",
@@ -53,7 +55,7 @@ def require_authenticated_user(
 
 
 def user_id(user: dict) -> str:
-    return str(user.get("user_id") or user.get("sub") or user.get("username") or "")
+    return str(user["user_id"])
 
 
 def is_superadmin_user(user: dict) -> bool:
@@ -71,17 +73,6 @@ def tenant_ids_for_role(user: dict, *roles: str) -> list[str]:
         for membership in tenant_memberships(user)
         if str(membership.get("role") or "").upper() in wanted and membership.get("tenant_id")
     ]
-
-
-def is_tenant_admin(user: dict, tenant_id: str | None = None) -> bool:
-    if is_superadmin_user(user):
-        return True
-    tenant_ids = tenant_ids_for_role(user, "TENANT_ADMIN")
-    return bool(tenant_id in tenant_ids if tenant_id else tenant_ids)
-
-
-def is_admin_user(user: dict) -> bool:
-    return is_superadmin_user(user) or is_tenant_admin(user)
 
 
 def user_groups(user: dict) -> list[str]:

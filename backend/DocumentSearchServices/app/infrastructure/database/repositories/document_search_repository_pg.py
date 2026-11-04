@@ -1,15 +1,15 @@
-from sqlalchemy import exists, false, func, or_
+from sqlalchemy import exists, func, or_, select
 from sqlalchemy.orm import Session
 
-from app.config.security import is_superadmin_user, tenant_ids_for_role, user_groups, user_id
+from app.config.security import is_superadmin_user, tenant_ids_for_role, tenant_memberships, user_groups, user_id
 from app.domain.documents import DocumentChunk, DocumentSearchResult, DocumentSummary
 from app.infrastructure.database.models import DocumentAssignmentModel, DocumentEmbeddingModel, DocumentModel
 
 
 class DocumentSearchRepositoryPg:
-    def __init__(self, session: Session, current_user: dict | None = None) -> None:
+    def __init__(self, session: Session, current_user: dict) -> None:
         self._session = session
-        self._current_user = current_user or {}
+        self._current_user = current_user
 
     def search(
         self,
@@ -99,30 +99,34 @@ class DocumentSearchRepositoryPg:
         if is_superadmin_user(self._current_user):
             return statement
 
-        clauses = []
         current_user_id = user_id(self._current_user)
+        assignment = DocumentAssignmentModel
+        active_assignment = select(1).where(
+            assignment.document_id == DocumentModel.document_id,
+            assignment.status.not_in(("CANCELLED", "EXPIRED")),
+            or_(
+                assignment.assigned_to_user_id == current_user_id,
+                assignment.assigned_by_user_id == current_user_id,
+            ),
+        ).exists()
+        owner_id = func.coalesce(DocumentModel.owner_user_id, DocumentModel.metadata_["owner_user_id"].astext)
+        tenant_id = func.coalesce(DocumentModel.tenant_id, DocumentModel.metadata_["tenant_id"].astext)
+        clauses = [owner_id == current_user_id, active_assignment]
         admin_tenant_ids = tenant_ids_for_role(self._current_user, "TENANT_ADMIN")
         if admin_tenant_ids:
-            clauses.append(DocumentModel.tenant_id.in_(admin_tenant_ids))
-            clauses.append(DocumentModel.metadata_.op("->>")("tenant_id").in_(admin_tenant_ids))
-        if current_user_id:
-            assigned_document_ids = (
-                self._session.query(DocumentAssignmentModel.document_id)
-                .filter(DocumentAssignmentModel.assigned_to_user_id == current_user_id)
-                .subquery()
+            clauses.append(tenant_id.in_(admin_tenant_ids))
+        groups = user_groups(self._current_user)
+        if groups:
+            member_tenant_ids = [
+                str(membership["tenant_id"])
+                for membership in tenant_memberships(self._current_user)
+                if membership.get("tenant_id")
+            ]
+            clauses.append(
+                or_(tenant_id.is_(None), tenant_id.in_(member_tenant_ids))
+                & or_(*(DocumentModel.metadata_.contains({"owner_groups": [group]}) for group in groups))
             )
-            managed_document_ids = (
-                self._session.query(DocumentAssignmentModel.document_id)
-                .filter(DocumentAssignmentModel.assigned_by_user_id == current_user_id)
-                .subquery()
-            )
-            clauses.append(DocumentModel.owner_user_id == current_user_id)
-            clauses.append(DocumentModel.metadata_.op("->>")("owner_user_id") == current_user_id)
-            clauses.append(DocumentModel.document_id.in_(assigned_document_ids))
-            clauses.append(DocumentModel.document_id.in_(managed_document_ids))
-        for group in user_groups(self._current_user):
-            clauses.append(DocumentModel.metadata_.contains({"owner_groups": [group]}))
-        return statement.filter(or_(*clauses) if clauses else false())
+        return statement.filter(or_(*clauses))
 
     def _sort_clause(self, sort: str):
         options = {
@@ -150,25 +154,26 @@ class DocumentSearchRepositoryPg:
         )
 
     def _chunk_count(self, document_id: str) -> int:
-        return int(
+        statement = (
             self._session.query(func.count(DocumentEmbeddingModel.chunk_id))
+            .join(DocumentModel, DocumentEmbeddingModel.document_id == DocumentModel.document_id)
             .filter(DocumentEmbeddingModel.document_id == document_id)
-            .scalar()
-            or 0
         )
+        return int(self._apply_access_filter(statement).scalar() or 0)
 
     def _snippet(self, document_id: str, query: str | None) -> str | None:
         if not query:
             return None
-        row = (
+        statement = (
             self._session.query(DocumentEmbeddingModel.chunk_content)
+            .join(DocumentModel, DocumentEmbeddingModel.document_id == DocumentModel.document_id)
             .filter(
                 DocumentEmbeddingModel.document_id == document_id,
                 DocumentEmbeddingModel.chunk_content.ilike(f"%{query}%"),
             )
             .order_by(DocumentEmbeddingModel.chunk_index.asc())
-            .first()
         )
+        row = self._apply_access_filter(statement).first()
         if row is None:
             return None
         content = row.chunk_content.strip()
