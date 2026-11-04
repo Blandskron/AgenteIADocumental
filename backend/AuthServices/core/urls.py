@@ -15,15 +15,14 @@ Including another URLconf
     2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
 """
 from django.contrib import admin
-from django.urls import path, include, re_path
+from django.urls import include, path
 from django.views.generic import RedirectView
 
 
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('api/users/', include('users.urls')),
-    path('docs/', include('docs.urls')),
-    
-    # Redirigir cualquier ruta no encontrada (404) a la documentación de Swagger UI
-    re_path(r'^.*$', RedirectView.as_view(pattern_name='swagger-ui', permanent=False)),
+    path('docs/', include('core.openapi')),
+    path('docs/', RedirectView.as_view(pattern_name='swagger-ui', permanent=False)),
+    path('', RedirectView.as_view(pattern_name='swagger-ui', permanent=False)),
 ]

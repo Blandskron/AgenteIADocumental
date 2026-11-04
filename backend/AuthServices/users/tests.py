@@ -50,6 +50,14 @@ class TenantIdentityBoundaryTests(APITestCase):
             set(response.data["tenant_memberships"][0]), set(ProfileMembershipSerializer().fields)
         )
 
+    def test_documentation_urls_and_unknown_routes(self):
+        swagger = "/docs/api/schema/swagger-ui/"
+        for shortcut in ("/", "/docs/"):
+            self.assertRedirects(self.client.get(shortcut), swagger, fetch_redirect_response=False)
+        for path in (swagger, "/docs/api/schema/redoc/", "/docs/api/schema/"):
+            self.assertEqual(self.client.get(path).status_code, 200)
+        self.assertEqual(self.client.get("/api/users/unknown/").status_code, 404)
+
     def test_tenant_admin_cannot_create_global_superuser(self):
         for index, privilege in enumerate(({"role": "super_admin"}, {"is_superuser": True})):
             with self.subTest(privilege=privilege):

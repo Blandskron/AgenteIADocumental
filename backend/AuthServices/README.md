@@ -19,6 +19,6 @@ Crea el administrador solo en el primer arranque. Abre [Django Admin](http://loc
 - [Contrato de API](docs/API.md) para sesión, perfil, claims y administración.
 - [Operación y configuración](docs/OPERATIONS.md) para arranque, migraciones, roles de base, secretos, rotación y auditoría.
 - [Pruebas](docs/TESTS.md) para la suite de Auth, OpenAPI, permisos de PostgreSQL y revisión de dependencias.
-- [AGENTS.md](AGENTS.md) y [tablero](MODERNIZATION.md) para cambios y seguimiento.
+- [AGENTS.md](AGENTS.md) para colaborar y [tablero del repositorio](../../ROADMAP.md) para seguimientos.
 
-Las rutas y serializadores viven en `users/`. Django gestiona las tablas de identidad y sesión. El esquema multiempresa vive en [scripts/database](../../scripts/database/) y se mapea con modelos no gestionados.
+Las rutas y serializadores viven en `users/`. Las rutas de Swagger, ReDoc y OpenAPI están en [core/openapi.py](core/openapi.py). `docs/` contiene las guías escritas. Django gestiona las tablas de identidad y sesión. El esquema multiempresa vive en [scripts/database](../../scripts/database/) y se mapea con modelos no gestionados.

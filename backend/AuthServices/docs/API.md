@@ -1,6 +1,8 @@
 # Contrato de AuthServices
 
-Base local: `http://localhost:8001`. Consulta [OpenAPI](http://localhost:8001/docs/api/schema/) o [Swagger](http://localhost:8001/docs/api/schema/swagger-ui/). El código de rutas está en [users/urls.py](../users/urls.py).
+Base local: `http://localhost:8001`. Consulta [OpenAPI](http://localhost:8001/docs/api/schema/), [Swagger](http://localhost:8001/docs/api/schema/swagger-ui/) o [ReDoc](http://localhost:8001/docs/api/schema/redoc/). Las rutas de la API están en [users/urls.py](../users/urls.py) y las de documentación interactiva en [core/openapi.py](../core/openapi.py).
+
+`/` y `/docs/` redirigen a Swagger. Una ruta desconocida devuelve 404.
 
 ## Sesión y perfil
 

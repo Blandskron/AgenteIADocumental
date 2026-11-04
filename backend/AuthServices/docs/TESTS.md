@@ -22,10 +22,12 @@ docker compose -f docker/docker-compose.yml exec -T auth-service python manage.p
 Get-Content -Raw scripts/database/auth/verify_roles.sql | docker compose -f docker/docker-compose.yml exec -T postgres psql -U postgres -d documents_db -v ON_ERROR_STOP=1
 ```
 
-La prueba SQL revierte la tabla de verificación del rol de migración y comprueba que el rol web carece de DDL permanente y de acceso directo a documentos. CI también ejecuta la prueba sobre una instalación nueva. La validación de OpenAPI puede emitir avisos sobre parámetros o tipos inferidos. Revisa cualquier error nuevo y la presencia de las rutas que cambiaste.
+La prueba SQL revierte la tabla de verificación del rol de migración y comprueba que el rol web carece de DDL permanente y de acceso directo a documentos. CI también ejecuta la prueba sobre una instalación nueva. La validación de OpenAPI terminó sin errores en la revisión de cierre. Mantiene cinco avisos distintos de inferencia de identificadores multiempresa, que el esquema representa como cadenas.
 
 ## Dependencias e imagen
 
 Reconstruye la imagen con `docker compose -f docker/docker-compose.yml build --pull auth-service`. CI verifica dependencias instaladas con `python -m pip check`. En un entorno de herramientas separado, consulta avisos con `pip-audit --disable-pip --no-deps -r backend/AuthServices/requirements.txt`.
 
-Para auditar también el sistema base, exporta `docker-auth-service` con `docker image save` a un archivo temporal y usa `trivy image --input <archivo> --scanners vuln --severity HIGH,CRITICAL`. Registra el identificador de imagen, los hallazgos de Debian y de Python y las versiones corregidas disponibles. La última evidencia está en el [tablero](../MODERNIZATION.md).
+Para auditar también el sistema base, exporta `docker-auth-service` con `docker image save` a un archivo temporal y usa `trivy image --input <archivo> --scanners vuln --severity HIGH,CRITICAL`. Registra el identificador de imagen, los hallazgos de Debian y de Python y las versiones corregidas disponibles.
+
+La auditoría del 3 de noviembre de 2026 no encontró avisos con `pip-audit` en las versiones fijadas. Trivy 0.74.0 encontró cero avisos altos o críticos en Python y nueve CVE altos sin corrección indicada en Debian 13. El digest y el detalle del alcance quedaron en el [PR de auditoría](https://github.com/Blandskron/AgenteIADocumental/pull/13). Es evidencia de esa imagen y de las bases de avisos consultadas en esa fecha.
