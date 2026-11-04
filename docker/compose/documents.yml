@@ -1,0 +1,268 @@
+services:
+  rag-document-chat-service:
+    build:
+      context: ../../backend/RagDocumentChatServices
+      dockerfile: Dockerfile
+    container_name: rag-document-chat-service
+    env_file:
+      - ../../.env
+    environment:
+      APP_NAME: rag-document-chat-service
+      CORS_ORIGINS: '["*"]'
+      DATABASE_URL: postgresql+psycopg://postgres:admin1234@postgres:5432/documents_db
+      AUTH_JWT_PUBLIC_KEY_PATH: /app/auth_keys/public.pem
+      AUTH_JWT_ALGORITHM: RS256
+      INTERNAL_SERVICE_API_KEY: ${INTERNAL_SERVICE_API_KEY:-local-internal-service-key}
+    ports:
+      - "8002:8000"
+    volumes:
+      - auth_keys:/app/auth_keys:ro
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "python -c \"import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/v1/health', timeout=3)\"",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    depends_on:
+      database-schema:
+        condition: service_completed_successfully
+      auth-service:
+        condition: service_healthy
+
+  rag-document-embedding-service:
+    build:
+      context: ../../backend/RagDocumentEmbeddingServices
+      dockerfile: Dockerfile
+    container_name: rag-document-embedding-service
+    env_file:
+      - ../../.env
+    environment:
+      APP_NAME: rag-document-embedding-service
+      CORS_ORIGINS: '["*"]'
+      DATABASE_URL: postgresql+psycopg://postgres:admin1234@postgres:5432/documents_db
+      DOCUMENT_STORAGE_BASE_PATH: /app/documents
+      AUTH_JWT_PUBLIC_KEY_PATH: /app/auth_keys/public.pem
+      AUTH_JWT_ALGORITHM: RS256
+    ports:
+      - "8003:8000"
+    volumes:
+      - ../../documents:/app/documents
+      - auth_keys:/app/auth_keys:ro
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "python -c \"import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/v1/health', timeout=3)\"",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    depends_on:
+      database-schema:
+        condition: service_completed_successfully
+      auth-service:
+        condition: service_healthy
+
+  document-search-service:
+    build:
+      context: ../../backend/DocumentSearchServices
+      dockerfile: Dockerfile
+    container_name: document-search-service
+    env_file:
+      - ../../.env
+    environment:
+      APP_NAME: document-search-service
+      CORS_ORIGINS: '["*"]'
+      DATABASE_URL: postgresql+psycopg://postgres:admin1234@postgres:5432/documents_db
+      AUTH_JWT_PUBLIC_KEY_PATH: /app/auth_keys/public.pem
+      AUTH_JWT_ALGORITHM: RS256
+    ports:
+      - "8004:8000"
+    volumes:
+      - auth_keys:/app/auth_keys:ro
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "python -c \"import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/v1/health', timeout=3)\"",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    depends_on:
+      database-schema:
+        condition: service_completed_successfully
+      auth-service:
+        condition: service_healthy
+
+  document-access-service:
+    build:
+      context: ../../backend/DocumentAccessServices
+      dockerfile: Dockerfile
+    container_name: document-access-service
+    env_file:
+      - ../../.env
+    environment:
+      APP_NAME: document-access-service
+      CORS_ORIGINS: '["*"]'
+      DATABASE_URL: postgresql+psycopg://postgres:admin1234@postgres:5432/documents_db
+      DOCUMENT_STORAGE_BASE_PATH: /app/documents
+      AUTH_JWT_PUBLIC_KEY_PATH: /app/auth_keys/public.pem
+      AUTH_JWT_ALGORITHM: RS256
+    ports:
+      - "8005:8000"
+    volumes:
+      - ../../documents:/app/documents
+      - auth_keys:/app/auth_keys:ro
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "python -c \"import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/v1/health', timeout=3)\"",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    depends_on:
+      database-schema:
+        condition: service_completed_successfully
+      auth-service:
+        condition: service_healthy
+
+  document-library-service:
+    build:
+      context: ../../backend/DocumentLibraryServices
+      dockerfile: Dockerfile
+    container_name: document-library-service
+    env_file:
+      - ../../.env
+    environment:
+      APP_NAME: document-library-service
+      CORS_ORIGINS: '["*"]'
+      DATABASE_URL: postgresql+psycopg://postgres:admin1234@postgres:5432/documents_db
+      AUTH_JWT_PUBLIC_KEY_PATH: /app/auth_keys/public.pem
+      AUTH_JWT_ALGORITHM: RS256
+    ports:
+      - "8006:8000"
+    volumes:
+      - auth_keys:/app/auth_keys:ro
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "python -c \"import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/v1/health', timeout=3)\"",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    depends_on:
+      database-schema:
+        condition: service_completed_successfully
+      auth-service:
+        condition: service_healthy
+
+  document-transfer-service:
+    build:
+      context: ../../backend/DocumentTransferServices
+      dockerfile: Dockerfile
+    container_name: document-transfer-service
+    env_file:
+      - ../../.env
+    environment:
+      APP_NAME: document-transfer-service
+      CORS_ORIGINS: '["*"]'
+      DATABASE_URL: postgresql+psycopg://postgres:admin1234@postgres:5432/documents_db
+      AUTH_JWT_PUBLIC_KEY_PATH: /app/auth_keys/public.pem
+      AUTH_JWT_ALGORITHM: RS256
+    ports:
+      - "8007:8000"
+    volumes:
+      - auth_keys:/app/auth_keys:ro
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "python -c \"import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/v1/health', timeout=3)\"",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    depends_on:
+      database-schema:
+        condition: service_completed_successfully
+      auth-service:
+        condition: service_healthy
+
+  document-export-service:
+    build:
+      context: ../../backend/DocumentExportServices
+      dockerfile: Dockerfile
+    container_name: document-export-service
+    env_file:
+      - ../../.env
+    environment:
+      APP_NAME: document-export-service
+      CORS_ORIGINS: '["*"]'
+      DATABASE_URL: postgresql+psycopg://postgres:admin1234@postgres:5432/documents_db
+      EXPORT_STORAGE_BASE_PATH: /app/exports
+      AUTH_JWT_PUBLIC_KEY_PATH: /app/auth_keys/public.pem
+      AUTH_JWT_ALGORITHM: RS256
+    ports:
+      - "8016:8000"
+    volumes:
+      - ../../documents/exports:/app/exports
+      - auth_keys:/app/auth_keys:ro
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "python -c \"import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/v1/health', timeout=3)\"",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    depends_on:
+      database-schema:
+        condition: service_completed_successfully
+      auth-service:
+        condition: service_healthy
+
+  google-drive-import-service:
+    build:
+      context: ../../backend/GoogleDriveImportServices
+      dockerfile: Dockerfile
+    container_name: google-drive-import-service
+    env_file:
+      - ../../.env
+    environment:
+      APP_NAME: google-drive-import-service
+      CORS_ORIGINS: '["*"]'
+      DATABASE_URL: postgresql+psycopg://postgres:admin1234@postgres:5432/documents_db
+      RAG_DOCUMENT_BASE_URL: http://rag-document-embedding-service:8000
+      GOOGLE_DRIVE_REDIRECT_URI: http://localhost:3000/documents
+      GOOGLE_OAUTH_SCOPES: https://www.googleapis.com/auth/drive.file
+      AUTH_JWT_PUBLIC_KEY_PATH: /app/auth_keys/public.pem
+      AUTH_JWT_ALGORITHM: RS256
+    ports:
+      - "8017:8000"
+    volumes:
+      - auth_keys:/app/auth_keys:ro
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "python -c \"import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/v1/health', timeout=3)\"",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    depends_on:
+      database-schema:
+        condition: service_completed_successfully
+      auth-service:
+        condition: service_healthy
+      rag-document-embedding-service:
+        condition: service_healthy

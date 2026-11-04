@@ -1,0 +1,7 @@
+include:
+  - compose/infra.yml
+  - compose/auth.yml
+  - compose/documents.yml
+  - compose/collaboration.yml
+  - compose/profile.yml
+  - compose/frontend.yml

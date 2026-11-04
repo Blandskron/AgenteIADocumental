@@ -1,0 +1,194 @@
+import base64
+import json
+from datetime import UTC, datetime, timedelta
+from typing import Any
+
+from app.config.settings import Settings
+from app.infrastructure.documents.document_upload_client import DocumentUploadClient
+from app.infrastructure.google.drive_client import GoogleDriveClient
+from app.infrastructure.google.token_cipher import TokenCipher
+from app.shared.errors import NotFoundError, ValidationError
+
+
+class ManageGoogleDriveImports:
+    def __init__(
+        self,
+        repository,
+        google_client: GoogleDriveClient,
+        document_client: DocumentUploadClient,
+        token_cipher: TokenCipher,
+        settings: Settings,
+    ) -> None:
+        self._repository = repository
+        self._google_client = google_client
+        self._document_client = document_client
+        self._token_cipher = token_cipher
+        self._settings = settings
+
+    def auth_url(self, owner_user_id: str, return_url: str | None = None) -> dict[str, str]:
+        state_payload = {"owner_user_id": owner_user_id, "return_url": return_url or ""}
+        state = base64.urlsafe_b64encode(json.dumps(state_payload).encode("utf-8")).decode("utf-8")
+        return {"authorization_url": self._google_client.build_authorization_url(state), "state": state}
+
+    def connect(self, owner_user_id: str, code: str) -> dict[str, Any]:
+        token_payload = self._google_client.exchange_code(code)
+        access_token = token_payload.get("access_token")
+        if not access_token:
+            raise ValidationError("Google OAuth did not return an access token.")
+
+        refresh_token = token_payload.get("refresh_token")
+        userinfo = self._google_client.get_userinfo(access_token)
+        expires_at = self._expires_at(token_payload)
+
+        connection = self._repository.upsert_connection(
+            owner_user_id,
+            {
+                "provider_account_email": userinfo.get("email"),
+                "scopes": token_payload.get("scope", " ".join(self._settings.google_oauth_scope_list)).split(),
+                "access_token_encrypted": self._token_cipher.encrypt(access_token),
+                "refresh_token_encrypted": self._token_cipher.encrypt(refresh_token),
+                "expires_at": expires_at,
+                "metadata_": {"provider": "google_drive", "email_verified": userinfo.get("email_verified")},
+            },
+        )
+        return connection
+
+    def connected_status(self, owner_user_id: str) -> dict[str, Any]:
+        connection = self._repository.get_connection(owner_user_id)
+        return {
+            "connected": connection is not None,
+            "provider_account_email": connection.provider_account_email if connection else None,
+            "scopes": connection.scopes if connection else [],
+            "expires_at": connection.expires_at if connection else None,
+        }
+
+    def import_files(self, owner_user_id: str, bearer_token: str, payload) -> tuple[Any, list[Any]]:
+        file_requests = payload.files[: self._settings.max_import_files]
+        if not file_requests:
+            raise ValidationError("At least one Google Drive file is required.")
+
+        connection = self._repository.get_connection(owner_user_id)
+        if connection is None:
+            raise ValidationError("Google Drive is not connected for this user.")
+
+        access_token = self._valid_access_token(owner_user_id, connection)
+        import_record = self._repository.create_import(
+            owner_user_id,
+            len(file_requests),
+            {"source": "google_drive", "folder_id": payload.folder_id, **(payload.metadata or {})},
+        )
+
+        processed = 0
+        failed = 0
+
+        for file_request in file_requests:
+            file_record = self._repository.add_import_file(
+                import_record.import_id,
+                {
+                    "google_file_id": file_request.file_id,
+                    "filename": file_request.name or file_request.file_id,
+                    "mime_type": file_request.mime_type or "application/octet-stream",
+                    "export_mime_type": file_request.export_mime_type,
+                    "size_bytes": None,
+                    "status": "RUNNING",
+                    "document_id": None,
+                    "metadata_": {"picker_metadata": file_request.model_dump(exclude_none=True)},
+                },
+            )
+
+            try:
+                downloaded = self._google_client.download_file(access_token, file_request.file_id, file_request.export_mime_type)
+                upload_response = self._document_client.upload(
+                    bearer_token=bearer_token,
+                    filename=downloaded.filename,
+                    mime_type=downloaded.mime_type,
+                    content=downloaded.content,
+                    metadata={
+                        "source": "google_drive",
+                        "google_file_id": file_request.file_id,
+                        "google_web_view_link": downloaded.metadata.web_view_link,
+                        "google_mime_type": downloaded.metadata.mime_type,
+                        "import_id": import_record.import_id,
+                        "folder_id": payload.folder_id,
+                        **(payload.metadata or {}),
+                    },
+                )
+                document_id = upload_response.get("document_id")
+                self._repository.update_import_file(
+                    file_record.import_file_id,
+                    {
+                        "filename": downloaded.filename,
+                        "mime_type": downloaded.mime_type,
+                        "export_mime_type": downloaded.export_mime_type,
+                        "size_bytes": len(downloaded.content),
+                        "status": "COMPLETED",
+                        "document_id": document_id,
+                        "metadata_": {
+                            "google_web_view_link": downloaded.metadata.web_view_link,
+                            "document_status": upload_response.get("status"),
+                        },
+                        "error_message": None,
+                    },
+                )
+                if payload.folder_id and document_id:
+                    try:
+                        self._repository.associate_document_with_folder(
+                            folder_id=payload.folder_id,
+                            document_id=document_id,
+                            owner_user_id=owner_user_id,
+                        )
+                    except Exception as folder_exc:
+                        # Log or handle warning if linking folder fails but continue
+                        pass
+                processed += 1
+            except Exception as exc:
+                failed += 1
+                self._repository.update_import_file(
+                    file_record.import_file_id,
+                    {"status": "FAILED", "error_message": str(exc)},
+                )
+
+        status = "COMPLETED" if failed == 0 else "PARTIAL" if processed else "FAILED"
+        finished = self._repository.finish_import(import_record.import_id, processed, failed, status, None)
+        return finished, self._repository.list_import_files(import_record.import_id)
+
+    def list_imports(self, owner_user_id: str, limit: int) -> list[Any]:
+        return self._repository.list_imports(owner_user_id, limit)
+
+    def get_import(self, owner_user_id: str, import_id: str) -> Any:
+        record = self._repository.get_import(owner_user_id, import_id)
+        if record is None:
+            raise NotFoundError("Google Drive import not found.")
+        return record
+
+    def list_import_files(self, owner_user_id: str, import_id: str) -> list[Any]:
+        self.get_import(owner_user_id, import_id)
+        return self._repository.list_import_files(import_id)
+
+    def _valid_access_token(self, owner_user_id: str, connection) -> str:
+        access_token = self._token_cipher.decrypt(connection.access_token_encrypted)
+        refresh_token = self._token_cipher.decrypt(connection.refresh_token_encrypted)
+        should_refresh = connection.expires_at and connection.expires_at <= datetime.now(UTC) + timedelta(minutes=2)
+
+        if should_refresh and refresh_token:
+            token_payload = self._google_client.refresh_access_token(refresh_token)
+            access_token = token_payload.get("access_token")
+            if not access_token:
+                raise ValidationError("Google OAuth did not refresh the access token.")
+            self._repository.update_connection_tokens(
+                owner_user_id,
+                self._token_cipher.encrypt(access_token),
+                self._token_cipher.encrypt(token_payload.get("refresh_token")),
+                self._expires_at(token_payload),
+            )
+
+        if not access_token:
+            raise ValidationError("Google Drive connection is missing an access token.")
+        return access_token
+
+    @staticmethod
+    def _expires_at(token_payload: dict[str, Any]) -> datetime | None:
+        expires_in = token_payload.get("expires_in")
+        if not expires_in:
+            return None
+        return datetime.now(UTC) + timedelta(seconds=int(expires_in))

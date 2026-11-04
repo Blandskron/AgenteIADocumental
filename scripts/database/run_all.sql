@@ -1,0 +1,23 @@
+-- Blandskron Documental database bootstrap.
+-- Keep this file as the only orchestration point for schema setup.
+
+BEGIN;
+
+\ir extensions/001_extensions.sql
+\ir schemas/003_tenants.sql
+\ir schemas/001_documents.sql
+\ir schemas/002_conversations.sql
+\ir schemas/008_profiles.sql
+\ir schemas/009_exports.sql
+\ir schemas/010_google_drive_imports.sql
+\ir schemas/011_notifications_audit.sql
+\ir constraints/001_document_constraints.sql
+\ir indexes/001_indexes.sql
+\ir functions/001_functions.sql
+\ir triggers/001_updated_at_triggers.sql
+\ir seeds/001_reference_data.sql
+
+COMMIT;
+
+-- After loading many embeddings, run:
+-- ANALYZE document_embeddings;
