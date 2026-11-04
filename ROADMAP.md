@@ -29,8 +29,8 @@ Mantén una tarjeta en **En curso**. Pásala a **En revisión** con evidencia y 
 | Estado | ID | Entrega | Criterio de aceptación |
 |---|---|---|---|
 | Hecha | CONV-001 | Aislar la configuración del contenedor y delimitar CORS | PR #16 integrado. Se verificaron siete variables de Compose, la clave pública, salud HTTP y PostgreSQL, respuesta 401 sin token y CORS para dos orígenes locales y uno externo. |
-| En revisión | CONV-002 | Restaurar y autorizar vínculos documentales | `docker compose -f docker/docker-compose.yml config --quiet`, arranque local y cuatro pruebas con `python -m pytest -q test_document_links.py` sobre PostgreSQL. Cubren permisos, revocación, retiro y concurrencia. |
-| Lista | CONV-003 | Validar identidad JWT y aislamiento por dueño | Exigir identidad y expiración según AuthServices. Probar el contrato y el acceso cruzado a conversaciones, mensajes y vínculos. |
+| Hecha | CONV-002 | Restaurar y autorizar vínculos documentales | PR #17 integrado. Cuatro pruebas sobre PostgreSQL cubren permisos, revocación, retiro y concurrencia. |
+| En revisión | CONV-003 | Validar identidad JWT y aislamiento por dueño | Compose válido, Ruff y 20 pruebas con `python -m pytest -q test_conversations.py` sobre PostgreSQL. El servicio aceptó tokens de acceso de inicio de sesión y renovación emitidos por AuthServices y rechazó el token de refresh. |
 | Lista | CONV-004 | Limitar escrituras y paginar el historial | Acotar contenido y metadatos, verificar orden estable y adaptar el cliente sin perder acceso al historial existente. |
 | Lista | CONV-005 | Restringir acceso a PostgreSQL y cerrar operación | Sustituir el usuario compartido por permisos mínimos, revisar dependencias e imagen y verificar arranque y CI desde una instalación limpia. |
 

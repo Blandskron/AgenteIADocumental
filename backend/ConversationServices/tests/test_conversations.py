@@ -1,9 +1,15 @@
 from concurrent.futures import ThreadPoolExecutor
+from secrets import randbits
 from threading import Barrier
+from time import time
 from uuid import uuid4
 
+import jwt
 import pytest
+from cryptography.hazmat.primitives import serialization
+from cryptography.hazmat.primitives.asymmetric import rsa
 from fastapi import HTTPException
+from fastapi.testclient import TestClient
 from sqlalchemy import create_engine, func, select, text
 from sqlalchemy.orm import Session
 
@@ -12,6 +18,57 @@ from app.config.settings import get_settings
 from app.infrastructure.database.models import ConversationDocumentModel
 from app.infrastructure.database.repositories.conversation_repository_pg import ConversationRepositoryPg
 from app.interfaces.api.v1.routes.conversation_routes import add_document
+from app.main import app
+
+
+@pytest.fixture(scope="module")
+def signing_key():
+    return rsa.generate_private_key(public_exponent=65537, key_size=2048)
+
+
+@pytest.fixture
+def client(signing_key, monkeypatch, tmp_path):
+    public_key = tmp_path / "public.pem"
+    public_key.write_bytes(signing_key.public_key().public_bytes(
+        serialization.Encoding.PEM, serialization.PublicFormat.SubjectPublicKeyInfo,
+    ))
+    settings = get_settings().model_copy(update={
+        "auth_jwt_public_key_path": str(public_key),
+        "auth_jwt_algorithm": "RS256",
+    })
+    monkeypatch.setitem(app.dependency_overrides, get_settings, lambda: settings)
+    with TestClient(app) as client:
+        yield client
+
+
+def bearer(signing_key, user_id, **extra_claims):
+    claims = {"user_id": user_id, "exp": int(time()) + 60, "token_type": "access", **extra_claims}
+    return {"Authorization": f"Bearer {jwt.encode(claims, signing_key, algorithm='RS256')}"}
+
+
+@pytest.mark.parametrize(("claim", "value"), [
+    ("user_id", None), ("user_id", 0), ("user_id", -1), ("user_id", True),
+    ("user_id", "12"), ("user_id", 12.5), ("user_id", []),
+    ("exp", None), ("exp", 0), ("exp", []), ("exp", "4102444800"), ("exp", 4102444800.5),
+    ("token_type", None), ("token_type", "refresh"),
+])
+def test_rejects_invalid_token_claims(client, signing_key, claim, value):
+    claims = {"user_id": 12, "exp": int(time()) + 60, "token_type": "access", "sub": "12", "username": "12"}
+    if value is None:
+        del claims[claim]
+    else:
+        claims[claim] = value
+    token = jwt.encode(claims, signing_key, algorithm="RS256")
+    response = client.get("/api/v1/conversations", headers={"Authorization": f"Bearer {token}"})
+    assert response.status_code == 401
+    assert response.headers["WWW-Authenticate"] == "Bearer"
+
+
+def test_rejects_tokens_from_another_signer(client):
+    other_key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+    response = client.get("/api/v1/conversations", headers=bearer(other_key, 12))
+    assert response.status_code == 401
+    assert response.headers["WWW-Authenticate"] == "Bearer"
 
 
 @pytest.fixture
@@ -19,8 +76,7 @@ def records():
     engine = create_engine(get_settings().database_url)
     suffix = uuid4().hex
     tenant = f"tenant-{suffix}"
-    actor = f"actor-{suffix}"
-    other = f"other-{suffix}"
+    actor, other = (randbits(60) * 2 + parity for parity in (1, 2))
     document_ids = {kind: f"{kind}-{suffix}" for kind in (
         "owned", "private", "legacy-owner", "legacy-tenant", "group", "assigned",
     )}
@@ -31,26 +87,26 @@ def records():
                 INSERT INTO documents (document_id, tenant_id, owner_user_id, filename, storage_path, mime_type, metadata)
                 VALUES (:id, :tenant, :owner, 'fixture.txt', 'fixture.txt', 'text/plain', CAST(:metadata AS jsonb))
             """), [
-                {"id": document_ids["owned"], "tenant": tenant, "owner": actor, "metadata": "{}"},
-                {"id": document_ids["private"], "tenant": tenant, "owner": other, "metadata": "{}"},
+                {"id": document_ids["owned"], "tenant": tenant, "owner": str(actor), "metadata": "{}"},
+                {"id": document_ids["private"], "tenant": tenant, "owner": str(other), "metadata": "{}"},
                 {"id": document_ids["legacy-owner"], "tenant": None, "owner": None,
                  "metadata": f'{{"owner_user_id":"{actor}"}}'},
                 {"id": document_ids["legacy-tenant"], "tenant": None, "owner": None,
                  "metadata": f'{{"tenant_id":"{tenant}"}}'},
-                {"id": document_ids["group"], "tenant": None, "owner": other,
+                {"id": document_ids["group"], "tenant": None, "owner": str(other),
                  "metadata": '{"owner_groups":["synthetic-group"]}'},
-                {"id": document_ids["assigned"], "tenant": tenant, "owner": other, "metadata": "{}"},
+                {"id": document_ids["assigned"], "tenant": tenant, "owner": str(other), "metadata": "{}"},
             ])
             session.execute(text("""
                 INSERT INTO document_assignments (document_id, tenant_id, assigned_to_user_id, assigned_by_user_id)
                 VALUES (:document, :tenant, :actor, :other)
-            """), {"document": document_ids["assigned"], "tenant": tenant, "actor": actor, "other": other})
+            """), {"document": document_ids["assigned"], "tenant": tenant, "actor": str(actor), "other": str(other)})
             conversation_id = ConversationRepositoryPg(session, {"user_id": actor}).create("Synthetic").conversation_id
 
         yield engine, conversation_id, actor, other, tenant, document_ids
     finally:
         with engine.begin() as connection:
-            connection.execute(text("DELETE FROM conversations WHERE owner_user_id = :actor"), {"actor": actor})
+            connection.execute(text("DELETE FROM conversations WHERE owner_user_id = :actor"), {"actor": str(actor)})
             connection.execute(text("DELETE FROM documents WHERE document_id = ANY(:ids)"), {"ids": list(document_ids.values())})
             connection.execute(text("DELETE FROM tenants WHERE tenant_id = :id"), {"id": tenant})
         engine.dispose()
@@ -131,3 +187,34 @@ def test_concurrent_retries_store_one_link(records):
             ConversationDocumentModel.document_id == document_id,
         ))
         assert count == 1
+
+
+def test_http_isolation_uses_only_signed_user_id(client, signing_key, records):
+    _, conversation, actor, other, _, documents = records
+    collection = "/api/v1/conversations"
+    detail = f"{collection}/{conversation}"
+    messages = f"{detail}/messages"
+    links = f"{detail}/documents"
+    link = f"{links}/{documents['owned']}"
+    owner = bearer(signing_key, actor, username="renamed-owner")
+    outsider = bearer(signing_key, other, sub=str(actor), username=str(actor), roles=["SUPERADMIN"])
+
+    assert client.get(detail, headers=owner).json()["owner_user_id"] == str(actor)
+    assert client.patch(detail, headers=owner, json={"title": "Synthetic private"}).status_code == 200
+    message = {"role": "user", "content": "Synthetic private message"}
+    assert client.post(messages, headers=owner, json=message).status_code == 200
+    assert client.post(link, headers=owner).json() == {"deleted": True}
+
+    assert all(row["conversation_id"] != conversation for row in client.get(collection, headers=outsider).json())
+    assert client.get(detail, headers=outsider).status_code == 404
+    assert client.patch(detail, headers=outsider, json={"title": "Denied"}).status_code == 404
+    assert client.delete(detail, headers=outsider).json() == {"deleted": False}
+    assert client.get(messages, headers=outsider).json() == []
+    assert client.post(messages, headers=outsider, json=message).status_code == 404
+    assert client.get(links, headers=outsider).json() == {"document_ids": []}
+    assert client.post(link, headers=outsider).status_code == 404
+    assert client.delete(link, headers=outsider).json() == {"deleted": False}
+
+    assert client.get(detail, headers=owner).json()["title"] == "Synthetic private"
+    assert [row["content"] for row in client.get(messages, headers=owner).json()] == [message["content"]]
+    assert client.get(links, headers=owner).json() == {"document_ids": [documents["owned"]]}

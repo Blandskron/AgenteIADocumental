@@ -65,7 +65,9 @@ Document access follows ownership, tenant administration, group membership, assi
 - `created_at`: datetime
 
 ## Authentication
-All endpoints (except health checks) require a valid JWT access token in the `Authorization: Bearer <token>` header. The token is validated using the configured RSA public key and must have `token_type: access`.
+The conversation API requires an AuthServices access token in the `Authorization: Bearer <token>` header. The service verifies the signature with the configured RSA public key and requires `token_type: access`, a future integer `exp` and a positive integer `user_id`. It uses that ID for conversation ownership, message ownership and user-specific document access. Health checks are public.
+
+Existing rows owned by the numeric AuthServices ID retain the same owner. Rows recorded under a legacy username or placeholder require an explicit ownership review before reassignment.
 
 ## Architecture
 - **FastAPI** for API layer
@@ -103,11 +105,13 @@ For standalone development, run from this directory. Install `requirements.txt`,
 python -m uvicorn app.main:app --reload --port 8008
 ```
 
-Run the document-link integration tests against the local Compose database. The tests create and clean up synthetic records.
+Run the JWT, ownership and document-link tests against the local Compose database. The tests use an ephemeral RSA key and create and clean up synthetic records.
 
 ```sh
-docker compose -f docker/docker-compose.yml cp backend/ConversationServices/tests/test_document_links.py conversation-service:/app/test_document_links.py
-docker compose -f docker/docker-compose.yml exec -T conversation-service python -m pytest -q test_document_links.py
+docker compose -f docker/docker-compose.yml cp backend/ConversationServices/requirements-test.txt conversation-service:/app/requirements-test.txt
+docker compose -f docker/docker-compose.yml cp backend/ConversationServices/tests/test_conversations.py conversation-service:/app/test_conversations.py
+docker compose -f docker/docker-compose.yml exec -T conversation-service python -m pip install -r requirements-test.txt
+docker compose -f docker/docker-compose.yml exec -T conversation-service python -m pytest -q test_conversations.py
 ```
 
 ## Example Requests

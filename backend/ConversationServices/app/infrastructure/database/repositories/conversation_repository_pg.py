@@ -12,7 +12,7 @@ class ConversationRepositoryPg:
     def __init__(self, session: Session, current_user: dict) -> None:
         self._session = session
         self._current_user = current_user
-        self._owner_user_id = _owner_user_id(current_user)
+        self._owner_user_id = str(current_user["user_id"])
 
     def list(self, include_archived: bool = False) -> list[ConversationModel]:
         statement = self._session.query(ConversationModel).filter(ConversationModel.owner_user_id == self._owner_user_id)
@@ -91,7 +91,7 @@ class ConversationRepositoryPg:
                 ConversationDocumentModel.conversation_id == conversation_id,
                 ConversationDocumentModel.owner_user_id == self._owner_user_id,
                 self._owns_conversation(conversation_id),
-                document_access_filter(self._current_user),
+                document_access_filter(self._current_user, self._owner_user_id),
             )
             .order_by(ConversationDocumentModel.created_at.desc())
         )
@@ -106,7 +106,7 @@ class ConversationRepositoryPg:
                 ConversationModel.conversation_id == conversation_id,
                 ConversationModel.owner_user_id == self._owner_user_id,
                 documents.c.document_id == document_id,
-                document_access_filter(self._current_user),
+                document_access_filter(self._current_user, self._owner_user_id),
             )
             .with_for_update(of=(ConversationModel, documents), read=True, key_share=True)
         )
@@ -144,7 +144,3 @@ class ConversationRepositoryPg:
             ConversationModel.conversation_id == conversation_id,
             ConversationModel.owner_user_id == self._owner_user_id,
         ).exists()
-
-
-def _owner_user_id(current_user: dict) -> str:
-    return str(current_user.get("user_id") or current_user.get("sub") or current_user.get("username") or "unknown")
