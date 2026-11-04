@@ -5,7 +5,7 @@ Este repositorio contiene una plataforma documental. Blandskron Documental es el
 ## Antes de empezar
 
 1. Lee el [tablero](ROADMAP.md), el [README](README.md) y la documentación del servicio que vas a tocar.
-2. Ejecuta `git status --short` y `git branch --show-current`. Conserva los cambios existentes. La base documental evaluada es `origin/feature/documentalAi`; comprueba la referencia antes de trabajar sobre ella.
+2. Ejecuta `git status --short` y `git branch --show-current`. Conserva los cambios existentes. La base documental está en `main`; comprueba la referencia antes de iniciar una rama.
 3. Elige una tarjeta de **Lista**. Si ya hay una en **En curso**, retómala o registra el bloqueo antes de tomar otra.
 
 ## Durante el trabajo
