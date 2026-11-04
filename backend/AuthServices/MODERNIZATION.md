@@ -26,8 +26,8 @@ Diagnóstico inicial sobre `main` en `fa74ac1`. Este es el primer servicio de la
 | Hecha | AUTH-005A | Aplicar la política de contraseñas de la API | Integrada en main. Las contraseñas rechazadas conservan la identidad y el hash anterior. |
 | Hecha | AUTH-005B | Reducir abuso y auditar eventos | Integrada en main. La API y Django Admin comparten límites en PostgreSQL y emiten eventos JSON. |
 | Hecha | AUTH-006A | Separar migración y arranque | Integrada en main. Compose migra primero y Gunicorn corre como UID 10001. |
-| En revisión | AUTH-006B | Validar configuración por entorno | Producción exige secreto, hosts, rol de base y una clave preaprovisionada. HTTPS y cookies seguras se habilitan en ese modo. |
-| Backlog | AUTH-006C | Separar permisos de PostgreSQL | Provisionar roles de migración y ejecución. Validar permisos positivos y denegación de DDL, y preparar reversión. |
+| Hecha | AUTH-006B | Validar configuración por entorno | Integrada en main. Producción exige configuración explícita y habilita HTTPS y cookies seguras. |
+| En revisión | AUTH-006C | Separar permisos de PostgreSQL | La base existente migró con roles dedicados. Se verificaron el ciclo de sesión y la denegación de DDL al rol web. |
 | Backlog | AUTH-006D | Revisar dependencias e imagen | Clasificar los avisos de dependencias, actualizar donde corresponda y verificar la imagen final. |
 | Backlog | AUTH-007 | Completar la adopción Agents First | README humano, AGENTS local, contrato API y guías de pruebas, configuración, seguridad y operación enlazadas desde fuentes canónicas. Otra persona puede ejecutar las comprobaciones desde un clon limpio. |
 
@@ -77,6 +77,12 @@ El parche bloquea esas solicitudes, la reasignación de una membresía y la escr
 - Pasaron 37 pruebas de Auth en PostgreSQL, `manage.py check`, la comprobación de migraciones y Compose config.
 - En un contenedor sin red, `manage.py check` aceptó una configuración de producción sintética y se comprobó que la redirección HTTPS y las cookies seguras estaban activadas. Las pruebas negativas cubren configuración ausente, valores de demo, hosts con comodines, orígenes HTTP y un PEM privado inexistente.
 - `pip-audit` consultó las versiones fijadas y devolvió avisos para `cryptography==46.0.6`. El análisis de aplicabilidad, la actualización y la auditoría de la imagen quedan en AUTH-006D.
+
+## Evidencia de AUTH-006C
+
+- Se arrancó Compose sobre la base existente. El rol de ejecución completó login, renovación, perfil y logout.
+- La comprobación SQL usó ambos roles. El rol web pudo consultar las tablas requeridas y no pudo crear una tabla permanente. El rol de migración sí pudo hacerlo y la prueba revirtió la operación.
+- CI prepara una base limpia y ejecuta la misma comprobación. El README documenta credenciales locales y reversión.
 
 ## Criterio de cierre por PR
 

@@ -107,3 +107,13 @@ jobs:
         run: |
           docker cp scripts/database/migrations/001_local_embeddings.sql "${{ job.services.postgres.id }}:/tmp/blandskron-local-embeddings.sql"
           docker exec -i "${{ job.services.postgres.id }}" psql -U postgres -d documents_test -v ON_ERROR_STOP=1 < scripts/database/tests/local_embeddings.sql
+
+  auth-db-roles:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: cp .env.example .env
+      - run: docker compose -f docker/docker-compose.yml up -d --build --wait auth-service
+      - run: docker compose -f docker/docker-compose.yml exec -T postgres psql -U postgres -d documents_db -v ON_ERROR_STOP=1 < scripts/database/auth/verify_roles.sql
+      - if: failure()
+        run: docker compose -f docker/docker-compose.yml logs auth-db-roles auth-migrate auth-service

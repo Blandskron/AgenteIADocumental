@@ -1,4 +1,17 @@
 services:
+  auth-db-roles:
+    image: pgvector/pgvector:pg16
+    environment:
+      PGPASSWORD: admin1234
+      AUTH_DB_RUNTIME_PASSWORD: ${AUTH_DB_RUNTIME_PASSWORD:-blandskron-local-runtime}
+      AUTH_DB_MIGRATE_PASSWORD: ${AUTH_DB_MIGRATE_PASSWORD:-blandskron-local-migrate}
+    volumes:
+      - ../../scripts/database/auth:/auth-db:ro
+    command: ["psql", "-h", "postgres", "-U", "postgres", "-d", "documents_db", "-v", "ON_ERROR_STOP=1", "-f", "/auth-db/provision_roles.sql"]
+    depends_on:
+      database-schema:
+        condition: service_completed_successfully
+
   auth-migrate:
     build:
       context: ../../backend/AuthServices
@@ -9,14 +22,14 @@ services:
       POSTGRES_HOST: postgres
       POSTGRES_PORT: 5432
       POSTGRES_DB: documents_db
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: admin1234
+      POSTGRES_USER: auth_migrate
+      POSTGRES_PASSWORD: ${AUTH_DB_MIGRATE_PASSWORD:-blandskron-local-migrate}
       DJANGO_PRIVATE_KEY_PATH: /tmp/auth-migrate/private.pem
       DJANGO_PUBLIC_KEY_PATH: /tmp/auth-migrate/public.pem
     user: "10001:10001"
-    command: ["python", "manage.py", "migrate", "--noinput"]
+    command: ["sh", "-c", "python manage.py migrate --noinput && python manage.py grant_auth_runtime"]
     depends_on:
-      database-schema:
+      auth-db-roles:
         condition: service_completed_successfully
 
   auth-service:
@@ -30,8 +43,8 @@ services:
       POSTGRES_HOST: postgres
       POSTGRES_PORT: 5432
       POSTGRES_DB: documents_db
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: admin1234
+      POSTGRES_USER: auth_runtime
+      POSTGRES_PASSWORD: ${AUTH_DB_RUNTIME_PASSWORD:-blandskron-local-runtime}
       DJANGO_ALLOWED_HOSTS: localhost,127.0.0.1,auth-service
       DJANGO_CORS_ALLOWED_ORIGINS: http://localhost:3000,http://127.0.0.1:3000
       DJANGO_PRIVATE_KEY_PATH: /app/signing_keys/private.pem
