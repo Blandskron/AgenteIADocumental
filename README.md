@@ -112,7 +112,7 @@ La creación del administrador es explícita. Desde la raíz y con el stack acti
 docker compose -f docker/docker-compose.yml exec auth-service python manage.py createsuperuser
 ```
 
-Para actualizar desde la versión con un volumen JWT compartido, sigue el [procedimiento de AuthServices](backend/AuthServices/README.md#actualizar-desde-el-volumen-jwt-compartido).
+Para actualizar desde la versión con un volumen JWT compartido, sigue el [procedimiento de AuthServices](backend/AuthServices/docs/OPERATIONS.md#actualizar-desde-el-volumen-jwt-compartido).
 
 ## Scripts utiles
 

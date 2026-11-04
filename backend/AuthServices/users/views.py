@@ -33,6 +33,7 @@ from .serializers import (
     TenantUserGroupSerializer,
     TenantUserProvisionSerializer,
     UserSerializer,
+    UserProfileSerializer,
     serialize_user_profile,
 )
 
@@ -299,9 +300,11 @@ class LoginView(APIView):
                 fields={
                     'access': serializers.CharField(),
                     'refresh': serializers.CharField(),
+                    'user': UserProfileSerializer(),
                 }
             ),
-            400: OpenApiResponse(description="Credenciales incorrectas")
+            400: OpenApiResponse(description="Credenciales incorrectas"),
+            429: OpenApiResponse(description="Límite de intentos alcanzado"),
         },
         tags=['Autenticación']
     )
@@ -364,7 +367,8 @@ class MeView(APIView):
     @extend_schema(
         summary="Perfil del usuario autenticado",
         description="Entrega identidad, grupos, roles y permisos del usuario actual.",
-        tags=['AutenticaciÃ³n']
+        responses={200: UserProfileSerializer},
+        tags=['Autenticación']
     )
     def get(self, request):
         return Response(serialize_user_profile(request.user), status=status.HTTP_200_OK)
@@ -373,6 +377,7 @@ class MeView(APIView):
 @extend_schema(
     summary="Refrescar Token de Acceso",
     description="Toma un Refresh Token válido y entrega un nuevo Access Token.",
+    responses={200: inline_serializer(name="AccessRefreshResponse", fields={"access": serializers.CharField()})},
     tags=['Autenticación']
 )
 class DecoratedTokenRefreshView(TokenRefreshView):
