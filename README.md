@@ -1,8 +1,15 @@
-# Agente IA Documental
+# Blandskron Documental
 
-Plataforma documental con autenticacion, carga de archivos, procesamiento RAG, busqueda, biblioteca, chat sobre documentos, exportacion e importacion desde Google Drive.
+Proyecto de portafolio de Blandskron. Carga un documento, búscalo, haz una pregunta sobre su contenido y exporta la respuesta a PDF.
 
-Los modulos de CRM, WhatsApp, Business Intelligence, agentes empresariales, actividad transversal y notificaciones fueron retirados para dejar el proyecto enfocado en documentos.
+La ingesta extrae texto y genera embeddings locales en CPU. El chat recupera fragmentos de PostgreSQL con pgvector según los permisos del usuario y envía el contexto a Groq para redactar una respuesta con fuentes.
+
+```text
+Documento → extracción → embeddings → PostgreSQL / pgvector
+Pregunta → búsqueda con permisos → contexto → Groq → respuesta y PDF
+```
+
+Google Drive es una integración opcional que requiere configurar OAuth. Para la demo basta con un archivo de texto o PDF sintético.
 
 ## Servicios activos
 
@@ -19,12 +26,15 @@ Los modulos de CRM, WhatsApp, Business Intelligence, agentes empresariales, acti
 - `backend/GoogleDriveImportServices`: importacion desde Google Drive.
 - `frontend`: interfaz React simple para chat y documentos.
 
-## Ejecucion con Docker
+## Arranque local con Docker
 
-```bash
-cd docker
-docker compose up --build
+```powershell
+Copy-Item .env.example .env
+# Configura GROQ_API_KEY en .env.
+docker compose -f docker/docker-compose.yml up -d --build --wait
 ```
+
+Abre `http://localhost:3000`, inicia sesión con las credenciales de desarrollo y carga un documento de prueba. El primer uso de embeddings descarga el modelo. Por ejemplo, carga un archivo que diga «El plazo del contrato de prueba es de 97 días» y pregunta «¿Cuál es el plazo del contrato?».
 
 El agregador `docker/docker-compose.yml` carga:
 
@@ -75,7 +85,7 @@ Frontend:
 
 ```bash
 cd frontend
-npm install
+npm ci
 npm run dev
 ```
 
@@ -127,4 +137,4 @@ Con el stack local activo y `GROQ_API_KEY` configurada, ejecuta desde PowerShell
 ./scripts/smoke_documental.ps1 -Credential (Get-Credential)
 ```
 
-La prueba inicia sesión, carga e indexa un documento sintético, comprueba su recuperación y descarga un PDF con la respuesta. Usa una instancia de desarrollo, ya que el documento y la exportación quedan registrados.
+La prueba inicia sesión, carga e indexa un documento sintético, lo reindexa, comprueba su recuperación y descarga un PDF con la respuesta. Usa una instancia de desarrollo, ya que el documento y la exportación quedan registrados. Para verificar aislamiento, pasa también `-ObserverCredential` con un segundo usuario que tenga permiso `use_chat` y carezca de acceso al documento.
