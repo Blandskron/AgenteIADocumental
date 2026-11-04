@@ -6,6 +6,7 @@ from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
 from fastapi import HTTPException
 from fastapi.security import HTTPAuthorizationCredentials
+from fastapi.testclient import TestClient
 from pydantic import ValidationError
 from sqlalchemy import create_engine, event, text
 from sqlalchemy.orm import Session
@@ -13,11 +14,13 @@ from sqlalchemy.orm import Session
 from app.application.documents.use_cases.build_chat_context import BuildChatContext
 from app.application.documents.use_cases.get_document_chunks import GetDocumentChunks
 from app.application.documents.use_cases.get_document_detail import GetDocumentDetail
+from app.config.database import get_session
 from app.config.security import require_authenticated_user
 from app.config.settings import Settings, get_settings
 from app.domain.documents import DocumentNotFoundError, InvalidDocumentSelectionError
 from app.infrastructure.database.repositories.document_search_repository_pg import DocumentSearchRepositoryPg
 from app.interfaces.api.v1.schemas.document_search_schema import ChatSelectionRequest
+from app.main import app
 
 
 @pytest.fixture(scope="module")
@@ -181,3 +184,62 @@ def test_chat_selection_accepts_maximum_size():
     documents = [str(index).rjust(128, "d") for index in range(12)]
     selection = ChatSelectionRequest(document_ids=documents, session_id="s" * 128)
     assert selection.document_ids == documents
+
+
+def test_http_document_contract(records, signing_key, tmp_path, monkeypatch):
+    session, ids, _, marker = records
+    owned = ids["owned"]
+    private_value = "synthetic-internal-diagnostic"
+    content = f"{marker} " + "x" * 400
+    session.execute(text("UPDATE documents SET processing_error = :value WHERE document_id = :id"), {
+        "id": owned, "value": private_value,
+    })
+    session.execute(text("""
+        UPDATE document_embeddings
+        SET chunk_content = :content, metadata = jsonb_build_object('internal', CAST(:value AS text))
+        WHERE document_id = :id
+    """), {"id": owned, "value": private_value, "content": f"\t{content}\n"})
+    public_key = tmp_path / "public.pem"
+    public_key.write_bytes(signing_key.public_key().public_bytes(
+        serialization.Encoding.PEM, serialization.PublicFormat.SubjectPublicKeyInfo,
+    ))
+    settings = get_settings().model_copy(update={"auth_jwt_public_key_path": str(public_key)})
+    token = jwt.encode({"user_id": 42, "exp": 4102444800, "token_type": "access"}, signing_key, algorithm="RS256")
+    monkeypatch.setitem(app.dependency_overrides, get_settings, lambda: settings)
+    monkeypatch.setitem(app.dependency_overrides, get_session, lambda: session)
+    base = "/api/v1/documents"
+
+    with TestClient(app, headers={"Authorization": f"Bearer {token}"}) as client:
+        search = client.get(f"{base}/search", params={"q": marker})
+        detail = client.get(f"{base}/{owned}")
+        chunks = client.get(f"{base}/{owned}/chunks")
+        selection = client.post(f"{base}/chat-selection", json={
+            "document_ids": [ids["legacy"], owned, ids["legacy"]], "session_id": "synthetic-session",
+        })
+        for response in (search, detail, chunks, selection):
+            assert response.status_code == 200
+            assert '"metadata"' not in response.text
+            assert '"processing_error"' not in response.text
+            assert private_value not in response.text
+
+        hit = next(item for item in search.json()["items"] if item["document_id"] == owned)
+        assert hit["snippet"] == content[:360]
+        assert detail.json()["snippet"] is None
+        assert chunks.json()["items"][0]["content"] == f"\t{content}\n"
+        assert selection.json()["session_id"] == "synthetic-session"
+        assert [item["document_id"] for item in selection.json()["documents"]] == [ids["legacy"], owned]
+
+        for suffix in ("", "/chunks"):
+            denied = client.get(f"{base}/{ids['foreign']}{suffix}")
+            assert denied.status_code == 404
+            assert set(denied.json()) == {"detail"}
+        for params in ({"q": "x" * 257}, {"q": "bad\x00text"}, {"offset": 10001}):
+            assert client.get(f"{base}/search", params=params).status_code == 422
+        for unavailable in (ids["foreign"], "missing"):
+            denied = client.post(f"{base}/chat-selection", json={"document_ids": [owned, unavailable]})
+            assert denied.status_code == 400
+            assert denied.json() == {"detail": f"Documents not found: {unavailable}"}
+        session.execute(text("UPDATE documents SET status = 'PENDING' WHERE document_id = :id"), {"id": owned})
+        pending = client.post(f"{base}/chat-selection", json={"document_ids": [owned]})
+        assert pending.status_code == 400
+        assert pending.json()["detail"].startswith("Only processed documents")

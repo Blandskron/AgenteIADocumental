@@ -8,12 +8,10 @@ class DocumentSummary:
     filename: str
     mime_type: str
     status: str
-    metadata: dict
     chunk_count: int
     created_at: datetime
     updated_at: datetime
     processed_at: datetime | None = None
-    processing_error: str | None = None
     snippet: str | None = None
 
 
@@ -23,7 +21,6 @@ class DocumentChunk:
     document_id: str
     chunk_index: int
     content: str
-    metadata: dict
     created_at: datetime
 
 

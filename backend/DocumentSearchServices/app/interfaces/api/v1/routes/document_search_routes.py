@@ -102,12 +102,10 @@ def _document_response(document: DocumentSummary) -> DocumentSummaryResponse:
         filename=document.filename,
         mime_type=document.mime_type,
         status=document.status,
-        metadata=document.metadata,
         chunk_count=document.chunk_count,
         created_at=document.created_at,
         updated_at=document.updated_at,
         processed_at=document.processed_at,
-        processing_error=document.processing_error,
         snippet=document.snippet,
     )
 
@@ -118,7 +116,6 @@ def _chunk_response(chunk: DocumentChunk) -> DocumentChunkResponse:
         document_id=chunk.document_id,
         chunk_index=chunk.chunk_index,
         content=chunk.content,
-        metadata=chunk.metadata,
         created_at=chunk.created_at,
     )
 
