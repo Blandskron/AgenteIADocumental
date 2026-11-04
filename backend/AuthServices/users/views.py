@@ -373,7 +373,9 @@ class ChangePasswordView(APIView):
         if user is None:
             raise PermissionDenied("La cuenta ya no está activa.")
         serializer = ChangePasswordSerializer(data=request.data, context={"user": user})
-        serializer.is_valid(raise_exception=True)
+        if not serializer.is_valid():
+            message = next(iter(serializer.errors.values()))[0]
+            return Response({"error": message}, status=status.HTTP_400_BAD_REQUEST)
         user.set_password(serializer.validated_data["new_password"])
         user.save(update_fields=["password"])
         return Response({"mensaje": "Contraseña actualizada correctamente."}, status=status.HTTP_200_OK)

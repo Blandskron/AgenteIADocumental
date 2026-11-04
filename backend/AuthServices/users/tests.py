@@ -325,7 +325,9 @@ class TenantIdentityBoundaryTests(APITestCase):
             {"old_password": old_password, "new_password": ["not", "a", "string"]},
             {"old_password": "incorrect", "new_password": " stronger-passphrase "},
         ):
-            self.assertEqual(self.client.post(url, payload, format="json").status_code, 400)
+            response = self.client.post(url, payload, format="json")
+            self.assertEqual(response.status_code, 400)
+            self.assertIsInstance(response.data["error"], str)
         self.admin.refresh_from_db()
         self.assertTrue(self.admin.check_password(old_password))
         response = self.client.post(
