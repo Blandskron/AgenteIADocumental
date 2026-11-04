@@ -19,7 +19,7 @@ services:
       VITE_CONVERSATION_BASE_URL: http://localhost:8008
       VITE_PROFILE_BASE_URL: http://localhost:8015
     ports:
-      - "3000:80"
+      - "127.0.0.1:3000:80"
     healthcheck:
       test:
         [

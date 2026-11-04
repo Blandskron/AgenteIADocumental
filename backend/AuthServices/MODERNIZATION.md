@@ -20,8 +20,8 @@ Diagnóstico inicial sobre `main` en `fa74ac1`. Este es el primer servicio de la
 |---|---|---|---|
 | En revisión | AUTH-000 | Mapa y diagnóstico Agents First | Alcance, fuentes, hallazgos, dependencias y orden de entrega documentados. |
 | Hecha | AUTH-001 | Proteger cuentas globales | Integrada en main. Las mutaciones globales requieren superadministrador y el alta por empresa es atómica. |
-| En revisión | AUTH-002 | Aislar mutaciones de empresa | Se valida propiedad y relaciones en Auth. La API protege borrados con referencias históricas y los claims omiten vínculos ajenos. El diagnóstico SQL prepara el endurecimiento de persistencia. |
-| Backlog | AUTH-003 | Separar claves y bootstrap | El emisor posee la clave privada. Un verificador solo puede leer material público. Bootstrap explícito, configuración de demo limitada a loopback y plan de rotación con prueba de compatibilidad. |
+| Integrada con seguimiento | AUTH-002 | Aislar mutaciones de empresa | La API y los claims protegen las relaciones. Quedan restricciones de persistencia y pruebas con sesiones concurrentes. |
+| En revisión | AUTH-003 | Separar claves y bootstrap | Volúmenes separados, administrador explícito y puertos en loopback. Un verificador real rechazó una firma anterior y aceptó el JWT nuevo. |
 | Backlog | AUTH-004 | Endurecer el ciclo de sesión | Renovación con claims vigentes, revocación ante cambios sensibles, vigencia documentada y pruebas de firma, tipo, expiración y credenciales antiguas. Probar el impacto en los consumidores. |
 | Backlog | AUTH-005 | Reducir abuso y aplicar política de contraseñas | Validadores en todas las escrituras, límite verificable de intentos y registro de eventos administrativos sin secretos ni tokens. |
 | Backlog | AUTH-006 | Hacer reproducible la operación | Separar migración y arranque, validar configuración segura, ejecutar como usuario sin privilegios, acotar permisos de base y revisar dependencias e imagen con evidencia. Registrar decisiones y estrategia de rollback. |
@@ -48,6 +48,13 @@ El parche bloquea esas solicitudes, la reasignación de una membresía y la escr
 - El borrado de áreas requiere superadministrador por sus referencias documentales. El borrado de una membresía elimina sus asignaciones. La creación y actualización de asignaciones y el borrado de membresías bloquean la misma fila en PostgreSQL.
 - El [diagnóstico SQL](../../scripts/database/checks/tenant_relationships.sql) cuenta inconsistencias sin modificar datos. La base local devolvió cero en los cinco controles. El saneamiento de otras instalaciones, las restricciones de base y una prueba concurrente con sesiones independientes quedan como seguimiento de persistencia.
 - La revocación de permisos ya emitidos o reutilizados al renovar un JWT corresponde a AUTH-004.
+
+## Evidencia de AUTH-003
+
+- Solo Auth monta el volumen de firma. Los diez verificadores reciben el volumen público en solo lectura. La nueva comprobación de Compose cubre los montajes y las direcciones de escucha.
+- El arranque con volúmenes nuevos rota la firma anterior. Si falta el PEM público, Auth lo recupera desde la clave privada existente. La clave privada nueva usa permisos de propietario en Linux.
+- El stack local arrancó en loopback con el puerto alternativo de PostgreSQL. El servicio de búsqueda devolvió 401 para una firma antigua y 200 tras un login nuevo. El contenedor verificador pudo leer el PEM público y carecía del PEM privado.
+- Pasaron 22 pruebas de Auth y el arranque con una base de pruebas nueva no creó un administrador. La guía indica cómo cambiar la contraseña de una cuenta de demo existente antes de reabrir el servicio.
 
 ## Criterio de cierre por PR
 
