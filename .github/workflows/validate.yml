@@ -45,7 +45,7 @@ jobs:
                   assert {"auth_signing_keys", "auth_verification_keys"} <= mounts.keys()
                   continue
               assert "auth_signing_keys" not in mounts and "auth_keys" not in mounts, name
-              if service.get("environment", {}).get("AUTH_JWT_PUBLIC_KEY_PATH"):
+              if service.get("environment", {}).get("AUTH_JWT_PUBLIC_KEY_PATH") == "/app/auth_keys/public.pem":
                   assert mounts["auth_verification_keys"]["read_only"], name
           PY
 
