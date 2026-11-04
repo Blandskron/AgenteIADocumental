@@ -42,7 +42,11 @@ export function ChatPage({ onNavigate }) {
     addMessage,
     createNewConversation,
     deleteConversation,
+    historyError,
+    historyLoading,
+    loadOlderMessages,
     setSelectedDocuments,
+    syncError,
   } = conversationsState;
 
   const documentUpload = useDocumentUpload();
@@ -57,13 +61,14 @@ export function ChatPage({ onNavigate }) {
     transfers,
   });
 
-  const isStarterState =
-    !activeConversation ||
-    activeConversation.messages?.length === 0 ||
-    (activeConversation.messages?.length === 1 &&
+  const isStarterState = !activeConversation?.historyBefore && (
+    !activeConversation?.messages?.length ||
+    (activeConversation.messages.length === 1 &&
       activeConversation.messages[0]?.role === "assistant" &&
-      activeConversation.messages[0].content?.startsWith("Soy Blandskron Documental."));
-  const messagesRef = useScrollToBottom([activeConversation?.messages, chat.isBusy], { enabled: !isStarterState });
+      activeConversation.messages[0].content?.startsWith("Soy Blandskron Documental."))
+  );
+  const latestMessage = activeConversation?.messages?.at(-1);
+  const messagesRef = useScrollToBottom([activeConversation?.id, latestMessage, chat.isBusy], { enabled: !isStarterState });
 
   useEffect(() => {
     function openTransfers() {
@@ -87,7 +92,7 @@ export function ChatPage({ onNavigate }) {
   async function handleExportMessagePdf(message, index) {
     if (!message?.content || message.role !== "assistant" || pdfExportState.messageKey || !activeConversation) return;
 
-    const messageKey = `${message.id || "local"}-${index}`;
+    const messageKey = message.id || `local-${index}`;
     const previousUserMessage = [...(activeConversation.messages || [])]
       .slice(0, index)
       .reverse()
@@ -168,9 +173,14 @@ export function ChatPage({ onNavigate }) {
           favoriteDocuments={library.favoriteDocuments}
           folders={library.folders}
           messages={activeConversation?.messages || []}
+          hasOlderMessages={Boolean(activeConversation?.historyBefore)}
+          historyError={historyError}
+          historyLoading={historyLoading}
+          onLoadOlderMessages={loadOlderMessages}
           onExportMessagePdf={handleExportMessagePdf}
           pdfExportState={pdfExportState}
           isBusy={chat.isBusy}
+          syncError={syncError}
           messagesRef={messagesRef}
           recentDocuments={library.recentDocuments}
         />

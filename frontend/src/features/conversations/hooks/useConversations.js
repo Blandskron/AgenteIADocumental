@@ -12,6 +12,7 @@ import {
   createRemoteConversation,
   deleteRemoteConversation,
   listHydratedConversations,
+  listMessagePage,
   removeRemoteConversationDocument,
   updateRemoteConversation,
 } from "../api/conversations.api";
@@ -21,6 +22,7 @@ export function useConversations(scope, conversationClient = null) {
   const [activeId, setActiveId] = useState(() => conversations[0]?.id);
   const [isSyncing, setIsSyncing] = useState(false);
   const [syncError, setSyncError] = useState("");
+  const [historyRequest, setHistoryRequest] = useState(null);
 
   const activeConversation = useMemo(
     () => conversations.find((item) => item.id === activeId) || conversations[0],
@@ -128,6 +130,28 @@ export function useConversations(scope, conversationClient = null) {
     }
   }
 
+  async function loadOlderMessages() {
+    const { id, historyBefore } = activeConversation || {};
+    if (!conversationClient || !historyBefore || historyRequest?.pending) return;
+
+    setHistoryRequest({ id, pending: true });
+    try {
+      const page = await listMessagePage(conversationClient, id, historyBefore);
+      setConversations((current) => current.map((conversation) => {
+        if (conversation.id !== id || conversation.historyBefore !== historyBefore) return conversation;
+        const loadedIds = new Set(conversation.messages.map((message) => message.id));
+        return {
+          ...conversation,
+          historyBefore: page.historyBefore,
+          messages: [...page.messages.filter((message) => !loadedIds.has(message.id)), ...conversation.messages],
+        };
+      }));
+      setHistoryRequest(null);
+    } catch (requestError) {
+      setHistoryRequest({ id, pending: false, error: requestError.message });
+    }
+  }
+
   async function createNewConversation() {
     let conversation = createConversation();
 
@@ -209,6 +233,9 @@ export function useConversations(scope, conversationClient = null) {
     activeId,
     isSyncing,
     syncError,
+    historyLoading: Boolean(historyRequest?.pending),
+    historyError: historyRequest?.id === activeConversation?.id ? historyRequest?.error : "",
+    loadOlderMessages,
     setActiveId,
     addMessage,
     setSelectedDocuments,

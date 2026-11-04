@@ -218,3 +218,46 @@ def test_http_isolation_uses_only_signed_user_id(client, signing_key, records):
     assert client.get(detail, headers=owner).json()["title"] == "Synthetic private"
     assert [row["content"] for row in client.get(messages, headers=owner).json()] == [message["content"]]
     assert client.get(links, headers=owner).json() == {"document_ids": [documents["owned"]]}
+
+
+def test_history_pages_use_stable_order_with_identical_timestamps(client, signing_key, records):
+    engine, conversation, actor, other, _, _ = records
+    path = f"/api/v1/conversations/{conversation}/messages"
+    headers = bearer(signing_key, actor)
+    with engine.begin() as connection:
+        # Existing data can predate the new write limits.
+        connection.execute(text("""
+            INSERT INTO conversation_messages (message_id, conversation_id, owner_user_id, role, content, created_at)
+            SELECT :conversation || '-' || lpad(i::text, 2, '0'), :conversation, :owner,
+                   'user', repeat('a', CASE WHEN i = 1 THEN 33000 ELSE 1 END), '2025-01-01T00:00:00Z'
+            FROM generate_series(1, 53) AS i
+        """), {"conversation": conversation, "owner": str(actor)})
+
+    latest = client.get(path, headers=headers).json()
+    assert [row["message_id"] for row in latest] == [f"{conversation}-{i:02}" for i in range(4, 54)]
+    assert client.post(path, headers=headers, json={"role": "user", "content": "New message"}).status_code == 200
+    cursor = latest[0]["message_id"]
+    older = client.get(path, headers=headers, params={"before": cursor, "limit": 2}).json()
+    assert [row["message_id"] for row in older] == [f"{conversation}-02", f"{conversation}-03"]
+    oldest = client.get(path, headers=headers, params={"before": older[0]["message_id"]}).json()
+    assert [row["message_id"] for row in oldest] == [f"{conversation}-01"]
+    assert len(oldest[0]["content"]) == 33_000
+    assert client.get(path, headers=headers, params={"before": oldest[0]["message_id"]}).json() == []
+    assert client.get(path, headers=headers, params={"before": "missing"}).json() == []
+    assert client.get(path, headers=bearer(signing_key, other), params={"before": cursor}).json() == []
+    assert client.get(path, headers=headers, params={"limit": 101}).status_code == 422
+
+
+@pytest.mark.parametrize(("endpoint", "method", "payload"), [
+    ("", "POST", {"title": "a" * 257}),
+    ("", "POST", {"metadata": {"data": "é" * 8192}}),
+    ("/{conversation}", "PATCH", {"title": "a" * 257}),
+    ("/{conversation}/messages", "POST", {"role": "user", "content": "a" * 32_769}),
+    ("/{conversation}/messages", "POST", {"role": "assistant", "content": "Answer", "sources": [{}] * 51}),
+    ("/{conversation}/messages", "POST", {"role": "assistant", "content": "Answer", "sources": [{"content": "a" * 262_144}]}),
+    ("/{conversation}/messages", "POST", {"role": "user", "content": "Question", "metadata": {"data": "a" * 16_384}}),
+])
+def test_write_limits(client, signing_key, records, endpoint, method, payload):
+    _, conversation, actor, *_ = records
+    path = "/api/v1/conversations" + endpoint.format(conversation=conversation)
+    assert client.request(method, path, headers=bearer(signing_key, actor), json=payload).status_code == 422

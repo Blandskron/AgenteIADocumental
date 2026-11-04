@@ -28,6 +28,10 @@ ConversationServices is a FastAPI microservice for chat conversations, messages,
 - `GET /api/v1/conversations/{conversation_id}/messages` — List messages in a conversation
 - `POST /api/v1/conversations/{conversation_id}/messages` — Add a message to a conversation
 
+The list returns the newest 50 messages by default as a chronological JSON array. Use `limit` from 1 to 100. To load an older page, set `before` to the first message ID from the previous page. Order is defined by `created_at` and `message_id`; a missing or inaccessible cursor returns an empty array.
+
+Write limits apply to new requests. Titles allow 256 characters, message content allows 32,768 characters, and metadata allows 16 KiB of compact UTF-8 JSON. Sources allow up to 50 objects and 256 KiB of compact UTF-8 JSON. Requests exceeding these limits return `422`. Existing messages remain readable.
+
 ### Documents (Authenticated)
 - `GET /api/v1/conversations/{conversation_id}/documents` — List associated document IDs
 - `POST /api/v1/conversations/{conversation_id}/documents/{document_id}` — Associate a document

@@ -20,7 +20,7 @@ Google Drive es una integración opcional que requiere configurar OAuth. Para la
 - `backend/DocumentAccessServices`: preview, descarga, contenido y borrado.
 - `backend/DocumentLibraryServices`: carpetas, favoritos y recientes.
 - `backend/DocumentTransferServices`: historial de cargas/descargas.
-- `backend/ConversationServices`: historial del chat documental.
+- `backend/ConversationServices`: historial del chat documental. Usa **Cargar mensajes anteriores** para consultar páginas más antiguas.
 - `backend/ProfileServices`: perfil y avatar.
 - `backend/DocumentExportServices`: exportacion de respuestas a PDF.
 - `backend/GoogleDriveImportServices`: importacion desde Google Drive.

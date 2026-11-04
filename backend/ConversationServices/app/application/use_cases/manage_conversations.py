@@ -17,8 +17,8 @@ class ManageConversations:
     def delete(self, conversation_id):
         return self._repository.delete(conversation_id)
 
-    def list_messages(self, conversation_id):
-        return self._repository.list_messages(conversation_id)
+    def list_messages(self, conversation_id, limit, before):
+        return self._repository.list_messages(conversation_id, limit, before)
 
     def add_message(self, conversation_id, payload):
         return self._repository.add_message(conversation_id, payload.role, payload.content, payload.sources, payload.metadata)

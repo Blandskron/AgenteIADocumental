@@ -104,6 +104,9 @@ CREATE INDEX IF NOT EXISTS conversations_owner_updated_idx
 CREATE INDEX IF NOT EXISTS conversation_messages_conversation_created_idx
     ON conversation_messages (conversation_id, created_at ASC);
 
+CREATE INDEX IF NOT EXISTS conversation_messages_history_idx
+    ON conversation_messages (conversation_id, owner_user_id, created_at DESC, message_id DESC);
+
 CREATE INDEX IF NOT EXISTS conversation_documents_owner_idx
     ON conversation_documents (owner_user_id, created_at DESC);
 
