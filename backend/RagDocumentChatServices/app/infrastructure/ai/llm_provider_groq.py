@@ -1,4 +1,4 @@
-from openai import APIError, AuthenticationError, OpenAI
+from openai import APIError, APITimeoutError, AuthenticationError, OpenAI
 
 from app.domain.chat import ChatMessage
 from app.domain.embeddings import SearchResult
@@ -11,7 +11,12 @@ class GroqLLMProvider:
         self, api_key: str, model: str, max_tokens: int, temperature: float, timeout_seconds: int
     ) -> None:
         self._client = (
-            OpenAI(api_key=api_key, base_url="https://api.groq.com/openai/v1", timeout=timeout_seconds)
+            OpenAI(
+                api_key=api_key,
+                base_url="https://api.groq.com/openai/v1",
+                timeout=timeout_seconds,
+                max_retries=0,
+            )
             if api_key.strip()
             else None
         )
@@ -45,10 +50,14 @@ class GroqLLMProvider:
                     },
                 ],
             )
-            content = response.choices[0].message.content
-            if not content or not content.strip():
+            choices = getattr(response, "choices", None)
+            message = getattr(choices[0], "message", None) if choices else None
+            content = getattr(message, "content", None)
+            if not isinstance(content, str) or not content.strip():
                 raise ExternalServiceError("Groq devolvió una respuesta vacía.")
             return content
+        except APITimeoutError as exc:
+            raise ExternalServiceError("Groq no respondió dentro del tiempo configurado.") from exc
         except AuthenticationError as exc:
             raise ExternalServiceError("La clave de Groq configurada no es válida.") from exc
         except APIError as exc:
