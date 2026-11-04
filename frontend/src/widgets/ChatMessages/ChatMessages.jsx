@@ -7,21 +7,40 @@ export function ChatMessages({
   conversations = [],
   favoriteDocuments = [],
   folders = [],
+  hasOlderMessages,
+  historyError,
+  historyLoading,
   isBusy,
   messages,
   messagesRef,
   onExportMessagePdf,
+  onLoadOlderMessages,
   pdfExportState,
   recentDocuments = [],
+  syncError,
 }) {
-  const isStarterState =
+  const isStarterState = !hasOlderMessages && (
     messages.length === 0 ||
-      (messages.length === 1 &&
-        messages[0].role === "assistant" &&
-        messages[0].content?.startsWith("Soy Blandskron Documental."));
+    (messages.length === 1 &&
+      messages[0].role === "assistant" &&
+      messages[0].content?.startsWith("Soy Blandskron Documental."))
+  );
 
   return (
     <section className="messages" ref={messagesRef}>
+      {syncError && (
+        <p className="message-export-status error" role="alert">
+          No se pudo sincronizar el historial con el servidor.
+        </p>
+      )}
+      {hasOlderMessages && (
+        <div className="message-history-controls">
+          <button type="button" disabled={historyLoading} onClick={onLoadOlderMessages}>
+            {historyLoading ? "Cargando mensajes…" : "Cargar mensajes anteriores"}
+          </button>
+          {historyError && <p role="alert">{historyError}</p>}
+        </div>
+      )}
       {isStarterState && (
         <div className="blandskron-home-grid">
           <h1>¿Cuál es el programa de hoy?</h1>
@@ -34,7 +53,7 @@ export function ChatMessages({
       )}
       {!isStarterState &&
         messages.map((message, index) => {
-          const messageKey = `${message.id || "local"}-${index}`;
+          const messageKey = message.id || `local-${index}`;
           return (
             <Message
               key={`${message.role}-${messageKey}`}

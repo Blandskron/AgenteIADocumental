@@ -30,8 +30,8 @@ Mantén una tarjeta en **En curso**. Pásala a **En revisión** con evidencia y 
 |---|---|---|---|
 | Hecha | CONV-001 | Aislar la configuración del contenedor y delimitar CORS | PR #16 integrado. Se verificaron siete variables de Compose, la clave pública, salud HTTP y PostgreSQL, respuesta 401 sin token y CORS para dos orígenes locales y uno externo. |
 | Hecha | CONV-002 | Restaurar y autorizar vínculos documentales | PR #17 integrado. Cuatro pruebas sobre PostgreSQL cubren permisos, revocación, retiro y concurrencia. |
-| En revisión | CONV-003 | Validar identidad JWT y aislamiento por dueño | Compose válido, Ruff y 20 pruebas con `python -m pytest -q test_conversations.py` sobre PostgreSQL. El servicio aceptó tokens de acceso de inicio de sesión y renovación emitidos por AuthServices y rechazó el token de refresh. |
-| Lista | CONV-004 | Limitar escrituras y paginar el historial | Acotar contenido y metadatos, verificar orden estable y adaptar el cliente sin perder acceso al historial existente. |
+| Hecha | CONV-003 | Validar identidad JWT y aislamiento por dueño | PR #18 integrado. 20 pruebas sobre PostgreSQL y verificación con tokens de acceso emitidos y renovados por AuthServices. |
+| En revisión | CONV-004 | Limitar escrituras y paginar el historial | Compose válido, índice comprobado en PostgreSQL, Ruff y 28 pruebas de ConversationServices. `npm ci` y `npm run build` completados. Se probó acceso a mensajes antiguos y orden estable con fechas iguales. |
 | Lista | CONV-005 | Restringir acceso a PostgreSQL y cerrar operación | Sustituir el usuario compartido por permisos mínimos, revisar dependencias e imagen y verificar arranque y CI desde una instalación limpia. |
 
 ## Validación

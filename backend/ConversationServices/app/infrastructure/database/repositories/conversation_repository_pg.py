@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from sqlalchemy import delete, select, true
+from sqlalchemy import delete, select, true, tuple_
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.orm import Session
 
@@ -54,18 +54,24 @@ class ConversationRepositoryPg:
         self._session.commit()
         return True
 
-    def list_messages(self, conversation_id: str) -> list[ConversationMessageModel]:
-        if self.get(conversation_id) is None:
-            return []
-        return (
-            self._session.query(ConversationMessageModel)
-            .filter(
-                ConversationMessageModel.conversation_id == conversation_id,
-                ConversationMessageModel.owner_user_id == self._owner_user_id,
-            )
-            .order_by(ConversationMessageModel.created_at.asc())
-            .all()
+    def list_messages(self, conversation_id: str, limit: int, before: str | None) -> list[ConversationMessageModel]:
+        message = ConversationMessageModel
+        scope = (
+            message.conversation_id == conversation_id,
+            message.owner_user_id == self._owner_user_id,
+            self._owns_conversation(conversation_id),
         )
+        statement = select(message).where(*scope)
+        if before is not None:
+            boundary = self._session.execute(
+                select(message.created_at, message.message_id).where(*scope, message.message_id == before)
+            ).one_or_none()
+            if boundary is None:
+                return []
+            statement = statement.where(tuple_(message.created_at, message.message_id) < tuple_(*boundary))
+
+        newest_first = statement.order_by(message.created_at.desc(), message.message_id.desc()).limit(limit)
+        return list(reversed(self._session.scalars(newest_first).all()))
 
     def add_message(self, conversation_id: str, role: str, content: str, sources: list | None = None, metadata: dict | None = None):
         if self.get(conversation_id) is None:

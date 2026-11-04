@@ -2236,6 +2236,23 @@
   padding-bottom: 128px;
 }
 
+.message-history-controls {
+  align-self: center;
+  text-align: center;
+}
+
+.message-history-controls button {
+  border: 1px solid currentColor;
+  border-radius: 999px;
+  background: transparent;
+  color: inherit;
+  padding: 8px 14px;
+}
+
+.message-history-controls p {
+  margin: 8px 0 0;
+}
+
 .blandskron-home-grid {
   padding-bottom: 118px;
 }

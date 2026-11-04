@@ -1,4 +1,6 @@
-from fastapi import APIRouter, Depends, HTTPException
+from typing import Annotated
+
+from fastapi import APIRouter, Depends, HTTPException, Query
 
 from app.application.use_cases.manage_conversations import ManageConversations
 from app.interfaces.api.v1.dependencies import get_conversation_use_case
@@ -47,8 +49,13 @@ def delete_conversation(conversation_id: str, use_case: ManageConversations = De
 
 
 @router.get("/conversations/{conversation_id}/messages", response_model=list[MessageResponse])
-def list_messages(conversation_id: str, use_case: ManageConversations = Depends(get_conversation_use_case)):
-    return [_message_response(message) for message in use_case.list_messages(conversation_id)]
+def list_messages(
+    conversation_id: str,
+    limit: Annotated[int, Query(ge=1, le=100)] = 50,
+    before: Annotated[str | None, Query(min_length=1, max_length=128)] = None,
+    use_case: ManageConversations = Depends(get_conversation_use_case),
+):
+    return [_message_response(message) for message in use_case.list_messages(conversation_id, limit, before)]
 
 
 @router.post("/conversations/{conversation_id}/messages", response_model=MessageResponse)

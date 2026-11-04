@@ -1,12 +1,15 @@
 import { DEFAULT_CONVERSATION_TITLE } from "../../../entities/conversation/model/conversation.factory";
 
-function normalizeConversation(conversation = {}, messages = [], selectedDocuments = []) {
+const MESSAGE_PAGE_SIZE = 50;
+
+function normalizeConversation(conversation, { messages, historyBefore }, selectedDocuments) {
   return {
     id: conversation.conversation_id,
     title: conversation.title || DEFAULT_CONVERSATION_TITLE,
     updatedAt: conversation.updated_at ? new Date(conversation.updated_at).getTime() : Date.now(),
     selectedDocuments,
     messages,
+    historyBefore,
   };
 }
 
@@ -36,16 +39,27 @@ export function listConversations(apiClient) {
 }
 
 export async function hydrateConversation(apiClient, conversation) {
-  const [messages, documentIdsPayload] = await Promise.all([
-    apiClient(`/api/v1/conversations/${conversation.conversation_id}/messages`, { method: "GET" }),
+  const [history, documentIdsPayload] = await Promise.all([
+    listMessagePage(apiClient, conversation.conversation_id),
     apiClient(`/api/v1/conversations/${conversation.conversation_id}/documents`, { method: "GET" }),
   ]);
 
   return normalizeConversation(
     conversation,
-    Array.isArray(messages) ? messages.map(normalizeMessage) : [],
+    history,
     Array.isArray(documentIdsPayload?.document_ids) ? documentIdsPayload.document_ids.map(normalizeSelectedDocument) : [],
   );
+}
+
+export async function listMessagePage(apiClient, conversationId, before) {
+  const query = new URLSearchParams({ limit: String(MESSAGE_PAGE_SIZE) });
+  if (before) query.set("before", before);
+  const payload = await apiClient(`/api/v1/conversations/${conversationId}/messages?${query}`, { method: "GET" });
+  const messages = Array.isArray(payload) ? payload.map(normalizeMessage) : [];
+  return {
+    messages,
+    historyBefore: messages.length === MESSAGE_PAGE_SIZE ? messages[0].id : null,
+  };
 }
 
 export async function listHydratedConversations(apiClient) {
