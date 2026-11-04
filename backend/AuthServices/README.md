@@ -80,7 +80,15 @@ Compose usa `AUTH_ENV=development` y escucha en loopback. Para un despliegue sep
 | `POSTGRES_DB`, `POSTGRES_HOST`, `POSTGRES_USER`, `POSTGRES_PASSWORD` | Valores explícitos. Usa un rol dedicado, distinto de `postgres`, y una contraseña de al menos 16 caracteres. |
 | `DJANGO_PRIVATE_KEY_PATH`, `DJANGO_PUBLIC_KEY_PATH` | Rutas explícitas. Aprovisiona el PEM privado antes del arranque, con permisos exclusivos del propietario. |
 
-El modo producción fuerza HTTPS y activa las cookies seguras. Si usas un proxy de TLS, configura Gunicorn para reconocer el esquema únicamente desde proxies de confianza. La separación efectiva de permisos en PostgreSQL se verifica en AUTH-006C.
+El modo producción fuerza HTTPS y activa las cookies seguras. Si usas un proxy de TLS, configura Gunicorn para reconocer el esquema únicamente desde proxies de confianza.
+
+## Roles de PostgreSQL en Compose
+
+`auth-db-roles` aprovisiona los roles tras preparar el esquema documental. En bases existentes transfiere al rol `auth_migrate` únicamente las tablas administradas por Django. Luego `auth-migrate` aplica las migraciones y concede a `auth_runtime` acceso a las tablas y secuencias que usa el servicio. El rol web carece de permisos para crear objetos permanentes en `public`, modificar el historial de migraciones o leer la tabla de documentos.
+
+Compose trae contraseñas locales de desarrollo para ambos roles. Para usar valores propios, exporta `AUTH_DB_RUNTIME_PASSWORD` y `AUTH_DB_MIGRATE_PASSWORD` en la sesión que ejecuta Compose. Mantén estos valores fuera del `.env` compartido por los servicios documentales. Los demás servicios de la demo conservan su configuración de PostgreSQL y quedan fuera de este incremento.
+
+Para revertir a la versión anterior, reconstruye sus servicios Auth y conserva las tablas y los roles. El usuario anterior de Compose sigue teniendo acceso a las tablas aunque su propietario haya cambiado. No borres los roles ni reviertas la propiedad durante una recuperación rápida.
 
 ## Verificar la autorización
 
@@ -88,10 +96,10 @@ Desde la raíz, con PostgreSQL de Compose activo:
 
 ```powershell
 docker compose -f docker/docker-compose.yml build auth-service
-docker compose -f docker/docker-compose.yml run --rm --no-deps -T --entrypoint python auth-service manage.py test users core --noinput
+docker compose -f docker/docker-compose.yml run --rm --no-deps -T -e POSTGRES_USER=postgres -e POSTGRES_PASSWORD=admin1234 -e DJANGO_PRIVATE_KEY_PATH=/tmp/auth-test/private.pem -e DJANGO_PUBLIC_KEY_PATH=/tmp/auth-test/public.pem auth-service python manage.py test users core --noinput
 ```
 
-Django crea una base de pruebas separada. Los casos incluyen alta autorizada, escritura de privilegios globales, intentos de vincular o modificar una identidad ajena y referencias a otra empresa. El [plan de modernización](MODERNIZATION.md) detalla los incrementos siguientes.
+Django crea una base de pruebas separada. El comando usa el operador de la base local para crearla, ya que el rol web carece de ese permiso. Los casos incluyen alta autorizada, escritura de privilegios globales, intentos de vincular o modificar una identidad ajena y referencias a otra empresa. El [plan de modernización](MODERNIZATION.md) detalla los incrementos siguientes.
 
 ## Actualizar desde el volumen JWT compartido
 
