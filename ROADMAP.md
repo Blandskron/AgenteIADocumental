@@ -62,8 +62,8 @@ Quedan en seguimiento los CVE de Debian 13.7 que Trivy detectó en la imagen de 
 
 | Estado | ID | Entrega | Criterio de aceptación |
 |---|---|---|---|
-| En revisión | SEARCH-001 | Aislar configuración y comprobar arranque | Compose válido, arranque local y Ruff. Se verificaron siete variables, PostgreSQL, CORS, `401` anónimo y una búsqueda con JWT real de AuthServices. |
-| Lista | SEARCH-002 | Aplicar permisos en todas las rutas | Validar la identidad JWT y probar búsqueda, detalle, fragmentos y selección con usuarios de distintos ámbitos y asignaciones revocadas. |
+| Hecha | SEARCH-001 | Aislar configuración y comprobar arranque | PR #31 integrado. Compose, arranque, CORS y búsqueda con JWT real de AuthServices verificados. |
+| En revisión | SEARCH-002 | Aplicar permisos en todas las rutas | Compose, Ruff y 10 pruebas con PostgreSQL y pgvector. Cubren JWT, revocación, separación por tenant y permisos de búsqueda, detalle, fragmentos y selección. Se verificó el acceso con un token real de AuthServices. |
 | Lista | SEARCH-003 | Acotar y estabilizar las consultas | Limitar entradas y selección, evitar consultas repetidas por documento y mantener un orden estable con paginación. |
 | Lista | SEARCH-004 | Revisar el contrato de respuesta | Verificar qué metadatos necesita el frontend y comprobar snippets, errores y selección con datos sintéticos. |
 | Lista | SEARCH-005 | Restringir PostgreSQL y cerrar operación | Aprovisionar un rol de lectura y validar permisos, imagen, dependencias y arranque limpio. |

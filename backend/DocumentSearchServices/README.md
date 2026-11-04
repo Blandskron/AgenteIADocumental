@@ -69,7 +69,11 @@ DocumentSearchServices es un microservicio basado en FastAPI que proporciona end
 - `suggested_prompt`: str
 
 ## Authentication
-Todos los endpoints (excepto health checks) requieren un JWT válido en el header `Authorization: Bearer <token>`. El token se valida con la clave pública RSA configurada y debe tener `token_type: access`.
+Las rutas documentales requieren un token de acceso de AuthServices en `Authorization: Bearer <token>`, con firma RSA válida, `user_id` entero positivo y `exp` entero vigente.
+
+La búsqueda, el detalle, los fragmentos y la selección para el chat aplican la misma regla documental. El acceso puede venir de la propiedad, la administración del tenant, un grupo compartido, una asignación vigente o el rol de superadministrador. Si el documento pertenece a un tenant, el acceso por grupo también exige pertenecer a ese tenant. Las asignaciones canceladas o expiradas dejan de conceder acceso.
+
+Las columnas de propietario y tenant tienen prioridad. Los metadatos históricos sirven como respaldo cuando falta la columna correspondiente. Un documento inaccesible se trata igual que un documento inexistente.
 
 ## Architecture
 - **FastAPI** para la capa API
@@ -102,6 +106,13 @@ curl http://localhost:8004/api/v1/health/db
 Compose pasa las variables de búsqueda explícitamente. El chequeo de arranque verifica el acceso a PostgreSQL y a la clave pública JWT. CORS admite `http://localhost:3000` y `http://127.0.0.1:3000` por defecto. Configura `SEARCH_CORS_ORIGINS` como arreglo JSON si necesitas otro origen.
 
 Fuera de Compose, instala `requirements.txt` desde este directorio, configura `DATABASE_URL` y `AUTH_JWT_PUBLIC_KEY_PATH` en el entorno o en el `.env` del servicio y ejecuta `python -m uvicorn app.main:app --port 8004`. Para personalizar CORS en este modo, usa `CORS_ORIGINS`.
+
+Con el servicio iniciado, ejecuta las pruebas de permisos sobre PostgreSQL y pgvector. Los registros sintéticos se revierten al terminar.
+
+```sh
+docker compose -f docker/docker-compose.yml cp backend/DocumentSearchServices/tests/test_document_access.py document-search-service:/app/test_document_access.py
+docker compose -f docker/docker-compose.yml exec -T document-search-service python -m pytest -q test_document_access.py
+```
 
 ## Example Requests
 
