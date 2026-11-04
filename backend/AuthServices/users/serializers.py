@@ -1,4 +1,6 @@
 from django.contrib.auth.models import Group, Permission, User
+from django.contrib.auth.password_validation import validate_password
+from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db import transaction
 from django.db.models import F
 from rest_framework import serializers
@@ -167,7 +169,40 @@ class CurrentClaimsRefreshSerializer(TokenRefreshSerializer):
         return {"access": str(access)}
 
 
+def validate_account_password(password, attrs, instance=None, *, field_name="password"):
+    identity = User(**{
+        field: attrs.get(field, getattr(instance, field, ""))
+        for field in ("username", "email", "first_name", "last_name")
+    })
+    if instance is None:
+        identity.username = User.normalize_username(identity.username)
+    try:
+        validate_password(password, user=identity)
+    except DjangoValidationError as exc:
+        raise serializers.ValidationError({field_name: exc.messages}) from exc
+
+
+class PasswordField(serializers.CharField):
+    def to_internal_value(self, data):
+        if not isinstance(data, str):
+            self.fail("invalid")
+        return super().to_internal_value(data)
+
+
+class ChangePasswordSerializer(serializers.Serializer):
+    old_password = PasswordField(write_only=True, trim_whitespace=False)
+    new_password = PasswordField(write_only=True, trim_whitespace=False, max_length=128)
+
+    def validate(self, attrs):
+        user = self.context["user"]
+        if not user.check_password(attrs["old_password"]):
+            raise serializers.ValidationError({"old_password": "La contraseña actual es incorrecta."})
+        validate_account_password(attrs["new_password"], {}, user, field_name="new_password")
+        return attrs
+
+
 class UserSerializer(serializers.ModelSerializer):
+    password = PasswordField(write_only=True, required=False, trim_whitespace=False, max_length=128)
     groups = serializers.ListField(child=serializers.CharField(), required=False, write_only=True)
     group_names = serializers.SerializerMethodField(read_only=True)
     user_permissions = serializers.ListField(child=serializers.IntegerField(), required=False, write_only=True)
@@ -194,7 +229,10 @@ class UserSerializer(serializers.ModelSerializer):
             "permission_ids",
             "permission_names",
         )
-        extra_kwargs = {"password": {"write_only": True, "required": False}}
+    def validate(self, attrs):
+        if "password" in attrs:
+            validate_account_password(attrs["password"], attrs, self.instance)
+        return attrs
 
     def get_group_names(self, user):
         return list(user.groups.values_list("name", flat=True))
@@ -353,6 +391,7 @@ class TenantMembershipSerializer(TenantScopedSerializer):
 
 
 class TenantUserProvisionSerializer(serializers.ModelSerializer):
+    password = PasswordField(write_only=True, trim_whitespace=False, max_length=128)
     tenant = serializers.PrimaryKeyRelatedField(queryset=Tenant.objects.all())
     area = serializers.PrimaryKeyRelatedField(queryset=TenantArea.objects.all(), required=False, allow_null=True)
     role = serializers.ChoiceField(choices=tuple(TENANT_ROLE_PERMISSIONS))
@@ -360,7 +399,6 @@ class TenantUserProvisionSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
         fields = ("username", "email", "first_name", "last_name", "password", "tenant", "area", "role")
-        extra_kwargs = {"password": {"write_only": True, "required": True, "trim_whitespace": False}}
 
     def validate(self, attrs):
         unexpected = self.initial_data.keys() - self.fields.keys()
@@ -369,6 +407,7 @@ class TenantUserProvisionSerializer(serializers.ModelSerializer):
         area = attrs.get("area")
         if area is not None and area.tenant_id != attrs["tenant"].pk:
             raise serializers.ValidationError({"area": "El área debe pertenecer a la empresa seleccionada."})
+        validate_account_password(attrs["password"], attrs)
         return attrs
 
     @transaction.atomic

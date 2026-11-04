@@ -46,6 +46,8 @@ El token de acceso dura 10 minutos y el refresh dura 24 horas desde el login. Re
 
 El refresh se rechaza si la cuenta está desactivada, cambió su contraseña o cerró esa sesión en el servidor. Los refresh emitidos antes de incorporar la huella de contraseña requieren iniciar sesión de nuevo. Los servicios que verifican JWT sin consultar Auth pueden aceptar un access ya emitido hasta su vencimiento.
 
+La API valida contraseñas nuevas con la política de Django. Las escrituras aceptan cadenas de hasta 128 caracteres y conservan los espacios ingresados. El cambio propio requiere la contraseña actual. Las contraseñas existentes pueden seguir usándose para iniciar sesión y se validan las nuevas al reemplazarlas.
+
 ## Verificar la autorización
 
 Desde la raíz, con PostgreSQL de Compose activo:
