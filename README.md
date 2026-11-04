@@ -11,6 +11,8 @@ Pregunta → búsqueda con permisos → contexto → Groq → respuesta y PDF
 
 Google Drive es una integración opcional que requiere configurar OAuth. Para la demo basta con un archivo de texto o PDF sintético.
 
+La ingesta admite archivos de hasta 20 MiB. El mismo límite aplica a las cargas directas y a las importaciones de Google Drive.
+
 ## Servicios activos
 
 - `backend/AuthServices`: autenticacion Django, usuarios y JWT.

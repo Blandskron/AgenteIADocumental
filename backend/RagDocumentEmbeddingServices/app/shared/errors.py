@@ -20,3 +20,7 @@ class DatabaseError(AppError):
 
 class ExtractionError(AppError):
     pass
+
+
+class PayloadTooLarge(AppError):
+    pass

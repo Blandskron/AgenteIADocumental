@@ -15,6 +15,7 @@ from app.config.security import require_authenticated_user, require_upload_user
 from app.config.settings import Settings, get_settings
 from app.domain.documents.exceptions import DocumentNotFoundError
 from app.infrastructure.database.repositories.document_reader_pg import DocumentReaderPg
+from app.infrastructure.database.repositories.document_writer_pg import DocumentWriterPg
 from app.interfaces.api.v1.routes.document_routes import document_status, process_document, upload_document
 
 
@@ -96,5 +97,21 @@ def test_read_and_mutation_scopes_with_postgres():
             ):
                 assert process_document(document, manager, reader, ingest).status == "PROCESSED"
             assert ingest.execute.call_count == 3
+    finally:
+        engine.dispose()
+
+
+def test_writer_returns_registered_document_with_database_generated_id():
+    engine = create_engine(get_settings().database_url)
+    try:
+        with engine.connect() as connection, connection.begin() as transaction:
+            with Session(connection, join_transaction_mode="create_savepoint") as session:
+                document = DocumentWriterPg(session).create(
+                    "fixture.txt", "fixture.txt", "text/plain", {"owner_user_id": "42"},
+                )
+                assert document.document_id
+                assert document.owner_user_id == "42"
+                assert DocumentReaderPg(session).get_by_id(document.document_id) == document
+            transaction.rollback()
     finally:
         engine.dispose()

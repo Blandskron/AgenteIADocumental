@@ -3,12 +3,15 @@ import mimetypes
 
 from fastapi import UploadFile
 
-from app.shared.errors import ValidationError
+from app.shared.constants import MAX_METADATA_BYTES
+from app.shared.errors import PayloadTooLarge, ValidationError
 
 
 def parse_metadata(metadata: str | None) -> dict:
     if not metadata:
         return {}
+    if len(metadata.encode("utf-8")) > MAX_METADATA_BYTES:
+        raise PayloadTooLarge("Document metadata exceeds 64 KiB.")
     try:
         payload = json.loads(metadata)
     except json.JSONDecodeError as exc:
