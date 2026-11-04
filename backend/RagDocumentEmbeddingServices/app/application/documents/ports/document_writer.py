@@ -1,3 +1,4 @@
+from contextlib import AbstractContextManager
 from typing import Protocol
 
 from app.domain.documents import Document
@@ -14,11 +15,5 @@ class DocumentWriter(Protocol):
     ) -> Document:
         ...
 
-    def mark_as_processing(self, document_id: str) -> None:
-        ...
-
-    def mark_as_processed(self, document_id: str) -> None:
-        ...
-
-    def mark_as_failed(self, document_id: str, reason: str) -> None:
+    def indexing_transaction(self, document_id: str) -> AbstractContextManager[None]:
         ...

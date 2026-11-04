@@ -35,6 +35,10 @@ La extracción admite hasta 200 páginas de PDF, 1024 entradas y 64 MiB descompr
 
 El procesamiento solo lee archivos bajo `DOCUMENT_STORAGE_BASE_PATH`. Se admiten rutas relativas y rutas locales históricas que resuelvan dentro de ese directorio. Los límites de extracción también se aplican al reindexar archivos existentes. Si falla el registro inicial, se elimina el archivo recién escrito. Si falla el procesamiento después del registro, el archivo se conserva para poder reintentar.
 
+La ingesta genera vectores normalizados de 384 dimensiones en CPU, en lotes de hasta 32 fragmentos y con un máximo de 2048 fragmentos por documento. Usa los mismos pesos Safetensors que el chat y el prefijo `passage:` para indexar. Los documentos sin texto extraíble y los vectores inválidos se rechazan antes de reemplazar el índice. [Revisión fijada del modelo](https://huggingface.co/intfloat/multilingual-e5-small/tree/614241f622f53c4eeff9890bdc4f31cfecc418b3).
+
+Durante la indexación, las consultas siguen viendo el último estado confirmado. Un intento simultáneo sobre el mismo documento devuelve `409`. Al terminar, los nuevos fragmentos y el estado `PROCESSED` se confirman juntos. Si falla una reindexación, se mantiene el índice anterior. Una primera indexación fallida queda como `FAILED`.
+
 ## Data Models
 
 ### DocumentUploadResponse
@@ -99,7 +103,8 @@ Para comprobar los permisos con PostgreSQL local:
 ```sh
 docker compose -f docker/docker-compose.yml cp backend/RagDocumentEmbeddingServices/tests/test_ingestion_access.py rag-document-embedding-service:/app/test_ingestion_access.py
 docker compose -f docker/docker-compose.yml cp backend/RagDocumentEmbeddingServices/tests/test_file_boundary.py rag-document-embedding-service:/app/test_file_boundary.py
-docker compose -f docker/docker-compose.yml exec -T rag-document-embedding-service python -m pytest -q test_ingestion_access.py test_file_boundary.py
+docker compose -f docker/docker-compose.yml cp backend/RagDocumentEmbeddingServices/tests/test_indexing.py rag-document-embedding-service:/app/test_indexing.py
+docker compose -f docker/docker-compose.yml exec -T rag-document-embedding-service python -m pytest -q test_ingestion_access.py test_file_boundary.py test_indexing.py
 ```
 
 ## Example Requests

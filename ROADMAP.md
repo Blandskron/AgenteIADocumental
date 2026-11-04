@@ -52,8 +52,8 @@ Quedan en seguimiento nueve CVE altos de la imagen base Debian sin versión corr
 |---|---|---|---|
 | Hecha | EMB-001 | Aislar configuración y validar arranque | PR #26 integrado. Compose, arranque, CORS y configuración de fragmentación verificados. |
 | Hecha | EMB-002 | Validar identidad y permisos de ingesta | PR #27 integrado. Nueve pruebas con PostgreSQL y comprobación HTTP con tokens reales de AuthServices. |
-| En revisión | EMB-003 | Limitar archivos y confinar su lectura | Compose válido, arranque local, Ruff y 18 pruebas con PostgreSQL. Se verificaron límites multipart, limpieza de temporales, confinamiento de rutas y límites de extracción. `pip-audit` revisó las cuatro dependencias actualizadas. |
-| Lista | EMB-004 | Hacer reproducible la indexación | Alinear la revisión del modelo con el chat y comprobar dimensiones, lotes, transiciones de estado y reindexación concurrente. |
+| Hecha | EMB-003 | Limitar archivos y confinar su lectura | PR #28 integrado. Arranque y 18 pruebas verificaron límites multipart, limpieza, confinamiento y extracción. |
+| En revisión | EMB-004 | Hacer reproducible la indexación | Compose válido, Ruff y 23 pruebas con PostgreSQL y pgvector. Se verificaron lotes, bloqueo entre sesiones, rollback y dos vectores reales de 384 dimensiones con la revisión fijada. |
 | Lista | EMB-005 | Restringir PostgreSQL y cerrar operación | Validar rol, dependencias, imagen, permisos del volumen y recorrido sintético en una instalación limpia. |
 
 ## Validación

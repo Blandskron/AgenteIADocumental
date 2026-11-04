@@ -5,11 +5,17 @@ from sentence_transformers import SentenceTransformer
 from app.shared.errors import ExternalServiceError
 
 MODEL_NAME = "intfloat/multilingual-e5-small"
+MODEL_REVISION = "614241f622f53c4eeff9890bdc4f31cfecc418b3"
 
 
 @lru_cache(maxsize=1)
 def _load_model() -> SentenceTransformer:
-    return SentenceTransformer(MODEL_NAME, device="cpu")
+    return SentenceTransformer(
+        MODEL_NAME,
+        device="cpu",
+        revision=MODEL_REVISION,
+        model_kwargs={"use_safetensors": True},
+    )
 
 
 class LocalEmbeddingProvider:
