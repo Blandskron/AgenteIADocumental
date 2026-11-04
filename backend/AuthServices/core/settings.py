@@ -13,6 +13,7 @@ https://docs.djangoproject.com/en/6.0/ref/settings/
 from pathlib import Path
 import datetime
 import os
+from .environment import load_environment
 from .jwt_keys import load_jwt_keys
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -23,12 +24,16 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # See https://docs.djangoproject.com/en/6.0/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = os.getenv('DJANGO_SECRET_KEY', 'django-insecure-l4@%jfkyrhgzcqha7lfnblk$n*)f+2j4*8%ai54zg_u$ph6zb%')
+AUTH_CONFIG = load_environment(os.environ, BASE_DIR)
+SECRET_KEY = AUTH_CONFIG["secret"]
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = False
 
-ALLOWED_HOSTS = os.getenv('DJANGO_ALLOWED_HOSTS', 'apiusuarios.blandskron.com,localhost,127.0.0.1,auth-service').split(',')
+ALLOWED_HOSTS = AUTH_CONFIG["hosts"]
+SECURE_SSL_REDIRECT = AUTH_CONFIG["production"]
+SESSION_COOKIE_SECURE = AUTH_CONFIG["production"]
+CSRF_COOKIE_SECURE = AUTH_CONFIG["production"]
 
 
 # Application definition
@@ -50,9 +55,7 @@ INSTALLED_APPS = [
 ]
 
 # --- Generacion automatica de claves RSA para JWT ---
-private_key_path = Path(os.getenv('DJANGO_PRIVATE_KEY_PATH', BASE_DIR / 'private.pem'))
-public_key_path = Path(os.getenv('DJANGO_PUBLIC_KEY_PATH', BASE_DIR / 'public.pem'))
-PRIVATE_KEY, PUBLIC_KEY = load_jwt_keys(private_key_path, public_key_path)
+PRIVATE_KEY, PUBLIC_KEY = load_jwt_keys(AUTH_CONFIG["private_key_path"], AUTH_CONFIG["public_key_path"])
 # ----------------------------------------------------
 
 MIDDLEWARE = [
@@ -76,10 +79,7 @@ LOGGING = {
     },
 }
 
-CORS_ALLOWED_ORIGINS = os.getenv(
-    'DJANGO_CORS_ALLOWED_ORIGINS',
-    'http://localhost:3000,http://127.0.0.1:3000',
-).split(',')
+CORS_ALLOWED_ORIGINS = AUTH_CONFIG["origins"]
 CORS_ALLOW_CREDENTIALS = False
 
 # Añade esta configuración al final del archivo
@@ -130,16 +130,7 @@ WSGI_APPLICATION = 'core.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/6.0/ref/settings/#databases
 
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.postgresql',
-        'NAME': os.getenv('POSTGRES_DB', 'documents_db'),
-        'USER': os.getenv('POSTGRES_USER', 'postgres'),
-        'PASSWORD': os.getenv('POSTGRES_PASSWORD', 'admin1234'),
-        'HOST': os.getenv('POSTGRES_HOST', 'localhost'),
-        'PORT': os.getenv('POSTGRES_PORT', '5432'),
-    }
-}
+DATABASES = {"default": AUTH_CONFIG["database"]}
 
 
 # Password validation

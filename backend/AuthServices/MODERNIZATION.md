@@ -25,8 +25,10 @@ Diagnóstico inicial sobre `main` en `fa74ac1`. Este es el primer servicio de la
 | Hecha | AUTH-004 | Endurecer el ciclo de sesión | Integrada en main. Renovación con permisos vigentes y acceso de diez minutos. |
 | Hecha | AUTH-005A | Aplicar la política de contraseñas de la API | Integrada en main. Las contraseñas rechazadas conservan la identidad y el hash anterior. |
 | Hecha | AUTH-005B | Reducir abuso y auditar eventos | Integrada en main. La API y Django Admin comparten límites en PostgreSQL y emiten eventos JSON. |
-| En revisión | AUTH-006A | Separar migración y arranque | Compose aplica las migraciones antes de arrancar Auth. Gunicorn corre como UID 10001 y la imagen incluye los estáticos. |
-| Backlog | AUTH-006B | Endurecer configuración y persistencia | Validar la configuración por entorno, separar permisos de base y revisar dependencias e imagen con evidencia y procedimiento de reversión. |
+| Hecha | AUTH-006A | Separar migración y arranque | Integrada en main. Compose migra primero y Gunicorn corre como UID 10001. |
+| En revisión | AUTH-006B | Validar configuración por entorno | Producción exige secreto, hosts, rol de base y una clave preaprovisionada. HTTPS y cookies seguras se habilitan en ese modo. |
+| Backlog | AUTH-006C | Separar permisos de PostgreSQL | Provisionar roles de migración y ejecución. Validar permisos positivos y denegación de DDL, y preparar reversión. |
+| Backlog | AUTH-006D | Revisar dependencias e imagen | Clasificar los avisos de dependencias, actualizar donde corresponda y verificar la imagen final. |
 | Backlog | AUTH-007 | Completar la adopción Agents First | README humano, AGENTS local, contrato API y guías de pruebas, configuración, seguridad y operación enlazadas desde fuentes canónicas. Otra persona puede ejecutar las comprobaciones desde un clon limpio. |
 
 ## Secuencia y decisiones
@@ -69,6 +71,12 @@ El parche bloquea esas solicitudes, la reasignación de una membresía y la escr
 - Compose aplicó la migración en un contenedor separado y Auth quedó sano sobre la base y los volúmenes locales existentes.
 - El PID 1 de Gunicorn tuvo UID 10001. La clave privada conservó modo 0600 y la página de login de Django Admin respondió con HTTP 200.
 - Pasaron 33 pruebas de Auth en PostgreSQL con el entrypoint nuevo y claves efímeras. CI comprueba también el UID efectivo de un comando iniciado desde la imagen.
+
+## Evidencia de AUTH-006B
+
+- Pasaron 37 pruebas de Auth en PostgreSQL, `manage.py check`, la comprobación de migraciones y Compose config.
+- En un contenedor sin red, `manage.py check` aceptó una configuración de producción sintética y se comprobó que la redirección HTTPS y las cookies seguras estaban activadas. Las pruebas negativas cubren configuración ausente, valores de demo, hosts con comodines, orígenes HTTP y un PEM privado inexistente.
+- `pip-audit` consultó las versiones fijadas y devolvió avisos para `cryptography==46.0.6`. El análisis de aplicabilidad, la actualización y la auditoría de la imagen quedan en AUTH-006D.
 
 ## Criterio de cierre por PR
 

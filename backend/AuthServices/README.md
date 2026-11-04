@@ -68,6 +68,20 @@ La imagen prepara los archivos estáticos durante la construcción. El servicio 
 
 Si una migración falla, revisa `docker compose -f docker/docker-compose.yml logs auth-migrate` antes de reiniciar. Para volver a la imagen anterior, comprueba primero que pueda operar con el esquema ya migrado. El proceso web no ejecuta migraciones por su cuenta.
 
+## Configuración por entorno
+
+Compose usa `AUTH_ENV=development` y escucha en loopback. Para un despliegue separado, configura `AUTH_ENV=production` en el proceso de Auth e inyecta estos valores fuera del repositorio:
+
+| Variable | Requisito |
+|---|---|
+| `DJANGO_SECRET_KEY` | Secreto aleatorio de al menos 50 caracteres. |
+| `DJANGO_ALLOWED_HOSTS` | Hosts explícitos separados por comas. |
+| `DJANGO_CORS_ALLOWED_ORIGINS` | Opcional. Si se define, usa orígenes HTTPS completos sin rutas. |
+| `POSTGRES_DB`, `POSTGRES_HOST`, `POSTGRES_USER`, `POSTGRES_PASSWORD` | Valores explícitos. Usa un rol dedicado, distinto de `postgres`, y una contraseña de al menos 16 caracteres. |
+| `DJANGO_PRIVATE_KEY_PATH`, `DJANGO_PUBLIC_KEY_PATH` | Rutas explícitas. Aprovisiona el PEM privado antes del arranque, con permisos exclusivos del propietario. |
+
+El modo producción fuerza HTTPS y activa las cookies seguras. Si usas un proxy de TLS, configura Gunicorn para reconocer el esquema únicamente desde proxies de confianza. La separación efectiva de permisos en PostgreSQL se verifica en AUTH-006C.
+
 ## Verificar la autorización
 
 Desde la raíz, con PostgreSQL de Compose activo:
