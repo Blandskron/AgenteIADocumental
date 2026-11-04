@@ -60,7 +60,13 @@ El logger `blandskron.auth.audit` emite JSON a stderr para login aceptado, recha
 docker compose -f docker/docker-compose.yml exec -T auth-service python manage.py prune_login_budgets
 ```
 
-El arranque aplica las migraciones versionadas. En una actualización, la migración `users.0002_loginattemptbudget` agrega la tabla de contadores.
+Compose ejecuta las migraciones versionadas en `auth-migrate` antes de arrancar el servicio web. En una actualización desde AUTH-005A, `users.0002_loginattemptbudget` agrega la tabla de contadores.
+
+## Arranque y migraciones
+
+La imagen prepara los archivos estáticos durante la construcción. El servicio web ejecuta Gunicorn como UID y GID 10001. Al arrancar con los volúmenes existentes, el entrypoint ajusta únicamente los directorios de claves y los archivos PEM esperados, y luego cambia al usuario de servicio. El contenedor de migración corre con ese usuario y sin montar claves del emisor.
+
+Si una migración falla, revisa `docker compose -f docker/docker-compose.yml logs auth-migrate` antes de reiniciar. Para volver a la imagen anterior, comprueba primero que pueda operar con el esquema ya migrado. El proceso web no ejecuta migraciones por su cuenta.
 
 ## Verificar la autorización
 
