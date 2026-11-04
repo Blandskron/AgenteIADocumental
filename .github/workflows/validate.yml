@@ -125,9 +125,11 @@ jobs:
       - run: cp .env.example .env
       - run: docker compose -f docker/docker-compose.yml up -d --build --wait conversation-service
       - run: docker compose -f docker/docker-compose.yml exec -T postgres psql -U postgres -d documents_db -v ON_ERROR_STOP=1 < scripts/database/auth/verify_roles.sql
-      - name: Probar vínculos documentales contra PostgreSQL
+      - name: Probar JWT, aislamiento y vínculos contra PostgreSQL
         run: |
-          docker compose -f docker/docker-compose.yml cp backend/ConversationServices/tests/test_document_links.py conversation-service:/app/test_document_links.py
-          docker compose -f docker/docker-compose.yml exec -T conversation-service python -m pytest -q test_document_links.py
+          docker compose -f docker/docker-compose.yml cp backend/ConversationServices/requirements-test.txt conversation-service:/app/requirements-test.txt
+          docker compose -f docker/docker-compose.yml cp backend/ConversationServices/tests/test_conversations.py conversation-service:/app/test_conversations.py
+          docker compose -f docker/docker-compose.yml exec -T conversation-service python -m pip install -r requirements-test.txt
+          docker compose -f docker/docker-compose.yml exec -T conversation-service python -m pytest -q test_conversations.py
       - if: failure()
         run: docker compose -f docker/docker-compose.yml logs auth-db-roles auth-migrate auth-service conversation-service
