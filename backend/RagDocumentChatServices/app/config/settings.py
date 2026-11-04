@@ -16,7 +16,7 @@ class Settings(BaseSettings):
         default_factory=lambda: ["http://localhost:3000", "http://127.0.0.1:3000"],
     )
 
-    database_url: str = "postgresql+psycopg://postgres:admin1234@localhost:5432/documents_db"
+    database_url: str
 
     groq_api_key: str = ""
     groq_chat_model: str = "openai/gpt-oss-20b"
