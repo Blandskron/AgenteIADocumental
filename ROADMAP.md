@@ -41,8 +41,8 @@ Quedan en seguimiento nueve CVE altos de la imagen base Debian sin versión corr
 | Estado | ID | Entrega | Criterio de aceptación |
 |---|---|---|---|
 | Hecha | RAG-001 | Aislar configuración, CORS y acceso HTTP | PR #21 integrado. Compose válido, arranque local, CORS, rechazo de la clave interna anterior y sonda de Groq. |
-| En revisión | RAG-002 | Validar identidad y permisos documentales | Compose válido, Ruff y 12 pruebas con `python -m pytest -q test_document_access.py` sobre PostgreSQL y pgvector. Se verificaron JWT, revocación en preguntas y resúmenes, y el contexto de historial con proveedores simulados. |
-| Lista | RAG-003 | Acotar solicitudes, contexto e historial | Fijar límites de entrada y del contexto enviado al modelo. Verificar aislamiento de sesiones y persistencia ante fallos. |
+| Hecha | RAG-002 | Validar identidad y permisos documentales | PR #22 integrado. JWT, revocación en preguntas y resúmenes e historial verificados con 12 pruebas sobre PostgreSQL y pgvector. |
+| En revisión | RAG-003 | Acotar solicitudes, contexto e historial | Compose válido, Ruff y 24 pruebas con `python -m pytest -q test_document_access.py` sobre PostgreSQL y pgvector. Cubren límites, separación de sesiones y persistencia ante fallos de recuperación, generación y escritura. |
 | Lista | RAG-004 | Probar la integración con Groq | Cubrir respuestas vacías, errores y tiempos de espera con un proveedor simulado. Validar el recorrido con datos sintéticos. |
 | Lista | RAG-005 | Restringir PostgreSQL y cerrar operación | Aprovisionar un rol dedicado y validar imagen, dependencias, modelo de embeddings y arranque limpio. |
 

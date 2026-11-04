@@ -3,6 +3,8 @@ from functools import lru_cache
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+from app.shared.constants import MAX_CONTEXT_CHUNKS
+
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
@@ -26,7 +28,7 @@ class Settings(BaseSettings):
     document_storage_base_path: str = "./documents"
     max_chunk_size: int = 1200
     chunk_overlap: int = 160
-    vector_search_limit: int = 5
+    vector_search_limit: int = Field(default=5, ge=1, le=MAX_CONTEXT_CHUNKS)
     min_similarity_score: float = 0.0
 
     db_pool_min_size: int = 1

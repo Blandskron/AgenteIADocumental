@@ -1,9 +1,11 @@
 import unicodedata
+from dataclasses import replace
 
 from app.application.chat.ports.chat_history_repository import ChatHistoryRepository
 from app.application.chat.ports.llm_provider import LLMProvider
 from app.application.embeddings.use_cases.search_similar_chunks import SearchSimilarChunks
 from app.domain.chat import AnswerSource, ChatAnswer
+from app.shared.constants import MAX_CONTEXT_CHUNKS, MAX_CONTEXT_CHUNK_LENGTH, MAX_HISTORY_MESSAGES
 from app.shared.errors import ExternalServiceError
 
 
@@ -45,12 +47,15 @@ class AskDocumentChat:
     ) -> ChatAnswer:
         history = []
         if session_id and self._chat_history_repository:
-            history = self._chat_history_repository.get_user_history(session_id, limit=12)
-            self._chat_history_repository.save_user_message(session_id, question)
+            history = self._chat_history_repository.get_user_history(session_id, limit=MAX_HISTORY_MESSAGES)
 
         try:
             mode = "summary" if self._is_summary_request(question) and document_ids else "qa"
             results = self._get_context(question, document_ids=document_ids, mode=mode)
+            results = [
+                replace(result, content=result.content[:MAX_CONTEXT_CHUNK_LENGTH])
+                for result in results[:MAX_CONTEXT_CHUNKS]
+            ]
             answer = self._llm_provider.answer_with_context(
                 question,
                 results,
@@ -58,13 +63,7 @@ class AskDocumentChat:
                 mode=mode,
             )
         except ExternalServiceError:
-            results = []
-            answer = ASSISTANT_ERROR_ANSWER
-
-            if session_id and self._chat_history_repository:
-                self._chat_history_repository.save_assistant_message(session_id, answer, [])
-
-            return ChatAnswer(answer=answer, sources=[])
+            return ChatAnswer(answer=ASSISTANT_ERROR_ANSWER, sources=[])
 
         sources = [
             AnswerSource(
@@ -78,7 +77,7 @@ class AskDocumentChat:
         ]
 
         if session_id and self._chat_history_repository:
-            self._chat_history_repository.save_assistant_message(session_id, answer, sources)
+            self._chat_history_repository.save_turn(session_id, question, answer, sources)
 
         return ChatAnswer(answer=answer, sources=sources)
 

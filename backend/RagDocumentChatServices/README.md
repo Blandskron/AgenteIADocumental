@@ -29,6 +29,10 @@ RagDocumentChatServices es un microservicio basado en FastAPI que permite realiz
     - `answer`: str
     - `sources`: lista de fragmentos relevantes (document_id, chunk_id, content, score, filename)
 
+La pregunta admite hasta 4096 caracteres. La sesión y cada ID documental admiten hasta 128 caracteres, con un máximo de 12 IDs por consulta. Los valores fuera de esos límites devuelven `422`.
+
+El modelo recibe hasta 24 fragmentos de 1200 caracteres cada uno y las ocho preguntas previas más recientes de la sesión, recortadas a 1000 caracteres cada una. Los resúmenes alternan fragmentos entre documentos y las fuentes de la respuesta corresponden al contexto enviado. `VECTOR_SEARCH_LIMIT` admite valores de 1 a 24.
+
 ## Data Models
 
 ### ChatAskRequest
@@ -51,6 +55,8 @@ RagDocumentChatServices es un microservicio basado en FastAPI que permite realiz
 El endpoint de chat requiere un token de acceso de AuthServices en `Authorization: Bearer <token>`, con firma RSA válida, `user_id` entero positivo y `exp` entero vigente. El usuario también debe tener el permiso activo `use_chat`, acceso global o el rol de superadministrador.
 
 La búsqueda semántica y los resúmenes aplican el mismo filtro documental antes de enviar fragmentos a Groq. Las asignaciones canceladas o expiradas dejan de conceder acceso. El contexto de historial incluye las preguntas previas del mismo usuario y sesión. Las respuestas anteriores se conservan en la base, pero se excluyen del contexto porque pueden contener datos de documentos cuyo acceso cambió.
+
+Con un ID de sesión, el servicio guarda la pregunta y la respuesta juntas después de generar la respuesta. Si falla la recuperación o la generación, devuelve la respuesta de contingencia sin incorporar ese intento al historial del modelo.
 
 ## Architecture
 - **FastAPI** para la capa API
