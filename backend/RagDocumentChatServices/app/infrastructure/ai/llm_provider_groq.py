@@ -2,6 +2,7 @@ from openai import APIError, AuthenticationError, OpenAI
 
 from app.domain.chat import ChatMessage
 from app.domain.embeddings import SearchResult
+from app.shared.constants import MAX_IDENTIFIER_LENGTH
 from app.shared.errors import ExternalServiceError
 
 
@@ -87,13 +88,14 @@ class GroqLLMProvider:
     def _format_history(self, history: list[ChatMessage]) -> str:
         if not history:
             return "No hay historial previo relevante."
-        return "\n".join(f"{message.role.value}: {message.content}" for message in history[-8:])
+        return "\n".join(f"{message.role.value}: {message.content}" for message in history)
 
     def _format_context(self, context: list[SearchResult]) -> str:
         if not context:
             return "No hay contexto documental relevante."
         return "\n\n".join(
-            f"[Fuente {index + 1}] archivo={item.filename or 'documento'} "
-            f"document_id={item.document_id} chunk={item.chunk_index} score={item.score:.4f}\n{item.content}"
+            f"[Fuente {index + 1}] archivo={(item.filename or 'documento')[:MAX_IDENTIFIER_LENGTH]} "
+            f"document_id={item.document_id[:MAX_IDENTIFIER_LENGTH]} chunk={item.chunk_index} "
+            f"score={item.score:.4f}\n{item.content}"
             for index, item in enumerate(context)
         )

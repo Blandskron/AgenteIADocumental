@@ -84,7 +84,8 @@ class VectorRepositoryPgVector:
                 )
                 for row in rows
             )
-        return results
+        # Interleave document positions so the prompt cap does not favor the first selected file.
+        return sorted(results, key=lambda result: result.chunk_index)
 
     def _apply_access_filter(self, statement):
         if is_superadmin_user(self._current_user):

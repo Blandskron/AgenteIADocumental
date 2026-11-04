@@ -7,16 +7,21 @@ from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
 from fastapi import HTTPException
 from fastapi.security import HTTPAuthorizationCredentials
+from pydantic import ValidationError
 from sqlalchemy import create_engine, text
+from sqlalchemy.exc import DBAPIError
 from sqlalchemy.orm import Session
 
 from app.application.chat.use_cases.ask_document_chat import AskDocumentChat
 from app.application.embeddings.use_cases.search_similar_chunks import SearchSimilarChunks
 from app.config.security import require_authenticated_user
 from app.config.settings import Settings, get_settings
+from app.domain.embeddings import SearchResult
 from app.infrastructure.database.repositories.chat_history_repository_pg import ChatHistoryRepositoryPg
 from app.infrastructure.database.repositories.vector_repository_pgvector import VectorRepositoryPgVector
 from app.interfaces.api.v1.dependencies import get_ask_document_chat
+from app.interfaces.api.v1.schemas.chat_schema import ChatAskRequest
+from app.shared.errors import ExternalServiceError
 
 
 VECTOR = [1.0] + [0.0] * 383
@@ -119,9 +124,9 @@ def test_revoked_documents_and_previous_answers_are_excluded(session, question, 
 
     current_user = {"user_id": actor, "username": str(actor + 1)}
     history = ChatHistoryRepositoryPg(session, current_user)
-    history.save_user_message(chat_id, "Synthetic earlier question")
-    history.save_assistant_message(chat_id, "Synthetic legacy answer with revoked material", [])
-    ChatHistoryRepositoryPg(session, {"user_id": actor + 1}).save_user_message(chat_id, "Synthetic foreign question")
+    history.save_turn(chat_id, "Synthetic earlier question", "Synthetic legacy answer with revoked material", [])
+    ChatHistoryRepositoryPg(session, {"user_id": actor + 1}).save_turn(chat_id, "Synthetic foreign question", "Answer", [])
+    history.save_turn("another-session", "Synthetic foreign session question", "Answer", [])
     repository = VectorRepositoryPgVector(session, current_user)
     provider = RecordingProvider()
     chat = AskDocumentChat(SearchSimilarChunks(FixedEmbedding(), repository, limit=5), provider, history)
@@ -131,3 +136,73 @@ def test_revoked_documents_and_previous_answers_are_excluded(session, question, 
     assert provider.history == ["Synthetic earlier question"]
     assert provider.document_ids == {ids["owned"], ids["active"]}
     assert {source.document_id for source in answer.sources} == provider.document_ids
+
+
+@pytest.mark.parametrize("payload", [
+    {"question": "  "},
+    {"question": "x" * 4097},
+    {"question": "bad\0input"},
+    {"question": "Question", "session_id": "s" * 129},
+    {"question": "Question", "document_ids": ["d" * 129]},
+    {"question": "Question", "document_ids": [" "]},
+    {"question": "Question", "document_ids": [str(i) for i in range(13)]},
+])
+def test_request_limits(payload):
+    with pytest.raises(ValidationError):
+        ChatAskRequest.model_validate(payload)
+
+
+def test_accepts_limits_and_multiline_question():
+    payload = ChatAskRequest(question="x" * 4094 + "\ny", session_id="s" * 128, document_ids=[str(i) for i in range(12)])
+    assert len(payload.question) == 4096
+    assert len(payload.document_ids) == 12
+
+
+class SyntheticSearch:
+    def execute(self, question, document_ids):
+        return [SearchResult("doc", str(index), index, "x" * 2400, 1.0) for index in range(30)]
+
+
+class FailingSearch:
+    def execute(self, question, document_ids):
+        raise ExternalServiceError("Synthetic retrieval failure")
+
+
+class FailingProvider:
+    def answer_with_context(self, question, context, history, mode):
+        raise ExternalServiceError("Synthetic provider failure")
+
+
+@pytest.mark.parametrize("failure", ["retrieval", "generation", None])
+def test_context_limits_and_atomic_turn(session, failure):
+    chat_id = uuid4().hex
+    history = ChatHistoryRepositoryPg(session, {"user_id": 42})
+    for _ in range(10):
+        history.save_turn(chat_id, "q" * 2000, "Earlier answer", [])
+    provider = RecordingProvider() if failure != "generation" else FailingProvider()
+    search = FailingSearch() if failure == "retrieval" else SyntheticSearch()
+    result = AskDocumentChat(search, provider, history).execute("New question", session_id=chat_id)
+    rows = session.execute(text("""
+        SELECT role, content FROM chat_messages WHERE session_id = :session_id AND owner_user_id = '42'
+    """), {"session_id": chat_id}).all()
+
+    if failure:
+        assert result.sources == []
+        assert len(rows) == 20
+    else:
+        assert len(provider.history) == 8
+        assert all(len(question) == 1000 for question in provider.history)
+        assert len(result.sources) == 24
+        assert all(len(source.content) == 1200 for source in result.sources)
+        assert len(rows) == 22
+        assert ("user", "New question") in rows
+        assert ("assistant", "Synthetic answer") in rows
+
+
+def test_database_failure_cannot_persist_half_a_turn(session):
+    chat_id = uuid4().hex
+    history = ChatHistoryRepositoryPg(session, {"user_id": 42})
+    with pytest.raises(DBAPIError):
+        history.save_turn(chat_id, "Synthetic question", None, [])
+    session.rollback()
+    assert session.scalar(text("SELECT count(*) FROM chat_messages WHERE session_id = :id"), {"id": chat_id}) == 0
