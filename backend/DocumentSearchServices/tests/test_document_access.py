@@ -6,7 +6,8 @@ from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
 from fastapi import HTTPException
 from fastapi.security import HTTPAuthorizationCredentials
-from sqlalchemy import create_engine, text
+from pydantic import ValidationError
+from sqlalchemy import create_engine, event, text
 from sqlalchemy.orm import Session
 
 from app.application.documents.use_cases.build_chat_context import BuildChatContext
@@ -16,6 +17,7 @@ from app.config.security import require_authenticated_user
 from app.config.settings import Settings, get_settings
 from app.domain.documents import DocumentNotFoundError, InvalidDocumentSelectionError
 from app.infrastructure.database.repositories.document_search_repository_pg import DocumentSearchRepositoryPg
+from app.interfaces.api.v1.schemas.document_search_schema import ChatSelectionRequest
 
 
 @pytest.fixture(scope="module")
@@ -131,3 +133,51 @@ def test_revocation_removes_assignment_access_for_sender_and_recipient(records):
         assert repository.get_by_id(ids[kind]) is None
         assert repository.get_chunks(ids[kind]) == ([], 0)
         assert repository.get_many_by_ids([ids[kind]]) == []
+
+
+def test_search_paginates_ties_without_queries_per_document(records):
+    session, ids, _, marker = records
+    repository = DocumentSearchRepositoryPg(session, {"user_id": 42})
+    expected = sorted(ids[kind] for kind in ("owned", "legacy", "assigned", "managed"))
+    queries = []
+    connection = session.connection()
+
+    def record_query(*_):
+        queries.append(1)
+
+    event.listen(connection, "before_cursor_execute", record_query)
+    try:
+        first = repository.search(query=marker, limit=3)
+        assert len(queries) == 2
+        second = repository.search(query=marker, limit=3, offset=3)
+        empty = repository.search(query=marker, limit=3, offset=6)
+        assert [item.document_id for item in first.items + second.items] == expected
+        assert first.total == second.total == empty.total == len(expected)
+        assert empty.items == []
+        assert all(item.snippet == f"Synthetic fragment {marker}" for item in first.items + second.items)
+        queries.clear()
+        selection = repository.get_many_by_ids(expected[::-1])
+        assert len(queries) == 1
+        assert [item.document_id for item in selection] == expected[::-1]
+        assert all(item.chunk_count == 1 and item.snippet is None for item in selection)
+    finally:
+        event.remove(connection, "before_cursor_execute", record_query)
+
+
+@pytest.mark.parametrize("payload", [
+    {"document_ids": []},
+    {"document_ids": ["doc"] * 13},
+    {"document_ids": [""]},
+    {"document_ids": ["d" * 129]},
+    {"document_ids": ["bad\x00id"]},
+    {"document_ids": ["doc"], "session_id": "s" * 129},
+])
+def test_chat_selection_rejects_out_of_bounds_input(payload):
+    with pytest.raises(ValidationError):
+        ChatSelectionRequest.model_validate(payload)
+
+
+def test_chat_selection_accepts_maximum_size():
+    documents = [str(index).rjust(128, "d") for index in range(12)]
+    selection = ChatSelectionRequest(document_ids=documents, session_id="s" * 128)
+    assert selection.document_ids == documents
