@@ -1,4 +1,16 @@
 services:
+  conversation-db-role:
+    image: pgvector/pgvector:pg16
+    environment:
+      PGPASSWORD: admin1234
+      CONVERSATION_DB_PASSWORD: ${CONVERSATION_DB_PASSWORD:-blandskron-local-conversation}
+    volumes:
+      - ../../scripts/database/conversation:/conversation-db:ro
+    command: ["psql", "-h", "postgres", "-U", "postgres", "-d", "documents_db", "-v", "ON_ERROR_STOP=1", "-f", "/conversation-db/provision_role.sql"]
+    depends_on:
+      database-schema:
+        condition: service_completed_successfully
+
   conversation-service:
     build:
       context: ../../backend/ConversationServices
@@ -9,7 +21,8 @@ services:
       APP_NAME: conversation-service
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
       CORS_ORIGINS: '${CONVERSATION_CORS_ORIGINS:-["http://localhost:3000","http://127.0.0.1:3000"]}'
-      DATABASE_URL: postgresql+psycopg://postgres:admin1234@postgres:5432/documents_db
+      DATABASE_URL: postgresql+psycopg://conversation_runtime@postgres:5432/documents_db
+      PGPASSWORD: ${CONVERSATION_DB_PASSWORD:-blandskron-local-conversation}
       AUTH_JWT_PUBLIC_KEY_PATH: /app/auth_keys/public.pem
       AUTH_JWT_ALGORITHM: RS256
     ports:
@@ -20,13 +33,26 @@ services:
       test:
         [
           "CMD-SHELL",
-          "python -c \"import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/v1/health', timeout=3)\"",
+          "test -r /app/auth_keys/public.pem && python -c \"import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/v1/health/db', timeout=3)\"",
         ]
       interval: 10s
       timeout: 5s
       retries: 10
     depends_on:
-      database-schema:
+      conversation-db-role:
         condition: service_completed_successfully
       auth-service:
+        condition: service_healthy
+
+  conversation-tests:
+    profiles: ["test"]
+    build:
+      context: ../../backend/ConversationServices
+      target: test
+    environment:
+      DATABASE_URL: postgresql+psycopg://conversation_runtime@postgres:5432/documents_db
+      PGPASSWORD: ${CONVERSATION_DB_PASSWORD:-blandskron-local-conversation}
+      CONVERSATION_TEST_DATABASE_URL: postgresql+psycopg://postgres:admin1234@postgres:5432/documents_db
+    depends_on:
+      conversation-service:
         condition: service_healthy
