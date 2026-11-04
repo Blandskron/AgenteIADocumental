@@ -7,6 +7,7 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from jwt import InvalidTokenError
 
 from app.config.settings import Settings, get_settings
+from app.domain.documents import Document
 
 
 bearer_scheme = HTTPBearer(auto_error=False)
@@ -33,9 +34,11 @@ def require_authenticated_user(
             credentials.credentials,
             read_public_key(settings.auth_jwt_public_key_path),
             algorithms=[settings.auth_jwt_algorithm],
-            options={"verify_aud": False},
+            options={"verify_aud": False, "require": ["exp", "user_id"]},
         )
-    except (InvalidTokenError, OSError) as exc:
+        if type(payload["user_id"]) is not int or payload["user_id"] <= 0 or type(payload["exp"]) is not int:
+            raise InvalidTokenError("Invalid identity or expiration claim.")
+    except (InvalidTokenError, OSError, TypeError, OverflowError) as exc:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid authentication token.",
@@ -53,7 +56,7 @@ def require_authenticated_user(
 
 
 def user_id(user: dict) -> str:
-    return str(user.get("user_id") or user.get("sub") or user.get("username") or "")
+    return str(user["user_id"])
 
 
 def is_superadmin_user(user: dict) -> bool:
@@ -90,10 +93,6 @@ def is_tenant_admin(user: dict, tenant_id: str | None = None) -> bool:
     return bool(tenant_id in tenant_ids if tenant_id else tenant_ids)
 
 
-def is_admin_user(user: dict) -> bool:
-    return is_superadmin_user(user) or is_tenant_admin(user)
-
-
 def user_groups(user: dict) -> list[str]:
     return list(user.get("groups") or user.get("grupos") or [])
 
@@ -110,15 +109,40 @@ def build_document_access_metadata(user: dict) -> dict:
     }
 
 
-def can_access_document(user: dict, metadata: dict | None) -> bool:
-    metadata = metadata or {}
-    if is_superadmin_user(user):
+def has_active_permission(user: dict, permission: str) -> bool:
+    permissions = user.get("active_permissions") or []
+    return "*" in permissions or permission in permissions
+
+
+def require_upload_user(user: dict = Depends(require_authenticated_user)) -> dict:
+    tenant_id = active_tenant_id(user)
+    if not (
+        is_superadmin_user(user)
+        or (tenant_id and is_tenant_admin(user, tenant_id))
+        or has_active_permission(user, "upload_documents")
+    ):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Document upload permission required.")
+    return user
+
+
+def can_manage_document(user: dict, document: Document) -> bool:
+    metadata = document.metadata or {}
+    tenant_id = str(document.tenant_id or metadata.get("tenant_id") or "")
+    owner_id = str(document.owner_user_id or metadata.get("owner_user_id") or "")
+    return bool(
+        is_superadmin_user(user)
+        or user_id(user) == owner_id
+        or (tenant_id and is_tenant_admin(user, tenant_id))
+        or (tenant_id and tenant_id == active_tenant_id(user) and has_active_permission(user, "manage_documents"))
+    )
+
+
+def can_access_document(user: dict, document: Document) -> bool:
+    if can_manage_document(user, document):
         return True
-    tenant_id = str(metadata.get("tenant_id") or "")
-    if tenant_id and is_tenant_admin(user, tenant_id):
-        return True
-    if not metadata.get("owner_user_id") and not metadata.get("owner_groups"):
+    metadata = document.metadata or {}
+    tenant_id = str(document.tenant_id or metadata.get("tenant_id") or "")
+    if tenant_id and not any(str(membership.get("tenant_id")) == tenant_id for membership in tenant_memberships(user)):
         return False
-    if user_id(user) == str(metadata.get("owner_user_id") or ""):
-        return True
-    return bool(set(user_groups(user)) & set(metadata.get("owner_groups") or []))
+    groups = metadata.get("owner_groups")
+    return isinstance(groups, list) and any(group in user_groups(user) for group in groups)

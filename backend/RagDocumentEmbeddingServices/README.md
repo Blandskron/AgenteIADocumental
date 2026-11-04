@@ -51,7 +51,9 @@ RagDocumentEmbeddingServices es un microservicio basado en FastAPI encargado de 
 - `storage_path`: str
 
 ## Authentication
-Todos los endpoints (excepto health checks) requieren un JWT válido en el header `Authorization: Bearer <token>`. El token se valida con la clave pública RSA configurada y debe tener `token_type: access`.
+Las rutas documentales requieren un JWT de acceso de AuthServices con firma RSA válida, `user_id` entero positivo y `exp` entero vigente. Cargar requiere el permiso activo `upload_documents`, administración del tenant activo o acceso de superadministrador. Google Drive reenvía el JWT del usuario y se rige por la misma regla.
+
+El propietario, los administradores del tenant documental y quienes tengan `manage_documents` en ese tenant activo pueden procesar y reindexar. Los superadministradores tienen acceso global. Compartir un grupo da acceso al estado dentro del tenant, sin conceder permiso de reindexación. Las columnas de propiedad y tenant tienen prioridad sobre los metadatos históricos.
 
 ## Architecture
 - **FastAPI** para la capa API
@@ -85,6 +87,13 @@ curl http://localhost:8003/api/v1/health/db
 Compose pasa las variables de ingesta explícitamente y comprueba el acceso a PostgreSQL y a la clave JWT pública antes de declarar el servicio sano. CORS admite `http://localhost:3000` y `http://127.0.0.1:3000` por defecto. Para otro origen, configura `EMBEDDING_CORS_ORIGINS` como arreglo JSON.
 
 `MAX_CHUNK_SIZE` y `CHUNK_OVERLAP` se expresan en caracteres. El tamaño debe ser positivo y el solapamiento debe estar entre cero y el tamaño del fragmento menos uno. Fuera de Compose, ejecuta desde este directorio con las dependencias instaladas y configura `DATABASE_URL`, `DOCUMENT_STORAGE_BASE_PATH` y `AUTH_JWT_PUBLIC_KEY_PATH` en el entorno o el `.env` del servicio. Inicia con `python -m uvicorn app.main:app --port 8003`.
+
+Para comprobar los permisos con PostgreSQL local:
+
+```sh
+docker compose -f docker/docker-compose.yml cp backend/RagDocumentEmbeddingServices/tests/test_ingestion_access.py rag-document-embedding-service:/app/test_ingestion_access.py
+docker compose -f docker/docker-compose.yml exec -T rag-document-embedding-service python -m pytest -q test_ingestion_access.py
+```
 
 ## Example Requests
 

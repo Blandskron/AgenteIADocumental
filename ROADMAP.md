@@ -50,8 +50,8 @@ Quedan en seguimiento nueve CVE altos de la imagen base Debian sin versión corr
 
 | Estado | ID | Entrega | Criterio de aceptación |
 |---|---|---|---|
-| En revisión | EMB-001 | Aislar configuración y validar arranque | `docker compose -f docker/docker-compose.yml config --quiet`, arranque con volumen de archivos aislado y Ruff. Se verificaron diez variables, PostgreSQL, CORS, `401` sin token y validación de la configuración de fragmentación. |
-| Lista | EMB-002 | Validar identidad y permisos de ingesta | Probar JWT, carga, consulta y reindexación con usuarios de distintos ámbitos. Revisar los permisos de mutación y el cliente de Google Drive. |
+| Hecha | EMB-001 | Aislar configuración y validar arranque | PR #26 integrado. Compose, arranque, CORS y configuración de fragmentación verificados. |
+| En revisión | EMB-002 | Validar identidad y permisos de ingesta | Compose, Ruff y nueve pruebas con `python -m pytest -q test_ingestion_access.py` y PostgreSQL. El endpoint de carga se comprobó con tokens reales de AuthServices. Se revisó el reenvío de JWT desde Google Drive. |
 | Lista | EMB-003 | Limitar archivos y confinar su lectura | Acotar tamaño y extracción, validar rutas dentro del almacenamiento y comprobar limpieza ante escrituras fallidas. |
 | Lista | EMB-004 | Hacer reproducible la indexación | Alinear la revisión del modelo con el chat y comprobar dimensiones, lotes, transiciones de estado y reindexación concurrente. |
 | Lista | EMB-005 | Restringir PostgreSQL y cerrar operación | Validar rol, dependencias, imagen, permisos del volumen y recorrido sintético en una instalación limpia. |
