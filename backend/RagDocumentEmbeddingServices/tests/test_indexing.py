@@ -1,4 +1,5 @@
 from io import BytesIO
+from os import environ
 from uuid import uuid4
 
 import pytest
@@ -57,21 +58,23 @@ def test_invalid_vectors_do_not_replace_chunks(vector):
 
 @pytest.fixture
 def database():
-    engine = create_engine(get_settings().database_url)
+    engine = create_engine(environ["EMBEDDING_TEST_DATABASE_URL"])
+    runtime = create_engine(get_settings().database_url)
     marker = uuid4().hex
     try:
-        yield engine, marker
+        yield engine, runtime, marker
     finally:
         with engine.begin() as connection:
             connection.execute(text("DELETE FROM documents WHERE metadata->>'test_marker' = :marker"), {"marker": marker})
         engine.dispose()
+        runtime.dispose()
 
 
 def test_same_document_conflicts_and_retry_keeps_valid_index(database, monkeypatch, tmp_path):
-    engine, marker = database
+    engine, runtime, marker = database
     settings = get_settings().model_copy(update={"document_storage_base_path": str(tmp_path)})
     monkeypatch.setattr(dependencies, "build_embedding_provider", RecordingProvider)
-    with Session(engine) as first, Session(engine) as second:
+    with Session(runtime) as first, Session(runtime) as second, Session(engine) as observer:
         upload = dependencies.get_upload_document(first, settings)
         document = upload.execute("fixture.txt", "text/plain", BytesIO(b"Synthetic original"), {"test_marker": marker})
         document_id = document.document_id
@@ -80,7 +83,7 @@ def test_same_document_conflicts_and_retry_keeps_valid_index(database, monkeypat
         with writer.indexing_transaction(document_id):
             with pytest.raises(ConflictError):
                 other.execute(document_id)
-            assert read_index(second, document_id) == ("PROCESSED", "Synthetic original")
+            assert read_index(observer, document_id) == ("PROCESSED", "Synthetic original")
 
         with pytest.raises(RuntimeError, match="synthetic failure"):
             with writer.indexing_transaction(document_id):
@@ -89,25 +92,25 @@ def test_same_document_conflicts_and_retry_keeps_valid_index(database, monkeypat
                 )
                 first.flush()
                 raise RuntimeError("synthetic failure")
-        assert read_index(second, document_id) == ("PROCESSED", "Synthetic original")
+        assert read_index(observer, document_id) == ("PROCESSED", "Synthetic original")
 
         (tmp_path / document.storage_path).write_text("Synthetic replacement")
         other.execute(document_id)
-        assert read_index(second, document_id) == ("PROCESSED", "Synthetic replacement")
+        assert read_index(observer, document_id) == ("PROCESSED", "Synthetic replacement")
 
 
 def test_initial_index_failure_sets_failed_without_chunks(database, monkeypatch, tmp_path):
-    engine, marker = database
+    engine, runtime, marker = database
     settings = get_settings().model_copy(update={"document_storage_base_path": str(tmp_path)})
     monkeypatch.setattr(dependencies, "build_embedding_provider", lambda: RecordingProvider([1.0]))
-    with Session(engine) as session:
+    with Session(runtime) as session, Session(engine) as observer:
         upload = dependencies.get_upload_document(session, settings)
         document = upload.execute(
             "fixture.txt", "text/plain", BytesIO(b"Synthetic fixture"), {"test_marker": marker}, process=False,
         )
         with pytest.raises(ExternalServiceError):
             dependencies.build_ingest_existing_document(session, settings).execute(document.document_id)
-        assert read_index(session, document.document_id) == ("FAILED", None)
+        assert read_index(observer, document.document_id) == ("FAILED", None)
 
 
 def read_index(session, document_id):

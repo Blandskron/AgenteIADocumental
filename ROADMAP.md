@@ -53,8 +53,10 @@ Quedan en seguimiento nueve CVE altos de la imagen base Debian sin versión corr
 | Hecha | EMB-001 | Aislar configuración y validar arranque | PR #26 integrado. Compose, arranque, CORS y configuración de fragmentación verificados. |
 | Hecha | EMB-002 | Validar identidad y permisos de ingesta | PR #27 integrado. Nueve pruebas con PostgreSQL y comprobación HTTP con tokens reales de AuthServices. |
 | Hecha | EMB-003 | Limitar archivos y confinar su lectura | PR #28 integrado. Arranque y 18 pruebas verificaron límites multipart, limpieza, confinamiento y extracción. |
-| En revisión | EMB-004 | Hacer reproducible la indexación | Compose válido, Ruff y 23 pruebas con PostgreSQL y pgvector. Se verificaron lotes, bloqueo entre sesiones, rollback y dos vectores reales de 384 dimensiones con la revisión fijada. |
-| Lista | EMB-005 | Restringir PostgreSQL y cerrar operación | Validar rol, dependencias, imagen, permisos del volumen y recorrido sintético en una instalación limpia. |
+| Hecha | EMB-004 | Hacer reproducible la indexación | PR #29 integrado. 23 pruebas con PostgreSQL y verificación del modelo real de 384 dimensiones. |
+| En revisión | EMB-005 | Restringir PostgreSQL y cerrar operación | Compose válido, 23 pruebas, Ruff, `pip check` y permisos SQL. Carga y reindexación HTTP con JWT real, modelo CPU y un vector de 384 dimensiones en un volumen nuevo. [Auditoría de imagen](backend/RagDocumentEmbeddingServices/README.md#verificación-de-la-imagen). |
+
+Quedan en seguimiento los CVE de Debian 13.7 que Trivy detectó en la imagen de ingesta, incluido CVE-2026-6653 en libxml2. [Evidencia de la imagen](backend/RagDocumentEmbeddingServices/README.md#verificación-de-la-imagen).
 
 ## Validación
 

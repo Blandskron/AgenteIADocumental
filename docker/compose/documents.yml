@@ -64,17 +64,31 @@ services:
       rag-document-chat-service:
         condition: service_healthy
 
+  embedding-db-role:
+    image: pgvector/pgvector:pg16
+    environment:
+      PGPASSWORD: admin1234
+      EMBEDDING_DB_PASSWORD: ${EMBEDDING_DB_PASSWORD:-blandskron-local-embedding}
+    volumes:
+      - ../../scripts/database/embedding:/embedding-db:ro
+    command: ["psql", "-h", "postgres", "-U", "postgres", "-d", "documents_db", "-v", "ON_ERROR_STOP=1", "-f", "/embedding-db/provision_role.sql"]
+    depends_on:
+      database-schema:
+        condition: service_completed_successfully
+
   rag-document-embedding-service:
     build:
       context: ../../backend/RagDocumentEmbeddingServices
       dockerfile: Dockerfile
     container_name: rag-document-embedding-service
+    user: "${EMBEDDING_UID:-10004}:${EMBEDDING_GID:-10004}"
     environment:
       APP_ENV: ${APP_ENV:-local}
       APP_NAME: rag-document-embedding-service
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
       CORS_ORIGINS: '${EMBEDDING_CORS_ORIGINS:-["http://localhost:3000","http://127.0.0.1:3000"]}'
-      DATABASE_URL: postgresql+psycopg://postgres:admin1234@postgres:5432/documents_db
+      DATABASE_URL: postgresql+psycopg://embedding_runtime@postgres:5432/documents_db
+      PGPASSWORD: ${EMBEDDING_DB_PASSWORD:-blandskron-local-embedding}
       DOCUMENT_STORAGE_BASE_PATH: /app/documents
       MAX_CHUNK_SIZE: ${MAX_CHUNK_SIZE:-1200}
       CHUNK_OVERLAP: ${CHUNK_OVERLAP:-160}
@@ -89,15 +103,28 @@ services:
       test:
         [
           "CMD-SHELL",
-          "test -r /app/auth_keys/public.pem && python -c \"import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/v1/health/db', timeout=3)\"",
+          "test -w /app/documents && test -r /app/auth_keys/public.pem && python -c \"import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/v1/health/db', timeout=3)\"",
         ]
       interval: 10s
       timeout: 5s
       retries: 10
     depends_on:
-      database-schema:
+      embedding-db-role:
         condition: service_completed_successfully
       auth-service:
+        condition: service_healthy
+
+  embedding-tests:
+    profiles: ["test"]
+    build:
+      context: ../../backend/RagDocumentEmbeddingServices
+      target: test
+    environment:
+      DATABASE_URL: postgresql+psycopg://embedding_runtime@postgres:5432/documents_db
+      PGPASSWORD: ${EMBEDDING_DB_PASSWORD:-blandskron-local-embedding}
+      EMBEDDING_TEST_DATABASE_URL: postgresql+psycopg://postgres:admin1234@postgres:5432/documents_db
+    depends_on:
+      rag-document-embedding-service:
         condition: service_healthy
 
   document-search-service:

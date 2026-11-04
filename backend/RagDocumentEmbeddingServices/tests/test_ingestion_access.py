@@ -1,3 +1,4 @@
+import os
 from types import SimpleNamespace
 from unittest.mock import Mock
 from uuid import uuid4
@@ -38,7 +39,7 @@ def test_rejects_invalid_jwt(signing_key, tmp_path, claims):
     with pytest.raises(HTTPException) as error:
         require_authenticated_user(
             HTTPAuthorizationCredentials(scheme="Bearer", credentials=token),
-            Settings(auth_jwt_public_key_path=str(public_key)),
+            Settings(database_url="fixture", auth_jwt_public_key_path=str(public_key)),
         )
     assert error.value.status_code == 401
 
@@ -66,7 +67,7 @@ def test_upload_requires_permission_and_uses_claims_for_ownership():
 
 
 def test_read_and_mutation_scopes_with_postgres():
-    engine = create_engine(get_settings().database_url)
+    engine = create_engine(os.environ["EMBEDDING_TEST_DATABASE_URL"])
     tenant, document = uuid4().hex, uuid4().hex
     try:
         with Session(engine) as session:
@@ -76,6 +77,7 @@ def test_read_and_mutation_scopes_with_postgres():
                 VALUES (:document, :tenant, '42', 'fixture.txt', 'fixture.txt', 'text/plain',
                         '{"owner_user_id":"43","owner_groups":["readers"]}')
             """), {"document": document, "tenant": tenant})
+            session.execute(text("SET LOCAL ROLE embedding_runtime"))
             reader = DocumentReaderPg(session)
             ingest = Mock()
             group_member = {"user_id": 44, "groups": ["readers"], "tenant_memberships": [{"tenant_id": tenant}]}
