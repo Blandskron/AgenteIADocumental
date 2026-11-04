@@ -1,13 +1,33 @@
 from datetime import datetime
 from typing import Any
 
-from sqlalchemy import Boolean, DateTime, FetchedValue, ForeignKey, Text, func
+from sqlalchemy import Boolean, Column, DateTime, FetchedValue, ForeignKey, Table, Text, func
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 
 class Base(DeclarativeBase):
     pass
+
+
+# Read-only projections of the shared schema managed by scripts/database.
+documents = Table(
+    "documents",
+    Base.metadata,
+    Column("document_id", Text, primary_key=True),
+    Column("owner_user_id", Text),
+    Column("tenant_id", Text),
+    Column("metadata", JSONB),
+)
+
+document_assignments = Table(
+    "document_assignments",
+    Base.metadata,
+    Column("document_id", Text),
+    Column("assigned_to_user_id", Text),
+    Column("assigned_by_user_id", Text),
+    Column("status", Text),
+)
 
 
 class ConversationModel(Base):

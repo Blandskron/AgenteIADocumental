@@ -1,13 +1,17 @@
 from __future__ import annotations
 
+from sqlalchemy import delete, select, true
+from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.orm import Session
 
-from app.infrastructure.database.models import ConversationDocumentModel, ConversationMessageModel, ConversationModel
+from app.infrastructure.database.models import ConversationDocumentModel, ConversationMessageModel, ConversationModel, documents
+from app.infrastructure.database.repositories.document_access import document_access_filter
 
 
 class ConversationRepositoryPg:
     def __init__(self, session: Session, current_user: dict) -> None:
         self._session = session
+        self._current_user = current_user
         self._owner_user_id = _owner_user_id(current_user)
 
     def list(self, include_archived: bool = False) -> list[ConversationModel]:
@@ -80,55 +84,66 @@ class ConversationRepositoryPg:
         return message
 
     def list_documents(self, conversation_id: str) -> list[str]:
-        return [
-            row.document_id
-            for row in self._session.query(ConversationDocumentModel)
-            .filter(
+        statement = (
+            select(ConversationDocumentModel.document_id)
+            .join(documents, documents.c.document_id == ConversationDocumentModel.document_id)
+            .where(
                 ConversationDocumentModel.conversation_id == conversation_id,
                 ConversationDocumentModel.owner_user_id == self._owner_user_id,
+                self._owns_conversation(conversation_id),
+                document_access_filter(self._current_user),
             )
             .order_by(ConversationDocumentModel.created_at.desc())
-            .all()
-        ]
+        )
+        return list(self._session.scalars(statement))
 
     def add_document(self, conversation_id: str, document_id: str) -> bool:
-        if self.get(conversation_id) is None:
-            return False
-        exists = (
-            self._session.query(ConversationDocumentModel)
-            .filter(
-                ConversationDocumentModel.conversation_id == conversation_id,
-                ConversationDocumentModel.document_id == document_id,
-                ConversationDocumentModel.owner_user_id == self._owner_user_id,
+        # Keep both FK targets from being deleted between the access check and insert.
+        allowed_document = (
+            select(documents.c.document_id)
+            .join(ConversationModel, true())
+            .where(
+                ConversationModel.conversation_id == conversation_id,
+                ConversationModel.owner_user_id == self._owner_user_id,
+                documents.c.document_id == document_id,
+                document_access_filter(self._current_user),
             )
-            .first()
+            .with_for_update(of=(ConversationModel, documents), read=True, key_share=True)
         )
-        if exists is None:
-            self._session.add(
-                ConversationDocumentModel(
-                    conversation_id=conversation_id,
-                    document_id=document_id,
-                    owner_user_id=self._owner_user_id,
-                )
+        if self._session.scalar(allowed_document) is None:
+            return False
+
+        self._session.execute(
+            insert(ConversationDocumentModel)
+            .values(
+                conversation_id=conversation_id,
+                document_id=document_id,
+                owner_user_id=self._owner_user_id,
             )
-            self._session.commit()
+            .on_conflict_do_nothing(index_elements=["conversation_id", "document_id"])
+        )
+        self._session.commit()
         return True
 
     def remove_document(self, conversation_id: str, document_id: str) -> bool:
-        row = (
-            self._session.query(ConversationDocumentModel)
-            .filter(
+        removed = self._session.scalar(
+            delete(ConversationDocumentModel)
+            .where(
                 ConversationDocumentModel.conversation_id == conversation_id,
                 ConversationDocumentModel.document_id == document_id,
                 ConversationDocumentModel.owner_user_id == self._owner_user_id,
+                self._owns_conversation(conversation_id),
             )
-            .first()
+            .returning(ConversationDocumentModel.document_id)
         )
-        if row is None:
-            return False
-        self._session.delete(row)
         self._session.commit()
-        return True
+        return removed is not None
+
+    def _owns_conversation(self, conversation_id: str):
+        return select(1).where(
+            ConversationModel.conversation_id == conversation_id,
+            ConversationModel.owner_user_id == self._owner_user_id,
+        ).exists()
 
 
 def _owner_user_id(current_user: dict) -> str:
