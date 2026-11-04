@@ -30,9 +30,8 @@ class DocumentWriterPg:
             status=status,
         )
         self._session.add(document)
-        self._session.commit()
-        self._session.refresh(document)
-        return Document(
+        self._session.flush()
+        result = Document(
             document_id=str(document.document_id),
             filename=document.filename,
             storage_path=document.storage_path,
@@ -42,6 +41,8 @@ class DocumentWriterPg:
             owner_user_id=document.owner_user_id,
             tenant_id=document.tenant_id,
         )
+        self._session.commit()
+        return result
 
     def mark_as_processing(self, document_id: str) -> None:
         document = self._session.get(DocumentModel, document_id)

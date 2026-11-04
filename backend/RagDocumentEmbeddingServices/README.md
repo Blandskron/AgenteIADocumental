@@ -29,6 +29,12 @@ RagDocumentEmbeddingServices es un microservicio basado en FastAPI encargado de 
 - `POST /api/v1/documents/{document_id}/reindex` — Reindexa un documento existente
 - `GET /api/v1/documents/{document_id}/status` — Consulta el estado de procesamiento de un documento
 
+La carga admite archivos de hasta 20 MiB y metadatos JSON de hasta 64 KiB. El cuerpo multipart tiene un margen adicional de 128 KiB para sus campos y cabeceras. La API devuelve `413` cuando se supera alguno de esos límites.
+
+La extracción admite hasta 200 páginas de PDF, 1024 entradas y 64 MiB descomprimidos por DOCX, imágenes de hasta 16 megapíxeles y un máximo de 20 segundos por operación OCR. El texto extraído se limita a un millón de caracteres. Los límites de extracción devuelven `422`.
+
+El procesamiento solo lee archivos bajo `DOCUMENT_STORAGE_BASE_PATH`. Se admiten rutas relativas y rutas locales históricas que resuelvan dentro de ese directorio. Los límites de extracción también se aplican al reindexar archivos existentes. Si falla el registro inicial, se elimina el archivo recién escrito. Si falla el procesamiento después del registro, el archivo se conserva para poder reintentar.
+
 ## Data Models
 
 ### DocumentUploadResponse
@@ -92,7 +98,8 @@ Para comprobar los permisos con PostgreSQL local:
 
 ```sh
 docker compose -f docker/docker-compose.yml cp backend/RagDocumentEmbeddingServices/tests/test_ingestion_access.py rag-document-embedding-service:/app/test_ingestion_access.py
-docker compose -f docker/docker-compose.yml exec -T rag-document-embedding-service python -m pytest -q test_ingestion_access.py
+docker compose -f docker/docker-compose.yml cp backend/RagDocumentEmbeddingServices/tests/test_file_boundary.py rag-document-embedding-service:/app/test_file_boundary.py
+docker compose -f docker/docker-compose.yml exec -T rag-document-embedding-service python -m pytest -q test_ingestion_access.py test_file_boundary.py
 ```
 
 ## Example Requests

@@ -31,13 +31,17 @@ class UploadDocument:
             "original_filename": filename,
             "size_bytes": size_bytes,
         }
-        document = self._document_writer.create(
-            filename=filename,
-            storage_path=storage_path,
-            mime_type=mime_type,
-            metadata=document_metadata,
-            status="PENDING",
-        )
+        try:
+            document = self._document_writer.create(
+                filename=filename,
+                storage_path=storage_path,
+                mime_type=mime_type,
+                metadata=document_metadata,
+                status="PENDING",
+            )
+        except Exception:
+            self._storage.remove(storage_path)
+            raise
 
         if process:
             self._ingestion.execute(document.document_id)

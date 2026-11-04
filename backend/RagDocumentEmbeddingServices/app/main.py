@@ -8,7 +8,8 @@ from app.config.logging import configure_logging
 from app.config.settings import get_settings
 from app.infrastructure.database.connection import Database
 from app.interfaces.api.router import api_router
-from app.shared.errors import AppError, ExternalServiceError, NotFoundError, ValidationError
+from app.interfaces.api.upload_limits import UploadBodyLimitMiddleware
+from app.shared.errors import AppError, ExternalServiceError, ExtractionError, NotFoundError, PayloadTooLarge, ValidationError
 
 
 settings = get_settings()
@@ -26,6 +27,7 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title=settings.app_name, version="0.1.0", lifespan=lifespan)
 
+app.add_middleware(UploadBodyLimitMiddleware)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origins,
@@ -46,6 +48,16 @@ async def not_found_handler(request: Request, exc: NotFoundError) -> JSONRespons
 @app.exception_handler(ValidationError)
 async def validation_handler(request: Request, exc: ValidationError) -> JSONResponse:
     return JSONResponse(status_code=400, content={"detail": str(exc)})
+
+
+@app.exception_handler(PayloadTooLarge)
+async def payload_too_large_handler(request: Request, exc: PayloadTooLarge) -> JSONResponse:
+    return JSONResponse(status_code=413, content={"detail": str(exc)})
+
+
+@app.exception_handler(ExtractionError)
+async def extraction_error_handler(request: Request, exc: ExtractionError) -> JSONResponse:
+    return JSONResponse(status_code=422, content={"detail": str(exc)})
 
 
 @app.exception_handler(ExternalServiceError)

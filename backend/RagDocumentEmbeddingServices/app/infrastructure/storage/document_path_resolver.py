@@ -1,5 +1,6 @@
 from pathlib import Path
 from urllib.parse import urlparse
+from urllib.request import url2pathname
 
 from app.shared.errors import ValidationError
 
@@ -9,24 +10,20 @@ class LocalDocumentPathResolver:
         self._base_path = Path(base_path).resolve()
 
     def resolve(self, storage_path: str) -> str:
-        raw_path = Path(storage_path)
-        if raw_path.is_absolute():
-            return self._validate_file(raw_path)
-
-        parsed = urlparse(storage_path)
-        if parsed.scheme and parsed.scheme not in {"file"}:
-            raise ValidationError(f"Unsupported remote storage scheme: {parsed.scheme}")
-
-        candidate = Path(parsed.path if parsed.scheme == "file" else storage_path)
+        candidate = Path(storage_path)
         if not candidate.is_absolute():
-            candidate = self._base_path / candidate
+            parsed = urlparse(storage_path)
+            if parsed.scheme == "file" and parsed.netloc in ("", "localhost"):
+                candidate = Path(url2pathname(parsed.path))
+            elif parsed.scheme or parsed.netloc:
+                raise ValidationError("Unsupported document storage URL.")
 
-        return self._validate_file(candidate)
-
-    def _validate_file(self, path: Path) -> str:
-        resolved = path.resolve()
-        if not resolved.exists():
-            raise FileNotFoundError(f"Document file not found: {resolved}")
+        try:
+            resolved = (self._base_path / candidate).resolve()
+        except (OSError, RuntimeError, ValueError) as exc:
+            raise ValidationError("Invalid document storage path.") from exc
+        if not resolved.is_relative_to(self._base_path):
+            raise ValidationError("Document path is outside the storage directory.")
         if not resolved.is_file():
-            raise ValidationError(f"Document path is not a file: {resolved}")
+            raise ValidationError("Document file does not exist in storage.")
         return str(resolved)
