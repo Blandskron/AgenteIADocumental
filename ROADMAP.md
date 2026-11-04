@@ -32,9 +32,19 @@ Mantén una tarjeta en **En curso**. Pásala a **En revisión** con evidencia y 
 | Hecha | CONV-002 | Restaurar y autorizar vínculos documentales | PR #17 integrado. Cuatro pruebas sobre PostgreSQL cubren permisos, revocación, retiro y concurrencia. |
 | Hecha | CONV-003 | Validar identidad JWT y aislamiento por dueño | PR #18 integrado. 20 pruebas sobre PostgreSQL y verificación con tokens de acceso emitidos y renovados por AuthServices. |
 | Hecha | CONV-004 | Limitar escrituras y paginar el historial | PR #19 integrado. 28 pruebas con PostgreSQL, índice comprobado, Ruff y compilación del frontend. |
-| En revisión | CONV-005 | Restringir acceso a PostgreSQL y cerrar operación | Arranque Compose con volumen nuevo, 28 pruebas con el rol de ejecución, verificación SQL de permisos, Ruff y `pip check`. Los aprovisionadores serializan los cambios a los permisos del esquema compartido. La auditoría no reportó avisos en dependencias directas ni hallazgos altos o críticos en paquetes Python. |
+| Hecha | CONV-005 | Restringir acceso a PostgreSQL y cerrar operación | PR #20 integrado. Arranque con volumen nuevo, 28 pruebas, verificación SQL de permisos y aprovisionamiento serializado del esquema compartido. |
 
 Quedan en seguimiento nueve CVE altos de la imagen base Debian sin versión corregida indicada por Trivy. [Evidencia de la imagen](backend/ConversationServices/README.md#dependency-and-image-checks).
+
+### RagDocumentChatServices
+
+| Estado | ID | Entrega | Criterio de aceptación |
+|---|---|---|---|
+| En revisión | RAG-001 | Aislar configuración, CORS y acceso HTTP | Compose válido, arranque local y Ruff. Se verificaron la lista de variables, salud y PostgreSQL, CORS, `401` sin token o con la clave interna anterior y la sonda de configuración de Groq. |
+| Lista | RAG-002 | Validar identidad y permisos documentales | Exigir identidad y expiración de AuthServices, excluir asignaciones revocadas y comprobar búsqueda y resumen con PostgreSQL. Revisar si el historial puede reintroducir contenido cuyo acceso se revocó. |
+| Lista | RAG-003 | Acotar solicitudes, contexto e historial | Fijar límites de entrada y del contexto enviado al modelo. Verificar aislamiento de sesiones y persistencia ante fallos. |
+| Lista | RAG-004 | Probar la integración con Groq | Cubrir respuestas vacías, errores y tiempos de espera con un proveedor simulado. Validar el recorrido con datos sintéticos. |
+| Lista | RAG-005 | Restringir PostgreSQL y cerrar operación | Aprovisionar un rol dedicado y validar imagen, dependencias, modelo de embeddings y arranque limpio. |
 
 ## Validación
 

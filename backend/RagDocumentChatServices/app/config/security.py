@@ -28,14 +28,6 @@ def require_authenticated_user(
             headers={"WWW-Authenticate": "Bearer"},
         )
 
-    if settings.internal_service_api_key and credentials.credentials == settings.internal_service_api_key:
-        return {
-            "sub": "service:document-internal",
-            "token_type": "access",
-            "is_service": True,
-            "roles": ["service"],
-        }
-
     try:
         payload = jwt.decode(
             credentials.credentials,
