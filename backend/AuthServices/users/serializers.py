@@ -2,7 +2,12 @@ from django.contrib.auth.models import Group, Permission, User
 from django.db import transaction
 from django.db.models import F
 from rest_framework import serializers
-from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
+from django.utils.crypto import constant_time_compare
+from rest_framework_simplejwt.exceptions import InvalidToken
+from rest_framework_simplejwt.serializers import TokenObtainPairSerializer, TokenRefreshSerializer
+from rest_framework_simplejwt.settings import api_settings
+from rest_framework_simplejwt.tokens import AccessToken
+from rest_framework_simplejwt.utils import get_md5_hash_password
 
 from .models import Tenant, TenantArea, TenantGroup, TenantGroupPermission, TenantMembership, TenantUserGroup
 
@@ -122,7 +127,10 @@ def serialize_user_profile(user):
 class MyTokenObtainPairSerializer(TokenObtainPairSerializer):
     @classmethod
     def get_token(cls, user):
-        token = super().get_token(user)
+        return cls.add_current_claims(super().get_token(user), user)
+
+    @staticmethod
+    def add_current_claims(token, user):
         profile = serialize_user_profile(user)
         token["user_id"] = profile["id"]
         token["username"] = profile["username"]
@@ -144,6 +152,19 @@ class MyTokenObtainPairSerializer(TokenObtainPairSerializer):
         token["grupos"] = profile["groups"]
         token["permisos"] = profile["permissions"]
         return token
+
+
+class CurrentClaimsRefreshSerializer(TokenRefreshSerializer):
+    def validate(self, attrs):
+        refresh = self.token_class(attrs["refresh"])
+        user = User.objects.filter(pk=refresh[api_settings.USER_ID_CLAIM], is_active=True).first()
+        if user is None or not constant_time_compare(
+            str(refresh.get(api_settings.REVOKE_TOKEN_CLAIM, "")), get_md5_hash_password(user.password)
+        ):
+            raise InvalidToken("La sesión ya no es válida. Inicia sesión de nuevo.")
+
+        access = MyTokenObtainPairSerializer.add_current_claims(AccessToken.for_user(user), user)
+        return {"access": str(access)}
 
 
 class UserSerializer(serializers.ModelSerializer):

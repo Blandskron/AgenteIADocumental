@@ -40,6 +40,12 @@
 | POST | `/api/users/tenant-memberships/provision/` | Crea una cuenta nueva y su membresía. Recibe `tenant`, `username`, `password`, `role` y opcionalmente `area`, `email`, `first_name` y `last_name`. Devuelve la membresía. | Superadministrador o administrador de la empresa destino |
 | POST | `/api/users/tenant-memberships/` | Vincula una identidad existente | Superadministrador |
 
+## Vigencia de las sesiones
+
+El token de acceso dura 10 minutos y el refresh dura 24 horas desde el login. Renovar devuelve un token de acceso con el rol, la empresa y los permisos actuales. Conserva la fecha de vencimiento del refresh.
+
+El refresh se rechaza si la cuenta está desactivada, cambió su contraseña o cerró esa sesión en el servidor. Los refresh emitidos antes de incorporar la huella de contraseña requieren iniciar sesión de nuevo. Los servicios que verifican JWT sin consultar Auth pueden aceptar un access ya emitido hasta su vencimiento.
+
 ## Verificar la autorización
 
 Desde la raíz, con PostgreSQL de Compose activo:

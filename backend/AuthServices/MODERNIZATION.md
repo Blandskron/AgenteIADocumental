@@ -21,8 +21,8 @@ Diagnóstico inicial sobre `main` en `fa74ac1`. Este es el primer servicio de la
 | En revisión | AUTH-000 | Mapa y diagnóstico Agents First | Alcance, fuentes, hallazgos, dependencias y orden de entrega documentados. |
 | Hecha | AUTH-001 | Proteger cuentas globales | Integrada en main. Las mutaciones globales requieren superadministrador y el alta por empresa es atómica. |
 | Integrada con seguimiento | AUTH-002 | Aislar mutaciones de empresa | La API y los claims protegen las relaciones. Quedan restricciones de persistencia y pruebas con sesiones concurrentes. |
-| En revisión | AUTH-003 | Separar claves y bootstrap | Volúmenes separados, administrador explícito y puertos en loopback. Un verificador real rechazó una firma anterior y aceptó el JWT nuevo. |
-| Backlog | AUTH-004 | Endurecer el ciclo de sesión | Renovación con claims vigentes, revocación ante cambios sensibles, vigencia documentada y pruebas de firma, tipo, expiración y credenciales antiguas. Probar el impacto en los consumidores. |
+| Hecha | AUTH-003 | Separar claves y bootstrap | Integrada con cuatro checks aprobados. Volúmenes separados, administrador explícito y puertos en loopback. |
+| En revisión | AUTH-004 | Endurecer el ciclo de sesión | La renovación consulta permisos vigentes y rechaza sesiones revocadas. Acceso de diez minutos. Los consumidores sin estado pueden aceptar un access previo hasta que venza. |
 | Backlog | AUTH-005 | Reducir abuso y aplicar política de contraseñas | Validadores en todas las escrituras, límite verificable de intentos y registro de eventos administrativos sin secretos ni tokens. |
 | Backlog | AUTH-006 | Hacer reproducible la operación | Separar migración y arranque, validar configuración segura, ejecutar como usuario sin privilegios, acotar permisos de base y revisar dependencias e imagen con evidencia. Registrar decisiones y estrategia de rollback. |
 | Backlog | AUTH-007 | Completar la adopción Agents First | README humano, AGENTS local, contrato API y guías de pruebas, configuración, seguridad y operación enlazadas desde fuentes canónicas. Otra persona puede ejecutar las comprobaciones desde un clon limpio. |

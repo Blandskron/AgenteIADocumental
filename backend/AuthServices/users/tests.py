@@ -1,9 +1,10 @@
 from django.contrib.auth.models import Group, Permission, User
 from django.db import connection
 from rest_framework.test import APITestCase
+from rest_framework_simplejwt.tokens import AccessToken
 
 from .models import Tenant, TenantArea, TenantGroup, TenantGroupPermission, TenantMembership, TenantUserGroup
-from .serializers import tenant_membership_payload
+from .serializers import MyTokenObtainPairSerializer, tenant_membership_payload
 
 
 class TenantIdentityBoundaryTests(APITestCase):
@@ -234,3 +235,47 @@ class TenantIdentityBoundaryTests(APITestCase):
         self.assertEqual(self.client.get("/api/users/tenant-areas/").status_code, 403)
         self.assertEqual(self.provision().status_code, 403)
         self.assertEqual(tenant_membership_payload(self.admin), [])
+
+    def refresh_session(self, token):
+        return self.client.post("/api/users/token/refresh/", {"refresh": str(token)}, format="json")
+
+    def test_refresh_recomputes_roles_and_tenant_permissions(self):
+        token = MyTokenObtainPairSerializer.get_token(self.admin)
+        self.assertEqual(token["active_role"], "TENANT_ADMIN")
+        self.membership.role = "USER"
+        self.membership.save(update_fields=["role"])
+        response = self.refresh_session(token)
+        self.assertEqual(response.status_code, 200)
+        access = AccessToken(response.data["access"])
+        self.assertEqual(access["active_role"], "USER")
+        self.assertEqual(access["exp"] - access["iat"], 600)
+        self.assertNotIn("tenant.manage", access["active_permissions"])
+
+        self.tenant.status = "SUSPENDED"
+        self.tenant.save(update_fields=["status"])
+        access = AccessToken(self.refresh_session(token).data["access"])
+        self.assertEqual(access["tenant_memberships"], [])
+        self.assertIsNone(access["active_tenant_id"])
+
+    def test_refresh_rejects_password_change_and_inactive_account(self):
+        token = MyTokenObtainPairSerializer.get_token(self.admin)
+        self.admin.set_password("new-password-for-test")
+        self.admin.save(update_fields=["password"])
+        self.assertEqual(self.refresh_session(token).status_code, 401)
+        token = MyTokenObtainPairSerializer.get_token(self.admin)
+        self.admin.is_active = False
+        self.admin.save(update_fields=["is_active"])
+        self.assertEqual(self.refresh_session(token).status_code, 401)
+
+    def test_refresh_rejects_logout_legacy_and_access_tokens(self):
+        token = MyTokenObtainPairSerializer.get_token(self.admin)
+        self.assertEqual(self.refresh_session(token.access_token).status_code, 401)
+        response = self.client.post("/api/users/logout/", {"refresh": str(token)}, format="json")
+        self.assertEqual(response.status_code, 205)
+        self.assertEqual(self.refresh_session(token).status_code, 401)
+        legacy = MyTokenObtainPairSerializer.get_token(self.admin)
+        del legacy["hash_password"]
+        self.assertEqual(self.refresh_session(legacy).status_code, 401)
+        expired = MyTokenObtainPairSerializer.get_token(self.admin)
+        expired["exp"] = 1
+        self.assertEqual(self.refresh_session(expired).status_code, 401)

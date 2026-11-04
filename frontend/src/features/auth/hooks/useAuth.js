@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback, useMemo } from "react";
 
 import { normalizeAuthUser, userFromAccessToken, userStorageScope } from "../../../entities/auth/model/auth.user";
 import { loadAuthSession, saveAuthSession, clearAuthSession } from "../../../entities/auth/model/auth.storage";
-import { loginRequest, meRequest, refreshTokenRequest } from "../api/auth.api";
+import { loginRequest, logoutRequest, meRequest, refreshTokenRequest } from "../api/auth.api";
 
 export function useAuth() {
   const [auth, setAuth] = useState(loadAuthSession);
@@ -59,17 +59,26 @@ export function useAuth() {
         refresh: payload.refresh || auth.refresh,
         user: payload.user ? normalizeAuthUser(payload.user) : userFromAccessToken(payload.access, auth.username),
       };
-      setAuth(nextAuth);
+      setAuth((current) => (current?.refresh === auth.refresh ? nextAuth : current));
       return nextAuth.access;
     } catch {
-      setAuth(null);
+      setAuth((current) => (current?.refresh === auth.refresh ? null : current));
       return null;
     }
   }, [auth]);
 
   const logout = useCallback(() => {
     setAuth(null);
-  }, []);
+    if (!auth?.refresh) return;
+
+    logoutRequest(auth.access, auth.refresh)
+      .catch(async (error) => {
+        if (error.status !== 401) return;
+        const { access } = await refreshTokenRequest(auth.refresh);
+        await logoutRequest(access, auth.refresh);
+      })
+      .catch(() => {});
+  }, [auth?.access, auth?.refresh]);
 
   const currentUser = useMemo(() => {
     return auth?.user || userFromAccessToken(auth?.access, auth?.username);
