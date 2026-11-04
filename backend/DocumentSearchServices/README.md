@@ -24,6 +24,10 @@ DocumentSearchServices es un microservicio basado en FastAPI que proporciona end
 - `GET /api/v1/documents/{document_id}/chunks` — Lista fragmentos (chunks) de un documento (parámetros: q, limit, offset)
 - `POST /api/v1/documents/chat-selection` — Selecciona documentos para contexto de chat
 
+La búsqueda y los fragmentos admiten páginas de 1 a 100 elementos y un desplazamiento de 0 a 10 000. El texto de búsqueda admite hasta 256 caracteres. Los límites de `status`, `mime_type`, `source` y `sort` son 32, 128, 64 y 32 caracteres respectivamente. La búsqueda desempata por ID de documento ascendente y los fragmentos se ordenan por su índice.
+
+La selección admite de 1 a 12 documentos, en línea con el límite de RAG Chat. Los IDs de documento y de sesión admiten de 1 a 128 caracteres. Los parámetros de texto rechazan el carácter nulo. La API responde con HTTP 422 ante entradas fuera de estos límites.
+
 ## Data Models
 
 ### DocumentSummaryResponse
@@ -107,7 +111,7 @@ Compose pasa las variables de búsqueda explícitamente. El chequeo de arranque 
 
 Fuera de Compose, instala `requirements.txt` desde este directorio, configura `DATABASE_URL` y `AUTH_JWT_PUBLIC_KEY_PATH` en el entorno o en el `.env` del servicio y ejecuta `python -m uvicorn app.main:app --port 8004`. Para personalizar CORS en este modo, usa `CORS_ORIGINS`.
 
-Con el servicio iniciado, ejecuta las pruebas de permisos sobre PostgreSQL y pgvector. Los registros sintéticos se revierten al terminar.
+Con el servicio iniciado, ejecuta las pruebas de permisos, paginación, número de consultas y límites de selección sobre PostgreSQL y pgvector. Los registros sintéticos se revierten al terminar.
 
 ```sh
 docker compose -f docker/docker-compose.yml cp backend/DocumentSearchServices/tests/test_document_access.py document-search-service:/app/test_document_access.py

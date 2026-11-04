@@ -1,6 +1,11 @@
 from datetime import datetime
+from typing import Annotated
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, StringConstraints
+
+
+NO_NULL_BYTES = r"^[^\x00]*$"
+Identifier = Annotated[str, StringConstraints(min_length=1, max_length=128, pattern=NO_NULL_BYTES)]
 
 
 class DocumentSummaryResponse(BaseModel):
@@ -41,8 +46,8 @@ class DocumentChunksResponse(BaseModel):
 
 
 class ChatSelectionRequest(BaseModel):
-    document_ids: list[str] = Field(min_length=1)
-    session_id: str | None = None
+    document_ids: list[Identifier] = Field(min_length=1, max_length=12)
+    session_id: Identifier | None = None
 
 
 class ChatSelectionResponse(BaseModel):

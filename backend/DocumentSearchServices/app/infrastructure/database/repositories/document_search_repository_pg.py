@@ -1,4 +1,4 @@
-from sqlalchemy import exists, func, or_, select
+from sqlalchemy import exists, func, null, or_, select
 from sqlalchemy.orm import Session
 
 from app.config.security import is_superadmin_user, tenant_ids_for_role, tenant_memberships, user_groups, user_id
@@ -24,26 +24,28 @@ class DocumentSearchRepositoryPg:
         statement = self._accessible_documents_query()
         statement = self._apply_filters(statement, query, status, mime_type, source)
         total = statement.count()
-        documents = statement.order_by(self._sort_clause(sort)).offset(offset).limit(limit).all()
+        documents = self._with_summaries(statement, query).order_by(
+            self._sort_clause(sort), DocumentModel.document_id.asc(),
+        ).offset(offset).limit(limit).all()
 
         return DocumentSearchResult(
-            items=[self._to_summary(document, query=query) for document in documents],
+            items=[self._to_summary(*row) for row in documents],
             total=total,
             limit=limit,
             offset=offset,
         )
 
     def get_by_id(self, document_id: str) -> DocumentSummary | None:
-        document = self._accessible_documents_query().filter(DocumentModel.document_id == document_id).first()
-        if document is None:
-            return None
-        return self._to_summary(document)
+        statement = self._accessible_documents_query().filter(DocumentModel.document_id == document_id)
+        row = self._with_summaries(statement).first()
+        return self._to_summary(*row) if row is not None else None
 
     def get_many_by_ids(self, document_ids: list[str]) -> list[DocumentSummary]:
         if not document_ids:
             return []
-        documents = self._accessible_documents_query().filter(DocumentModel.document_id.in_(document_ids)).all()
-        by_id = {str(document.document_id): self._to_summary(document) for document in documents}
+        statement = self._accessible_documents_query().filter(DocumentModel.document_id.in_(document_ids))
+        summaries = [self._to_summary(*row) for row in self._with_summaries(statement).all()]
+        by_id = {summary.document_id: summary for summary in summaries}
         return [by_id[document_id] for document_id in document_ids if document_id in by_id]
 
     def get_chunks(
@@ -54,7 +56,14 @@ class DocumentSearchRepositoryPg:
         offset: int = 0,
     ) -> tuple[list[DocumentChunk], int]:
         statement = (
-            self._session.query(DocumentEmbeddingModel)
+            self._session.query(
+                DocumentEmbeddingModel.chunk_id,
+                DocumentEmbeddingModel.document_id,
+                DocumentEmbeddingModel.chunk_index,
+                DocumentEmbeddingModel.chunk_content,
+                DocumentEmbeddingModel.metadata_,
+                DocumentEmbeddingModel.created_at,
+            )
             .join(DocumentModel, DocumentEmbeddingModel.document_id == DocumentModel.document_id)
             .filter(DocumentEmbeddingModel.document_id == document_id)
         )
@@ -138,43 +147,33 @@ class DocumentSearchRepositoryPg:
         }
         return options.get(sort, DocumentModel.created_at.desc())
 
-    def _to_summary(self, document: DocumentModel, query: str | None = None) -> DocumentSummary:
+    def _with_summaries(self, statement, query: str | None = None):
+        chunk = DocumentEmbeddingModel
+        matches_document = chunk.document_id == DocumentModel.document_id
+        count = select(func.count(chunk.chunk_id)).where(matches_document).correlate(DocumentModel).scalar_subquery()
+        snippet = null()
+        if query:
+            snippet = (
+                select(chunk.chunk_content)
+                .where(matches_document, chunk.chunk_content.ilike(f"%{query}%"))
+                .order_by(chunk.chunk_index.asc())
+                .limit(1)
+                .correlate(DocumentModel)
+                .scalar_subquery()
+            )
+        return statement.add_columns(count.label("chunk_count"), snippet.label("snippet"))
+
+    def _to_summary(self, document: DocumentModel, chunk_count: int, snippet: str | None) -> DocumentSummary:
         return DocumentSummary(
             document_id=str(document.document_id),
             filename=document.filename,
             mime_type=document.mime_type,
             status=document.status,
             metadata=document.metadata_ or {},
-            chunk_count=self._chunk_count(str(document.document_id)),
+            chunk_count=chunk_count,
             processing_error=document.processing_error,
             processed_at=document.processed_at,
             created_at=document.created_at,
             updated_at=document.updated_at,
-            snippet=self._snippet(str(document.document_id), query),
+            snippet=snippet.strip()[:360] if snippet is not None else None,
         )
-
-    def _chunk_count(self, document_id: str) -> int:
-        statement = (
-            self._session.query(func.count(DocumentEmbeddingModel.chunk_id))
-            .join(DocumentModel, DocumentEmbeddingModel.document_id == DocumentModel.document_id)
-            .filter(DocumentEmbeddingModel.document_id == document_id)
-        )
-        return int(self._apply_access_filter(statement).scalar() or 0)
-
-    def _snippet(self, document_id: str, query: str | None) -> str | None:
-        if not query:
-            return None
-        statement = (
-            self._session.query(DocumentEmbeddingModel.chunk_content)
-            .join(DocumentModel, DocumentEmbeddingModel.document_id == DocumentModel.document_id)
-            .filter(
-                DocumentEmbeddingModel.document_id == document_id,
-                DocumentEmbeddingModel.chunk_content.ilike(f"%{query}%"),
-            )
-            .order_by(DocumentEmbeddingModel.chunk_index.asc())
-        )
-        row = self._apply_access_filter(statement).first()
-        if row is None:
-            return None
-        content = row.chunk_content.strip()
-        return content[:360]

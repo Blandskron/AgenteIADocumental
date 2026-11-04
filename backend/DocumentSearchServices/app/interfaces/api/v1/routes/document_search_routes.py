@@ -1,4 +1,6 @@
-from fastapi import APIRouter, Depends, Query
+from typing import Annotated
+
+from fastapi import APIRouter, Depends, Path, Query
 
 from app.application.documents.use_cases.build_chat_context import BuildChatContext
 from app.application.documents.use_cases.get_document_chunks import GetDocumentChunks
@@ -12,6 +14,7 @@ from app.interfaces.api.v1.dependencies import (
     get_search_documents,
 )
 from app.interfaces.api.v1.schemas.document_search_schema import (
+    NO_NULL_BYTES,
     ChatSelectionRequest,
     ChatSelectionResponse,
     DocumentChunkResponse,
@@ -22,16 +25,21 @@ from app.interfaces.api.v1.schemas.document_search_schema import (
 
 router = APIRouter()
 
+SearchTerm = Annotated[str | None, Query(max_length=256, pattern=NO_NULL_BYTES)]
+PageLimit = Annotated[int, Query(ge=1, le=100)]
+PageOffset = Annotated[int, Query(ge=0, le=10_000)]
+DocumentId = Annotated[str, Path(min_length=1, max_length=128, pattern=NO_NULL_BYTES)]
+
 
 @router.get("/search", response_model=DocumentSearchResponse)
 def search_documents(
-    q: str | None = None,
-    status: str | None = None,
-    mime_type: str | None = None,
-    source: str | None = None,
-    limit: int = Query(default=20, ge=1, le=100),
-    offset: int = Query(default=0, ge=0),
-    sort: str = "created_desc",
+    q: SearchTerm = None,
+    status: str | None = Query(default=None, max_length=32, pattern=NO_NULL_BYTES),
+    mime_type: str | None = Query(default=None, max_length=128, pattern=NO_NULL_BYTES),
+    source: str | None = Query(default=None, max_length=64, pattern=NO_NULL_BYTES),
+    limit: PageLimit = 20,
+    offset: PageOffset = 0,
+    sort: str = Query(default="created_desc", max_length=32, pattern=NO_NULL_BYTES),
     use_case: SearchDocuments = Depends(get_search_documents),
 ) -> DocumentSearchResponse:
     result = use_case.execute(
@@ -48,7 +56,7 @@ def search_documents(
 
 @router.get("/{document_id}", response_model=DocumentSummaryResponse)
 def document_detail(
-    document_id: str,
+    document_id: DocumentId,
     use_case: GetDocumentDetail = Depends(get_document_detail),
 ) -> DocumentSummaryResponse:
     return _document_response(use_case.execute(document_id))
@@ -56,10 +64,10 @@ def document_detail(
 
 @router.get("/{document_id}/chunks", response_model=DocumentChunksResponse)
 def document_chunks(
-    document_id: str,
-    q: str | None = None,
-    limit: int = Query(default=20, ge=1, le=100),
-    offset: int = Query(default=0, ge=0),
+    document_id: DocumentId,
+    q: SearchTerm = None,
+    limit: PageLimit = 20,
+    offset: PageOffset = 0,
     use_case: GetDocumentChunks = Depends(get_document_chunks),
 ) -> DocumentChunksResponse:
     chunks, total = use_case.execute(document_id=document_id, query=q, limit=limit, offset=offset)
