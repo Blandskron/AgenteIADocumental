@@ -31,4 +31,6 @@ class DocumentReaderPg:
             mime_type=document.mime_type,
             status=DocumentStatus(document.status),
             metadata=document.metadata_ or {},
+            owner_user_id=document.owner_user_id,
+            tenant_id=document.tenant_id,
         )

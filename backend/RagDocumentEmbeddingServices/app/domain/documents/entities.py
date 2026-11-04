@@ -18,3 +18,5 @@ class Document:
     mime_type: str
     status: DocumentStatus
     metadata: dict | None = None
+    owner_user_id: str | None = None
+    tenant_id: str | None = None

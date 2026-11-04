@@ -1,3 +1,4 @@
+from dataclasses import replace
 from typing import BinaryIO
 
 from app.application.documents.ports import DocumentWriter
@@ -40,13 +41,6 @@ class UploadDocument:
 
         if process:
             self._ingestion.execute(document.document_id)
-            return Document(
-                document_id=document.document_id,
-                filename=document.filename,
-                storage_path=document.storage_path,
-                mime_type=document.mime_type,
-                status=DocumentStatus.PROCESSED,
-                metadata=document.metadata,
-            )
+            return replace(document, status=DocumentStatus.PROCESSED)
 
         return document
