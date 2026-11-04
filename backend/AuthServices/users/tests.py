@@ -9,7 +9,7 @@ from rest_framework_simplejwt.tokens import AccessToken
 
 from .login_protection import _consume
 from .models import LoginAttemptBudget, Tenant, TenantArea, TenantGroup, TenantGroupPermission, TenantMembership, TenantUserGroup
-from .serializers import MyTokenObtainPairSerializer, tenant_membership_payload
+from .serializers import MyTokenObtainPairSerializer, ProfileMembershipSerializer, UserProfileSerializer, tenant_membership_payload
 
 
 class TenantIdentityBoundaryTests(APITestCase):
@@ -41,6 +41,14 @@ class TenantIdentityBoundaryTests(APITestCase):
         )
         TenantMembership.objects.create(tenant=self.tenant, user_id=str(self.member.pk), role="USER")
         self.client.force_authenticate(self.admin)
+
+    def test_profile_matches_documented_fields(self):
+        response = self.client.get("/api/users/me/")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(set(response.data), set(UserProfileSerializer().fields))
+        self.assertEqual(
+            set(response.data["tenant_memberships"][0]), set(ProfileMembershipSerializer().fields)
+        )
 
     def test_tenant_admin_cannot_create_global_superuser(self):
         for index, privilege in enumerate(({"role": "super_admin"}, {"is_superuser": True})):

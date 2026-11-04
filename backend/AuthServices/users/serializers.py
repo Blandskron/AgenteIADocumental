@@ -126,6 +126,38 @@ def serialize_user_profile(user):
     }
 
 
+class ProfileMembershipSerializer(serializers.Serializer):
+    membership_id = serializers.CharField()
+    tenant_id = serializers.CharField()
+    tenant_name = serializers.CharField()
+    area_id = serializers.CharField(allow_null=True)
+    area_name = serializers.CharField(allow_null=True)
+    role = serializers.CharField()
+    groups = serializers.ListField(child=serializers.CharField())
+    group_ids = serializers.ListField(child=serializers.CharField())
+    permissions = serializers.ListField(child=serializers.CharField())
+
+
+class UserProfileSerializer(serializers.Serializer):
+    id = serializers.IntegerField()
+    username = serializers.CharField()
+    email = serializers.EmailField(allow_blank=True)
+    first_name = serializers.CharField(allow_blank=True)
+    last_name = serializers.CharField(allow_blank=True)
+    display_name = serializers.CharField()
+    is_staff = serializers.BooleanField()
+    is_superuser = serializers.BooleanField()
+    is_superadmin = serializers.BooleanField()
+    groups = serializers.ListField(child=serializers.CharField())
+    permissions = serializers.ListField(child=serializers.CharField())
+    tenant_memberships = ProfileMembershipSerializer(many=True)
+    active_tenant_id = serializers.CharField(allow_null=True)
+    active_area_id = serializers.CharField(allow_null=True)
+    active_role = serializers.CharField(allow_null=True)
+    active_permissions = serializers.ListField(child=serializers.CharField())
+    roles = serializers.ListField(child=serializers.CharField())
+
+
 class MyTokenObtainPairSerializer(TokenObtainPairSerializer):
     @classmethod
     def get_token(cls, user):
@@ -234,13 +266,13 @@ class UserSerializer(serializers.ModelSerializer):
             validate_account_password(attrs["password"], attrs, self.instance)
         return attrs
 
-    def get_group_names(self, user):
+    def get_group_names(self, user) -> list[str]:
         return list(user.groups.values_list("name", flat=True))
 
-    def get_permission_names(self, user):
+    def get_permission_names(self, user) -> list[str]:
         return list(user.user_permissions.values_list("codename", flat=True))
 
-    def get_permission_ids(self, user):
+    def get_permission_ids(self, user) -> list[int]:
         return list(user.user_permissions.values_list("id", flat=True))
 
     def create(self, validated_data):
@@ -307,10 +339,10 @@ class GroupSerializer(serializers.ModelSerializer):
         model = Group
         fields = ("id", "name", "permissions", "permission_ids", "permission_names")
 
-    def get_permission_names(self, group):
+    def get_permission_names(self, group) -> list[str]:
         return list(group.permissions.values_list("codename", flat=True))
 
-    def get_permission_ids(self, group):
+    def get_permission_ids(self, group) -> list[int]:
         return list(group.permissions.values_list("id", flat=True))
 
     def create(self, validated_data):
@@ -386,7 +418,7 @@ class TenantMembershipSerializer(TenantScopedSerializer):
         )
         read_only_fields = ("membership_id", "created_by_user_id", "permissions", "created_at", "updated_at")
 
-    def get_permissions(self, membership):
+    def get_permissions(self, membership) -> list[str]:
         return TENANT_ROLE_PERMISSIONS.get(membership.role, [])
 
 
@@ -449,7 +481,7 @@ class TenantGroupSerializer(TenantScopedSerializer):
         )
         read_only_fields = ("group_id", "permission_codes", "created_at", "updated_at")
 
-    def get_permission_codes(self, group):
+    def get_permission_codes(self, group) -> list[str]:
         return list(TenantGroupPermission.objects.filter(group=group).values_list("permission_code", flat=True))
 
     @transaction.atomic
