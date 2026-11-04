@@ -4,12 +4,10 @@ function normalizeDocument(document = {}) {
     filename: document.filename || "documento",
     mimeType: document.mime_type || "",
     status: document.status || "UNKNOWN",
-    metadata: document.metadata || {},
     chunkCount: Number(document.chunk_count || 0),
     createdAt: document.created_at || "",
     updatedAt: document.updated_at || "",
     processedAt: document.processed_at || null,
-    processingError: document.processing_error || null,
     snippet: document.snippet || "",
   };
 }

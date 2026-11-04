@@ -64,8 +64,8 @@ Quedan en seguimiento los CVE de Debian 13.7 que Trivy detectó en la imagen de 
 |---|---|---|---|
 | Hecha | SEARCH-001 | Aislar configuración y comprobar arranque | PR #31 integrado. Compose, arranque, CORS y búsqueda con JWT real de AuthServices verificados. |
 | Hecha | SEARCH-002 | Aplicar permisos en todas las rutas | PR #32 integrado. Compose, Ruff, 10 pruebas con PostgreSQL y pgvector, y acceso verificado con un JWT real de AuthServices. |
-| En revisión | SEARCH-003 | Acotar y estabilizar las consultas | `docker compose config --quiet`, arranque con `up --build --wait`, `ruff check` y 18 pruebas con PostgreSQL y pgvector. OpenAPI confirma los límites. Las pruebas verifican orden en empates, total fuera de página, dos consultas por búsqueda y una por selección. Pendiente revisión del PR. |
-| Lista | SEARCH-004 | Revisar el contrato de respuesta | Verificar qué metadatos necesita el frontend y comprobar snippets, errores y selección con datos sintéticos. |
+| Hecha | SEARCH-003 | Acotar y estabilizar las consultas | PR #33 integrado con seis checks aprobados. OpenAPI y 18 pruebas verificaron los límites, la paginación y el número de consultas. |
+| En revisión | SEARCH-004 | Revisar el contrato de respuesta | `docker compose config --quiet`, arranque con `up --build --wait`, `ruff check`, 19 pruebas con PostgreSQL y pgvector, `npm ci` y `npm run build`. La prueba HTTP comprueba extractos, errores, selección y exclusión de datos internos. Pendiente revisión del PR. |
 | Lista | SEARCH-005 | Restringir PostgreSQL y cerrar operación | Aprovisionar un rol de lectura y validar permisos, imagen, dependencias y arranque limpio. |
 
 ## Validación

@@ -28,6 +28,10 @@ La búsqueda y los fragmentos admiten páginas de 1 a 100 elementos y un desplaz
 
 La selección admite de 1 a 12 documentos, en línea con el límite de RAG Chat. Los IDs de documento y de sesión admiten de 1 a 128 caracteres. Los parámetros de texto rechazan el carácter nulo. La API responde con HTTP 422 ante entradas fuera de estos límites.
 
+La búsqueda devuelve un extracto de hasta 360 caracteres del primer fragmento coincidente, ordenado por índice. Si solo coincide el nombre del archivo, `snippet` es nulo. El detalle y la selección también devuelven `snippet` nulo. La selección conserva el orden de la primera aparición de cada ID, requiere que todos los documentos sean accesibles y estén procesados, y devuelve el ID de sesión recibido.
+
+Los campos `metadata` y `processing_error` se retiraron del contrato público. El estado del documento sigue disponible en `status`. Un documento inexistente o inaccesible devuelve HTTP 404 en detalle y fragmentos. Una selección que incluya cualquiera de esos documentos o un documento sin procesar devuelve HTTP 400.
+
 ## Data Models
 
 ### DocumentSummaryResponse
@@ -35,12 +39,10 @@ La selección admite de 1 a 12 documentos, en línea con el límite de RAG Chat.
 - `filename`: str
 - `mime_type`: str
 - `status`: str
-- `metadata`: dict
 - `chunk_count`: int
 - `created_at`: datetime
 - `updated_at`: datetime
 - `processed_at`: datetime | None
-- `processing_error`: str | None
 - `snippet`: str | None
 
 ### DocumentSearchResponse
@@ -54,7 +56,6 @@ La selección admite de 1 a 12 documentos, en línea con el límite de RAG Chat.
 - `document_id`: str
 - `chunk_index`: int
 - `content`: str
-- `metadata`: dict
 - `created_at`: datetime
 
 ### DocumentChunksResponse
@@ -111,10 +112,12 @@ Compose pasa las variables de búsqueda explícitamente. El chequeo de arranque 
 
 Fuera de Compose, instala `requirements.txt` desde este directorio, configura `DATABASE_URL` y `AUTH_JWT_PUBLIC_KEY_PATH` en el entorno o en el `.env` del servicio y ejecuta `python -m uvicorn app.main:app --port 8004`. Para personalizar CORS en este modo, usa `CORS_ORIGINS`.
 
-Con el servicio iniciado, ejecuta las pruebas de permisos, paginación, número de consultas y límites de selección sobre PostgreSQL y pgvector. Los registros sintéticos se revierten al terminar.
+Con el servicio iniciado, ejecuta las pruebas de permisos, paginación y contrato HTTP sobre PostgreSQL y pgvector. HTTPX es una dependencia exclusiva de pruebas. Los registros sintéticos se revierten al terminar.
 
 ```sh
 docker compose -f docker/docker-compose.yml cp backend/DocumentSearchServices/tests/test_document_access.py document-search-service:/app/test_document_access.py
+docker compose -f docker/docker-compose.yml cp backend/DocumentSearchServices/requirements-test.txt document-search-service:/app/requirements-test.txt
+docker compose -f docker/docker-compose.yml exec -T document-search-service python -m pip install -r requirements-test.txt
 docker compose -f docker/docker-compose.yml exec -T document-search-service python -m pytest -q test_document_access.py
 ```
 

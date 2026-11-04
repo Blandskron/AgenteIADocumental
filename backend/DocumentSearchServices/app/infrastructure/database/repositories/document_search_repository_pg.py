@@ -1,5 +1,5 @@
 from sqlalchemy import exists, func, null, or_, select
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, defer
 
 from app.config.security import is_superadmin_user, tenant_ids_for_role, tenant_memberships, user_groups, user_id
 from app.domain.documents import DocumentChunk, DocumentSearchResult, DocumentSummary
@@ -61,7 +61,6 @@ class DocumentSearchRepositoryPg:
                 DocumentEmbeddingModel.document_id,
                 DocumentEmbeddingModel.chunk_index,
                 DocumentEmbeddingModel.chunk_content,
-                DocumentEmbeddingModel.metadata_,
                 DocumentEmbeddingModel.created_at,
             )
             .join(DocumentModel, DocumentEmbeddingModel.document_id == DocumentModel.document_id)
@@ -79,7 +78,6 @@ class DocumentSearchRepositoryPg:
                 document_id=str(row.document_id),
                 chunk_index=row.chunk_index,
                 content=row.chunk_content,
-                metadata=row.metadata_ or {},
                 created_at=row.created_at,
             )
             for row in rows
@@ -102,7 +100,7 @@ class DocumentSearchRepositoryPg:
         return statement
 
     def _accessible_documents_query(self):
-        return self._apply_access_filter(self._session.query(DocumentModel))
+        return self._apply_access_filter(self._session.query(DocumentModel).options(defer(DocumentModel.metadata_)))
 
     def _apply_access_filter(self, statement):
         if is_superadmin_user(self._current_user):
@@ -169,9 +167,7 @@ class DocumentSearchRepositoryPg:
             filename=document.filename,
             mime_type=document.mime_type,
             status=document.status,
-            metadata=document.metadata_ or {},
             chunk_count=chunk_count,
-            processing_error=document.processing_error,
             processed_at=document.processed_at,
             created_at=document.created_at,
             updated_at=document.updated_at,
