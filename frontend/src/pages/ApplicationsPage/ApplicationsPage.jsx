@@ -14,24 +14,6 @@ import {
   importGoogleDriveFiles,
 } from "../../features/google-drive-import/api/google-drive-import.api";
 import { openGoogleDrivePicker } from "../../features/google-drive-import/google-picker";
-import googleDriveLogoUrl from "../../../logodrive.png";
-import sharePointLogoUrl from "../../../logoSharepoint.png";
-
-const APPLICATIONS = [
-  {
-    id: "google-drive",
-    route: appRoutes.googleDriveApplication,
-    name: "Google Drive",
-    description: "Trae Google Docs, Sheets, Slides, Excel y PDF a tu biblioteca documental",
-    enabled: true,
-  },
-  {
-    id: "sharepoint",
-    name: "SharePoint",
-    description: "Proxima integracion para sitios compartidos y bibliotecas Microsoft",
-    enabled: false,
-  },
-];
 
 export function ApplicationsPage({ activeView = appRoutes.applications, onNavigate }) {
   const {
@@ -190,23 +172,14 @@ function ApplicationsList({ onNavigate }) {
       </div>
 
       <div className="applications-grid">
-        {APPLICATIONS.map((application) => (
-          <button
-            className={`application-row ${!application.enabled ? "disabled" : ""}`}
-            disabled={!application.enabled}
-            aria-disabled={!application.enabled}
-            key={application.id}
-            onClick={() => application.route && onNavigate?.(application.route)}
-            type="button"
-          >
-            <ApplicationIcon id={application.id} />
-            <span>
-              <strong>{application.name}</strong>
-              <small>{application.description}</small>
-            </span>
-            {application.enabled ? <ChevronRight size={18} /> : <em>Pronto</em>}
-          </button>
-        ))}
+        <button className="application-row" onClick={() => onNavigate?.(appRoutes.googleDriveApplication)} type="button">
+          <ApplicationIcon />
+          <span>
+            <strong>Google Drive</strong>
+            <small>Importa archivos a tu biblioteca documental con una cuenta de Google configurada.</small>
+          </span>
+          <ChevronRight size={18} />
+        </button>
       </div>
     </section>
   );
@@ -235,7 +208,7 @@ function GoogleDriveApplication({
       </nav>
 
       <div className="application-detail-hero">
-        <ApplicationIcon id="google-drive" />
+        <ApplicationIcon />
         <div>
           <h1>Google Drive</h1>
           <p>
@@ -330,18 +303,10 @@ function GoogleDriveApplication({
   );
 }
 
-function ApplicationIcon({ id }) {
-  if (id === "google-drive") {
-    return (
-      <span className="application-icon google-drive-icon" aria-hidden="true">
-        <img src={googleDriveLogoUrl} alt="" />
-      </span>
-    );
-  }
-
+function ApplicationIcon() {
   return (
-    <span className="application-icon sharepoint-icon" aria-hidden="true">
-      <img src={sharePointLogoUrl} alt="" />
+    <span className="application-icon google-drive-icon" aria-hidden="true">
+      <Cloud size={24} />
     </span>
   );
 }

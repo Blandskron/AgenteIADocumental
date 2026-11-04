@@ -13,8 +13,8 @@ Mantén una tarjeta en **En curso**. Pásala a **En revisión** con evidencia y 
 | Hecha | BD-004 | Identidad Blandskron | Marca aplicada a interfaz, icono, configuración, prompt y PDF. |
 | Hecha | BD-005 | Chat con Groq | Respuesta en español verificada por API y en el flujo RAG local. |
 | Hecha | BD-006 | Embeddings locales | Modelo real de 384 dimensiones, migración probada en pgvector y documento reindexado. |
-| En revisión | BD-007 | CI y prueba integral | Checks de frontend, Compose y migración. Prueba local con dos usuarios y descarga PDF. |
-| En curso | BD-008 | Entrega de portafolio | README y caso sintético preparados. Pendientes la revisión final de publicación y una prueba de Drive si se incluye en la demo. |
+| Hecha | BD-007 | CI y prueba integral | PR integrado. Checks de frontend, Compose y migración. Prueba local con dos usuarios y descarga PDF. |
+| En revisión | BD-008 | Entrega de portafolio | README y caso sintético listos. Se retiró el acceso a la integración sin implementar. Pendientes la revisión del PR y la decisión de visibilidad. |
 
 ## Validación
 
@@ -22,6 +22,7 @@ Mantén una tarjeta en **En curso**. Pásala a **En revisión** con evidencia y 
 - El primer PR se integró en `main`. El PR de validación agrega checks para frontend, Compose y la migración de embeddings sobre PostgreSQL con pgvector.
 - `scripts/smoke_documental.ps1` verificó login, carga e indexación, búsqueda, chat con fuente y descarga PDF. Se verificó la reindexación mediante su endpoint y se comprobó con dos usuarios que el observador no puede recuperar el documento privado.
 - La prueba SQL usa tablas temporales, cambia un índice de 1536 a 384 dimensiones y verifica que repetir la migración conserva los vectores nuevos.
+- El historial alcanzable desde las ramas activas se revisó en busca de las marcas anteriores, claves de Groq, bloques de claves privadas y archivos subidos. Los archivos de entorno locales, documentos, cargas de perfil y claves de autenticación quedan ignorados.
 
 ## Criterios de cierre de BD-008
 
