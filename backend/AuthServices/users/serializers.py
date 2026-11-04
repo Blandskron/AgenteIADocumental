@@ -1,4 +1,5 @@
 from django.contrib.auth.models import Group, Permission, User
+from django.db import transaction
 from rest_framework import serializers
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 
@@ -307,6 +308,37 @@ class TenantMembershipSerializer(serializers.ModelSerializer):
 
     def get_permissions(self, membership):
         return TENANT_ROLE_PERMISSIONS.get(membership.role, [])
+
+
+class TenantUserProvisionSerializer(serializers.ModelSerializer):
+    tenant = serializers.PrimaryKeyRelatedField(queryset=Tenant.objects.all())
+    area = serializers.PrimaryKeyRelatedField(queryset=TenantArea.objects.all(), required=False, allow_null=True)
+    role = serializers.ChoiceField(choices=tuple(TENANT_ROLE_PERMISSIONS))
+
+    class Meta:
+        model = User
+        fields = ("username", "email", "first_name", "last_name", "password", "tenant", "area", "role")
+        extra_kwargs = {"password": {"write_only": True, "required": True, "trim_whitespace": False}}
+
+    def validate(self, attrs):
+        unexpected = self.initial_data.keys() - self.fields.keys()
+        if unexpected:
+            raise serializers.ValidationError({field: "Campo no permitido." for field in sorted(unexpected)})
+        area = attrs.get("area")
+        if area is not None and area.tenant_id != attrs["tenant"].pk:
+            raise serializers.ValidationError({"area": "El área debe pertenecer a la empresa seleccionada."})
+        return attrs
+
+    @transaction.atomic
+    def create(self, validated_data):
+        tenant = validated_data.pop("tenant")
+        area = validated_data.pop("area", None)
+        role = validated_data.pop("role")
+        user = User.objects.create_user(**validated_data)
+        return TenantMembership.objects.create(
+            tenant=tenant, area=area, role=role, user_id=str(user.pk),
+            created_by_user_id=str(self.context["request"].user.pk),
+        )
 
 
 class TenantGroupPermissionSerializer(serializers.ModelSerializer):

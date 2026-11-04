@@ -3,9 +3,11 @@ from django.contrib.auth import authenticate
 from django.middleware.csrf import get_token
 
 from rest_framework import viewsets, status, serializers
+from rest_framework.decorators import action
+from rest_framework.exceptions import PermissionDenied
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from rest_framework.permissions import BasePermission, IsAuthenticated, AllowAny, IsAdminUser
+from rest_framework.permissions import BasePermission, IsAuthenticated, AllowAny, IsAdminUser, SAFE_METHODS
 
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.views import TokenRefreshView
@@ -21,6 +23,7 @@ from .serializers import (
     TenantMembershipSerializer,
     TenantSerializer,
     TenantUserGroupSerializer,
+    TenantUserProvisionSerializer,
     UserSerializer,
     serialize_user_profile,
 )
@@ -54,12 +57,17 @@ class IsTenantAdminOrSuperAdmin(BasePermission):
 @extend_schema(tags=['Usuarios'])
 class UserViewSet(viewsets.ModelViewSet):
     """
-    Gestiona el ciclo de vida completo de los usuarios.
-    Accesible por superadmin y administradores de empresa.
+    Reserva las mutaciones de identidad al superadministrador.
+    Los administradores de empresa pueden consultar a sus miembros.
     """
     queryset = User.objects.all()
     serializer_class = UserSerializer
     permission_classes = [IsTenantAdminOrSuperAdmin]
+
+    def get_permissions(self):
+        if self.request.method not in SAFE_METHODS:
+            return [IsSuperAdmin()]
+        return super().get_permissions()
 
     def get_queryset(self):
         if self.request.user.is_superuser:
@@ -88,11 +96,16 @@ class UserViewSet(viewsets.ModelViewSet):
 class GroupViewSet(viewsets.ModelViewSet):
     """
     Gestiona grupos de Django y sus permisos.
-    Solo accesible para administradores.
+    Las mutaciones requieren superadministrador.
     """
     queryset = Group.objects.all().order_by("name")
     serializer_class = GroupSerializer
     permission_classes = [IsAdminUser]
+
+    def get_permissions(self):
+        if self.request.method not in SAFE_METHODS:
+            return [IsSuperAdmin()]
+        return super().get_permissions()
 
 
 @extend_schema(tags=['Permisos'])
@@ -141,6 +154,22 @@ class TenantMembershipViewSet(viewsets.ModelViewSet):
     serializer_class = TenantMembershipSerializer
     permission_classes = [IsTenantAdminOrSuperAdmin]
 
+    def get_permissions(self):
+        if self.action == "create":
+            return [IsSuperAdmin()]
+        return super().get_permissions()
+
+    @extend_schema(request=TenantUserProvisionSerializer, responses={201: TenantMembershipSerializer})
+    @action(detail=False, methods=["post"], url_path="provision", serializer_class=TenantUserProvisionSerializer)
+    def provision(self, request):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        tenant_id = serializer.validated_data["tenant"].pk
+        if not request.user.is_superuser and tenant_id not in tenant_admin_ids(request.user):
+            raise PermissionDenied("No tienes permisos para crear usuarios en esta empresa.")
+        membership = serializer.save()
+        return Response(TenantMembershipSerializer(membership).data, status=status.HTTP_201_CREATED)
+
     def get_queryset(self):
         queryset = TenantMembership.objects.select_related("tenant", "area").order_by("tenant__name", "role", "user_id")
         if self.request.user.is_superuser:
@@ -148,15 +177,15 @@ class TenantMembershipViewSet(viewsets.ModelViewSet):
         return queryset.filter(tenant_id__in=tenant_admin_ids(self.request.user))
 
     def perform_create(self, serializer):
-        tenant_id = serializer.validated_data["tenant"].tenant_id
-        if not self.request.user.is_superuser and tenant_id not in tenant_admin_ids(self.request.user):
-            raise serializers.ValidationError("No tienes permisos para asignar usuarios en esta empresa.")
         serializer.save(created_by_user_id=str(self.request.user.id))
 
     def perform_update(self, serializer):
-        tenant_id = serializer.instance.tenant_id
-        if not self.request.user.is_superuser and tenant_id not in tenant_admin_ids(self.request.user):
-            raise serializers.ValidationError("No tienes permisos para actualizar esta membresia.")
+        if not self.request.user.is_superuser:
+            membership = serializer.instance
+            tenant = serializer.validated_data.get("tenant", membership.tenant)
+            user_id = serializer.validated_data.get("user_id", membership.user_id)
+            if tenant.pk != membership.tenant_id or user_id != membership.user_id:
+                raise serializers.ValidationError("La empresa y el usuario de la membresía son inmutables.")
         serializer.save()
 
 

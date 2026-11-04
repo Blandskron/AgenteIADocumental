@@ -107,16 +107,19 @@ export function listTenantMemberships(apiClient) {
   );
 }
 
-export function createTenantMembership(apiClient, form) {
-  return apiClient("/api/users/tenant-memberships/", {
+export function provisionTenantUser(apiClient, form) {
+  return apiClient("/api/users/tenant-memberships/provision/", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       tenant: form.tenantId,
-      user_id: String(form.userId),
+      username: form.username,
+      email: form.email,
+      first_name: form.firstName,
+      last_name: form.lastName,
+      password: form.password,
       area: form.areaId || null,
       role: form.role,
-      status: form.status || "ACTIVE",
     }),
   }).then(normalizeMembership);
 }
