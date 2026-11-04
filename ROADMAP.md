@@ -44,7 +44,17 @@ Quedan en seguimiento nueve CVE altos de la imagen base Debian sin versión corr
 | Hecha | RAG-002 | Validar identidad y permisos documentales | PR #22 integrado. JWT, revocación en preguntas y resúmenes e historial verificados con 12 pruebas sobre PostgreSQL y pgvector. |
 | Hecha | RAG-003 | Acotar solicitudes, contexto e historial | PR #23 integrado. 24 pruebas con PostgreSQL y pgvector cubrieron límites, separación de sesiones y persistencia ante fallos. |
 | Hecha | RAG-004 | Probar la integración con Groq | PR #24 integrado. CI incluye diez pruebas del contrato HTTP simulado. La prueba con Groq real requiere una clave configurada. |
-| En revisión | RAG-005 | Restringir PostgreSQL y cerrar operación | Arranque en volumen nuevo, 34 pruebas con PostgreSQL y pgvector, permisos SQL, Ruff y `pip check`. Modelo CPU validado con 384 dimensiones y UID 10003. [Auditoría y seguimiento](backend/RagDocumentChatServices/README.md#verificación-de-la-imagen). |
+| Hecha | RAG-005 | Restringir PostgreSQL y cerrar operación | PR #25 integrado con seis checks verdes. Arranque en volumen nuevo, 34 pruebas con PostgreSQL y modelo CPU validado con 384 dimensiones. [Auditoría y seguimiento](backend/RagDocumentChatServices/README.md#verificación-de-la-imagen). |
+
+### RagDocumentEmbeddingServices
+
+| Estado | ID | Entrega | Criterio de aceptación |
+|---|---|---|---|
+| En revisión | EMB-001 | Aislar configuración y validar arranque | `docker compose -f docker/docker-compose.yml config --quiet`, arranque con volumen de archivos aislado y Ruff. Se verificaron diez variables, PostgreSQL, CORS, `401` sin token y validación de la configuración de fragmentación. |
+| Lista | EMB-002 | Validar identidad y permisos de ingesta | Probar JWT, carga, consulta y reindexación con usuarios de distintos ámbitos. Revisar los permisos de mutación y el cliente de Google Drive. |
+| Lista | EMB-003 | Limitar archivos y confinar su lectura | Acotar tamaño y extracción, validar rutas dentro del almacenamiento y comprobar limpieza ante escrituras fallidas. |
+| Lista | EMB-004 | Hacer reproducible la indexación | Alinear la revisión del modelo con el chat y comprobar dimensiones, lotes, transiciones de estado y reindexación concurrente. |
+| Lista | EMB-005 | Restringir PostgreSQL y cerrar operación | Validar rol, dependencias, imagen, permisos del volumen y recorrido sintético en una instalación limpia. |
 
 ## Validación
 

@@ -73,10 +73,18 @@ Todos los endpoints (excepto health checks) requieren un JWT válido en el heade
 - `app/shared/`: Clases de error compartidas
 
 ## Running the Service
-1. Instala dependencias: `pip install -r requirements.txt`
-2. Configura variables de entorno o edita el archivo de configuración
-3. Ejecuta con Uvicorn: `uvicorn app.main:app --reload`
-4. O usa Docker: `docker build -t rag-document-embedding-services . && docker run ...`
+
+Desde la raíz del repositorio, prepara el entorno según el [README principal](../../README.md) y ejecuta:
+
+```sh
+docker compose -f docker/docker-compose.yml config --quiet
+docker compose -f docker/docker-compose.yml up -d --build --wait rag-document-embedding-service
+curl http://localhost:8003/api/v1/health/db
+```
+
+Compose pasa las variables de ingesta explícitamente y comprueba el acceso a PostgreSQL y a la clave JWT pública antes de declarar el servicio sano. CORS admite `http://localhost:3000` y `http://127.0.0.1:3000` por defecto. Para otro origen, configura `EMBEDDING_CORS_ORIGINS` como arreglo JSON.
+
+`MAX_CHUNK_SIZE` y `CHUNK_OVERLAP` se expresan en caracteres. El tamaño debe ser positivo y el solapamiento debe estar entre cero y el tamaño del fragmento menos uno. Fuera de Compose, ejecuta desde este directorio con las dependencias instaladas y configura `DATABASE_URL`, `DOCUMENT_STORAGE_BASE_PATH` y `AUTH_JWT_PUBLIC_KEY_PATH` en el entorno o el `.env` del servicio. Inicia con `python -m uvicorn app.main:app --port 8003`.
 
 ## Example Requests
 
