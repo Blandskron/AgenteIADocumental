@@ -31,8 +31,10 @@ Mantén una tarjeta en **En curso**. Pásala a **En revisión** con evidencia y 
 | Hecha | CONV-001 | Aislar la configuración del contenedor y delimitar CORS | PR #16 integrado. Se verificaron siete variables de Compose, la clave pública, salud HTTP y PostgreSQL, respuesta 401 sin token y CORS para dos orígenes locales y uno externo. |
 | Hecha | CONV-002 | Restaurar y autorizar vínculos documentales | PR #17 integrado. Cuatro pruebas sobre PostgreSQL cubren permisos, revocación, retiro y concurrencia. |
 | Hecha | CONV-003 | Validar identidad JWT y aislamiento por dueño | PR #18 integrado. 20 pruebas sobre PostgreSQL y verificación con tokens de acceso emitidos y renovados por AuthServices. |
-| En revisión | CONV-004 | Limitar escrituras y paginar el historial | Compose válido, índice comprobado en PostgreSQL, Ruff y 28 pruebas de ConversationServices. `npm ci` y `npm run build` completados. Se probó acceso a mensajes antiguos y orden estable con fechas iguales. |
-| Lista | CONV-005 | Restringir acceso a PostgreSQL y cerrar operación | Sustituir el usuario compartido por permisos mínimos, revisar dependencias e imagen y verificar arranque y CI desde una instalación limpia. |
+| Hecha | CONV-004 | Limitar escrituras y paginar el historial | PR #19 integrado. 28 pruebas con PostgreSQL, índice comprobado, Ruff y compilación del frontend. |
+| En revisión | CONV-005 | Restringir acceso a PostgreSQL y cerrar operación | Arranque Compose con volumen nuevo, 28 pruebas con el rol de ejecución, verificación SQL de permisos, Ruff y `pip check`. Los aprovisionadores serializan los cambios a los permisos del esquema compartido. La auditoría no reportó avisos en dependencias directas ni hallazgos altos o críticos en paquetes Python. |
+
+Quedan en seguimiento nueve CVE altos de la imagen base Debian sin versión corregida indicada por Trivy. [Evidencia de la imagen](backend/ConversationServices/README.md#dependency-and-image-checks).
 
 ## Validación
 

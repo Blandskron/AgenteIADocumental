@@ -1,4 +1,5 @@
 from concurrent.futures import ThreadPoolExecutor
+from os import environ
 from secrets import randbits
 from threading import Barrier
 from time import time
@@ -72,7 +73,16 @@ def test_rejects_tokens_from_another_signer(client):
 
 
 @pytest.fixture
-def records():
+def fixture_engine():
+    engine = create_engine(environ["CONVERSATION_TEST_DATABASE_URL"])
+    try:
+        yield engine
+    finally:
+        engine.dispose()
+
+
+@pytest.fixture
+def records(fixture_engine):
     engine = create_engine(get_settings().database_url)
     suffix = uuid4().hex
     tenant = f"tenant-{suffix}"
@@ -81,7 +91,7 @@ def records():
         "owned", "private", "legacy-owner", "legacy-tenant", "group", "assigned",
     )}
     try:
-        with Session(engine) as session:
+        with fixture_engine.begin() as session:
             session.execute(text("INSERT INTO tenants (tenant_id, name) VALUES (:id, 'Synthetic')"), {"id": tenant})
             session.execute(text("""
                 INSERT INTO documents (document_id, tenant_id, owner_user_id, filename, storage_path, mime_type, metadata)
@@ -101,11 +111,12 @@ def records():
                 INSERT INTO document_assignments (document_id, tenant_id, assigned_to_user_id, assigned_by_user_id)
                 VALUES (:document, :tenant, :actor, :other)
             """), {"document": document_ids["assigned"], "tenant": tenant, "actor": str(actor), "other": str(other)})
+        with Session(engine) as session:
             conversation_id = ConversationRepositoryPg(session, {"user_id": actor}).create("Synthetic").conversation_id
 
         yield engine, conversation_id, actor, other, tenant, document_ids
     finally:
-        with engine.begin() as connection:
+        with fixture_engine.begin() as connection:
             connection.execute(text("DELETE FROM conversations WHERE owner_user_id = :actor"), {"actor": str(actor)})
             connection.execute(text("DELETE FROM documents WHERE document_id = ANY(:ids)"), {"ids": list(document_ids.values())})
             connection.execute(text("DELETE FROM tenants WHERE tenant_id = :id"), {"id": tenant})
@@ -149,7 +160,7 @@ def test_document_access_and_hidden_errors(records):
 
 
 @pytest.mark.parametrize("status", ["CANCELLED", "EXPIRED"])
-def test_revoked_assignment_hides_link_but_owner_can_remove_it(records, status):
+def test_revoked_assignment_hides_link_but_owner_can_remove_it(records, fixture_engine, status):
     engine, conversation, actor, _, _, documents = records
     document_id = documents["assigned"]
     with Session(engine) as session:
@@ -157,10 +168,10 @@ def test_revoked_assignment_hides_link_but_owner_can_remove_it(records, status):
         assert repo.add_document(conversation, document_id)
         assert repo.list_documents(conversation) == [document_id]
 
-        session.execute(text("UPDATE document_assignments SET status = :status WHERE document_id = :id"), {
-            "status": status, "id": document_id,
-        })
-        session.commit()
+        with fixture_engine.begin() as connection:
+            connection.execute(text("UPDATE document_assignments SET status = :status WHERE document_id = :id"), {
+                "status": status, "id": document_id,
+            })
         assert repo.list_documents(conversation) == []
         assert not repo.add_document(conversation, document_id)
         assert repo.remove_document(conversation, document_id)

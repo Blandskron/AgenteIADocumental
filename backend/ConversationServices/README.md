@@ -103,20 +103,25 @@ curl http://localhost:8008/api/v1/health/db
 
 Compose passes only the service settings and mounts the public verification key read-only. The local frontend origins are `http://localhost:3000` and `http://127.0.0.1:3000`. Override them with `CONVERSATION_CORS_ORIGINS` as a JSON array in the root Compose environment if needed.
 
-For standalone development, run from this directory. Install `requirements.txt`, point `DATABASE_URL` at a PostgreSQL database with the repository schema, and set `AUTH_JWT_PUBLIC_KEY_PATH` to the public key issued by AuthServices. Set `CORS_ORIGINS` as a JSON array to override the defaults. Uvicorn reads settings from the process environment or the service-local `.env`.
+Compose provisions `conversation_runtime` on new and existing databases after schema setup. The role writes conversation data and reads only the columns needed to check document access. The image runs as UID 10002 and its readiness check verifies both the database connection and access to the public key.
+
+To change the local password, set `CONVERSATION_DB_PASSWORD` in the root `.env` and rerun the Compose startup command. Compose passes the password separately from the connection URL. The fallback is for local development. To run outside Compose, install `requirements.txt` from this directory, set `DATABASE_URL` to the provisioned role's connection URL, and set `AUTH_JWT_PUBLIC_KEY_PATH` to the public key issued by AuthServices. Set `CORS_ORIGINS` as a JSON array to override the defaults. Uvicorn reads settings from the process environment or the service-local `.env`.
 
 ```sh
 python -m uvicorn app.main:app --reload --port 8008
 ```
 
-Run the JWT, ownership and document-link tests against the local Compose database. The tests use an ephemeral RSA key and create and clean up synthetic records.
+Run the JWT, ownership, history and document-link tests against a local Compose database. A separate test image uses an ephemeral RSA key and fixture credentials to seed and clean up synthetic records. Application requests in the tests connect as `conversation_runtime`.
 
 ```sh
-docker compose -f docker/docker-compose.yml cp backend/ConversationServices/requirements-test.txt conversation-service:/app/requirements-test.txt
-docker compose -f docker/docker-compose.yml cp backend/ConversationServices/tests/test_conversations.py conversation-service:/app/test_conversations.py
-docker compose -f docker/docker-compose.yml exec -T conversation-service python -m pip install -r requirements-test.txt
-docker compose -f docker/docker-compose.yml exec -T conversation-service python -m pytest -q test_conversations.py
+docker compose -f docker/docker-compose.yml run --build --rm conversation-tests
 ```
+
+### Dependency and image checks
+
+Run `uvx pip-audit --disable-pip --no-deps -r backend/ConversationServices/requirements.txt` from the repository root to check pinned runtime dependencies. To include transitive packages and the base OS, rebuild with `docker compose -f docker/docker-compose.yml build --pull conversation-service` and scan the runtime image with `trivy image --scanners vuln --severity HIGH,CRITICAL docker-conversation-service`.
+
+On November 4, 2026, `pip-audit` reported zero advisories for the updated direct runtime dependencies. Trivy 0.74.0 found zero high or critical findings in Python packages and nine distinct high CVEs across 45 package findings in Debian 13.7, with no fixed Debian versions listed. The audited runtime image ID was `sha256:bfb291a4e24365b9a36fbfbaddc57df99984b0ef054b510237a6f0e20bab7ef0`.
 
 ## Example Requests
 

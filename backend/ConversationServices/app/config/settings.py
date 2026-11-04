@@ -14,11 +14,7 @@ class Settings(BaseSettings):
         default_factory=lambda: ["http://localhost:3000", "http://127.0.0.1:3000"],
     )
 
-    database_url: str = "postgresql+psycopg://postgres:admin1234@localhost:5432/documents_db"
-
-    db_pool_min_size: int = 1
-    db_pool_max_size: int = 10
-    db_timeout_seconds: int = 30
+    database_url: str
 
     auth_jwt_public_key_path: str = "../AuthServices/public.pem"
     auth_jwt_algorithm: str = "RS256"

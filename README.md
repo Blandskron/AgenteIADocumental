@@ -38,6 +38,8 @@ En una instalación nueva, crea primero el administrador local como se indica ab
 
 La configuración de Compose y las credenciales de ejemplo están pensadas para una instancia de desarrollo local. Mantén tu clave de Groq en `.env` y usa datos sintéticos en la demo.
 
+Compose provisiona el rol `conversation_runtime` al arrancar ConversationServices. Puedes cambiar su contraseña local con `CONVERSATION_DB_PASSWORD` en `.env`. [Operación de ConversationServices](backend/ConversationServices/README.md#running-the-service).
+
 Si otra instalación de PostgreSQL ocupa el puerto local 5432, configura `POSTGRES_HOST_PORT=15432` en `.env`. Los contenedores siguen conectándose a PostgreSQL por el puerto interno 5432.
 
 El agregador `docker/docker-compose.yml` carga:

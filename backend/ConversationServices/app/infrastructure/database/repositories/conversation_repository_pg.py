@@ -1,7 +1,9 @@
 from __future__ import annotations
 
-from sqlalchemy import delete, select, true, tuple_
+from psycopg.errors import ForeignKeyViolation
+from sqlalchemy import delete, literal, select, tuple_
 from sqlalchemy.dialects.postgresql import insert
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.infrastructure.database.models import ConversationDocumentModel, ConversationMessageModel, ConversationModel, documents
@@ -104,32 +106,32 @@ class ConversationRepositoryPg:
         return list(self._session.scalars(statement))
 
     def add_document(self, conversation_id: str, document_id: str) -> bool:
-        # Keep both FK targets from being deleted between the access check and insert.
-        allowed_document = (
-            select(documents.c.document_id)
-            .join(ConversationModel, true())
+        allowed_link = (
+            select(literal(conversation_id), documents.c.document_id, literal(self._owner_user_id))
             .where(
-                ConversationModel.conversation_id == conversation_id,
-                ConversationModel.owner_user_id == self._owner_user_id,
+                self._owns_conversation(conversation_id),
                 documents.c.document_id == document_id,
                 document_access_filter(self._current_user, self._owner_user_id),
             )
-            .with_for_update(of=(ConversationModel, documents), read=True, key_share=True)
+            .cte("allowed_link")
         )
-        if self._session.scalar(allowed_document) is None:
-            return False
-
-        self._session.execute(
+        inserted = (
             insert(ConversationDocumentModel)
-            .values(
-                conversation_id=conversation_id,
-                document_id=document_id,
-                owner_user_id=self._owner_user_id,
-            )
+            .from_select(["conversation_id", "document_id", "owner_user_id"], select(allowed_link))
             .on_conflict_do_nothing(index_elements=["conversation_id", "document_id"])
+            .cte("inserted_link")
         )
-        self._session.commit()
-        return True
+        try:
+            # Authorize and insert in one snapshot, including successful duplicate requests.
+            allowed = self._session.scalar(select(select(allowed_link).exists()).add_cte(inserted))
+            self._session.commit()
+        except IntegrityError as exc:
+            self._session.rollback()
+            if isinstance(exc.orig, ForeignKeyViolation):
+                # A concurrent delete can invalidate an authorized target before the FK check.
+                return False
+            raise
+        return bool(allowed)
 
     def remove_document(self, conversation_id: str, document_id: str) -> bool:
         removed = self._session.scalar(
