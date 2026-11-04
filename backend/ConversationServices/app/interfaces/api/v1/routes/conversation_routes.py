@@ -64,9 +64,15 @@ def list_documents(conversation_id: str, use_case: ManageConversations = Depends
     return DocumentIdsResponse(document_ids=use_case.list_documents(conversation_id))
 
 
-@router.post("/conversations/{conversation_id}/documents/{document_id}", response_model=DeleteResponse)
+@router.post(
+    "/conversations/{conversation_id}/documents/{document_id}",
+    response_model=DeleteResponse,
+    responses={404: {"description": "Conversation or document not found."}},
+)
 def add_document(conversation_id: str, document_id: str, use_case: ManageConversations = Depends(get_conversation_use_case)):
-    return DeleteResponse(deleted=use_case.add_document(conversation_id, document_id))
+    if not use_case.add_document(conversation_id, document_id):
+        raise HTTPException(status_code=404, detail="Conversation or document not found.")
+    return DeleteResponse(deleted=True)
 
 
 @router.delete("/conversations/{conversation_id}/documents/{document_id}", response_model=DeleteResponse)

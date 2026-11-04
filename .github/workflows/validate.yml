@@ -123,7 +123,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - run: cp .env.example .env
-      - run: docker compose -f docker/docker-compose.yml up -d --build --wait auth-service
+      - run: docker compose -f docker/docker-compose.yml up -d --build --wait conversation-service
       - run: docker compose -f docker/docker-compose.yml exec -T postgres psql -U postgres -d documents_db -v ON_ERROR_STOP=1 < scripts/database/auth/verify_roles.sql
+      - name: Probar vínculos documentales contra PostgreSQL
+        run: |
+          docker compose -f docker/docker-compose.yml cp backend/ConversationServices/tests/test_document_links.py conversation-service:/app/test_document_links.py
+          docker compose -f docker/docker-compose.yml exec -T conversation-service python -m pytest -q test_document_links.py
       - if: failure()
-        run: docker compose -f docker/docker-compose.yml logs auth-db-roles auth-migrate auth-service
+        run: docker compose -f docker/docker-compose.yml logs auth-db-roles auth-migrate auth-service conversation-service

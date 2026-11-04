@@ -33,7 +33,9 @@ ConversationServices is a FastAPI microservice for chat conversations, messages,
 - `POST /api/v1/conversations/{conversation_id}/documents/{document_id}` — Associate a document
 - `DELETE /api/v1/conversations/{conversation_id}/documents/{document_id}` — Remove a document association
 
-Document association writes have a known ORM error. The authorization and persistence work is tracked in [CONV-002](../../ROADMAP.md#conversationservices).
+Only the conversation owner can manage its associations. Linking requires current document access and returns the same `404` for missing and inaccessible resources. Repeated links succeed without creating duplicates. Listing hides documents the owner can no longer access. The owner can still remove an existing association after access is revoked.
+
+Document access follows ownership, tenant administration, group membership, assignment and superadmin rules, including legacy document metadata. Cancelled and expired assignments do not grant access to conversation links.
 
 ## Data Models
 
@@ -99,6 +101,13 @@ For standalone development, run from this directory. Install `requirements.txt`,
 
 ```sh
 python -m uvicorn app.main:app --reload --port 8008
+```
+
+Run the document-link integration tests against the local Compose database. The tests create and clean up synthetic records.
+
+```sh
+docker compose -f docker/docker-compose.yml cp backend/ConversationServices/tests/test_document_links.py conversation-service:/app/test_document_links.py
+docker compose -f docker/docker-compose.yml exec -T conversation-service python -m pytest -q test_document_links.py
 ```
 
 ## Example Requests
