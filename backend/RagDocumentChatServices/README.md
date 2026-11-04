@@ -92,11 +92,12 @@ curl http://localhost:8002/api/v1/health/ai
 
 Compose pasa las variables de Groq y búsqueda de forma explícita. CORS admite `http://localhost:3000` y `http://127.0.0.1:3000` por defecto. Para otro origen de desarrollo, configura `RAG_CHAT_CORS_ORIGINS` como arreglo JSON. En ejecución directa, instala `requirements.txt` desde este directorio, configura `DATABASE_URL` y `AUTH_JWT_PUBLIC_KEY_PATH` y ejecuta `python -m uvicorn app.main:app --port 8002`. La aplicación lee el entorno del proceso y el `.env` de este directorio.
 
-Con el stack local iniciado, prueba la autenticación y los permisos con PostgreSQL y pgvector. Los registros sintéticos se revierten al terminar y los proveedores de embeddings y respuestas se simulan.
+Compose provisiona `rag_chat_runtime` después de preparar el esquema. El rol puede insertar turnos y leer las columnas necesarias para recuperar fragmentos y comprobar permisos. Para cambiar la contraseña local, configura `RAG_CHAT_DB_PASSWORD` y vuelve a ejecutar el comando de arranque. Fuera de Compose, usa ese rol en `DATABASE_URL`. El contenedor corre como UID 10003 y su sonda de arranque comprueba PostgreSQL y la clave pública.
+
+Ejecuta las pruebas con el stack local. La imagen de pruebas prepara registros sintéticos con una conexión separada, cambia al rol de ejecución para las consultas del servicio y revierte los datos al terminar. Los proveedores se simulan.
 
 ```sh
-docker compose -f docker/docker-compose.yml cp backend/RagDocumentChatServices/tests/test_document_access.py rag-document-chat-service:/app/test_document_access.py
-docker compose -f docker/docker-compose.yml exec -T rag-document-chat-service python -m pytest -q test_document_access.py
+docker compose -f docker/docker-compose.yml run --build --rm rag-chat-tests
 ```
 
 Las pruebas del adaptador Groq usan el cliente HTTP real con transporte simulado y se ejecutan en CI sin credenciales. Desde este directorio, con las dependencias instaladas, ejecuta `python -m pytest -q tests/test_groq_provider.py`. Cada consulta hace un solo intento de generación con el tiempo de espera configurado. Una respuesta vacía, un error del proveedor o un timeout activa la respuesta de contingencia del chat.
@@ -119,4 +120,12 @@ Este proyecto está licenciado bajo los términos del archivo LICENSE del reposi
 
 Configura `GROQ_API_KEY` en el `.env` local. `GROQ_CHAT_MODEL` usa `openai/gpt-oss-20b` por defecto. Estas variables son del backend.
 
-La búsqueda vectorial genera embeddings localmente en CPU. Para probar el chat completo, indexa un documento de ejemplo con el servicio de ingesta.
+La búsqueda vectorial usa PyTorch CPU y pesos Safetensors. La primera consulta vectorial descarga el modelo a la caché del usuario del contenedor. Para probar el chat completo, indexa un documento de ejemplo con el servicio de ingesta. [Revisión fijada de multilingual-e5-small](https://huggingface.co/intfloat/multilingual-e5-small/tree/614241f622f53c4eeff9890bdc4f31cfecc418b3).
+
+### Verificación de la imagen
+
+Reconstruye con `docker compose -f docker/docker-compose.yml build --pull rag-document-chat-service`. Usa `pip list --format=freeze` dentro de la imagen para auditar sus versiones instaladas con `pip-audit`. Para consultar el sistema base y los paquetes instalados, ejecuta `trivy image --scanners vuln --severity HIGH,CRITICAL docker-rag-document-chat-service`.
+
+El 4 de noviembre de 2026, `pip-audit` no reportó avisos para los paquetes instalados de la imagen `sha256:d5235e0f6b18719a4d0318e784ecb414adad44f06da927c91e2c855856e52d66`. Trivy 0.74.0 reportó nueve CVE altos únicos en Debian 13.7, sin versiones corregidas indicadas.
+
+Trivy también reportó CVE-2025-47273 para `setuptools 70.3.0`, versión declarada por los metadatos internos de pip. La imagen instala `setuptools 84.2.1`. La copia interna de pip incluye `pkg_resources` y la inspección del paquete de pip no encontró `package_index`, el módulo afectado. [Aviso de PyPA](https://github.com/pypa/advisory-database/blob/main/vulns/setuptools/PYSEC-2025-49.yaml).

@@ -1,3 +1,4 @@
+from os import environ
 from time import time
 from uuid import uuid4
 
@@ -15,7 +16,7 @@ from sqlalchemy.orm import Session
 from app.application.chat.use_cases.ask_document_chat import AskDocumentChat
 from app.application.embeddings.use_cases.search_similar_chunks import SearchSimilarChunks
 from app.config.security import require_authenticated_user
-from app.config.settings import Settings, get_settings
+from app.config.settings import Settings
 from app.domain.embeddings import SearchResult
 from app.infrastructure.database.repositories.chat_history_repository_pg import ChatHistoryRepositoryPg
 from app.infrastructure.database.repositories.vector_repository_pgvector import VectorRepositoryPgVector
@@ -68,13 +69,13 @@ def test_service_claim_does_not_grant_chat_permission(signing_key, tmp_path):
     user = authenticate(signing_key, tmp_path, {"user_id": 42, "exp": int(time()) + 60, "is_service": True})
     assert user["user_id"] == 42
     with pytest.raises(HTTPException) as error:
-        get_ask_document_chat(session=None, settings=get_settings(), current_user=user)
+        get_ask_document_chat(session=None, settings=Settings(database_url="fixture"), current_user=user)
     assert error.value.status_code == 403
 
 
 @pytest.fixture
 def session():
-    engine = create_engine(get_settings().database_url)
+    engine = create_engine(environ["RAG_CHAT_TEST_DATABASE_URL"])
     try:
         with engine.connect() as connection, connection.begin() as transaction:
             with Session(connection, join_transaction_mode="create_savepoint") as session:
@@ -121,6 +122,7 @@ def test_revoked_documents_and_previous_answers_are_excluded(session, question, 
         {"document": ids[kind], "tenant": tenant, "recipient": str(actor), "sender": str(actor + 1), "status": status}
         for kind, status in (("active", "PENDING"), ("cancelled", "CANCELLED"), ("expired", "EXPIRED"))
     ])
+    session.execute(text("SET LOCAL ROLE rag_chat_runtime"))
 
     current_user = {"user_id": actor, "username": str(actor + 1)}
     history = ChatHistoryRepositoryPg(session, current_user)
@@ -175,6 +177,7 @@ class FailingProvider:
 
 @pytest.mark.parametrize("failure", ["retrieval", "generation", None])
 def test_context_limits_and_atomic_turn(session, failure):
+    session.execute(text("SET LOCAL ROLE rag_chat_runtime"))
     chat_id = uuid4().hex
     history = ChatHistoryRepositoryPg(session, {"user_id": 42})
     for _ in range(10):
@@ -200,6 +203,7 @@ def test_context_limits_and_atomic_turn(session, failure):
 
 
 def test_database_failure_cannot_persist_half_a_turn(session):
+    session.execute(text("SET LOCAL ROLE rag_chat_runtime"))
     chat_id = uuid4().hex
     history = ChatHistoryRepositoryPg(session, {"user_id": 42})
     with pytest.raises(DBAPIError):
