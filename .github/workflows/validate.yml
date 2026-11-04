@@ -49,6 +49,16 @@ jobs:
           assert conversation_env["DATABASE_URL"] == (
               "postgresql+psycopg://conversation_runtime@postgres:5432/documents_db"
           )
+          rag_chat_env = services["rag-document-chat-service"]["environment"]
+          assert set(rag_chat_env) == {
+              "APP_ENV", "APP_NAME", "LOG_LEVEL", "CORS_ORIGINS", "DATABASE_URL",
+              "AUTH_JWT_PUBLIC_KEY_PATH", "AUTH_JWT_ALGORITHM", "GROQ_API_KEY", "GROQ_CHAT_MODEL",
+              "CHAT_COMPLETION_MAX_TOKENS", "CHAT_COMPLETION_TEMPERATURE", "CHAT_COMPLETION_TIMEOUT_SECONDS",
+              "VECTOR_SEARCH_LIMIT", "MIN_SIMILARITY_SCORE",
+          }
+          assert json.loads(rag_chat_env["CORS_ORIGINS"]) == [
+              "http://localhost:3000", "http://127.0.0.1:3000",
+          ]
           for name, service in services.items():
               mounts = {volume["source"]: volume for volume in service.get("volumes", [])}
               assert all(port.get("host_ip") == "127.0.0.1" for port in service.get("ports", [])), name

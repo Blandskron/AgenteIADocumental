@@ -17,7 +17,7 @@ RagDocumentChatServices es un microservicio basado en FastAPI que permite realiz
 ### Health
 - `GET /api/v1/health` — Verifica el estado del servicio
 - `GET /api/v1/health/db` — Verifica la conectividad con la base de datos
-- `GET /api/v1/health/ai` — Verifica la configuración del proveedor de AI
+- `GET /api/v1/health/ai` — Devuelve `200` si hay una clave de Groq configurada o `503` si falta. La sonda no hace solicitudes al proveedor.
 
 ### Chat (Authenticated)
 - `POST /api/v1/chat/ask` — Realiza una pregunta al chat con contexto documental
@@ -73,10 +73,16 @@ Todos los endpoints (excepto health checks) requieren un JWT válido en el heade
 - `app/shared/`: Clases de error compartidas
 
 ## Running the Service
-1. Instala dependencias: `pip install -r requirements.txt`
-2. Configura variables de entorno o edita el archivo de configuración
-3. Ejecuta con Uvicorn: `uvicorn app.main:app --reload`
-4. O usa Docker: `docker build -t rag-document-chat-services . && docker run ...`
+Desde la raíz, prepara el entorno según el [README principal](../../README.md), configura `GROQ_API_KEY` para generar respuestas y arranca el servicio:
+
+```sh
+docker compose -f docker/docker-compose.yml config --quiet
+docker compose -f docker/docker-compose.yml up -d --build --wait rag-document-chat-service
+curl http://localhost:8002/api/v1/health/db
+curl http://localhost:8002/api/v1/health/ai
+```
+
+Compose pasa las variables de Groq y búsqueda de forma explícita. CORS admite `http://localhost:3000` y `http://127.0.0.1:3000` por defecto. Para otro origen de desarrollo, configura `RAG_CHAT_CORS_ORIGINS` como arreglo JSON. En ejecución directa, instala `requirements.txt` desde este directorio, configura `DATABASE_URL` y `AUTH_JWT_PUBLIC_KEY_PATH` y ejecuta `python -m uvicorn app.main:app --port 8002`. La aplicación lee el entorno del proceso y el `.env` de este directorio.
 
 ## Example Requests
 
