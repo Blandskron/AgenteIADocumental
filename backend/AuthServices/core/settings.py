@@ -34,7 +34,7 @@ ALLOWED_HOSTS = os.getenv('DJANGO_ALLOWED_HOSTS', 'apiusuarios.blandskron.com,lo
 # Application definition
 
 INSTALLED_APPS = [
-    'django.contrib.admin',
+    'core.admin_config.ProtectedAdminConfig',
     'django.contrib.auth',
     'django.contrib.contenttypes',
     'django.contrib.sessions',
@@ -66,6 +66,15 @@ MIDDLEWARE = [
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
+
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "handlers": {"auth_audit": {"class": "logging.StreamHandler"}},
+    "loggers": {
+        "blandskron.auth.audit": {"handlers": ["auth_audit"], "level": "INFO", "propagate": False}
+    },
+}
 
 CORS_ALLOWED_ORIGINS = os.getenv(
     'DJANGO_CORS_ALLOWED_ORIGINS',

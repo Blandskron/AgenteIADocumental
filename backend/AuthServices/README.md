@@ -48,6 +48,20 @@ El refresh se rechaza si la cuenta está desactivada, cambió su contraseña o c
 
 La API valida contraseñas nuevas con la política de Django. Las escrituras aceptan cadenas de hasta 128 caracteres y conservan los espacios ingresados. El cambio propio requiere la contraseña actual. Las contraseñas existentes pueden seguir usándose para iniciar sesión y se validan las nuevas al reemplazarlas.
 
+## Límite de login y auditoría
+
+La API y Django Admin comparten dos límites en PostgreSQL. Cada ventana fija de un minuto admite hasta 8 intentos por cuenta normalizada y 30 por dirección de conexión. La API responde con HTTP 429 y `Retry-After` al alcanzar un límite. Django Admin muestra un aviso en el formulario.
+
+Auth usa `REMOTE_ADDR` como origen. Con un proxy, ese valor puede corresponder al proxy para todos los usuarios. El límite por cliente debe aplicarse en el proxy de confianza si el despliegue lo requiere.
+
+El logger `blandskron.auth.audit` emite JSON a stderr para login aceptado, rechazado o limitado, cambio de contraseña y mutaciones administrativas exitosas por API. Incluye el ID interno del actor cuando corresponde. No incluye cuerpos, contraseñas, tokens, nombres de usuario ni IP. Programa la limpieza diaria de contadores antiguos:
+
+```powershell
+docker compose -f docker/docker-compose.yml exec -T auth-service python manage.py prune_login_budgets
+```
+
+El arranque aplica las migraciones versionadas. En una actualización, la migración `users.0002_loginattemptbudget` agrega la tabla de contadores.
+
 ## Verificar la autorización
 
 Desde la raíz, con PostgreSQL de Compose activo:

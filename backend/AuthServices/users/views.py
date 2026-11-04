@@ -1,3 +1,5 @@
+from collections.abc import Mapping
+
 from django.contrib.auth.models import Group, Permission, User
 from django.contrib.auth import authenticate
 from django.db import transaction
@@ -7,6 +9,7 @@ from django.middleware.csrf import get_token
 from rest_framework import viewsets, status, serializers
 from rest_framework.decorators import action
 from rest_framework.exceptions import PermissionDenied
+from rest_framework.exceptions import Throttled
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.permissions import BasePermission, IsAuthenticated, AllowAny, IsAdminUser, SAFE_METHODS
@@ -16,6 +19,7 @@ from rest_framework_simplejwt.views import TokenRefreshView
 
 from drf_spectacular.utils import extend_schema, OpenApiResponse, inline_serializer
 from .models import Tenant, TenantArea, TenantGroup, TenantMembership, TenantUserGroup
+from .login_protection import audit_auth_event, login_retry_after
 from .serializers import (
     ChangePasswordSerializer,
     CurrentClaimsRefreshSerializer,
@@ -56,10 +60,21 @@ class IsTenantAdminOrSuperAdmin(BasePermission):
             return False
         return request.user.is_superuser or bool(tenant_admin_ids(request.user))
 
+
+class AuditedModelViewSet(viewsets.ModelViewSet):
+    def finalize_response(self, request, response, *args, **kwargs):
+        response = super().finalize_response(request, response, *args, **kwargs)
+        if request.method not in SAFE_METHODS and 200 <= response.status_code < 300:
+            audit_auth_event(
+                "admin_write", actor_id=request.user.pk, resource=self.basename, action=self.action,
+                status=response.status_code,
+            )
+        return response
+
 # --- SECCIÓN: USUARIOS (CRUD) ---
 
 @extend_schema(tags=['Usuarios'])
-class UserViewSet(viewsets.ModelViewSet):
+class UserViewSet(AuditedModelViewSet):
     """
     Reserva las mutaciones de identidad al superadministrador.
     Los administradores de empresa pueden consultar a sus miembros.
@@ -101,7 +116,7 @@ class UserViewSet(viewsets.ModelViewSet):
 
 
 @extend_schema(tags=['Grupos'])
-class GroupViewSet(viewsets.ModelViewSet):
+class GroupViewSet(AuditedModelViewSet):
     """
     Gestiona grupos de Django y sus permisos.
     Las mutaciones requieren superadministrador.
@@ -128,7 +143,7 @@ class PermissionViewSet(viewsets.ReadOnlyModelViewSet):
 
 
 @extend_schema(tags=['Empresas'])
-class TenantViewSet(viewsets.ModelViewSet):
+class TenantViewSet(AuditedModelViewSet):
     serializer_class = TenantSerializer
     permission_classes = [IsSuperAdmin]
 
@@ -140,7 +155,7 @@ class TenantViewSet(viewsets.ModelViewSet):
 
 
 @extend_schema(tags=['Areas'])
-class TenantAreaViewSet(viewsets.ModelViewSet):
+class TenantAreaViewSet(AuditedModelViewSet):
     serializer_class = TenantAreaSerializer
     permission_classes = [IsTenantAdminOrSuperAdmin]
 
@@ -167,7 +182,7 @@ class TenantAreaViewSet(viewsets.ModelViewSet):
 
 
 @extend_schema(tags=['Membresias'])
-class TenantMembershipViewSet(viewsets.ModelViewSet):
+class TenantMembershipViewSet(AuditedModelViewSet):
     serializer_class = TenantMembershipSerializer
     permission_classes = [IsTenantAdminOrSuperAdmin]
 
@@ -215,7 +230,7 @@ class TenantMembershipViewSet(viewsets.ModelViewSet):
 
 
 @extend_schema(tags=['Grupos Tenant'])
-class TenantGroupViewSet(viewsets.ModelViewSet):
+class TenantGroupViewSet(AuditedModelViewSet):
     serializer_class = TenantGroupSerializer
     permission_classes = [IsTenantAdminOrSuperAdmin]
 
@@ -244,7 +259,7 @@ class TenantGroupViewSet(viewsets.ModelViewSet):
 
 
 @extend_schema(tags=['Usuarios en grupos tenant'])
-class TenantUserGroupViewSet(viewsets.ModelViewSet):
+class TenantUserGroupViewSet(AuditedModelViewSet):
     serializer_class = TenantUserGroupSerializer
     permission_classes = [IsTenantAdminOrSuperAdmin]
 
@@ -291,8 +306,16 @@ class LoginView(APIView):
         tags=['Autenticación']
     )
     def post(self, request):
-        username = request.data.get('username')
-        password = request.data.get('password')
+        data = request.data if isinstance(request.data, Mapping) else {}
+        username = data.get('username')
+        password = data.get('password')
+        retry_after = login_retry_after(request, username)
+        if retry_after:
+            audit_auth_event("login_throttled", channel="api")
+            raise Throttled(wait=retry_after)
+        if not isinstance(username, str) or not isinstance(password, str):
+            audit_auth_event("login_failed", channel="api")
+            return Response({'error': 'Credenciales inválidas'}, status=status.HTTP_400_BAD_REQUEST)
         user = authenticate(username=username, password=password)
         
         if user:
@@ -305,8 +328,10 @@ class LoginView(APIView):
             
             csrf_token = get_token(request)
             response.set_cookie('csrftoken', csrf_token)
+            audit_auth_event("login_succeeded", channel="api", actor_id=user.pk)
             return response
-            
+
+        audit_auth_event("login_failed", channel="api")
         return Response({'error': 'Credenciales inválidas'}, status=status.HTTP_400_BAD_REQUEST)
 
 
@@ -378,4 +403,5 @@ class ChangePasswordView(APIView):
             return Response({"error": message}, status=status.HTTP_400_BAD_REQUEST)
         user.set_password(serializer.validated_data["new_password"])
         user.save(update_fields=["password"])
+        audit_auth_event("password_changed", actor_id=user.pk)
         return Response({"mensaje": "Contraseña actualizada correctamente."}, status=status.HTTP_200_OK)

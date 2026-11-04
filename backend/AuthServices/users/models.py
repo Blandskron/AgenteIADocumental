@@ -92,3 +92,9 @@ class TenantUserGroup(models.Model):
         managed = False
         db_table = "tenant_user_groups"
         unique_together = (("tenant", "user_id", "group"),)
+
+
+class LoginAttemptBudget(models.Model):
+    key = models.CharField(max_length=64, primary_key=True)
+    window = models.BigIntegerField(db_index=True)
+    attempts = models.PositiveIntegerField()

@@ -23,8 +23,8 @@ Diagnóstico inicial sobre `main` en `fa74ac1`. Este es el primer servicio de la
 | Integrada con seguimiento | AUTH-002 | Aislar mutaciones de empresa | La API y los claims protegen las relaciones. Quedan restricciones de persistencia y pruebas con sesiones concurrentes. |
 | Hecha | AUTH-003 | Separar claves y bootstrap | Integrada con cuatro checks aprobados. Volúmenes separados, administrador explícito y puertos en loopback. |
 | Hecha | AUTH-004 | Endurecer el ciclo de sesión | Integrada en main. Renovación con permisos vigentes y acceso de diez minutos. |
-| En revisión | AUTH-005A | Aplicar la política de contraseñas de la API | La API aplica validadores de Django en el CRUD global, alta por empresa y cambio propio. Las contraseñas rechazadas conservan la identidad y el hash anterior. |
-| Backlog | AUTH-005B | Reducir abuso y auditar eventos | Límite verificable de intentos compartido entre workers y registro de eventos administrativos sin secretos ni tokens. |
+| Hecha | AUTH-005A | Aplicar la política de contraseñas de la API | Integrada en main. Las contraseñas rechazadas conservan la identidad y el hash anterior. |
+| En revisión | AUTH-005B | Reducir abuso y auditar eventos | La API y Django Admin comparten límites en PostgreSQL. Los eventos JSON omiten credenciales, tokens y cuerpos. |
 | Backlog | AUTH-006 | Hacer reproducible la operación | Separar migración y arranque, validar configuración segura, ejecutar como usuario sin privilegios, acotar permisos de base y revisar dependencias e imagen con evidencia. Registrar decisiones y estrategia de rollback. |
 | Backlog | AUTH-007 | Completar la adopción Agents First | README humano, AGENTS local, contrato API y guías de pruebas, configuración, seguridad y operación enlazadas desde fuentes canónicas. Otra persona puede ejecutar las comprobaciones desde un clon limpio. |
 
@@ -56,6 +56,12 @@ El parche bloquea esas solicitudes, la reasignación de una membresía y la escr
 - El arranque con volúmenes nuevos rota la firma anterior. Si falta el PEM público, Auth lo recupera desde la clave privada existente. La clave privada nueva usa permisos de propietario en Linux.
 - El stack local arrancó en loopback con el puerto alternativo de PostgreSQL. El servicio de búsqueda devolvió 401 para una firma antigua y 200 tras un login nuevo. El contenedor verificador pudo leer el PEM público y carecía del PEM privado.
 - Pasaron 22 pruebas de Auth y el arranque con una base de pruebas nueva no creó un administrador. La guía indica cómo cambiar la contraseña de una cuenta de demo existente antes de reabrir el servicio.
+
+## Evidencia de AUTH-005B
+
+- Pasaron 33 pruebas en PostgreSQL. Se verificaron el límite compartido entre canales, la renovación de la ventana, el rechazo de un origen reenviado por el cliente y el límite exacto desde 12 conexiones independientes.
+- `manage.py check` y `manage.py makemigrations --check --dry-run` pasaron. El entrypoint aplica las migraciones versionadas en lugar de generarlas.
+- El README documenta la limpieza diaria de contadores y el comportamiento del límite por origen detrás de un proxy.
 
 ## Criterio de cierre por PR
 
