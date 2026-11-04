@@ -48,7 +48,9 @@ RagDocumentChatServices es un microservicio basado en FastAPI que permite realiz
 - `filename`: str | None
 
 ## Authentication
-Todos los endpoints (excepto health checks) requieren un JWT válido en el header `Authorization: Bearer <token>`. El token se valida con la clave pública RSA configurada y debe tener `token_type: access`.
+El endpoint de chat requiere un token de acceso de AuthServices en `Authorization: Bearer <token>`, con firma RSA válida, `user_id` entero positivo y `exp` entero vigente. El usuario también debe tener el permiso activo `use_chat`, acceso global o el rol de superadministrador.
+
+La búsqueda semántica y los resúmenes aplican el mismo filtro documental antes de enviar fragmentos a Groq. Las asignaciones canceladas o expiradas dejan de conceder acceso. El contexto de historial incluye las preguntas previas del mismo usuario y sesión. Las respuestas anteriores se conservan en la base, pero se excluyen del contexto porque pueden contener datos de documentos cuyo acceso cambió.
 
 ## Architecture
 - **FastAPI** para la capa API
@@ -83,6 +85,13 @@ curl http://localhost:8002/api/v1/health/ai
 ```
 
 Compose pasa las variables de Groq y búsqueda de forma explícita. CORS admite `http://localhost:3000` y `http://127.0.0.1:3000` por defecto. Para otro origen de desarrollo, configura `RAG_CHAT_CORS_ORIGINS` como arreglo JSON. En ejecución directa, instala `requirements.txt` desde este directorio, configura `DATABASE_URL` y `AUTH_JWT_PUBLIC_KEY_PATH` y ejecuta `python -m uvicorn app.main:app --port 8002`. La aplicación lee el entorno del proceso y el `.env` de este directorio.
+
+Con el stack local iniciado, prueba la autenticación y los permisos con PostgreSQL y pgvector. Los registros sintéticos se revierten al terminar y los proveedores de embeddings y respuestas se simulan.
+
+```sh
+docker compose -f docker/docker-compose.yml cp backend/RagDocumentChatServices/tests/test_document_access.py rag-document-chat-service:/app/test_document_access.py
+docker compose -f docker/docker-compose.yml exec -T rag-document-chat-service python -m pytest -q test_document_access.py
+```
 
 ## Example Requests
 

@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session
 from app.application.chat.use_cases.ask_document_chat import AskDocumentChat
 from app.application.embeddings.use_cases.search_similar_chunks import SearchSimilarChunks
 from app.config.database import get_session
-from app.config.security import require_authenticated_user
+from app.config.security import is_superadmin_user, require_authenticated_user
 from app.config.settings import Settings, get_settings
 from app.infrastructure.ai.embedding_provider_local import LocalEmbeddingProvider
 from app.infrastructure.ai.llm_provider_groq import GroqLLMProvider
@@ -31,19 +31,12 @@ def get_ask_document_chat(
     settings: Settings = Depends(get_settings),
     current_user: dict = Depends(require_authenticated_user),
 ) -> AskDocumentChat:
-    is_service = current_user.get("is_service", False)
-    if not is_service:
-        active_perms = current_user.get("active_permissions") or []
-        is_super = (
-            current_user.get("is_superuser")
-            or current_user.get("is_superadmin")
-            or "SUPERADMIN" in (current_user.get("roles") or [])
+    active_perms = current_user.get("active_permissions") or []
+    if not (is_superadmin_user(current_user) or "*" in active_perms or "use_chat" in active_perms):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="No tienes permisos para usar el chat conversacional.",
         )
-        if not (is_super or "*" in active_perms or "use_chat" in active_perms):
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="No tienes permisos para usar el chat conversacional.",
-            )
 
     embedding_provider = build_embedding_provider()
     vector_repository = VectorRepositoryPgVector(session, current_user=current_user)

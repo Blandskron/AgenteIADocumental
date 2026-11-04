@@ -4,7 +4,7 @@ from app.domain.chat import AnswerSource, ChatMessage
 
 
 class ChatHistoryRepository(Protocol):
-    def get_history(self, session_id: str, limit: int = 20) -> list[ChatMessage]:
+    def get_user_history(self, session_id: str, limit: int = 20) -> list[ChatMessage]:
         ...
 
     def save_user_message(self, session_id: str, content: str) -> None:

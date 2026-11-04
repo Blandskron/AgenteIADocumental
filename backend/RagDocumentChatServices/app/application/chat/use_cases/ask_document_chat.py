@@ -45,7 +45,7 @@ class AskDocumentChat:
     ) -> ChatAnswer:
         history = []
         if session_id and self._chat_history_repository:
-            history = self._chat_history_repository.get_history(session_id, limit=12)
+            history = self._chat_history_repository.get_user_history(session_id, limit=12)
             self._chat_history_repository.save_user_message(session_id, question)
 
         try:

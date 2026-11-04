@@ -1,4 +1,4 @@
-from sqlalchemy import bindparam, false, literal, or_
+from sqlalchemy import bindparam, literal, or_, select
 from sqlalchemy.orm import Session
 
 from app.config.security import is_superadmin_user, tenant_ids_for_role, user_groups, user_id
@@ -8,9 +8,9 @@ from app.infrastructure.database.types import Vector
 
 
 class VectorRepositoryPgVector:
-    def __init__(self, session: Session, current_user: dict | None = None) -> None:
+    def __init__(self, session: Session, current_user: dict) -> None:
         self._session = session
-        self._current_user = current_user or {}
+        self._current_user = current_user
 
     def search_similar(
         self,
@@ -90,27 +90,25 @@ class VectorRepositoryPgVector:
         if is_superadmin_user(self._current_user):
             return statement
 
-        clauses = []
         current_user_id = user_id(self._current_user)
+        assignment = DocumentAssignmentModel
+        active_assignment = select(1).where(
+            assignment.document_id == DocumentModel.document_id,
+            assignment.status.not_in(("CANCELLED", "EXPIRED")),
+            or_(
+                assignment.assigned_to_user_id == current_user_id,
+                assignment.assigned_by_user_id == current_user_id,
+            ),
+        ).exists()
+        clauses = [
+            DocumentModel.owner_user_id == current_user_id,
+            DocumentModel.metadata_["owner_user_id"].astext == current_user_id,
+            active_assignment,
+        ]
         admin_tenant_ids = tenant_ids_for_role(self._current_user, "TENANT_ADMIN")
         if admin_tenant_ids:
             clauses.append(DocumentModel.tenant_id.in_(admin_tenant_ids))
-            clauses.append(DocumentModel.metadata_.op("->>")("tenant_id").in_(admin_tenant_ids))
-        if current_user_id:
-            assigned_document_ids = (
-                self._session.query(DocumentAssignmentModel.document_id)
-                .filter(DocumentAssignmentModel.assigned_to_user_id == current_user_id)
-                .subquery()
-            )
-            managed_document_ids = (
-                self._session.query(DocumentAssignmentModel.document_id)
-                .filter(DocumentAssignmentModel.assigned_by_user_id == current_user_id)
-                .subquery()
-            )
-            clauses.append(DocumentModel.owner_user_id == current_user_id)
-            clauses.append(DocumentModel.metadata_.op("->>")("owner_user_id") == current_user_id)
-            clauses.append(DocumentModel.document_id.in_(assigned_document_ids))
-            clauses.append(DocumentModel.document_id.in_(managed_document_ids))
+            clauses.append(DocumentModel.metadata_["tenant_id"].astext.in_(admin_tenant_ids))
         for group in user_groups(self._current_user):
             clauses.append(DocumentModel.metadata_.contains({"owner_groups": [group]}))
-        return statement.filter(or_(*clauses) if clauses else false())
+        return statement.filter(or_(*clauses))
