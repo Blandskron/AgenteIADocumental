@@ -1,0 +1,59 @@
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: var(--black);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 22px;
+}
+.confirm-modal {
+  width: min(420px, 100%);
+  border: 1px solid var(--line);
+  border-radius: 22px;
+  background: var(--panel);
+  box-shadow: var(--shadow);
+  padding: 32px;
+  color: var(--text, #f4f4f5);
+}
+.confirm-modal h3 {
+  margin-top: 0;
+  font-size: 1.2rem;
+  font-weight: 600;
+}
+.confirm-modal p {
+  margin: 1rem 0 2rem 0;
+  font-size: 1rem;
+  color: var(--soft-text, #d7d9df);
+  line-height: 1.5;
+}
+.modal-actions {
+  display: flex;
+  gap: 1rem;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+}
+.modal-cancel {
+  min-height: 40px;
+  background: var(--panel-2, #191919);
+  color: var(--text, #f4f4f5);
+  border: 1px solid var(--line, #2a2a2a);
+  border-radius: 999px;
+  padding: 0.5rem 1.2rem;
+  font-size: 1rem;
+  cursor: pointer;
+}
+.modal-confirm.danger {
+  min-height: 40px;
+  background: var(--color-danger, #e53935);
+  color: #fff;
+  border: none;
+  border-radius: 999px;
+  padding: 0.5rem 1.2rem;
+  font-size: 1rem;
+  cursor: pointer;
+}
+.modal-confirm.danger:hover {
+  background: var(--color-danger-dark, #b71c1c);
+}

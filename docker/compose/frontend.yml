@@ -1,0 +1,52 @@
+services:
+  blandskron-frontend:
+    build:
+      context: ../../frontend
+      dockerfile: Dockerfile
+    container_name: blandskron-frontend
+    env_file:
+      - ../../.env
+    environment:
+      VITE_AUTH_BASE_URL: http://localhost:8001
+      VITE_RAG_CHAT_BASE_URL: http://localhost:8002
+      VITE_RAG_DOCUMENT_BASE_URL: http://localhost:8003
+      VITE_DOCUMENT_SEARCH_BASE_URL: http://localhost:8004
+      VITE_DOCUMENT_ACCESS_BASE_URL: http://localhost:8005
+      VITE_DOCUMENT_LIBRARY_BASE_URL: http://localhost:8006
+      VITE_DOCUMENT_TRANSFER_BASE_URL: http://localhost:8007
+      VITE_DOCUMENT_EXPORT_BASE_URL: http://localhost:8016
+      VITE_GOOGLE_DRIVE_IMPORT_BASE_URL: http://localhost:8017
+      VITE_CONVERSATION_BASE_URL: http://localhost:8008
+      VITE_PROFILE_BASE_URL: http://localhost:8015
+    ports:
+      - "3000:80"
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "wget -qO- http://127.0.0.1/ >/dev/null && wget -qO- http://127.0.0.1/runtime-config.js | grep -q '__BLANDSKRON_CONFIG__'",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    depends_on:
+      rag-document-chat-service:
+        condition: service_healthy
+      rag-document-embedding-service:
+        condition: service_healthy
+      document-search-service:
+        condition: service_healthy
+      document-access-service:
+        condition: service_healthy
+      document-library-service:
+        condition: service_healthy
+      document-transfer-service:
+        condition: service_healthy
+      document-export-service:
+        condition: service_healthy
+      google-drive-import-service:
+        condition: service_healthy
+      conversation-service:
+        condition: service_healthy
+      profile-service:
+        condition: service_healthy

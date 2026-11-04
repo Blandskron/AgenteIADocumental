@@ -1,0 +1,2 @@
+-- Reserved for stable reference data.
+-- Django-owned permissions and users are intentionally seeded by AuthServices migrations.
