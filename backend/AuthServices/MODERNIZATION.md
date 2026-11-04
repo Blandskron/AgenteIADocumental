@@ -27,8 +27,8 @@ Diagnóstico inicial sobre `main` en `fa74ac1`. Este es el primer servicio de la
 | Hecha | AUTH-005B | Reducir abuso y auditar eventos | Integrada en main. La API y Django Admin comparten límites en PostgreSQL y emiten eventos JSON. |
 | Hecha | AUTH-006A | Separar migración y arranque | Integrada en main. Compose migra primero y Gunicorn corre como UID 10001. |
 | Hecha | AUTH-006B | Validar configuración por entorno | Integrada en main. Producción exige configuración explícita y habilita HTTPS y cookies seguras. |
-| En revisión | AUTH-006C | Separar permisos de PostgreSQL | La base existente migró con roles dedicados. Se verificaron el ciclo de sesión y la denegación de DDL al rol web. |
-| Backlog | AUTH-006D | Revisar dependencias e imagen | Clasificar los avisos de dependencias, actualizar donde corresponda y verificar la imagen final. |
+| Hecha | AUTH-006C | Separar permisos de PostgreSQL | Integrada en main. CI valida permisos de los roles sobre una instalación limpia. |
+| En revisión | AUTH-006D | Revisar dependencias e imagen | Actualización de dependencias de Auth y auditoría reproducible de la imagen. |
 | Backlog | AUTH-007 | Completar la adopción Agents First | README humano, AGENTS local, contrato API y guías de pruebas, configuración, seguridad y operación enlazadas desde fuentes canónicas. Otra persona puede ejecutar las comprobaciones desde un clon limpio. |
 
 ## Secuencia y decisiones
@@ -83,6 +83,12 @@ El parche bloquea esas solicitudes, la reasignación de una membresía y la escr
 - Se arrancó Compose sobre la base existente. El rol de ejecución completó login, renovación, perfil y logout.
 - La comprobación SQL usó ambos roles. El rol web pudo consultar las tablas requeridas y no pudo crear una tabla permanente. El rol de migración sí pudo hacerlo y la prueba revirtió la operación.
 - CI prepara una base limpia y ejecuta la misma comprobación. El README documenta credenciales locales y reversión.
+
+## Evidencia de AUTH-006D
+
+- El 3 de noviembre de 2026 se actualizaron Django a 6.0.10, Django REST Framework a 3.18.3, `cryptography` a 50.0.2, PyJWT a 2.15.1 y `sqlparse` a 0.6.0. [Django](https://www.djangoproject.com/weblog/2026/nov/03/security-releases/), [DRF](https://www.django-rest-framework.org/community/release-notes/), [PyCA](https://github.com/pyca/cryptography/blob/main/CHANGELOG.rst), [PyJWT](https://github.com/jpadilla/pyjwt/releases/tag/2.15.1), [sqlparse](https://github.com/andialbrecht/sqlparse/blob/master/CHANGELOG).
+- Pasaron 37 pruebas, `pip check`, `manage.py check` y la comprobación de migraciones. `pip-audit --disable-pip --no-deps` no reportó avisos para las versiones fijadas.
+- Trivy 0.74.0 analizó la imagen local `sha256:73273d8044e502f719c97d9f84eecca288f91bd463eecd8de0f13b16f0b6afdf`. Reportó cero avisos altos o críticos en paquetes Python. En Debian 13 reportó 45 coincidencias altas correspondientes a nueve CVE, sin versión corregida en su base de datos y sin hallazgos críticos. Quedan como riesgo residual de la imagen base. El resultado describe la detección por paquete y versión y no establece si cada CVE es explotable en Auth.
 
 ## Criterio de cierre por PR
 

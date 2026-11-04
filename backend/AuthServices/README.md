@@ -90,6 +90,12 @@ Compose trae contraseñas locales de desarrollo para ambos roles. Para usar valo
 
 Para revertir a la versión anterior, reconstruye sus servicios Auth y conserva las tablas y los roles. El usuario anterior de Compose sigue teniendo acceso a las tablas aunque su propietario haya cambiado. No borres los roles ni reviertas la propiedad durante una recuperación rápida.
 
+## Revisar dependencias e imagen
+
+Reconstruye la imagen desde la raíz con `docker compose -f docker/docker-compose.yml build --pull auth-service`. CI verifica la coherencia del conjunto instalado con `python -m pip check`.
+
+Para consultar avisos de los paquetes fijados, ejecuta `pip-audit --disable-pip --no-deps -r backend/AuthServices/requirements.txt` con `pip-audit` instalado en un entorno de herramientas separado. Para analizar también la base de la imagen, exporta `docker-auth-service` con `docker image save` a un archivo temporal y usa `trivy image --input <archivo> --scanners vuln --severity HIGH,CRITICAL`. Conserva el identificador de la imagen y distingue los avisos de Debian de los paquetes Python.
+
 ## Verificar la autorización
 
 Desde la raíz, con PostgreSQL de Compose activo:
