@@ -29,12 +29,14 @@ Google Drive es una integración opcional que requiere configurar OAuth. Para la
 ## Arranque local con Docker
 
 ```powershell
-Copy-Item .env.example .env
+if (-not (Test-Path .env)) { Copy-Item .env.example .env }
 # Configura GROQ_API_KEY en .env.
 docker compose -f docker/docker-compose.yml up -d --build --wait
 ```
 
 Abre `http://localhost:3000`, inicia sesión con las credenciales de desarrollo y carga un documento de prueba. El primer uso de embeddings descarga el modelo. Por ejemplo, carga un archivo que diga «El plazo del contrato de prueba es de 97 días» y pregunta «¿Cuál es el plazo del contrato?».
+
+La configuración de Compose y las credenciales de ejemplo están pensadas para una instancia de desarrollo local. Mantén tu clave de Groq en `.env` y usa datos sintéticos en la demo.
 
 El agregador `docker/docker-compose.yml` carga:
 

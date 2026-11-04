@@ -2759,25 +2759,14 @@
   background: var(--panel);
 }
 
-.application-row.disabled {
-  opacity: 0.54;
-  cursor: not-allowed;
-}
-
-.application-row.disabled:hover {
-  background: transparent;
-}
-
 .application-row span:not(.application-icon) {
   display: grid;
   gap: 4px;
 }
 
-.application-row small,
-.application-row em {
+.application-row small {
   color: var(--muted);
   font-size: 13px;
-  font-style: normal;
 }
 
 .application-icon {
@@ -2790,18 +2779,8 @@
   overflow: hidden;
 }
 
-.application-icon img {
-  width: 32px;
-  height: 32px;
-  object-fit: contain;
-}
-
 .google-drive-icon {
   color: #34a853;
-}
-
-.sharepoint-icon {
-  color: #2bb8ff;
 }
 
 .application-breadcrumb {
@@ -2830,11 +2809,6 @@
 .application-detail-hero .application-icon {
   width: 58px;
   height: 58px;
-}
-
-.application-detail-hero .application-icon img {
-  width: 42px;
-  height: 42px;
 }
 
 .application-info-panel,
