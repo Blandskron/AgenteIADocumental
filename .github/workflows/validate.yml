@@ -30,7 +30,7 @@ jobs:
       - uses: actions/checkout@v4
       - run: cp .env.example .env
       - run: docker compose -f docker/docker-compose.yml config --quiet
-      - name: Comprobar montajes JWT y puertos de desarrollo
+      - name: Comprobar montajes JWT, puertos y entorno de ConversationServices
         run: |
           docker compose -f docker/docker-compose.yml config --format json > /tmp/blandskron-compose.json
           python3 - <<'PY'
@@ -38,6 +38,14 @@ jobs:
           from pathlib import Path
 
           services = json.loads(Path("/tmp/blandskron-compose.json").read_text())["services"]
+          conversation_env = services["conversation-service"]["environment"]
+          assert set(conversation_env) == {
+              "APP_ENV", "APP_NAME", "LOG_LEVEL", "CORS_ORIGINS", "DATABASE_URL",
+              "AUTH_JWT_PUBLIC_KEY_PATH", "AUTH_JWT_ALGORITHM",
+          }
+          assert json.loads(conversation_env["CORS_ORIGINS"]) == [
+              "http://localhost:3000", "http://127.0.0.1:3000",
+          ]
           for name, service in services.items():
               mounts = {volume["source"]: volume for volume in service.get("volumes", [])}
               assert all(port.get("host_ip") == "127.0.0.1" for port in service.get("ports", [])), name

@@ -20,9 +20,19 @@ Mantén una tarjeta en **En curso**. Pásala a **En revisión** con evidencia y 
 
 | Estado | Alcance | Evidencia o seguimiento |
 |---|---|---|
-| Lista para cierre | AuthServices | Arranque validado sobre base existente, 39 pruebas y OpenAPI sin errores. [Contrato, operación y pruebas](backend/AuthServices/README.md). |
+| Hecha | AuthServices | Cierre integrado en main. Arranque validado sobre base existente, 39 pruebas y OpenAPI sin errores. [Contrato, operación y pruebas](backend/AuthServices/README.md). |
 | Seguimiento | Integridad multiempresa | Las escrituras de Auth y la emisión de claims validan relaciones. Falta aplicar restricciones de integridad en PostgreSQL y probar escrituras concurrentes entre sesiones sobre el esquema definitivo. |
 | Seguimiento | Imagen base de Auth | Revisar los avisos residuales de Debian al actualizar la imagen base. [Evidencia](backend/AuthServices/docs/TESTS.md#dependencias-e-imagen). |
+
+### ConversationServices
+
+| Estado | ID | Entrega | Criterio de aceptación |
+|---|---|---|---|
+| En revisión | CONV-001 | Aislar la configuración del contenedor y delimitar CORS | `docker compose -f docker/docker-compose.yml config --quiet` y arranque con PostgreSQL en el puerto local alternativo 55432. Se verificaron siete variables de Compose, la clave pública, salud HTTP y PostgreSQL, respuesta 401 sin token y CORS para dos orígenes locales y uno externo. |
+| Lista | CONV-002 | Restaurar y autorizar vínculos documentales | Una prueba con rollback reprodujo `NoReferencedTableError` al guardar el vínculo. Resolver la referencia del ORM, aplicar el contrato de acceso de DocumentLibrary y comprobar vínculos permitidos, denegados, revocados y solicitudes repetidas en PostgreSQL. |
+| Lista | CONV-003 | Validar identidad JWT y aislamiento por dueño | Exigir identidad y expiración según AuthServices. Probar el contrato y el acceso cruzado a conversaciones, mensajes y vínculos. |
+| Lista | CONV-004 | Limitar escrituras y paginar el historial | Acotar contenido y metadatos, verificar orden estable y adaptar el cliente sin perder acceso al historial existente. |
+| Lista | CONV-005 | Restringir acceso a PostgreSQL y cerrar operación | Sustituir el usuario compartido por permisos mínimos, revisar dependencias e imagen y verificar arranque y CI desde una instalación limpia. |
 
 ## Validación
 

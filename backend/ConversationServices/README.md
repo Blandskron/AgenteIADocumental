@@ -1,7 +1,7 @@
 # ConversationServices
 
 ## Overview
-ConversationServices is a FastAPI-based microservice responsible for managing chat conversations, messages, and their association with documents. It provides secure, authenticated RESTful endpoints for CRUD operations on conversations and messages, as well as linking documents to conversations. The service is designed for integration in a microservices architecture, supporting JWT authentication and PostgreSQL persistence.
+ConversationServices is a FastAPI microservice for chat conversations, messages, and document associations. It authenticates requests with AuthServices access tokens and stores data in PostgreSQL.
 
 ## Features
 - Create, list, update, and delete conversations
@@ -32,6 +32,8 @@ ConversationServices is a FastAPI-based microservice responsible for managing ch
 - `GET /api/v1/conversations/{conversation_id}/documents` — List associated document IDs
 - `POST /api/v1/conversations/{conversation_id}/documents/{document_id}` — Associate a document
 - `DELETE /api/v1/conversations/{conversation_id}/documents/{document_id}` — Remove a document association
+
+Document association writes have a known ORM error. The authorization and persistence work is tracked in [CONV-002](../../ROADMAP.md#conversationservices).
 
 ## Data Models
 
@@ -81,10 +83,23 @@ All endpoints (except health checks) require a valid JWT access token in the `Au
 - `app/shared/`: Shared error classes
 
 ## Running the Service
-1. Install dependencies: `pip install -r requirements.txt`
-2. Set environment variables or edit config as needed
-3. Run with Uvicorn: `uvicorn app.main:app --reload`
-4. Or use Docker: `docker build -t conversation-services . && docker run ...`
+
+From the repository root, follow the [local setup](../../README.md) and start the service with PostgreSQL and AuthServices:
+
+```sh
+docker compose -f docker/docker-compose.yml config --quiet
+docker compose -f docker/docker-compose.yml up -d --build --wait conversation-service
+curl http://localhost:8008/api/v1/health
+curl http://localhost:8008/api/v1/health/db
+```
+
+Compose passes only the service settings and mounts the public verification key read-only. The local frontend origins are `http://localhost:3000` and `http://127.0.0.1:3000`. Override them with `CONVERSATION_CORS_ORIGINS` as a JSON array in the root Compose environment if needed.
+
+For standalone development, run from this directory. Install `requirements.txt`, point `DATABASE_URL` at a PostgreSQL database with the repository schema, and set `AUTH_JWT_PUBLIC_KEY_PATH` to the public key issued by AuthServices. Set `CORS_ORIGINS` as a JSON array to override the defaults. Uvicorn reads settings from the process environment or the service-local `.env`.
+
+```sh
+python -m uvicorn app.main:app --reload --port 8008
+```
 
 ## Example Requests
 
