@@ -54,9 +54,19 @@ Quedan en seguimiento nueve CVE altos de la imagen base Debian sin versión corr
 | Hecha | EMB-002 | Validar identidad y permisos de ingesta | PR #27 integrado. Nueve pruebas con PostgreSQL y comprobación HTTP con tokens reales de AuthServices. |
 | Hecha | EMB-003 | Limitar archivos y confinar su lectura | PR #28 integrado. Arranque y 18 pruebas verificaron límites multipart, limpieza, confinamiento y extracción. |
 | Hecha | EMB-004 | Hacer reproducible la indexación | PR #29 integrado. 23 pruebas con PostgreSQL y verificación del modelo real de 384 dimensiones. |
-| En revisión | EMB-005 | Restringir PostgreSQL y cerrar operación | Compose válido, 23 pruebas, Ruff, `pip check` y permisos SQL. Carga y reindexación HTTP con JWT real, modelo CPU y un vector de 384 dimensiones en un volumen nuevo. [Auditoría de imagen](backend/RagDocumentEmbeddingServices/README.md#verificación-de-la-imagen). |
+| Hecha | EMB-005 | Restringir PostgreSQL y cerrar operación | PR #30 integrado con seis checks verdes. 23 pruebas y carga y reindexación HTTP con un vector real de 384 dimensiones. [Auditoría de imagen](backend/RagDocumentEmbeddingServices/README.md#verificación-de-la-imagen). |
 
 Quedan en seguimiento los CVE de Debian 13.7 que Trivy detectó en la imagen de ingesta, incluido CVE-2026-6653 en libxml2. [Evidencia de la imagen](backend/RagDocumentEmbeddingServices/README.md#verificación-de-la-imagen).
+
+### DocumentSearchServices
+
+| Estado | ID | Entrega | Criterio de aceptación |
+|---|---|---|---|
+| En revisión | SEARCH-001 | Aislar configuración y comprobar arranque | Compose válido, arranque local y Ruff. Se verificaron siete variables, PostgreSQL, CORS, `401` anónimo y una búsqueda con JWT real de AuthServices. |
+| Lista | SEARCH-002 | Aplicar permisos en todas las rutas | Validar la identidad JWT y probar búsqueda, detalle, fragmentos y selección con usuarios de distintos ámbitos y asignaciones revocadas. |
+| Lista | SEARCH-003 | Acotar y estabilizar las consultas | Limitar entradas y selección, evitar consultas repetidas por documento y mantener un orden estable con paginación. |
+| Lista | SEARCH-004 | Revisar el contrato de respuesta | Verificar qué metadatos necesita el frontend y comprobar snippets, errores y selección con datos sintéticos. |
+| Lista | SEARCH-005 | Restringir PostgreSQL y cerrar operación | Aprovisionar un rol de lectura y validar permisos, imagen, dependencias y arranque limpio. |
 
 ## Validación
 

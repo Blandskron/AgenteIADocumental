@@ -90,10 +90,18 @@ Todos los endpoints (excepto health checks) requieren un JWT válido en el heade
 - `app/shared/`: Clases de error compartidas
 
 ## Running the Service
-1. Instala dependencias: `pip install -r requirements.txt`
-2. Configura variables de entorno o edita el archivo de configuración
-3. Ejecuta con Uvicorn: `uvicorn app.main:app --reload`
-4. O usa Docker: `docker build -t document-search-services . && docker run ...`
+
+Prepara el entorno según el [README principal](../../README.md) y ejecuta desde la raíz del repositorio.
+
+```sh
+docker compose -f docker/docker-compose.yml config --quiet
+docker compose -f docker/docker-compose.yml up -d --build --wait document-search-service
+curl http://localhost:8004/api/v1/health/db
+```
+
+Compose pasa las variables de búsqueda explícitamente. El chequeo de arranque verifica el acceso a PostgreSQL y a la clave pública JWT. CORS admite `http://localhost:3000` y `http://127.0.0.1:3000` por defecto. Configura `SEARCH_CORS_ORIGINS` como arreglo JSON si necesitas otro origen.
+
+Fuera de Compose, instala `requirements.txt` desde este directorio, configura `DATABASE_URL` y `AUTH_JWT_PUBLIC_KEY_PATH` en el entorno o en el `.env` del servicio y ejecuta `python -m uvicorn app.main:app --port 8004`. Para personalizar CORS en este modo, usa `CORS_ORIGINS`.
 
 ## Example Requests
 
