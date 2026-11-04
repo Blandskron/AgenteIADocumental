@@ -44,6 +44,8 @@ Compose provisiona el rol `conversation_runtime` al arrancar ConversationService
 
 El chat RAG usa el rol `rag_chat_runtime`. Puedes cambiar su contraseña local con `RAG_CHAT_DB_PASSWORD` en `.env`. [Operación del chat RAG](backend/RagDocumentChatServices/README.md#running-the-service).
 
+La ingesta usa el rol `embedding_runtime`. En Linux, crea `documents` como usuario local y configura `EMBEDDING_UID` y `EMBEDDING_GID` con los IDs de ese usuario antes de levantar Compose. [Operación de ingesta](backend/RagDocumentEmbeddingServices/README.md#running-the-service).
+
 Si otra instalación de PostgreSQL ocupa el puerto local 5432, configura `POSTGRES_HOST_PORT=15432` en `.env`. Los contenedores siguen conectándose a PostgreSQL por el puerto interno 5432.
 
 El agregador `docker/docker-compose.yml` carga:

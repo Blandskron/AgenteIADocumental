@@ -64,11 +64,12 @@ jobs:
           assert set(embedding_env) == {
               "APP_ENV", "APP_NAME", "LOG_LEVEL", "CORS_ORIGINS", "DATABASE_URL",
               "DOCUMENT_STORAGE_BASE_PATH", "MAX_CHUNK_SIZE", "CHUNK_OVERLAP",
-              "AUTH_JWT_PUBLIC_KEY_PATH", "AUTH_JWT_ALGORITHM",
+              "AUTH_JWT_PUBLIC_KEY_PATH", "AUTH_JWT_ALGORITHM", "PGPASSWORD",
           }
           assert json.loads(embedding_env["CORS_ORIGINS"]) == [
               "http://localhost:3000", "http://127.0.0.1:3000",
           ]
+          assert embedding_env["DATABASE_URL"] == "postgresql+psycopg://embedding_runtime@postgres:5432/documents_db"
           for name, service in services.items():
               mounts = {volume["source"]: volume for volume in service.get("volumes", [])}
               assert all(port.get("host_ip") == "127.0.0.1" for port in service.get("ports", [])), name
@@ -165,9 +166,11 @@ jobs:
       - run: cp .env.example .env
       - run: docker compose -f docker/docker-compose.yml up -d --build --wait conversation-service
       - run: docker compose -f docker/docker-compose.yml run --rm --no-deps rag-chat-db-role
+      - run: docker compose -f docker/docker-compose.yml run --rm --no-deps embedding-db-role
       - run: docker compose -f docker/docker-compose.yml exec -T postgres psql -U postgres -d documents_db -v ON_ERROR_STOP=1 < scripts/database/auth/verify_roles.sql
       - run: docker compose -f docker/docker-compose.yml exec -T postgres psql -U postgres -d documents_db -v ON_ERROR_STOP=1 < scripts/database/conversation/verify_role.sql
       - run: docker compose -f docker/docker-compose.yml exec -T postgres psql -U postgres -d documents_db -v ON_ERROR_STOP=1 < scripts/database/rag-chat/verify_role.sql
+      - run: docker compose -f docker/docker-compose.yml exec -T postgres psql -U postgres -d documents_db -v ON_ERROR_STOP=1 < scripts/database/embedding/verify_role.sql
       - name: Comprobar imagen de ConversationServices
         run: |
           docker compose -f docker/docker-compose.yml exec -T conversation-service python -m pip --no-cache-dir check
@@ -177,4 +180,4 @@ jobs:
           docker compose -f docker/docker-compose.yml run --build --rm --no-deps conversation-tests
           docker compose -f docker/docker-compose.yml run --rm --no-deps conversation-tests ruff check --no-cache app tests
       - if: failure()
-        run: docker compose -f docker/docker-compose.yml logs auth-db-roles auth-migrate auth-service conversation-db-role conversation-service rag-chat-db-role
+        run: docker compose -f docker/docker-compose.yml logs auth-db-roles auth-migrate auth-service conversation-db-role conversation-service rag-chat-db-role embedding-db-role

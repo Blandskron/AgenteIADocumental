@@ -98,14 +98,23 @@ Compose pasa las variables de ingesta explícitamente y comprueba el acceso a Po
 
 `MAX_CHUNK_SIZE` y `CHUNK_OVERLAP` se expresan en caracteres. El tamaño debe ser positivo y el solapamiento debe estar entre cero y el tamaño del fragmento menos uno. Fuera de Compose, ejecuta desde este directorio con las dependencias instaladas y configura `DATABASE_URL`, `DOCUMENT_STORAGE_BASE_PATH` y `AUTH_JWT_PUBLIC_KEY_PATH` en el entorno o el `.env` del servicio. Inicia con `python -m uvicorn app.main:app --port 8003`.
 
-Para comprobar los permisos con PostgreSQL local:
+Compose provisiona el rol `embedding_runtime` después del esquema. El servicio puede registrar documentos, actualizar su estado y reemplazar sus fragmentos. Para cambiar su contraseña local, configura `EMBEDDING_DB_PASSWORD` y vuelve a ejecutar el comando de arranque.
+
+La imagen usa UID y GID 10004 por defecto. El directorio compartido `documents` debe admitir escritura por parte del usuario del contenedor. En Linux, crea el directorio con `mkdir -p documents` y configura `EMBEDDING_UID` y `EMBEDDING_GID` en `.env` con los valores de `id -u` e `id -g` de un usuario no root que pueda escribir allí. El chequeo de arranque comprueba ese permiso.
+
+Con el servicio levantado, ejecuta la suite en su imagen de pruebas. Los registros sintéticos se preparan con credenciales separadas y la ingesta se prueba con el rol de ejecución.
 
 ```sh
-docker compose -f docker/docker-compose.yml cp backend/RagDocumentEmbeddingServices/tests/test_ingestion_access.py rag-document-embedding-service:/app/test_ingestion_access.py
-docker compose -f docker/docker-compose.yml cp backend/RagDocumentEmbeddingServices/tests/test_file_boundary.py rag-document-embedding-service:/app/test_file_boundary.py
-docker compose -f docker/docker-compose.yml cp backend/RagDocumentEmbeddingServices/tests/test_indexing.py rag-document-embedding-service:/app/test_indexing.py
-docker compose -f docker/docker-compose.yml exec -T rag-document-embedding-service python -m pytest -q test_ingestion_access.py test_file_boundary.py test_indexing.py
+docker compose -f docker/docker-compose.yml run --build --rm embedding-tests
 ```
+
+### Verificación de la imagen
+
+Reconstruye con `docker compose -f docker/docker-compose.yml build --pull rag-document-embedding-service`. Audita las versiones instaladas con `pip-audit` a partir de `pip list --format=freeze` dentro de la imagen. Para revisar también Debian y las dependencias empaquetadas, ejecuta `trivy image --scanners vuln --severity HIGH,CRITICAL docker-rag-document-embedding-service`.
+
+El 4 de noviembre de 2026, `pip-audit` no reportó avisos para los paquetes Python instalados en la imagen `sha256:6e043fa1cb26203d36f4e29f7f7fc8e372c6cf5d00840aefd2207e01ecee8be5`. Trivy 0.74.0, sobre el inventario `dpkg` de la imagen, reportó 31 CVE altos y un CVE crítico en Debian 13.7 sin versiones corregidas indicadas para esa distribución.
+
+El hallazgo crítico de Trivy es CVE-2026-6653 en la biblioteca `libxml2` del sistema, enlazada por Tesseract. Debian confirma que la versión instalada sigue afectada en Trixie y clasifica el problema como menor. La extensión Python `lxml` reporta una copia separada de libxml2 2.14.6. [Seguimiento de Debian](https://security-tracker.debian.org/tracker/CVE-2026-6653).
 
 ## Example Requests
 
