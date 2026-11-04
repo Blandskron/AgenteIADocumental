@@ -132,11 +132,11 @@ services:
       context: ../../backend/DocumentSearchServices
       dockerfile: Dockerfile
     container_name: document-search-service
-    env_file:
-      - ../../.env
     environment:
+      APP_ENV: ${APP_ENV:-local}
       APP_NAME: document-search-service
-      CORS_ORIGINS: '["*"]'
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      CORS_ORIGINS: '${SEARCH_CORS_ORIGINS:-["http://localhost:3000","http://127.0.0.1:3000"]}'
       DATABASE_URL: postgresql+psycopg://postgres:admin1234@postgres:5432/documents_db
       AUTH_JWT_PUBLIC_KEY_PATH: /app/auth_keys/public.pem
       AUTH_JWT_ALGORITHM: RS256
@@ -148,7 +148,7 @@ services:
       test:
         [
           "CMD-SHELL",
-          "python -c \"import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/v1/health', timeout=3)\"",
+          "test -r /app/auth_keys/public.pem && python -c \"import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/v1/health/db', timeout=3)\"",
         ]
       interval: 10s
       timeout: 5s

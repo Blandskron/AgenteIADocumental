@@ -114,6 +114,8 @@ Reconstruye con `docker compose -f docker/docker-compose.yml build --pull rag-do
 
 El 4 de noviembre de 2026, `pip-audit` no reportó avisos para los paquetes Python instalados en la imagen `sha256:6e043fa1cb26203d36f4e29f7f7fc8e372c6cf5d00840aefd2207e01ecee8be5`. Trivy 0.74.0, sobre el inventario `dpkg` de la imagen, reportó 31 CVE altos y un CVE crítico en Debian 13.7 sin versiones corregidas indicadas para esa distribución.
 
+El análisis completo del archivo de imagen agotó su tiempo de ejecución. La evidencia anterior cubre el inventario de Debian y las versiones Python instaladas.
+
 El hallazgo crítico de Trivy es CVE-2026-6653 en la biblioteca `libxml2` del sistema, enlazada por Tesseract. Debian confirma que la versión instalada sigue afectada en Trixie y clasifica el problema como menor. La extensión Python `lxml` reporta una copia separada de libxml2 2.14.6. [Seguimiento de Debian](https://security-tracker.debian.org/tracker/CVE-2026-6653).
 
 ## Example Requests
