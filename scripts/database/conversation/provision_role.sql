@@ -2,6 +2,9 @@
 
 BEGIN;
 
+-- Role provisioners share the public schema ACL and must update it serially.
+SELECT pg_advisory_xact_lock(hashtextextended('blandskron.database.role_provisioning', 0));
+
 SELECT 'CREATE ROLE conversation_runtime'
 WHERE NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'conversation_runtime') \gexec
 
