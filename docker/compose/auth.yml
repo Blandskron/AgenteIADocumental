@@ -1,4 +1,24 @@
 services:
+  auth-migrate:
+    build:
+      context: ../../backend/AuthServices
+      dockerfile: Dockerfile
+    env_file:
+      - ../../backend/AuthServices/.env.example
+    environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: documents_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: admin1234
+      DJANGO_PRIVATE_KEY_PATH: /tmp/auth-migrate/private.pem
+      DJANGO_PUBLIC_KEY_PATH: /tmp/auth-migrate/public.pem
+    user: "10001:10001"
+    command: ["python", "manage.py", "migrate", "--noinput"]
+    depends_on:
+      database-schema:
+        condition: service_completed_successfully
+
   auth-service:
     build:
       context: ../../backend/AuthServices
@@ -31,5 +51,5 @@ services:
       timeout: 3s
       retries: 20
     depends_on:
-      database-schema:
+      auth-migrate:
         condition: service_completed_successfully

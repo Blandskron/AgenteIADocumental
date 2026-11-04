@@ -24,8 +24,9 @@ Diagnóstico inicial sobre `main` en `fa74ac1`. Este es el primer servicio de la
 | Hecha | AUTH-003 | Separar claves y bootstrap | Integrada con cuatro checks aprobados. Volúmenes separados, administrador explícito y puertos en loopback. |
 | Hecha | AUTH-004 | Endurecer el ciclo de sesión | Integrada en main. Renovación con permisos vigentes y acceso de diez minutos. |
 | Hecha | AUTH-005A | Aplicar la política de contraseñas de la API | Integrada en main. Las contraseñas rechazadas conservan la identidad y el hash anterior. |
-| En revisión | AUTH-005B | Reducir abuso y auditar eventos | La API y Django Admin comparten límites en PostgreSQL. Los eventos JSON omiten credenciales, tokens y cuerpos. |
-| Backlog | AUTH-006 | Hacer reproducible la operación | Separar migración y arranque, validar configuración segura, ejecutar como usuario sin privilegios, acotar permisos de base y revisar dependencias e imagen con evidencia. Registrar decisiones y estrategia de rollback. |
+| Hecha | AUTH-005B | Reducir abuso y auditar eventos | Integrada en main. La API y Django Admin comparten límites en PostgreSQL y emiten eventos JSON. |
+| En revisión | AUTH-006A | Separar migración y arranque | Compose aplica las migraciones antes de arrancar Auth. Gunicorn corre como UID 10001 y la imagen incluye los estáticos. |
+| Backlog | AUTH-006B | Endurecer configuración y persistencia | Validar la configuración por entorno, separar permisos de base y revisar dependencias e imagen con evidencia y procedimiento de reversión. |
 | Backlog | AUTH-007 | Completar la adopción Agents First | README humano, AGENTS local, contrato API y guías de pruebas, configuración, seguridad y operación enlazadas desde fuentes canónicas. Otra persona puede ejecutar las comprobaciones desde un clon limpio. |
 
 ## Secuencia y decisiones
@@ -62,6 +63,12 @@ El parche bloquea esas solicitudes, la reasignación de una membresía y la escr
 - Pasaron 33 pruebas en PostgreSQL. Se verificaron el límite compartido entre canales, la renovación de la ventana, el rechazo de un origen reenviado por el cliente y el límite exacto desde 12 conexiones independientes.
 - `manage.py check` y `manage.py makemigrations --check --dry-run` pasaron. El entrypoint aplica las migraciones versionadas en lugar de generarlas.
 - El README documenta la limpieza diaria de contadores y el comportamiento del límite por origen detrás de un proxy.
+
+## Evidencia de AUTH-006A
+
+- Compose aplicó la migración en un contenedor separado y Auth quedó sano sobre la base y los volúmenes locales existentes.
+- El PID 1 de Gunicorn tuvo UID 10001. La clave privada conservó modo 0600 y la página de login de Django Admin respondió con HTTP 200.
+- Pasaron 33 pruebas de Auth en PostgreSQL con el entrypoint nuevo y claves efímeras. CI comprueba también el UID efectivo de un comando iniciado desde la imagen.
 
 ## Criterio de cierre por PR
 
