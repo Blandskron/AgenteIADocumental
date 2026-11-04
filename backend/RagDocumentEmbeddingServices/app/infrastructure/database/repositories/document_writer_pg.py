@@ -1,9 +1,15 @@
+from collections.abc import Iterator
+from contextlib import contextmanager
 from datetime import UTC, datetime
 
+from psycopg.errors import LockNotAvailable
+from sqlalchemy import select
+from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import Session
 
-from app.domain.documents import Document, DocumentStatus
+from app.domain.documents import Document, DocumentNotFoundError, DocumentStatus
 from app.infrastructure.database.models import DocumentModel
+from app.shared.errors import AppError, ConflictError
 
 
 class DocumentWriterPg:
@@ -44,24 +50,40 @@ class DocumentWriterPg:
         self._session.commit()
         return result
 
-    def mark_as_processing(self, document_id: str) -> None:
-        document = self._session.get(DocumentModel, document_id)
-        if document:
-            document.status = "PROCESSING"
-            document.processing_error = None
-            self._session.commit()
+    @contextmanager
+    def indexing_transaction(self, document_id: str) -> Iterator[None]:
+        statement = (
+            select(DocumentModel)
+            .where(DocumentModel.document_id == document_id)
+            .with_for_update(nowait=True, key_share=True)
+            .execution_options(populate_existing=True)
+        )
+        try:
+            document = self._session.scalar(statement)
+        except OperationalError as exc:
+            self._session.rollback()
+            if isinstance(exc.orig, LockNotAvailable):
+                raise ConflictError("Document is already being modified. Retry later.") from exc
+            raise
+        if document is None:
+            self._session.rollback()
+            raise DocumentNotFoundError(f"Document {document_id} was not found.")
 
-    def mark_as_processed(self, document_id: str) -> None:
-        document = self._session.get(DocumentModel, document_id)
-        if document:
-            document.status = "PROCESSED"
-            document.processed_at = datetime.now(UTC)
-            document.processing_error = None
+        was_processed = document.status == DocumentStatus.PROCESSED.value
+        try:
+            # Keep the row lock when rolling back a failed chunk replacement.
+            with self._session.begin_nested():
+                yield
+                document.status = DocumentStatus.PROCESSED.value
+                document.processed_at = datetime.now(UTC)
+                document.processing_error = None
+        except DocumentNotFoundError:
+            self._session.rollback()
+            raise
+        except Exception as exc:
+            if not was_processed:
+                document.status = DocumentStatus.FAILED.value
+            document.processing_error = str(exc) if isinstance(exc, AppError) else "Document indexing failed."
             self._session.commit()
-
-    def mark_as_failed(self, document_id: str, reason: str) -> None:
-        document = self._session.get(DocumentModel, document_id)
-        if document:
-            document.status = "FAILED"
-            document.processing_error = reason
-            self._session.commit()
+            raise
+        self._session.commit()

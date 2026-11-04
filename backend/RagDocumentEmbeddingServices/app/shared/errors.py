@@ -24,3 +24,7 @@ class ExtractionError(AppError):
 
 class PayloadTooLarge(AppError):
     pass
+
+
+class ConflictError(AppError):
+    pass

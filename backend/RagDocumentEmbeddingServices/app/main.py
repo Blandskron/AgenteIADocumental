@@ -9,7 +9,7 @@ from app.config.settings import get_settings
 from app.infrastructure.database.connection import Database
 from app.interfaces.api.router import api_router
 from app.interfaces.api.upload_limits import UploadBodyLimitMiddleware
-from app.shared.errors import AppError, ExternalServiceError, ExtractionError, NotFoundError, PayloadTooLarge, ValidationError
+from app.shared.errors import AppError, ConflictError, ExternalServiceError, ExtractionError, NotFoundError, PayloadTooLarge, ValidationError
 
 
 settings = get_settings()
@@ -58,6 +58,11 @@ async def payload_too_large_handler(request: Request, exc: PayloadTooLarge) -> J
 @app.exception_handler(ExtractionError)
 async def extraction_error_handler(request: Request, exc: ExtractionError) -> JSONResponse:
     return JSONResponse(status_code=422, content={"detail": str(exc)})
+
+
+@app.exception_handler(ConflictError)
+async def conflict_error_handler(request: Request, exc: ConflictError) -> JSONResponse:
+    return JSONResponse(status_code=409, content={"detail": str(exc)})
 
 
 @app.exception_handler(ExternalServiceError)

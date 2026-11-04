@@ -51,8 +51,14 @@ def upload_document(
     )
 
 
-@router.post("/{document_id}/process", response_model=DocumentProcessResponse)
-@router.post("/{document_id}/reindex", response_model=DocumentProcessResponse)
+@router.post(
+    "/{document_id}/process", response_model=DocumentProcessResponse,
+    responses={409: {"description": "Document is being modified."}},
+)
+@router.post(
+    "/{document_id}/reindex", response_model=DocumentProcessResponse,
+    responses={409: {"description": "Document is being modified."}},
+)
 def process_document(
     document_id: str,
     current_user: dict = Depends(require_authenticated_user),
@@ -62,7 +68,7 @@ def process_document(
     document = reader.get_by_id(document_id)
     if document is None or not can_manage_document(current_user, document):
         raise DocumentNotFoundError(f"Document {document_id} was not found.")
-    use_case.execute(document_id)
+    use_case.execute(document_id, authorize=lambda locked_document: can_manage_document(current_user, locked_document))
     return DocumentProcessResponse(document_id=document_id, status="PROCESSED")
 
 

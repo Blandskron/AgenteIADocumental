@@ -12,6 +12,3 @@ class VectorRepository(Protocol):
         embedding_model: str,
     ) -> None:
         ...
-
-    def delete_by_document_id(self, document_id: str) -> None:
-        ...
