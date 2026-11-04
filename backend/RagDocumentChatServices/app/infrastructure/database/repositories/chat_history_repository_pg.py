@@ -1,6 +1,7 @@
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.config.security import user_id
 from app.domain.chat import AnswerSource, ChatMessage, MessageRole
 from app.infrastructure.database.models import ChatMessageModel
 
@@ -8,16 +9,18 @@ from app.infrastructure.database.models import ChatMessageModel
 class ChatHistoryRepositoryPg:
     def __init__(self, session: Session, current_user: dict) -> None:
         self._session = session
-        self._owner_user_id = _owner_user_id(current_user)
+        self._owner_user_id = user_id(current_user)
 
-    def get_history(self, session_id: str, limit: int = 20) -> list[ChatMessage]:
+    def get_user_history(self, session_id: str, limit: int = 20) -> list[ChatMessage]:
+        # Stored assistant answers can include documents whose access has since changed.
         statement = (
             select(ChatMessageModel)
             .where(
                 ChatMessageModel.session_id == session_id,
                 ChatMessageModel.owner_user_id == self._owner_user_id,
+                ChatMessageModel.role == MessageRole.USER.value,
             )
-            .order_by(ChatMessageModel.created_at.desc())
+            .order_by(ChatMessageModel.created_at.desc(), ChatMessageModel.message_id.desc())
             .limit(limit)
         )
         rows = self._session.scalars(statement).all()
@@ -49,7 +52,3 @@ class ChatHistoryRepositoryPg:
             )
         )
         self._session.commit()
-
-
-def _owner_user_id(current_user: dict) -> str:
-    return str(current_user.get("user_id") or current_user.get("sub") or current_user.get("username") or "unknown")
