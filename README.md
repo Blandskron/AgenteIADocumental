@@ -118,3 +118,13 @@ python scripts/reindex_documents.py --all --limit 100
 La ingesta y el chat usan `intfloat/multilingual-e5-small` en CPU. El primer uso descarga el modelo. Las instalaciones nuevas crean el índice con vectores de 384 dimensiones.
 
 Para actualizar una instalación existente, detén la ingesta y el chat, respalda la base y ejecuta `scripts/database/migrations/001_local_embeddings.sql` con `psql` conectado a la base documental. La migración elimina los vectores de 1536 dimensiones y marca sus documentos para reindexar. Los archivos originales se conservan. Con el almacenamiento documental disponible, ejecuta el script de reindexación por lotes antes de volver a habilitar el chat.
+
+### Prueba del recorrido documental
+
+Con el stack local activo y `GROQ_API_KEY` configurada, ejecuta desde PowerShell 7:
+
+```powershell
+./scripts/smoke_documental.ps1 -Credential (Get-Credential)
+```
+
+La prueba inicia sesión, carga e indexa un documento sintético, comprueba su recuperación y descarga un PDF con la respuesta. Usa una instancia de desarrollo, ya que el documento y la exportación quedan registrados.

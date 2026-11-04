@@ -13,9 +13,9 @@ Mantener una sola tarjeta **En curso**. Moverla a **En revisión** con evidencia
 | Hecha | BD-002 | Definir la vía y el alcance de publicación | — |
 | En curso | BD-003 | Fijar la base y comprobar que arranca | BD-002 |
 | En revisión | BD-004 | Aplicar la identidad Blandskron | BD-001, BD-003 para validación integral |
-| En revisión | BD-005 | Migrar el chat a Groq | Prueba con el proveedor real |
+| En revisión | BD-005 | Migrar el chat a Groq | Recorrido RAG con el stack |
 | En revisión | BD-006 | Separar embeddings de Azure | Prueba real del modelo, migración y reindexación |
-| Backlog | BD-007 | Automatizar la validación del recorrido | BD-006 |
+| En curso | BD-007 | Automatizar la validación del recorrido | BD-006 para la prueba integral |
 | Backlog | BD-008 | Preparar la entrega de portafolio | BD-007 |
 
 ## Etapa 0 · Alcance e inventario
@@ -57,6 +57,8 @@ El barrido es interno. La inspección visual de recursos genéricos sigue pendie
 - **BD-006 · Embeddings.** Evaluar un modelo local multilingüe para indexación y consulta. La base actual fija vectores de 1536 dimensiones. **Aceptación.** El esquema y los adaptadores usan la dimensión del modelo elegido, se reconstruye el índice y se verifica la recuperación sobre preguntas conocidas. El recorrido documental arranca y funciona sin credenciales de Azure.
 
 ## Etapa 3 · Calidad y entrega
+
+El primer PR se integró en `main`. La API real de Groq respondió correctamente una pregunta en español sobre un contrato sintético. La comprobación se hizo directamente contra Groq y queda por repetir desde el chat. Se agregaron checks de build y Compose para los PR y se alineó la imagen del frontend con Node 24 y el lockfile.
 
 - **BD-007 · CI y prueba integral.** Automatizar build, validación de Compose y el recorrido de login, carga, indexación, búsqueda, chat y exportación. **Aceptación.** Los checks se ejecutan desde una base limpia. Una prueba con dos usuarios demuestra el aislamiento en la recuperación de documentos.
 - **BD-008 · Portafolio.** Preparar README con instrucciones verificadas, diagrama breve y una demo con datos sintéticos. Dejar Drive como opcional y describir las integraciones según su comportamiento verificado. **Aceptación.** Otra persona puede seguir el README y completar el recorrido. El contenido e historial a compartir pasan la revisión de permisos, marcas, datos y credenciales. La entrega queda lista para revisión antes de hacerse pública.

@@ -1,0 +1,53 @@
+name: Validar Blandskron Documental
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  frontend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+      - run: npm run build
+
+  compose:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: cp .env.example .env
+      - run: docker compose -f docker/docker-compose.yml config --quiet
+
+  postgres:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_PASSWORD: test
+          POSTGRES_DB: documents_test
+        ports: [5432:5432]
+        options: >-
+          --health-cmd "pg_isready -U postgres -d documents_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validar la migración y su segundo arranque
+        run: |
+          docker cp scripts/database/migrations/001_local_embeddings.sql "${{ job.services.postgres.id }}:/tmp/blandskron-local-embeddings.sql"
+          docker exec -i "${{ job.services.postgres.id }}" psql -U postgres -d documents_test -v ON_ERROR_STOP=1 < scripts/database/tests/local_embeddings.sql

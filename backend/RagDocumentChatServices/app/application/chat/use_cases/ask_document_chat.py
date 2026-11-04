@@ -21,9 +21,8 @@ SUMMARY_KEYWORDS = (
 )
 
 ASSISTANT_ERROR_ANSWER = (
-    "Lo siento, ahora no puedo consultar el documento porque el proveedor de inteligencia artificial "
-    "no esta disponible o tiene credenciales invalidas. Revisa la configuracion de OpenAI/Azure OpenAI "
-    "y vuelve a intentarlo."
+    "No se pudo consultar el documento. Revisa la configuración de Groq y la disponibilidad "
+    "del modelo de embeddings local, y vuelve a intentarlo."
 )
 
 
