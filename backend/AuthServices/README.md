@@ -46,10 +46,19 @@ Desde la raíz, con PostgreSQL de Compose activo:
 
 ```powershell
 docker compose -f docker/docker-compose.yml build auth-service
-docker compose -f docker/docker-compose.yml run --rm --no-deps -T --entrypoint python auth-service manage.py test users --noinput
+docker compose -f docker/docker-compose.yml run --rm --no-deps -T --entrypoint python auth-service manage.py test users core --noinput
 ```
 
 Django crea una base de pruebas separada. Los casos incluyen alta autorizada, escritura de privilegios globales, intentos de vincular o modificar una identidad ajena y referencias a otra empresa. El [plan de modernización](MODERNIZATION.md) detalla los incrementos siguientes.
+
+## Actualizar desde el volumen JWT compartido
+
+1. Detén el stack anterior con `docker compose -f docker/docker-compose.yml stop`. Conserva los volúmenes de base de datos y documentos.
+2. Si la instalación conserva el administrador de demo anterior, cambia su contraseña antes de volver a publicar el puerto. Ejecuta `docker compose -f docker/docker-compose.yml run --build --rm auth-service python manage.py changepassword blandskronadmin`. La ejecución puntual omite los puertos del servicio.
+3. Reconstruye y recrea el stack con `docker compose -f docker/docker-compose.yml up -d --build --wait`. Auth usa el par de los volúmenes nuevos. Los verificadores reciben solo el volumen público y se recrean para leer la clave nueva.
+4. Inicia sesión de nuevo. Los JWT firmados con la clave anterior dejan de ser válidos. El volumen antiguo queda desmontado y puede conservar material sensible. Retíralo según la política de almacenamiento local cuando se haya confirmado la transición.
+
+Solo Auth monta el volumen de firma. Si falta la clave pública, Auth la vuelve a publicar a partir de la privada existente. Para una rotación posterior, coordina una pausa del emisor y los verificadores y usa un par nuevo. La operación invalida sesiones, por lo que no conviene restaurar el par anterior como mecanismo de rollback.
 
 ---
 

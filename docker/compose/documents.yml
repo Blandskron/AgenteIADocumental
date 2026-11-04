@@ -14,9 +14,9 @@ services:
       AUTH_JWT_ALGORITHM: RS256
       INTERNAL_SERVICE_API_KEY: ${INTERNAL_SERVICE_API_KEY:-local-internal-service-key}
     ports:
-      - "8002:8000"
+      - "127.0.0.1:8002:8000"
     volumes:
-      - auth_keys:/app/auth_keys:ro
+      - auth_verification_keys:/app/auth_keys:ro
     healthcheck:
       test:
         [
@@ -47,10 +47,10 @@ services:
       AUTH_JWT_PUBLIC_KEY_PATH: /app/auth_keys/public.pem
       AUTH_JWT_ALGORITHM: RS256
     ports:
-      - "8003:8000"
+      - "127.0.0.1:8003:8000"
     volumes:
       - ../../documents:/app/documents
-      - auth_keys:/app/auth_keys:ro
+      - auth_verification_keys:/app/auth_keys:ro
     healthcheck:
       test:
         [
@@ -80,9 +80,9 @@ services:
       AUTH_JWT_PUBLIC_KEY_PATH: /app/auth_keys/public.pem
       AUTH_JWT_ALGORITHM: RS256
     ports:
-      - "8004:8000"
+      - "127.0.0.1:8004:8000"
     volumes:
-      - auth_keys:/app/auth_keys:ro
+      - auth_verification_keys:/app/auth_keys:ro
     healthcheck:
       test:
         [
@@ -113,10 +113,10 @@ services:
       AUTH_JWT_PUBLIC_KEY_PATH: /app/auth_keys/public.pem
       AUTH_JWT_ALGORITHM: RS256
     ports:
-      - "8005:8000"
+      - "127.0.0.1:8005:8000"
     volumes:
       - ../../documents:/app/documents
-      - auth_keys:/app/auth_keys:ro
+      - auth_verification_keys:/app/auth_keys:ro
     healthcheck:
       test:
         [
@@ -146,9 +146,9 @@ services:
       AUTH_JWT_PUBLIC_KEY_PATH: /app/auth_keys/public.pem
       AUTH_JWT_ALGORITHM: RS256
     ports:
-      - "8006:8000"
+      - "127.0.0.1:8006:8000"
     volumes:
-      - auth_keys:/app/auth_keys:ro
+      - auth_verification_keys:/app/auth_keys:ro
     healthcheck:
       test:
         [
@@ -178,9 +178,9 @@ services:
       AUTH_JWT_PUBLIC_KEY_PATH: /app/auth_keys/public.pem
       AUTH_JWT_ALGORITHM: RS256
     ports:
-      - "8007:8000"
+      - "127.0.0.1:8007:8000"
     volumes:
-      - auth_keys:/app/auth_keys:ro
+      - auth_verification_keys:/app/auth_keys:ro
     healthcheck:
       test:
         [
@@ -211,10 +211,10 @@ services:
       AUTH_JWT_PUBLIC_KEY_PATH: /app/auth_keys/public.pem
       AUTH_JWT_ALGORITHM: RS256
     ports:
-      - "8016:8000"
+      - "127.0.0.1:8016:8000"
     volumes:
       - ../../documents/exports:/app/exports
-      - auth_keys:/app/auth_keys:ro
+      - auth_verification_keys:/app/auth_keys:ro
     healthcheck:
       test:
         [
@@ -247,9 +247,9 @@ services:
       AUTH_JWT_PUBLIC_KEY_PATH: /app/auth_keys/public.pem
       AUTH_JWT_ALGORITHM: RS256
     ports:
-      - "8017:8000"
+      - "127.0.0.1:8017:8000"
     volumes:
-      - auth_keys:/app/auth_keys:ro
+      - auth_verification_keys:/app/auth_keys:ro
     healthcheck:
       test:
         [

@@ -14,9 +14,9 @@ services:
       AUTH_JWT_ALGORITHM: RS256
       PROFILE_UPLOADS_DIR: /app/uploads
     ports:
-      - "8015:8000"
+      - "127.0.0.1:8015:8000"
     volumes:
-      - auth_keys:/app/auth_keys:ro
+      - auth_verification_keys:/app/auth_keys:ro
       - ../../uploads/profile:/app/uploads
 
     healthcheck:

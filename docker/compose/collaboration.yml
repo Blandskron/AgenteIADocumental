@@ -13,9 +13,9 @@ services:
       AUTH_JWT_PUBLIC_KEY_PATH: /app/auth_keys/public.pem
       AUTH_JWT_ALGORITHM: RS256
     ports:
-      - "8008:8000"
+      - "127.0.0.1:8008:8000"
     volumes:
-      - auth_keys:/app/auth_keys:ro
+      - auth_verification_keys:/app/auth_keys:ro
     healthcheck:
       test:
         [

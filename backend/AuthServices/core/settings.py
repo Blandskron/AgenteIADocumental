@@ -13,8 +13,7 @@ https://docs.djangoproject.com/en/6.0/ref/settings/
 from pathlib import Path
 import datetime
 import os
-from cryptography.hazmat.primitives.asymmetric import rsa
-from cryptography.hazmat.primitives import serialization
+from .jwt_keys import load_jwt_keys
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -53,30 +52,7 @@ INSTALLED_APPS = [
 # --- Generacion automatica de claves RSA para JWT ---
 private_key_path = Path(os.getenv('DJANGO_PRIVATE_KEY_PATH', BASE_DIR / 'private.pem'))
 public_key_path = Path(os.getenv('DJANGO_PUBLIC_KEY_PATH', BASE_DIR / 'public.pem'))
-private_key_path.parent.mkdir(parents=True, exist_ok=True)
-public_key_path.parent.mkdir(parents=True, exist_ok=True)
-
-if not private_key_path.exists() or not public_key_path.exists():
-    private_key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
-    public_key = private_key.public_key()
-
-    with open(private_key_path, 'wb') as f:
-        f.write(private_key.private_bytes(
-            encoding=serialization.Encoding.PEM,
-            format=serialization.PrivateFormat.TraditionalOpenSSL,
-            encryption_algorithm=serialization.NoEncryption()
-        ))
-    with open(public_key_path, 'wb') as f:
-        f.write(public_key.public_bytes(
-            encoding=serialization.Encoding.PEM,
-            format=serialization.PublicFormat.SubjectPublicKeyInfo
-        ))
-
-with open(private_key_path, 'rb') as f:
-    PRIVATE_KEY = f.read()
-
-with open(public_key_path, 'rb') as f:
-    PUBLIC_KEY = f.read()
+PRIVATE_KEY, PUBLIC_KEY = load_jwt_keys(private_key_path, public_key_path)
 # ----------------------------------------------------
 
 MIDDLEWARE = [

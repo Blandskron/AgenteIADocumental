@@ -34,9 +34,11 @@ if (-not (Test-Path .env)) { Copy-Item .env.example .env }
 docker compose -f docker/docker-compose.yml up -d --build --wait
 ```
 
-Abre `http://localhost:3000`, inicia sesión con las credenciales de desarrollo y carga un documento de prueba. El primer uso de embeddings descarga el modelo. Por ejemplo, carga un archivo que diga «El plazo del contrato de prueba es de 97 días» y pregunta «¿Cuál es el plazo del contrato?».
+En una instalación nueva, crea primero el administrador local como se indica abajo. Abre `http://localhost:3000`, inicia sesión y carga un documento de prueba. El primer uso de embeddings descarga el modelo. Por ejemplo, carga un archivo que diga «El plazo del contrato de prueba es de 97 días» y pregunta «¿Cuál es el plazo del contrato?».
 
 La configuración de Compose y las credenciales de ejemplo están pensadas para una instancia de desarrollo local. Mantén tu clave de Groq en `.env` y usa datos sintéticos en la demo.
+
+Si otra instalación de PostgreSQL ocupa el puerto local 5432, configura `POSTGRES_HOST_PORT=15432` en `.env`. Los contenedores siguen conectándose a PostgreSQL por el puerto interno 5432.
 
 El agregador `docker/docker-compose.yml` carga:
 
@@ -104,12 +106,13 @@ El esquema SQL vive en `scripts/database/run_all.sql` y ahora carga solo dominio
 
 ## Credenciales locales
 
-El entrypoint de `AuthServices` crea el usuario inicial si no existe:
+La creación del administrador es explícita. Desde la raíz y con el stack activo, ejecuta el comando y elige tu contraseña en el prompt:
 
-```text
-Username: blandskronadmin
-Password: admin1234
+```powershell
+docker compose -f docker/docker-compose.yml exec auth-service python manage.py createsuperuser
 ```
+
+Para actualizar desde la versión con un volumen JWT compartido, sigue el [procedimiento de AuthServices](backend/AuthServices/README.md#actualizar-desde-el-volumen-jwt-compartido).
 
 ## Scripts utiles
 
