@@ -17,6 +17,7 @@ from rest_framework_simplejwt.views import TokenRefreshView
 from drf_spectacular.utils import extend_schema, OpenApiResponse, inline_serializer
 from .models import Tenant, TenantArea, TenantGroup, TenantMembership, TenantUserGroup
 from .serializers import (
+    ChangePasswordSerializer,
     CurrentClaimsRefreshSerializer,
     GroupSerializer,
     MyTokenObtainPairSerializer,
@@ -74,7 +75,10 @@ class UserViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         if self.request.user.is_superuser:
-            return User.objects.all().order_by("username")
+            queryset = User.objects.all().order_by("username")
+            if self.action in {"update", "partial_update"}:
+                return queryset.select_for_update()
+            return queryset
         tenant_ids = tenant_admin_ids(self.request.user)
         user_ids = TenantMembership.objects.filter(tenant_id__in=tenant_ids).values_list("user_id", flat=True)
         return User.objects.filter(id__in=[int(user_id) for user_id in user_ids if str(user_id).isdigit()]).order_by("username")
@@ -89,6 +93,7 @@ class UserViewSet(viewsets.ModelViewSet):
     def retrieve(self, request, *args, **kwargs): return super().retrieve(request, *args, **kwargs)
 
     @extend_schema(summary="Actualizar usuario", description="Actualización completa de un usuario.")
+    @transaction.atomic
     def update(self, request, *args, **kwargs): return super().update(request, *args, **kwargs)
 
     @extend_schema(summary="Eliminar usuario", description="Borra permanentemente un usuario.")
@@ -355,33 +360,22 @@ class ChangePasswordView(APIView):
     @extend_schema(
         summary="Cambiar contraseña",
         description="Permite al usuario autenticado cambiar su contraseña validando la anterior.",
-        request=inline_serializer(
-            name='ChangePasswordRequest',
-            fields={
-                'old_password': serializers.CharField(),
-                'new_password': serializers.CharField(),
-            }
-        ),
+        request=ChangePasswordSerializer,
         responses={
             200: OpenApiResponse(description="Contraseña cambiada exitosamente"),
             400: OpenApiResponse(description="Datos incorrectos")
         },
         tags=['Autenticación']
     )
+    @transaction.atomic
     def post(self, request):
-        user = request.user
-        old_password = request.data.get("old_password")
-        new_password = request.data.get("new_password")
-        
-        if not old_password or not new_password:
-            return Response({"error": "Ambos campos son requeridos."}, status=status.HTTP_400_BAD_REQUEST)
-            
-        if not user.check_password(old_password):
-            return Response({"error": "La contraseña actual es incorrecta."}, status=status.HTTP_400_BAD_REQUEST)
-            
-        try:
-            user.set_password(new_password)
-            user.save()
-            return Response({"mensaje": "Contraseña actualizada correctamente."}, status=status.HTTP_200_OK)
-        except Exception as e:
-            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+        user = User.objects.select_for_update().filter(pk=request.user.pk, is_active=True).first()
+        if user is None:
+            raise PermissionDenied("La cuenta ya no está activa.")
+        serializer = ChangePasswordSerializer(data=request.data, context={"user": user})
+        if not serializer.is_valid():
+            message = next(iter(serializer.errors.values()))[0]
+            return Response({"error": message}, status=status.HTTP_400_BAD_REQUEST)
+        user.set_password(serializer.validated_data["new_password"])
+        user.save(update_fields=["password"])
+        return Response({"mensaje": "Contraseña actualizada correctamente."}, status=status.HTTP_200_OK)

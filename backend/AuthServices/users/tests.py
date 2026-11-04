@@ -279,3 +279,61 @@ class TenantIdentityBoundaryTests(APITestCase):
         expired = MyTokenObtainPairSerializer.get_token(self.admin)
         expired["exp"] = 1
         self.assertEqual(self.refresh_session(expired).status_code, 401)
+
+    def test_provision_rejects_weak_password_before_creating_identity(self):
+        for password in ("12345678", 31415926.25):
+            response = self.provision(password=password)
+            self.assertEqual(response.status_code, 400)
+            self.assertIn("password", response.data)
+        self.assertFalse(User.objects.filter(username="new-member").exists())
+
+    def test_password_is_checked_against_normalized_username(self):
+        response = self.provision(username="ｚｑｋｆｊｐｖｍｘ", password="zqkfjpvmx")
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("password", response.data)
+
+    def test_global_password_validation_uses_effective_identity(self):
+        self.client.force_authenticate(self.victim)
+        response = self.client.post(
+            "/api/users/crud/", {"username": "synthetic", "password": "password"}, format="json"
+        )
+        self.assertEqual(response.status_code, 400)
+        self.assertFalse(User.objects.filter(username="synthetic").exists())
+        self.member.set_password("previous-strong-password")
+        self.member.save(update_fields=["password"])
+        url = f"/api/users/crud/{self.member.pk}/"
+        response = self.client.patch(
+            url, {"username": "synthetic-user-new", "password": "synthetic-user-new"}, format="json"
+        )
+        self.assertEqual(response.status_code, 400)
+        self.member.refresh_from_db()
+        self.assertEqual(self.member.username, "tenant-member")
+        self.assertTrue(self.member.check_password("previous-strong-password"))
+        response = self.client.patch(url, {"password": " stronger-passphrase "}, format="json")
+        self.assertEqual(response.status_code, 200)
+        self.member.refresh_from_db()
+        self.assertTrue(self.member.check_password(" stronger-passphrase "))
+
+    def test_self_password_change_rejects_weak_input_and_revokes_refresh(self):
+        old_password = "previous-strong-password"
+        self.admin.set_password(old_password)
+        self.admin.save(update_fields=["password"])
+        token = MyTokenObtainPairSerializer.get_token(self.admin)
+        url = "/api/users/change-password/"
+        for payload in (
+            {"old_password": old_password, "new_password": "password"},
+            {"old_password": old_password, "new_password": ["not", "a", "string"]},
+            {"old_password": "incorrect", "new_password": " stronger-passphrase "},
+        ):
+            response = self.client.post(url, payload, format="json")
+            self.assertEqual(response.status_code, 400)
+            self.assertIsInstance(response.data["error"], str)
+        self.admin.refresh_from_db()
+        self.assertTrue(self.admin.check_password(old_password))
+        response = self.client.post(
+            url, {"old_password": old_password, "new_password": " stronger-passphrase "}, format="json"
+        )
+        self.assertEqual(response.status_code, 200)
+        self.admin.refresh_from_db()
+        self.assertTrue(self.admin.check_password(" stronger-passphrase "))
+        self.assertEqual(self.refresh_session(token).status_code, 401)
