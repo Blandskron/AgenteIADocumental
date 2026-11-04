@@ -52,4 +52,4 @@ El logger `blandskron.auth.audit` emite JSON a stderr para login, cambios de con
 docker compose -f docker/docker-compose.yml exec -T auth-service python manage.py prune_login_budgets
 ```
 
-Consulta el [tablero de Auth](../MODERNIZATION.md) para conocer el alcance de la auditoría de imagen, el riesgo residual de Debian y el seguimiento de integridad de relaciones.
+Consulta las [pruebas y la evidencia de auditoría](TESTS.md) y el [tablero del repositorio](../../../ROADMAP.md) para el seguimiento de integridad de relaciones y los riesgos de la imagen.

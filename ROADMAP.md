@@ -16,6 +16,14 @@ Mantén una tarjeta en **En curso**. Pásala a **En revisión** con evidencia y 
 | Hecha | BD-007 | CI y prueba integral | PR integrado. Checks de frontend, Compose y migración. Prueba local con dos usuarios y descarga PDF. |
 | En revisión | BD-008 | Entrega de portafolio | README y caso sintético listos. Se retiró el acceso a la integración sin implementar. Pendientes la revisión del PR y la decisión de visibilidad. |
 
+## Modernización de servicios
+
+| Estado | Alcance | Evidencia o seguimiento |
+|---|---|---|
+| Lista para cierre | AuthServices | Arranque validado sobre base existente, 39 pruebas y OpenAPI sin errores. [Contrato, operación y pruebas](backend/AuthServices/README.md). |
+| Seguimiento | Integridad multiempresa | Las escrituras de Auth y la emisión de claims validan relaciones. Falta aplicar restricciones de integridad en PostgreSQL y probar escrituras concurrentes entre sesiones sobre el esquema definitivo. |
+| Seguimiento | Imagen base de Auth | Revisar los avisos residuales de Debian al actualizar la imagen base. [Evidencia](backend/AuthServices/docs/TESTS.md#dependencias-e-imagen). |
+
 ## Validación
 
 - `docker compose -f docker/docker-compose.yml up -d --build --wait` arrancó el stack local. PostgreSQL y los servicios con healthcheck llegaron a estado sano.
