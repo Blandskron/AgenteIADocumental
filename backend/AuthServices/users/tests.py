@@ -2,11 +2,12 @@ from django.contrib.auth.models import Group, Permission, User
 from django.db import connection
 from rest_framework.test import APITestCase
 
-from .models import Tenant, TenantArea, TenantMembership
+from .models import Tenant, TenantArea, TenantGroup, TenantGroupPermission, TenantMembership, TenantUserGroup
+from .serializers import tenant_membership_payload
 
 
 class TenantIdentityBoundaryTests(APITestCase):
-    tenant_models = (Tenant, TenantArea, TenantMembership)
+    tenant_models = (Tenant, TenantArea, TenantMembership, TenantGroup, TenantGroupPermission, TenantUserGroup)
 
     @classmethod
     def setUpClass(cls):
@@ -149,3 +150,87 @@ class TenantIdentityBoundaryTests(APITestCase):
         self.other_tenant.save(update_fields=["status"])
         self.client.force_authenticate(self.victim)
         self.assertEqual(self.provision(tenant=self.other_tenant.pk).status_code, 201)
+
+    def test_area_and_group_cannot_move_between_tenants(self):
+        area = TenantArea.objects.create(tenant=self.tenant, name="Área")
+        group = TenantGroup.objects.create(tenant=self.tenant, name="Grupo")
+        for resource, instance in (("tenant-areas", area), ("tenant-groups", group)):
+            with self.subTest(resource=resource):
+                url = f"/api/users/{resource}/{instance.pk}/"
+                payload = {"tenant": self.other_tenant.pk, "name": instance.name}
+                self.assertEqual(self.client.patch(url, payload, format="json").status_code, 400)
+                self.assertEqual(self.client.put(url, payload, format="json").status_code, 400)
+                instance.refresh_from_db()
+                self.assertEqual(instance.tenant_id, self.tenant.pk)
+
+    def test_foreign_area_rejected_in_hierarchy_and_membership(self):
+        foreign_area = TenantArea.objects.create(tenant=self.other_tenant, name="Externa")
+        response = self.client.post(
+            "/api/users/tenant-areas/",
+            {"tenant": self.tenant.pk, "name": "Área", "parent_area": foreign_area.pk},
+            format="json",
+        )
+        self.assertEqual(response.status_code, 400)
+        response = self.client.patch(
+            f"/api/users/tenant-memberships/{self.membership.pk}/",
+            {"area": foreign_area.pk},
+            format="json",
+        )
+        self.assertEqual(response.status_code, 400)
+
+    def test_group_assignment_requires_same_tenant_and_membership(self):
+        group = TenantGroup.objects.create(tenant=self.tenant, name="Chat")
+        foreign = TenantGroup.objects.create(tenant=self.other_tenant, name="Externo")
+        url = "/api/users/tenant-user-groups/"
+        payload = {"tenant": self.tenant.pk, "group": group.pk, "user_id": str(self.member.pk)}
+        self.assertEqual(self.client.post(url, {**payload, "group": foreign.pk}, format="json").status_code, 400)
+        self.assertEqual(self.client.post(url, {**payload, "user_id": str(self.victim.pk)}, format="json").status_code, 400)
+        self.assertEqual(self.client.post(url, payload, format="json").status_code, 201)
+        assignment = TenantUserGroup.objects.get(group=group)
+        self.assertEqual(
+            self.client.patch(f"{url}{assignment.pk}/", {"tenant": self.other_tenant.pk}, format="json").status_code,
+            400,
+        )
+
+    def test_legacy_foreign_relationships_do_not_enter_claims(self):
+        area = TenantArea.objects.create(tenant=self.other_tenant, name="Externa")
+        self.membership.area = area
+        self.membership.save(update_fields=["area"])
+        local = TenantGroup.objects.create(tenant=self.tenant, name="Local")
+        foreign = TenantGroup.objects.create(tenant=self.other_tenant, name="Externo")
+        for group, code in ((local, "use_chat"), (foreign, "manage_documents")):
+            TenantGroupPermission.objects.create(group=group, permission_code=code)
+            TenantUserGroup.objects.create(tenant=self.tenant, group=group, user_id=str(self.admin.pk))
+        claims = tenant_membership_payload(self.admin)[0]
+        self.assertEqual(claims["group_ids"], [local.pk])
+        self.assertIn("use_chat", claims["permissions"])
+        self.assertNotIn("manage_documents", claims["permissions"])
+        self.assertIsNone(claims["area_id"])
+
+    def test_deleting_membership_revokes_group_assignments(self):
+        membership = TenantMembership.objects.get(tenant=self.tenant, user_id=str(self.member.pk))
+        group = TenantGroup.objects.create(tenant=self.tenant, name="Chat")
+        TenantUserGroup.objects.create(tenant=self.tenant, group=group, user_id=membership.user_id)
+        self.assertEqual(self.client.delete(f"/api/users/tenant-memberships/{membership.pk}/").status_code, 204)
+        self.assertFalse(TenantUserGroup.objects.filter(group=group).exists())
+        TenantMembership.objects.create(tenant=self.tenant, user_id=str(self.member.pk), role="USER")
+        self.assertEqual(tenant_membership_payload(self.member)[0]["group_ids"], [])
+
+    def test_deleting_local_objects_cannot_modify_legacy_foreign_rows(self):
+        area = TenantArea.objects.create(tenant=self.tenant, name="Área")
+        child = TenantArea.objects.create(tenant=self.other_tenant, name="Externa", parent_area=area)
+        group = TenantGroup.objects.create(tenant=self.tenant, name="Grupo")
+        assignment = TenantUserGroup.objects.create(
+            tenant=self.other_tenant, group=group, user_id=str(self.member.pk)
+        )
+        self.assertEqual(self.client.delete(f"/api/users/tenant-areas/{area.pk}/").status_code, 403)
+        self.assertEqual(self.client.delete(f"/api/users/tenant-groups/{group.pk}/").status_code, 403)
+        self.assertTrue(TenantArea.objects.filter(pk=child.pk, parent_area=area).exists())
+        self.assertTrue(TenantUserGroup.objects.filter(pk=assignment.pk).exists())
+
+    def test_suspended_tenant_admin_cannot_read_or_mutate_tenant_resources(self):
+        self.tenant.status = "SUSPENDED"
+        self.tenant.save(update_fields=["status"])
+        self.assertEqual(self.client.get("/api/users/tenant-areas/").status_code, 403)
+        self.assertEqual(self.provision().status_code, 403)
+        self.assertEqual(tenant_membership_payload(self.admin), [])

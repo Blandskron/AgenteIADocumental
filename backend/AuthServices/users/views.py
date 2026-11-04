@@ -1,5 +1,7 @@
 from django.contrib.auth.models import Group, Permission, User
 from django.contrib.auth import authenticate
+from django.db import transaction
+from django.db.models import F, Q
 from django.middleware.csrf import get_token
 
 from rest_framework import viewsets, status, serializers
@@ -35,7 +37,7 @@ class IsSuperAdmin(BasePermission):
 
 
 def user_active_memberships(user):
-    return TenantMembership.objects.filter(user_id=str(user.id), status="ACTIVE")
+    return TenantMembership.objects.filter(user_id=str(user.id), status="ACTIVE", tenant__status="ACTIVE")
 
 
 def tenant_admin_ids(user):
@@ -140,13 +142,22 @@ class TenantAreaViewSet(viewsets.ModelViewSet):
         queryset = TenantArea.objects.select_related("tenant", "parent_area").order_by("tenant__name", "name")
         if self.request.user.is_superuser:
             return queryset
-        return queryset.filter(tenant_id__in=tenant_admin_ids(self.request.user))
+        return queryset.filter(
+            Q(parent_area__isnull=True) | Q(parent_area__tenant_id=F("tenant_id")),
+            tenant_id__in=tenant_admin_ids(self.request.user),
+        )
 
     def perform_create(self, serializer):
         tenant_id = serializer.validated_data["tenant"].tenant_id
         if not self.request.user.is_superuser and tenant_id not in tenant_admin_ids(self.request.user):
             raise serializers.ValidationError("No tienes permisos para crear areas en esta empresa.")
         serializer.save()
+
+
+    def perform_destroy(self, instance):
+        if not self.request.user.is_superuser:
+            raise PermissionDenied("Eliminar un área requiere revisar sus referencias documentales.")
+        super().perform_destroy(instance)
 
 
 @extend_schema(tags=['Membresias'])
@@ -174,19 +185,27 @@ class TenantMembershipViewSet(viewsets.ModelViewSet):
         queryset = TenantMembership.objects.select_related("tenant", "area").order_by("tenant__name", "role", "user_id")
         if self.request.user.is_superuser:
             return queryset
-        return queryset.filter(tenant_id__in=tenant_admin_ids(self.request.user))
+        return queryset.filter(
+            Q(area__isnull=True) | Q(area__tenant_id=F("tenant_id")),
+            tenant_id__in=tenant_admin_ids(self.request.user),
+        )
 
     def perform_create(self, serializer):
         serializer.save(created_by_user_id=str(self.request.user.id))
 
     def perform_update(self, serializer):
-        if not self.request.user.is_superuser:
-            membership = serializer.instance
-            tenant = serializer.validated_data.get("tenant", membership.tenant)
-            user_id = serializer.validated_data.get("user_id", membership.user_id)
-            if tenant.pk != membership.tenant_id or user_id != membership.user_id:
-                raise serializers.ValidationError("La empresa y el usuario de la membresía son inmutables.")
+        membership = serializer.instance
+        if serializer.validated_data.get("user_id", membership.user_id) != membership.user_id:
+            raise serializers.ValidationError("El usuario de la membresía es inmutable.")
         serializer.save()
+
+    @transaction.atomic
+    def perform_destroy(self, instance):
+        membership = TenantMembership.objects.select_for_update().filter(pk=instance.pk).first()
+        if membership is None:
+            return
+        TenantUserGroup.objects.filter(tenant_id=membership.tenant_id, user_id=membership.user_id).delete()
+        super().perform_destroy(membership)
 
 
 @extend_schema(tags=['Grupos Tenant'])
@@ -206,11 +225,16 @@ class TenantGroupViewSet(viewsets.ModelViewSet):
             raise serializers.ValidationError("No tienes permisos para crear grupos en esta empresa.")
         serializer.save()
 
-    def perform_update(self, serializer):
-        tenant_id = serializer.instance.tenant_id
-        if not self.request.user.is_superuser and tenant_id not in tenant_admin_ids(self.request.user):
-            raise serializers.ValidationError("No tienes permisos para actualizar este grupo.")
-        serializer.save()
+    @transaction.atomic
+    def perform_destroy(self, instance):
+        instance = TenantGroup.objects.select_for_update().filter(pk=instance.pk).first()
+        if instance is None:
+            return
+        if not self.request.user.is_superuser and TenantUserGroup.objects.filter(
+            group=instance
+        ).exclude(tenant=instance.tenant_id).exists():
+            raise PermissionDenied("El grupo tiene asignaciones de otra empresa que requieren revisión global.")
+        super().perform_destroy(instance)
 
 
 @extend_schema(tags=['Usuarios en grupos tenant'])
@@ -222,7 +246,9 @@ class TenantUserGroupViewSet(viewsets.ModelViewSet):
         queryset = TenantUserGroup.objects.select_related("tenant", "group").order_by("tenant_id", "user_id")
         if self.request.user.is_superuser:
             return queryset
-        return queryset.filter(tenant_id__in=tenant_admin_ids(self.request.user))
+        return queryset.filter(
+            tenant_id__in=tenant_admin_ids(self.request.user), group__tenant_id=F("tenant_id")
+        )
 
     def perform_create(self, serializer):
         tenant_id = serializer.validated_data["tenant"].tenant_id
