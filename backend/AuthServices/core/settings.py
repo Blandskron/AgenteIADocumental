@@ -86,8 +86,9 @@ SIMPLE_JWT = {
     'ALGORITHM': 'RS256',
     'SIGNING_KEY': PRIVATE_KEY,
     'VERIFYING_KEY': PUBLIC_KEY,
-    'ACCESS_TOKEN_LIFETIME': datetime.timedelta(minutes=60),
+    'ACCESS_TOKEN_LIFETIME': datetime.timedelta(minutes=10),
     'REFRESH_TOKEN_LIFETIME': datetime.timedelta(days=1),
+    'CHECK_REVOKE_TOKEN': True,
 }
 
 SPECTACULAR_SETTINGS = {

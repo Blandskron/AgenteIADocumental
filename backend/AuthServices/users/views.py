@@ -17,6 +17,7 @@ from rest_framework_simplejwt.views import TokenRefreshView
 from drf_spectacular.utils import extend_schema, OpenApiResponse, inline_serializer
 from .models import Tenant, TenantArea, TenantGroup, TenantMembership, TenantUserGroup
 from .serializers import (
+    CurrentClaimsRefreshSerializer,
     GroupSerializer,
     MyTokenObtainPairSerializer,
     PermissionSerializer,
@@ -345,10 +346,7 @@ class MeView(APIView):
     tags=['Autenticación']
 )
 class DecoratedTokenRefreshView(TokenRefreshView):
-    """
-    Versión documentada de la vista estándar de SimpleJWT.
-    """
-    pass
+    serializer_class = CurrentClaimsRefreshSerializer
 
 
 class ChangePasswordView(APIView):

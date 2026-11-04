@@ -23,3 +23,12 @@ export function meRequest(accessToken) {
     headers: { Authorization: `Bearer ${accessToken}` },
   });
 }
+
+export function logoutRequest(access, refresh) {
+  return httpRequest(env.authBaseUrl, "/api/users/logout/", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${access}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ refresh }),
+    keepalive: true,
+  });
+}
