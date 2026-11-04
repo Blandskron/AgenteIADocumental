@@ -99,6 +99,8 @@ docker compose -f docker/docker-compose.yml cp backend/RagDocumentChatServices/t
 docker compose -f docker/docker-compose.yml exec -T rag-document-chat-service python -m pytest -q test_document_access.py
 ```
 
+Las pruebas del adaptador Groq usan el cliente HTTP real con transporte simulado y se ejecutan en CI sin credenciales. Desde este directorio, con las dependencias instaladas, ejecuta `python -m pytest -q tests/test_groq_provider.py`. Cada consulta hace un solo intento de generación con el tiempo de espera configurado. Una respuesta vacía, un error del proveedor o un timeout activa la respuesta de contingencia del chat.
+
 ## Example Requests
 
 **Pregunta al chat con contexto documental**

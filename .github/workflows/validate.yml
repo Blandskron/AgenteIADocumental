@@ -131,6 +131,23 @@ jobs:
           docker cp scripts/database/migrations/001_local_embeddings.sql "${{ job.services.postgres.id }}:/tmp/blandskron-local-embeddings.sql"
           docker exec -i "${{ job.services.postgres.id }}" psql -U postgres -d documents_test -v ON_ERROR_STOP=1 < scripts/database/tests/local_embeddings.sql
 
+  rag-groq:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend/RagDocumentChatServices
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: backend/RagDocumentChatServices/requirements.txt
+      - name: Probar el contrato de Groq con transporte HTTP simulado
+        run: |
+          python -m pip install -r <(grep -E '^(openai|pytest)==' requirements.txt)
+          python -m pytest -q tests/test_groq_provider.py
+
   auth-db-roles:
     runs-on: ubuntu-latest
     steps:
