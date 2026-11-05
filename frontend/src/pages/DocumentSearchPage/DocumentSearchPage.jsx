@@ -23,6 +23,7 @@ import {
   rejectAssignment,
   signAssignment,
 } from "../../features/document-access/api/document-access.api";
+import { useWorkflowList } from "../../features/document-access/hooks/useWorkflowList";
 import { DocumentPreviewModal } from "../../features/document-access/ui/DocumentPreviewModal";
 import { buildChatSelection } from "../../features/document-search/api/document-search.api";
 import { useDocumentSearch } from "../../features/document-search/hooks/useDocumentSearch";
@@ -84,9 +85,12 @@ export function DocumentSearchPage({ activeView = appRoutes.documents, onNavigat
   const [assignmentModal, setAssignmentModal] = useState({ open: false, document: null });
   const [assignmentForm, setAssignmentForm] = useState({ userId: "", allowDownload: true, dueAt: "" });
   const [tenantUsers, setTenantUsers] = useState([]);
-  const [assignedDocuments, setAssignedDocuments] = useState([]);
-  const [managedDocuments, setManagedDocuments] = useState([]);
-  const [notifications, setNotifications] = useState([]);
+  const assigned = useWorkflowList(documentAccessClient, listAssignedToMe);
+  const managed = useWorkflowList(documentAccessClient, listManagedByMe);
+  const notificationList = useWorkflowList(documentAccessClient, listNotifications);
+  const assignedDocuments = assigned.items;
+  const managedDocuments = managed.items;
+  const notifications = notificationList.items;
   const [viewMode, setViewMode] = useState("grid");
   const [docFolderMap, setDocFolderMap] = useState({});
   const [driveModalOpen, setDriveModalOpen] = useState(false);
@@ -111,25 +115,6 @@ export function DocumentSearchPage({ activeView = appRoutes.documents, onNavigat
       if (preview?.url) URL.revokeObjectURL(preview.url);
     };
   }, [preview?.url]);
-
-  useEffect(() => {
-    async function loadTenantWork() {
-      try {
-        const [assigned, managed, unreadNotifications] = await Promise.all([
-          listAssignedToMe(documentAccessClient),
-          listManagedByMe(documentAccessClient),
-          listNotifications(documentAccessClient),
-        ]);
-        setAssignedDocuments(assigned);
-        setManagedDocuments(managed);
-        setNotifications(unreadNotifications);
-      } catch {
-        // The main document library still works if workflow endpoints are unavailable.
-      }
-    }
-
-    loadTenantWork();
-  }, [documentAccessClient]);
 
   useEffect(() => {
     if (!canAssignDocuments) return;
@@ -414,7 +399,7 @@ export function DocumentSearchPage({ activeView = appRoutes.documents, onNavigat
     try {
       await assignDocument(documentAccessClient, assignmentModal.document.documentId, assignmentForm);
       setAssignmentModal({ open: false, document: null });
-      setManagedDocuments(await listManagedByMe(documentAccessClient));
+      await managed.reload();
     } catch (requestError) {
       setActionError(requestError.message);
     }
@@ -427,18 +412,19 @@ export function DocumentSearchPage({ activeView = appRoutes.documents, onNavigat
       if (action === "reject") await rejectAssignment(documentAccessClient, assignment.assignmentId, "Rechazado desde Blandskron Documental");
       if (action === "sign") await signAssignment(documentAccessClient, assignment.assignmentId, currentUser?.displayName || currentUser?.username || "Firma digital");
       if (action === "cancel") await cancelAssignment(documentAccessClient, assignment.assignmentId);
-      setAssignedDocuments(await listAssignedToMe(documentAccessClient));
-      setManagedDocuments(await listManagedByMe(documentAccessClient));
-      setNotifications(await listNotifications(documentAccessClient));
+      await Promise.all([assigned.reload(), managed.reload(), notificationList.reload()]);
     } catch (requestError) {
       setActionError(requestError.message);
+      if (requestError.status === 409) {
+        await Promise.all([assigned.reload(), managed.reload(), notificationList.reload()]);
+      }
     }
   }
 
   async function readNotification(notification) {
     try {
       await markNotificationRead(documentAccessClient, notification.notificationId);
-      setNotifications(await listNotifications(documentAccessClient));
+      await notificationList.reload();
     } catch (requestError) {
       setActionError(requestError.message);
     }
@@ -466,7 +452,7 @@ export function DocumentSearchPage({ activeView = appRoutes.documents, onNavigat
   const calculatedSpaceGB = (library.recentDocuments.reduce((acc, doc) => acc + (doc.chunkCount || 1) * 0.45, 0) + 21.2).toFixed(1);
   const sharedDocsCount = Math.max(3, Math.floor(library.recentDocuments.length * 0.4));
 
-  const combinedError = (!isFoldersView && !isFavoritesView && !isAssignmentsView && !isManagedView && !isNotificationsView ? search.error : "") || actionError || library.error;
+  const combinedError = (!isFoldersView && !isFavoritesView && !isAssignmentsView && !isManagedView && !isNotificationsView ? search.error : "") || actionError || assigned.error || managed.error || notificationList.error || library.error;
 
   return (
     <AppShell
@@ -540,7 +526,7 @@ export function DocumentSearchPage({ activeView = appRoutes.documents, onNavigat
               <span className="kpi-card-sub">de 100 GB</span>
             </article>
             <article className="kpi-card">
-              <span className="kpi-card-title">Pendientes</span>
+              <span className="kpi-card-title">Pendientes cargados</span>
               <strong className="kpi-card-value">{assignedDocuments.filter((item) => item.status === "PENDING").length}</strong>
               <span className="kpi-card-sub">{notifications.filter((item) => item.status === "UNREAD").length} alertas</span>
             </article>
@@ -686,6 +672,7 @@ export function DocumentSearchPage({ activeView = appRoutes.documents, onNavigat
           {(isAssignmentsView || isManagedView) && (
             <AssignmentWorkflowList
               assignments={isAssignmentsView ? assignedDocuments : managedDocuments}
+              pagination={isAssignmentsView ? assigned : managed}
               mode={isAssignmentsView ? "assigned" : "managed"}
               onAction={updateAssignment}
               onDownload={(assignment) =>
@@ -698,7 +685,7 @@ export function DocumentSearchPage({ activeView = appRoutes.documents, onNavigat
             <section className="documents-list-section">
               <div className="section-header-row">
                 <h3>Notificaciones</h3>
-                <span className="section-header-badge">{notifications.length} eventos</span>
+                <span className="section-header-badge">{notifications.length} eventos cargados</span>
               </div>
               <div className="workflow-list">
                 {notifications.map((notification) => (
@@ -710,7 +697,8 @@ export function DocumentSearchPage({ activeView = appRoutes.documents, onNavigat
                     </div>
                   </article>
                 ))}
-                {!notifications.length && <div className="empty-documents">No tienes notificaciones pendientes.</div>}
+                {!notifications.length && !notificationList.loading && <div className="empty-documents">No tienes notificaciones.</div>}
+                <WorkflowPagination page={notificationList} />
               </div>
             </section>
           )}
@@ -1017,7 +1005,7 @@ function GoogleDriveImportModal({
   );
 }
 
-function AssignmentWorkflowList({ assignments, mode, onAction, onDownload }) {
+function AssignmentWorkflowList({ assignments, mode, onAction, onDownload, pagination }) {
   const isAssigned = mode === "assigned";
   const STATUS_LABELS = {
     PENDING: "Pendiente",
@@ -1033,7 +1021,7 @@ function AssignmentWorkflowList({ assignments, mode, onAction, onDownload }) {
     <section className="documents-list-section">
       <div className="section-header-row">
         <h3>{isAssigned ? "Documentos asignados a mi" : "Documentos que gestiono"}</h3>
-        <span className="section-header-badge">{assignments.length} asignaciones</span>
+        <span className="section-header-badge">{assignments.length} asignaciones cargadas</span>
       </div>
       <div className="workflow-list">
         {assignments.map((assignment) => (
@@ -1078,14 +1066,23 @@ function AssignmentWorkflowList({ assignments, mode, onAction, onDownload }) {
             </div>
           </article>
         ))}
-        {!assignments.length && (
+        {!assignments.length && !pagination.loading && (
           <div className="empty-documents">
-            {isAssigned ? "No tienes documentos pendientes." : "Aun no gestionas asignaciones."}
+            {isAssigned ? "No tienes documentos asignados." : "Aun no gestionas asignaciones."}
           </div>
         )}
       </div>
+      <WorkflowPagination page={pagination} />
     </section>
   );
+}
+
+function WorkflowPagination({ page }) {
+  if (page.loading) return <p role="status">Cargando…</p>;
+  return <div className="workflow-actions">
+    {page.error && <button type="button" className="action-button-secondary" onClick={page.reload}>Reintentar</button>}
+    {page.hasMore && <button type="button" className="action-button-secondary" onClick={page.loadMore}>Cargar más</button>}
+  </div>;
 }
 
 function AssignDocumentModal({ document, form, isOpen, users, onChange, onClose, onSubmit }) {

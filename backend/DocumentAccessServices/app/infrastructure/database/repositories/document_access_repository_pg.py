@@ -152,19 +152,21 @@ class DocumentAccessRepositoryPg:
             completed_at=deletion.completed_at, file_deleted=bool(deletion.file_deleted),
         )
 
-    def list_assigned_to_me(self) -> list[DocumentAssignmentModel]:
+    def list_assigned_to_me(self, limit: int = 50, offset: int = 0) -> list[DocumentAssignmentModel]:
         return (
             self._session.query(DocumentAssignmentModel)
             .filter(DocumentAssignmentModel.assigned_to_user_id == user_id(self._current_user))
-            .order_by(DocumentAssignmentModel.created_at.desc())
+            .order_by(DocumentAssignmentModel.created_at.desc(), DocumentAssignmentModel.assignment_id.desc())
+            .limit(limit).offset(offset)
             .all()
         )
 
-    def list_managed_by_me(self) -> list[DocumentAssignmentModel]:
+    def list_managed_by_me(self, limit: int = 50, offset: int = 0) -> list[DocumentAssignmentModel]:
         return (
             self._session.query(DocumentAssignmentModel)
             .filter(DocumentAssignmentModel.assigned_by_user_id == user_id(self._current_user))
-            .order_by(DocumentAssignmentModel.created_at.desc())
+            .order_by(DocumentAssignmentModel.created_at.desc(), DocumentAssignmentModel.assignment_id.desc())
+            .limit(limit).offset(offset)
             .all()
         )
 
@@ -313,22 +315,23 @@ class DocumentAccessRepositoryPg:
             )
             return assignment
 
-    def list_assignment_events(self, assignment_id: str) -> list[DocumentAssignmentEventModel]:
+    def list_assignment_events(self, assignment_id: str, limit: int = 50, offset: int = 0) -> list[DocumentAssignmentEventModel] | None:
         assignment = self._visible_assignment(assignment_id)
         if assignment is None:
-            return []
+            return None
         return (
             self._session.query(DocumentAssignmentEventModel)
             .filter(DocumentAssignmentEventModel.assignment_id == assignment_id)
-            .order_by(DocumentAssignmentEventModel.created_at.asc())
+            .order_by(DocumentAssignmentEventModel.created_at.asc(), DocumentAssignmentEventModel.event_id.asc())
+            .limit(limit).offset(offset)
             .all()
         )
 
-    def list_notifications(self, status: str | None = None, limit: int = 50) -> list[NotificationModel]:
+    def list_notifications(self, status: str | None = None, limit: int = 50, offset: int = 0) -> list[NotificationModel]:
         query = self._session.query(NotificationModel).filter(NotificationModel.recipient_user_id == user_id(self._current_user))
         if status:
             query = query.filter(NotificationModel.status == status)
-        return query.order_by(NotificationModel.created_at.desc()).limit(limit).all()
+        return query.order_by(NotificationModel.created_at.desc(), NotificationModel.notification_id.desc()).limit(limit).offset(offset).all()
 
     def mark_notification_read(self, notification_id: str) -> NotificationModel | None:
         with self._assignment_transaction():

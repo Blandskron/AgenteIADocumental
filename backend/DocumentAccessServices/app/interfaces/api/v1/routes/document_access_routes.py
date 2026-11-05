@@ -1,5 +1,6 @@
 import re
 from pathlib import Path
+from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import FileResponse
@@ -24,36 +25,53 @@ from app.interfaces.api.v1.schemas.document_access_schema import (
     DocumentContentResponse,
     DocumentDeleteResponse,
     NotificationResponse,
+    NotificationStatus,
+    Identifier,
+    Page,
 )
 
 router = APIRouter()
+PageLimit = Annotated[int, Query(ge=1, le=100)]
+PageOffset = Annotated[int, Query(ge=0, le=100_000)]
 
 
-@router.get("/assigned-to-me", response_model=list[DocumentAssignmentResponse])
+def _page(rows, converter, limit, offset):
+    return {"items": [converter(row) for row in rows[:limit]], "limit": limit,
+            "offset": offset, "has_more": len(rows) > limit}
+
+
+@router.get("/assigned-to-me", response_model=Page[DocumentAssignmentResponse])
 def assigned_to_me(
+    limit: PageLimit = 50,
+    offset: PageOffset = 0,
     repository: DocumentAccessRepositoryPg = Depends(get_document_access_repository),
-) -> list[DocumentAssignmentResponse]:
-    return [_assignment_response(assignment) for assignment in repository.list_assigned_to_me()]
+):
+    return _page(repository.list_assigned_to_me(limit + 1, offset), _assignment_response, limit, offset)
 
 
-@router.get("/managed-by-me", response_model=list[DocumentAssignmentResponse])
+@router.get("/managed-by-me", response_model=Page[DocumentAssignmentResponse])
 def managed_by_me(
+    limit: PageLimit = 50,
+    offset: PageOffset = 0,
     repository: DocumentAccessRepositoryPg = Depends(get_document_access_repository),
-) -> list[DocumentAssignmentResponse]:
-    return [_assignment_response(assignment) for assignment in repository.list_managed_by_me()]
+):
+    return _page(repository.list_managed_by_me(limit + 1, offset), _assignment_response, limit, offset)
 
 
-@router.get("/notifications", response_model=list[NotificationResponse])
+@router.get("/notifications", response_model=Page[NotificationResponse])
 def list_notifications(
-    status: str | None = None,
+    status: NotificationStatus | None = None,
+    limit: PageLimit = 50,
+    offset: PageOffset = 0,
     repository: DocumentAccessRepositoryPg = Depends(get_document_access_repository),
-) -> list[NotificationResponse]:
-    return [_notification_response(notification) for notification in repository.list_notifications(status=status)]
+):
+    rows = repository.list_notifications(status=status, limit=limit + 1, offset=offset)
+    return _page(rows, _notification_response, limit, offset)
 
 
 @router.post("/notifications/{notification_id}/read", response_model=NotificationResponse)
 def mark_notification_read(
-    notification_id: str,
+    notification_id: Identifier,
     repository: DocumentAccessRepositoryPg = Depends(get_document_access_repository),
 ) -> NotificationResponse:
     return _notification_response(repository.mark_notification_read(notification_id))
@@ -61,7 +79,7 @@ def mark_notification_read(
 
 @router.post("/assignments/{assignment_id}/accept", response_model=DocumentAssignmentResponse)
 def accept_assignment(
-    assignment_id: str,
+    assignment_id: Identifier,
     payload: DocumentAssignmentActionRequest | None = None,
     repository: DocumentAccessRepositoryPg = Depends(get_document_access_repository),
 ) -> DocumentAssignmentResponse:
@@ -70,7 +88,7 @@ def accept_assignment(
 
 @router.post("/assignments/{assignment_id}/reject", response_model=DocumentAssignmentResponse)
 def reject_assignment(
-    assignment_id: str,
+    assignment_id: Identifier,
     payload: DocumentAssignmentActionRequest,
     repository: DocumentAccessRepositoryPg = Depends(get_document_access_repository),
 ) -> DocumentAssignmentResponse:
@@ -79,7 +97,7 @@ def reject_assignment(
 
 @router.post("/assignments/{assignment_id}/sign", response_model=DocumentAssignmentResponse)
 def sign_assignment(
-    assignment_id: str,
+    assignment_id: Identifier,
     payload: DocumentAssignmentActionRequest,
     repository: DocumentAccessRepositoryPg = Depends(get_document_access_repository),
 ) -> DocumentAssignmentResponse:
@@ -88,24 +106,29 @@ def sign_assignment(
 
 @router.post("/assignments/{assignment_id}/cancel", response_model=DocumentAssignmentResponse)
 def cancel_assignment(
-    assignment_id: str,
+    assignment_id: Identifier,
     payload: DocumentAssignmentActionRequest | None = None,
     repository: DocumentAccessRepositoryPg = Depends(get_document_access_repository),
 ) -> DocumentAssignmentResponse:
     return _assignment_response(repository.cancel_assignment(assignment_id, reason=payload.reason if payload else None))
 
 
-@router.get("/assignments/{assignment_id}/events", response_model=list[DocumentAssignmentEventResponse])
+@router.get("/assignments/{assignment_id}/events", response_model=Page[DocumentAssignmentEventResponse])
 def assignment_events(
-    assignment_id: str,
+    assignment_id: Identifier,
+    limit: PageLimit = 50,
+    offset: PageOffset = 0,
     repository: DocumentAccessRepositoryPg = Depends(get_document_access_repository),
-) -> list[DocumentAssignmentEventResponse]:
-    return [_assignment_event_response(event) for event in repository.list_assignment_events(assignment_id)]
+):
+    rows = repository.list_assignment_events(assignment_id, limit + 1, offset)
+    if rows is None:
+        raise HTTPException(status_code=404, detail="Assignment not found.")
+    return _page(rows, _assignment_event_response, limit, offset)
 
 
 @router.post("/{document_id}/assignments", response_model=DocumentAssignmentResponse)
 def assign_document(
-    document_id: str,
+    document_id: Identifier,
     payload: DocumentAssignmentCreateRequest,
     repository: DocumentAccessRepositoryPg = Depends(get_document_access_repository),
 ) -> DocumentAssignmentResponse:
@@ -122,7 +145,7 @@ def assign_document(
 
 @router.get("/{document_id}/preview")
 def preview_document(
-    document_id: str,
+    document_id: Identifier,
     use_case: GetDocumentFile = Depends(get_document_file),
 ) -> FileResponse:
     document, path = use_case.execute(document_id)
@@ -131,7 +154,7 @@ def preview_document(
 
 @router.get("/{document_id}/download")
 def download_document(
-    document_id: str,
+    document_id: Identifier,
     use_case: GetDocumentFile = Depends(get_document_file),
 ) -> FileResponse:
     document, path = use_case.execute(document_id, for_download=True)
@@ -157,7 +180,7 @@ def _file_response(document: DocumentFile, path: Path, for_download: bool = Fals
 
 @router.get("/{document_id}/content", response_model=DocumentContentResponse)
 def document_content(
-    document_id: str,
+    document_id: Identifier,
     max_chunks: int = Query(default=500, ge=1, le=MAX_CONTENT_CHUNKS),
     use_case: GetDocumentContent = Depends(get_document_content),
 ) -> DocumentContentResponse:
@@ -166,7 +189,7 @@ def document_content(
 
 @router.delete("/{document_id}", response_model=DocumentDeleteResponse)
 def delete_document(
-    document_id: str,
+    document_id: Identifier,
     use_case: DeleteDocument = Depends(get_delete_document),
 ) -> DocumentDeleteResponse:
     return _delete_response(use_case.execute(document_id))

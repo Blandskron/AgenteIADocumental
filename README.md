@@ -11,6 +11,8 @@ Pregunta → búsqueda con permisos → contexto → Groq → respuesta y PDF
 
 Google Drive es una integración opcional que requiere configurar OAuth. Para la demo basta con un archivo de texto o PDF sintético.
 
+Las vistas de asignaciones, gestión y notificaciones cargan 50 registros por página. Usa **Cargar más** para consultar los siguientes. Los contadores de estas vistas indican registros cargados.
+
 La ingesta admite archivos de hasta 20 MiB. El mismo límite aplica a las cargas directas y a las importaciones de Google Drive.
 
 ## Servicios activos

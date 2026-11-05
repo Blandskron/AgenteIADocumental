@@ -9,7 +9,13 @@ export class ApiError extends Error {
 
 function getErrorMessage(payload, status) {
   if (typeof payload === "string") return payload;
-  if (payload?.detail) return payload.detail;
+  if (Array.isArray(payload?.detail)) {
+    return payload.detail.map((error) => {
+      const field = (error.loc || []).filter((part) => !["body", "query", "path"].includes(part)).join(".");
+      return `${field ? `${field}: ` : ""}${error.msg || "Valor no válido"}`;
+    }).join("; ");
+  }
+  if (typeof payload?.detail === "string") return payload.detail;
   if (payload?.error) return payload.error;
   if (payload?.message) return payload.message;
   if (payload && typeof payload === "object") return JSON.stringify(payload);
