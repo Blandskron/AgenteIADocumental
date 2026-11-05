@@ -24,6 +24,19 @@ DocumentAccessServices is a FastAPI-based microservice responsible for secure ac
 - `GET /api/v1/documents/{document_id}/content` — Get document content (optionally chunked)
 - `DELETE /api/v1/documents/{document_id}` — Delete a document and its file
 
+### Assignments and notifications (Authenticated)
+
+- `GET /api/v1/documents/assigned-to-me`
+- `GET /api/v1/documents/managed-by-me`
+- `GET /api/v1/documents/notifications`
+- `POST /api/v1/documents/notifications/{notification_id}/read`
+- `POST /api/v1/documents/{document_id}/assignments`
+- `POST /api/v1/documents/assignments/{assignment_id}/accept`
+- `POST /api/v1/documents/assignments/{assignment_id}/reject`
+- `POST /api/v1/documents/assignments/{assignment_id}/sign`
+- `POST /api/v1/documents/assignments/{assignment_id}/cancel`
+- `GET /api/v1/documents/assignments/{assignment_id}/events`
+
 ## Data Models
 
 ### Document
@@ -73,10 +86,20 @@ All endpoints (except health checks) require a valid JWT access token in the `Au
 - `app/shared/`: Shared error classes
 
 ## Running the Service
-1. Install dependencies: `pip install -r requirements.txt`
-2. Set environment variables or edit config as needed
-3. Run with Uvicorn: `uvicorn app.main:app --reload`
-4. Or use Docker: `docker build -t document-access-services . && docker run ...`
+
+Prepara el entorno según el [README principal](../../README.md) y ejecuta desde la raíz del repositorio.
+
+```sh
+docker compose -f docker/docker-compose.yml config --quiet
+docker compose -f docker/docker-compose.yml up -d --build --wait document-access-service
+curl http://localhost:8005/api/v1/health/db
+```
+
+Compose pasa explícitamente las variables del servicio. El chequeo de arranque verifica PostgreSQL, la clave pública JWT y la existencia del directorio de documentos. CORS admite `http://localhost:3000` y `http://127.0.0.1:3000` por defecto. Configura `ACCESS_CORS_ORIGINS` como arreglo JSON para otros orígenes.
+
+Fuera de Compose, instala `requirements.txt` desde este directorio y configura `DATABASE_URL`, `AUTH_JWT_PUBLIC_KEY_PATH` y `DOCUMENT_STORAGE_BASE_PATH` en el entorno o en el `.env` del servicio. Ejecuta `python -m uvicorn app.main:app --port 8005`. En este modo, configura CORS con `CORS_ORIGINS`.
+
+El [tablero de modernización](../../ROADMAP.md#documentaccessservices) registra los incrementos de permisos, archivos, borrado, asignaciones y operación que siguen a la configuración inicial.
 
 ## Example Requests
 
