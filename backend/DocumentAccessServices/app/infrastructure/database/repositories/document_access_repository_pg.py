@@ -1,9 +1,9 @@
 from datetime import UTC, datetime
 
-from sqlalchemy import false, or_
+from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
-from app.config.security import is_superadmin_user, tenant_ids_for_role, user_groups, user_id
+from app.config.security import is_superadmin_user, tenant_ids_for_role, tenant_memberships, user_groups, user_id
 from app.domain.documents import DocumentContent, DocumentFile
 from app.infrastructure.database.models import (
     AuditLogModel,
@@ -33,11 +33,12 @@ class DocumentAccessRepositoryPg:
 
         chunks = (
             self._session.query(DocumentEmbeddingModel.chunk_content)
+            .join(DocumentModel, DocumentEmbeddingModel.document_id == DocumentModel.document_id)
             .filter(DocumentEmbeddingModel.document_id == document_id)
-            .order_by(DocumentEmbeddingModel.chunk_index.asc())
-            .limit(max_chunks)
-            .all()
         )
+        chunks = self._apply_access_filter(chunks).order_by(
+            DocumentEmbeddingModel.chunk_index.asc(),
+        ).limit(max_chunks).all()
         content = "\n\n".join(chunk.chunk_content.strip() for chunk in chunks if chunk.chunk_content.strip())
 
         return DocumentContent(
@@ -211,11 +212,12 @@ class DocumentAccessRepositoryPg:
             return False
         if is_superadmin_user(self._current_user):
             return True
-        tenant_id = document.tenant_id or (document.metadata_ or {}).get("tenant_id")
-        if tenant_id and tenant_id in tenant_ids_for_role(self._current_user, "TENANT_ADMIN"):
+        tenant_id = document.tenant_id if document.tenant_id is not None else (document.metadata_ or {}).get("tenant_id")
+        if tenant_id and str(tenant_id) in tenant_ids_for_role(self._current_user, "TENANT_ADMIN"):
             return True
         current_user_id = user_id(self._current_user)
-        if document.owner_user_id == current_user_id or (document.metadata_ or {}).get("owner_user_id") == current_user_id:
+        owner_id = document.owner_user_id if document.owner_user_id is not None else (document.metadata_ or {}).get("owner_user_id")
+        if str(owner_id) == current_user_id:
             return bool(document.allow_download)
         assignment = (
             self._session.query(DocumentAssignmentModel)
@@ -232,34 +234,40 @@ class DocumentAccessRepositoryPg:
         self._audit(action, "document", document_id, tenant_id=document.tenant_id if document else None, metadata=metadata)
 
     def _accessible_documents_query(self):
-        statement = self._session.query(DocumentModel)
+        return self._apply_access_filter(self._session.query(DocumentModel))
+
+    def _apply_access_filter(self, statement):
         if is_superadmin_user(self._current_user):
             return statement
 
-        clauses = []
         current_user_id = user_id(self._current_user)
+        assignment = DocumentAssignmentModel
+        active_assignment = select(1).where(
+            assignment.document_id == DocumentModel.document_id,
+            assignment.status.not_in(("CANCELLED", "EXPIRED")),
+            or_(
+                assignment.assigned_to_user_id == current_user_id,
+                assignment.assigned_by_user_id == current_user_id,
+            ),
+        ).exists()
+        owner_id = func.coalesce(DocumentModel.owner_user_id, DocumentModel.metadata_["owner_user_id"].astext)
+        tenant_id = func.coalesce(DocumentModel.tenant_id, DocumentModel.metadata_["tenant_id"].astext)
+        clauses = [owner_id == current_user_id, active_assignment]
         admin_tenant_ids = tenant_ids_for_role(self._current_user, "TENANT_ADMIN")
         if admin_tenant_ids:
-            clauses.append(DocumentModel.tenant_id.in_(admin_tenant_ids))
-            clauses.append(DocumentModel.metadata_.op("->>")("tenant_id").in_(admin_tenant_ids))
-        if current_user_id:
-            assigned_document_ids = (
-                self._session.query(DocumentAssignmentModel.document_id)
-                .filter(DocumentAssignmentModel.assigned_to_user_id == current_user_id)
-                .subquery()
+            clauses.append(tenant_id.in_(admin_tenant_ids))
+        groups = user_groups(self._current_user)
+        if groups:
+            member_tenant_ids = [
+                str(membership["tenant_id"])
+                for membership in tenant_memberships(self._current_user)
+                if membership.get("tenant_id")
+            ]
+            clauses.append(
+                or_(tenant_id.is_(None), tenant_id.in_(member_tenant_ids))
+                & or_(*(DocumentModel.metadata_.contains({"owner_groups": [group]}) for group in groups))
             )
-            managed_document_ids = (
-                self._session.query(DocumentAssignmentModel.document_id)
-                .filter(DocumentAssignmentModel.assigned_by_user_id == current_user_id)
-                .subquery()
-            )
-            clauses.append(DocumentModel.owner_user_id == current_user_id)
-            clauses.append(DocumentModel.metadata_.op("->>")("owner_user_id") == current_user_id)
-            clauses.append(DocumentModel.document_id.in_(assigned_document_ids))
-            clauses.append(DocumentModel.document_id.in_(managed_document_ids))
-        for group in user_groups(self._current_user):
-            clauses.append(DocumentModel.metadata_.contains({"owner_groups": [group]}))
-        return statement.filter(or_(*clauses) if clauses else false())
+        return statement.filter(or_(*clauses))
 
     def _accessible_document_for_assignment(self, document_id: str) -> DocumentModel | None:
         document = self._accessible_documents_query().filter(DocumentModel.document_id == document_id).first()

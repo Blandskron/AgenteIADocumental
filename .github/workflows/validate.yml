@@ -185,7 +185,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - run: cp .env.example .env
-      - run: docker compose -f docker/docker-compose.yml up -d --build --wait conversation-service document-search-service
+      - run: docker compose -f docker/docker-compose.yml up -d --build --wait conversation-service document-search-service document-access-service
       - run: docker compose -f docker/docker-compose.yml run --rm --no-deps rag-chat-db-role
       - run: docker compose -f docker/docker-compose.yml run --rm --no-deps embedding-db-role
       - run: docker compose -f docker/docker-compose.yml exec -T postgres psql -U postgres -d documents_db -v ON_ERROR_STOP=1 < scripts/database/auth/verify_roles.sql
@@ -207,5 +207,9 @@ jobs:
           docker compose -f docker/docker-compose.yml exec -T document-search-service python -c 'import os, importlib.util; assert os.geteuid() == 10005; assert all(importlib.util.find_spec(name) is None for name in ("pytest", "ruff", "httpx"))'
           docker compose -f docker/docker-compose.yml run --build --rm --no-deps search-tests
           docker compose -f docker/docker-compose.yml run --rm --no-deps search-tests ruff check --no-cache app tests
+      - name: Probar identidad y permisos de DocumentAccessServices
+        run: |
+          docker compose -f docker/docker-compose.yml run --build --rm --no-deps access-tests
+          docker compose -f docker/docker-compose.yml run --rm --no-deps access-tests ruff check --no-cache app tests
       - if: failure()
-        run: docker compose -f docker/docker-compose.yml logs auth-db-roles auth-migrate auth-service conversation-db-role conversation-service rag-chat-db-role embedding-db-role search-db-role document-search-service
+        run: docker compose -f docker/docker-compose.yml logs auth-db-roles auth-migrate auth-service conversation-db-role conversation-service rag-chat-db-role embedding-db-role search-db-role document-search-service document-access-service

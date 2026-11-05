@@ -219,6 +219,17 @@ services:
       auth-service:
         condition: service_healthy
 
+  access-tests:
+    profiles: ["test"]
+    build:
+      context: ../../backend/DocumentAccessServices
+      target: test
+    environment:
+      DATABASE_URL: postgresql+psycopg://postgres:admin1234@postgres:5432/documents_db
+    depends_on:
+      document-access-service:
+        condition: service_healthy
+
   document-library-service:
     build:
       context: ../../backend/DocumentLibraryServices
