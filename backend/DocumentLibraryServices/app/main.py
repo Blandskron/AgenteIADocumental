@@ -12,16 +12,18 @@ from app.shared.errors import AppError, NotFoundError, ValidationError
 
 
 settings = get_settings()
-database = Database(settings.database_url)
+database = Database(settings.database_url, settings.db_pool_min_size, settings.db_pool_max_size, settings.db_timeout_seconds)
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     configure_logging(settings.log_level)
-    database.open()
-    app.state.database = database
-    yield
-    database.close()
+    try:
+        database.open()
+        app.state.database = database
+        yield
+    finally:
+        database.close()
 
 
 app = FastAPI(title=settings.app_name, version="0.1.0", lifespan=lifespan)

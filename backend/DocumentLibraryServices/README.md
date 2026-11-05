@@ -2,7 +2,7 @@
 
 Organiza documentos en carpetas personales, favoritos y una vista de documentos actualizados recientemente. Usa FastAPI, SQLAlchemy y el PostgreSQL compartido. El puerto local de Compose es `8006`.
 
-LIB-001 establece el diagnóstico y el plan. Las correcciones de permisos, integridad y operación descritas aquí siguen pendientes. El [tablero](../../ROADMAP.md#documentlibraryservices) es la fuente de tareas y [AGENTS.md](AGENTS.md) indica cómo intervenir el servicio.
+LIB-001 estableció el diagnóstico y el plan. LIB-002 incorpora configuración aislada, comprobación de disponibilidad y base de pruebas. Las correcciones de identidad, permisos documentales, integridad y privilegios de ejecución siguen en las tarjetas posteriores. El [tablero](../../ROADMAP.md#documentlibraryservices) es la fuente de tareas y [AGENTS.md](AGENTS.md) indica cómo intervenir el servicio.
 
 ## Recorrido y responsabilidades
 
@@ -24,7 +24,7 @@ Las rutas de negocio requieren `Authorization: Bearer <token>`. Los dos healthch
 
 | Método y ruta bajo `/api/v1` | Respuesta actual |
 | --- | --- |
-| `GET /health`, `GET /health/db` | `{"status":"ok"}`. DB consulta únicamente `documents`. |
+| `GET /health`, `GET /health/db` | `{"status":"ok"}`. `/health` comprueba vida; `/health/db` valida dependencias y devuelve 503 si fallan. |
 | `GET /folders?parent_folder_id=...` | Carpetas del usuario en ese nivel, con `document_count`. Sin parámetro devuelve raíces. |
 | `POST /folders` | Carpeta creada, HTTP 201. |
 | `PATCH /folders/{folder_id}` | Carpeta actualizada. Cambia nombre y metadatos, no padre. |
@@ -66,8 +66,8 @@ Las fuentes principales son el [validador JWT](app/config/security.py), el [repo
 | Nombres y conflictos | Un nombre de espacios quedó almacenado vacío. Repetir un nombre raíz produjo `IntegrityError`, sin traducción a un conflicto HTTP. Ya existen índices únicos para nombres raíz y bajo un padre. | LIB-004 / LIB-006 |
 | Concurrencia | Favoritos y asociaciones usan consultar-antes-de-insertar. Mover ya retira e inserta en una transacción, pero no serializa movimientos simultáneos. Las carreras requieren pruebas con sesiones independientes. | LIB-005 |
 | Cotas y orden | Carpetas, contenido de carpeta y favoritos no tienen límite. Recientes no permite recorrer páginas. Faltan desempates por ID. El conteo de fragmentos ya se hace por lote y debe conservarse. | LIB-006 / LIB-007 |
-| Configuración | Importa el entorno global, CORS admite `*` y el arranque comprueba solo `/health`. `health/db` no comprueba las tablas de biblioteca. Lifespan carece de `finally`; las opciones declaradas de tamaño y timeout del pool no se aplican al motor. | LIB-002 |
-| Ejecución | Se conecta como `postgres`, ejecuta como UID 0 e instala pytest y Ruff. No hay pruebas del servicio ni trabajo propio en CI. | LIB-002 / LIB-008 |
+| Configuración | La base importaba el entorno global, admitía CORS abierto y comprobaba solo vida del proceso. LIB-002 aplica configuración explícita, disponibilidad de dependencias, cierre con `finally` y opciones efectivas del pool, con pruebas. | LIB-002 resuelto |
+| Ejecución | Se conecta como `postgres`, ejecuta como UID 0 e instala pytest y Ruff. LIB-002 añadió `library-tests` y CI; el rol mínimo, la imagen y las dependencias siguen pendientes. | LIB-008 |
 | Mantenibilidad | Hay entidades, tipo vectorial, constantes de extracción y utilidades sin consumidores internos identificados. Retirarlos al cierre tras revisar imports. | LIB-008 |
 
 Las observaciones comprobadas con datos sintéticos se distinguen de los riesgos de concurrencia pendientes. Este diagnóstico no equivale a una auditoría exhaustiva ni valida explotación de los avisos de dependencias.
@@ -102,19 +102,35 @@ curl http://localhost:8006/api/v1/health
 curl http://localhost:8006/api/v1/health/db
 ```
 
-Compose importa el `.env` global, usa PostgreSQL administrativo y CORS abierto. Son puntos pendientes de modernización, no la configuración final de publicación.
+Compose pasa diez variables explícitas y monta únicamente la clave pública JWT en modo de solo lectura. No incorpora el entorno global al contenedor. PostgreSQL administrativo sigue pendiente de sustitución por el rol mínimo en LIB-008.
 
-Fuera de Compose, desde este directorio instala `requirements.txt` y configura `DATABASE_URL`, `AUTH_JWT_PUBLIC_KEY_PATH` y `AUTH_JWT_ALGORITHM`. Ejecuta `python -m uvicorn app.main:app --port 8006`. `CORS_ORIGINS` recibe un arreglo JSON. Actualmente Settings también busca `../../.env`; revisa las variables resueltas sin imprimir secretos.
+CORS permite por defecto `http://localhost:3000` y `http://127.0.0.1:3000`. Configura `LIBRARY_CORS_ORIGINS` como arreglo JSON para otros orígenes. Los orígenes externos no reciben autorización CORS; la autenticación HTTP continúa siendo obligatoria.
 
-Para comprobar estáticamente la base, desde la raíz puedes ejecutar estos comandos.
+| Variable de Compose | Valor por defecto y efecto |
+| --- | --- |
+| `APP_ENV`, `LOG_LEVEL` | `local`, `INFO`. |
+| `LIBRARY_DB_POOL_MIN_SIZE` | 1, capacidad de conexiones retenidas del pool. |
+| `LIBRARY_DB_POOL_MAX_SIZE` | 10, máximo de conexiones simultáneas por proceso. |
+| `LIBRARY_DB_TIMEOUT_SECONDS` | 30 segundos, espera del pool y timeout de conexión de psycopg. |
+
+Los tamaños admiten 1 a 100 y el mínimo no puede superar al máximo. El timeout admite 1 a 300 segundos. El mínimo configura `pool_size`; el exceso permitido es máximo menos mínimo. Las conexiones se abren bajo demanda, sin preasignación, según el [contrato de QueuePool](https://docs.sqlalchemy.org/en/20/core/pooling.html). El timeout de conexión no limita la duración de una consulta SQL. En el proceso, estos parámetros se llaman `DB_POOL_MIN_SIZE`, `DB_POOL_MAX_SIZE` y `DB_TIMEOUT_SECONDS`.
+
+`health/db` comprueba una clave pública RSA válida y las columnas mapeadas de `documents`, `document_assignments`, `document_embeddings`, `document_folders`, `document_folder_items` y `document_favorites`, mediante consultas sin filas. Los errores de archivo, clave o PostgreSQL producen HTTP 503 con detalle genérico. `health` sigue disponible como comprobación de vida. El healthcheck de Compose usa `health/db` y lifespan libera el motor incluso si se interrumpe con una excepción.
+
+Fuera de Compose, desde este directorio instala `requirements.txt` y configura `DATABASE_URL`, `AUTH_JWT_PUBLIC_KEY_PATH` y `AUTH_JWT_ALGORITHM`. Ejecuta `python -m uvicorn app.main:app --port 8006`. `CORS_ORIGINS` recibe un arreglo JSON. Settings solo lee el `.env` del directorio de trabajo y las variables del proceso; ya no busca `../../.env`. Las variables del proceso tienen prioridad. Configura el pool con sus nombres `DB_POOL_*` y `DB_TIMEOUT_SECONDS` fuera de Compose.
+
+## Pruebas
+
+Con el servicio y PostgreSQL iniciados, ejecuta desde la raíz.
 
 ```sh
-docker build -t blandskron-library-baseline:lib001 backend/DocumentLibraryServices
-docker run --rm blandskron-library-baseline:lib001 ruff check --no-cache app
-docker run --rm blandskron-library-baseline:lib001 python -m pip check
+docker compose -f docker/docker-compose.yml run --build --rm --no-deps library-tests
+docker compose -f docker/docker-compose.yml run --rm --no-deps library-tests ruff check --no-cache app tests
 ```
 
-Todavía no existe una suite ni un objetivo `library-tests`. LIB-002 añadirá esa base; los siguientes incrementos convertirán los casos diagnósticos en regresiones que exijan el comportamiento corregido.
+La suite usa claves temporales y PostgreSQL real. Comprueba aislamiento del entorno, CORS, rechazo sin token o con token inválido en las doce rutas, petición firmada, disponibilidad de las seis tablas, claves inválidas, HTTP 503 sin detalles internos, saturación y recuperación del pool, rollback y cierre del motor. Los objetos de prueba son temporales o se revierten; no modifica las tablas compartidas. Las regresiones de permisos documentales corresponden a LIB-003 y no quedan cubiertas por este incremento.
+
+CI arranca Library con su comprobación de disponibilidad y ejecuta `pip check`, las pruebas y Ruff. HTTPX está en la etapa Docker de pruebas. Las herramientas heredadas pytest y Ruff todavía forman parte de las dependencias de ejecución y se retirarán en LIB-008 junto con su actualización y auditoría.
 
 ## Licencia
 
