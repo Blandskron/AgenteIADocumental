@@ -16,7 +16,7 @@ function normalizeFolder(folder = {}) {
     parentFolderId: folder.parent_folder_id || null,
     ownerUserId: folder.owner_user_id || "",
     metadata: folder.metadata || {},
-    documentCount: Number(folder.document_count || folder.metadata?.document_count || 0),
+    documentCount: Number(folder.document_count ?? 0),
     createdAt: folder.created_at || "",
     updatedAt: folder.updated_at || "",
   };

@@ -1,6 +1,6 @@
 # DocumentLibraryServices
 
-Lee el [contrato y diagnóstico](README.md) y retoma la tarjeta activa del [tablero](../../ROADMAP.md#documentlibraryservices). LIB-001 documenta la base y LIB-002 incorpora configuración y pruebas. Las reglas de acceso y los contratos se corrigen en las tarjetas siguientes.
+Lee el [contrato y diagnóstico](README.md) y retoma la tarjeta activa del [tablero](../../ROADMAP.md#documentlibraryservices). La configuración, pruebas y reglas de acceso están cubiertas hasta LIB-003. Las siguientes tarjetas refuerzan integridad, concurrencia y contratos.
 
 - Comprueba identidad JWT, propiedad de carpeta y permiso documental por separado. Una asociación o favorito nunca concede lectura.
 - Contrasta filtros con DocumentSearchServices y DocumentAccessServices. Incluye revocación, columnas canónicas, metadatos históricos y grupos por tenant en listas y conteos.
