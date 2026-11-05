@@ -11,6 +11,7 @@ BEGIN;
 \ir schemas/009_exports.sql
 \ir schemas/010_google_drive_imports.sql
 \ir schemas/011_notifications_audit.sql
+\ir schemas/012_document_deletions.sql
 \ir constraints/001_document_constraints.sql
 \ir indexes/001_indexes.sql
 \ir functions/001_functions.sql

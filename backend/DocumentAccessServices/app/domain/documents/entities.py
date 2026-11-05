@@ -31,3 +31,12 @@ class DocumentDeleteResult:
     filename: str
     deleted: bool
     file_deleted: bool
+
+
+@dataclass(frozen=True)
+class DocumentDeletion:
+    document_id: str
+    filename: str
+    storage_path: str
+    completed_at: datetime | None = None
+    file_deleted: bool = False

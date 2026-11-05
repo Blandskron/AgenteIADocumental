@@ -80,6 +80,26 @@ Preview admite `application/pdf`, `text/plain`, `image/png`, `image/jpeg` e `ima
 
 `content` devuelve hasta `max_chunks` fragmentos, de 1 a 2000, con 500 por defecto. El presupuesto es de 2.000.000 de caracteres recuperados, incluidos los espacios descartados al ensamblar y los separadores entre fragmentos. Si se supera el presupuesto, la API devuelve HTTP 413. La consulta acota cada fragmento en SQL y los procesa con un cursor de una fila para limitar la memoria usada por registros históricos.
 
+## Borrado y recuperación
+
+El propietario, el administrador del tenant correspondiente y el superadministrador pueden borrar. Las columnas canónicas tienen prioridad sobre los metadatos históricos. Los demás actores reciben HTTP 404, incluidos quienes solo pueden leer por grupo o asignación.
+
+PostgreSQL bloquea la fila del documento y confirma en una transacción su eliminación, las relaciones dependientes, la auditoría `DOCUMENT_DELETED` y un registro en `document_deletions`. La limpieza del archivo empieza después de esa confirmación. Una interrupción deja el trabajo persistido para recuperarlo.
+
+HTTP 200 con `deleted: true` indica que el documento fue retirado de la plataforma. `file_deleted: true` indica que esa limpieza retiró la entrada del archivo. Puede ser falso si el archivo ya faltaba, está compartido o la limpieza sigue pendiente. Los registros de borrado se conservan para responder reintentos autorizados sin duplicar la auditoría.
+
+El servicio recupera trabajos al arrancar y revisa hasta 20 pendientes cada 30 segundos. Un fallo del sistema de archivos o una referencia compartida difiere el siguiente intento 60 segundos. `SKIP LOCKED` permite que varios procesos compartan la cola. Una nueva petición DELETE autorizada también puede reintentar la limpieza.
+
+La limpieza contrasta las referencias vigentes, incluidas URI, enlaces simbólicos y enlaces duros. Conserva archivos que otros documentos todavía usan. Para borrar un enlace simbólico retira su entrada y conserva el destino. La comprobación recorre rutas distintas con un cursor y su coste crece con la cantidad de rutas de la biblioteca.
+
+Compose aplica [el esquema de la cola](../../scripts/database/schemas/012_document_deletions.sql) mediante `database-schema`, tanto en bases nuevas como existentes. `health/db` comprueba también esa tabla. Para revisar trabajos diferidos, ejecuta desde la raíz.
+
+```sh
+docker compose -f docker/docker-compose.yml exec -T postgres psql -U postgres -d documents_db -c "SELECT document_id, attempts, last_error, next_attempt_at FROM document_deletions WHERE completed_at IS NULL ORDER BY next_attempt_at;"
+```
+
+`last_error` conserva el tipo de error o `SharedReference`. Las rutas inválidas quedan pendientes y requieren corregir la ubicación almacenada antes de poder completar su limpieza.
+
 ## Architecture
 - **FastAPI** for API layer
 - **SQLAlchemy** for ORM/database access
@@ -124,7 +144,7 @@ docker compose -f docker/docker-compose.yml run --build --rm --no-deps access-te
 docker compose -f docker/docker-compose.yml run --rm --no-deps access-tests ruff check --no-cache app tests
 ```
 
-Las pruebas usan una transacción externa y savepoints para revertir los registros incluso cuando la descarga confirma auditoría. Los archivos de prueba se crean en un directorio temporal.
+Las pruebas HTTP usan una transacción externa y savepoints para revertir los registros incluso cuando una operación confirma auditoría. Los casos de recuperación y concurrencia confirman registros sintéticos con IDs únicos y los retiran al terminar. Los archivos de prueba se crean en un directorio temporal.
 
 ## Example Requests
 

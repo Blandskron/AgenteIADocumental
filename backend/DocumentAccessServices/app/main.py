@@ -1,3 +1,4 @@
+import asyncio
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
@@ -7,6 +8,8 @@ from fastapi.responses import JSONResponse
 from app.config.logging import configure_logging
 from app.config.settings import get_settings
 from app.infrastructure.database.connection import Database
+from app.infrastructure.storage.deletion_cleanup import deletion_cleanup_loop
+from app.infrastructure.storage.document_path_resolver import LocalDocumentPathResolver
 from app.interfaces.api.router import api_router
 from app.shared.errors import AppError, NotFoundError, PayloadTooLarge, ValidationError
 
@@ -20,8 +23,16 @@ async def lifespan(app: FastAPI):
     configure_logging(settings.log_level)
     database.open()
     app.state.database = database
-    yield
-    database.close()
+    stop_cleanup = asyncio.Event()
+    cleanup_task = asyncio.create_task(deletion_cleanup_loop(
+        database, LocalDocumentPathResolver(settings.document_storage_base_path), stop_cleanup,
+    ))
+    try:
+        yield
+    finally:
+        stop_cleanup.set()
+        await cleanup_task
+        database.close()
 
 
 app = FastAPI(title=settings.app_name, version="0.1.0", lifespan=lifespan)

@@ -1,16 +1,17 @@
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
 from app.config.security import is_superadmin_user, tenant_ids_for_role, tenant_memberships, user_groups, user_id
-from app.domain.documents import DocumentContent, DocumentFile
+from app.domain.documents import DocumentContent, DocumentDeletion, DocumentFile
 from app.shared.constants import MAX_CONTENT_CHARACTERS
 from app.shared.errors import PayloadTooLarge
 from app.infrastructure.database.models import (
     AuditLogModel,
     DocumentAssignmentEventModel,
     DocumentAssignmentModel,
+    DocumentDeletionModel,
     DocumentEmbeddingModel,
     DocumentModel,
     NotificationModel,
@@ -65,15 +66,87 @@ class DocumentAccessRepositoryPg:
             chunk_count=chunk_count,
         )
 
-    def delete(self, document_id: str) -> None:
-        document = self._accessible_documents_query().filter(DocumentModel.document_id == document_id).first()
+    def prepare_deletion(self, document_id: str) -> DocumentDeletion | None:
+        owner_id = func.coalesce(DocumentModel.owner_user_id, DocumentModel.metadata_["owner_user_id"].astext)
+        tenant_id = func.coalesce(DocumentModel.tenant_id, DocumentModel.metadata_["tenant_id"].astext)
+        statement = self._session.query(DocumentModel).filter(DocumentModel.document_id == document_id)
+        document = self._apply_delete_access_filter(statement, owner_id, tenant_id).with_for_update().populate_existing().first()
         if document is None:
-            return
-        self._session.query(DocumentEmbeddingModel).filter(DocumentEmbeddingModel.document_id == document_id).delete(
-            synchronize_session=False
+            statement = self._session.query(DocumentDeletionModel).filter(DocumentDeletionModel.document_id == document_id)
+            deletion = self._apply_delete_access_filter(
+                statement, DocumentDeletionModel.owner_user_id, DocumentDeletionModel.tenant_id,
+            ).first()
+            result = self._to_deletion(deletion) if deletion is not None else None
+            self._session.commit()
+            return result
+
+        metadata = document.metadata_ or {}
+        owner = document.owner_user_id if document.owner_user_id is not None else metadata.get("owner_user_id")
+        tenant = document.tenant_id if document.tenant_id is not None else metadata.get("tenant_id")
+        deletion = DocumentDeletionModel(
+            document_id=document_id, filename=document.filename, storage_path=document.storage_path,
+            owner_user_id=str(owner) if owner is not None else None,
+            tenant_id=str(tenant) if tenant is not None else None,
         )
-        self._session.delete(document)
+        self._session.add(deletion)
+        self._session.add(AuditLogModel(
+            tenant_id=document.tenant_id, actor_user_id=user_id(self._current_user),
+            action="DOCUMENT_DELETED", resource_type="document", resource_id=document_id,
+        ))
+        result = self._to_deletion(deletion)
+        self._session.query(DocumentModel).filter(DocumentModel.document_id == document_id).delete(synchronize_session=False)
         self._session.commit()
+        return result
+
+    def _apply_delete_access_filter(self, statement, owner_id, tenant_id):
+        if is_superadmin_user(self._current_user):
+            return statement
+        return statement.filter(or_(
+            owner_id == user_id(self._current_user),
+            tenant_id.in_(tenant_ids_for_role(self._current_user, "TENANT_ADMIN")),
+        ))
+
+    def claim_deletion(self, document_id: str, skip_locked: bool = False) -> DocumentDeletion | None:
+        deletion = self._session.query(DocumentDeletionModel).filter(
+            DocumentDeletionModel.document_id == document_id,
+        ).with_for_update(skip_locked=skip_locked).populate_existing().first()
+        return self._to_deletion(deletion) if deletion is not None else None
+
+    def complete_deletion(self, document_id: str, file_deleted: bool) -> None:
+        self._session.query(DocumentDeletionModel).filter(DocumentDeletionModel.document_id == document_id).update({
+            "completed_at": datetime.now(UTC), "file_deleted": file_deleted, "last_error": None,
+        }, synchronize_session=False)
+        self._session.commit()
+
+    def defer_deletion(self, document_id: str, error_code: str) -> None:
+        self._session.query(DocumentDeletionModel).filter(DocumentDeletionModel.document_id == document_id).update({
+            "attempts": DocumentDeletionModel.attempts + 1,
+            "next_attempt_at": datetime.now(UTC) + timedelta(seconds=60),
+            "last_error": error_code,
+        }, synchronize_session=False)
+        self._session.commit()
+
+    def release_deletion(self) -> None:
+        self._session.rollback()
+
+    def pending_deletions(self) -> list[str]:
+        return list(self._session.scalars(
+            select(DocumentDeletionModel.document_id)
+            .where(DocumentDeletionModel.completed_at.is_(None), DocumentDeletionModel.next_attempt_at <= func.now())
+            .order_by(DocumentDeletionModel.next_attempt_at, DocumentDeletionModel.document_id).limit(20)
+        ))
+
+    def storage_paths(self):
+        with self._session.execute(
+            select(DocumentModel.storage_path).distinct(), execution_options={"yield_per": 100},
+        ) as rows:
+            yield from rows.scalars()
+
+    def _to_deletion(self, deletion: DocumentDeletionModel) -> DocumentDeletion:
+        return DocumentDeletion(
+            document_id=deletion.document_id, filename=deletion.filename, storage_path=deletion.storage_path,
+            completed_at=deletion.completed_at, file_deleted=bool(deletion.file_deleted),
+        )
 
     def list_assigned_to_me(self) -> list[DocumentAssignmentModel]:
         return (
