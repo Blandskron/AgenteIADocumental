@@ -81,8 +81,20 @@ La revisión inicial abarcó rutas, JWT, repositorio, resolución de archivos, a
 | Hecha | ACCESS-003 | Confinar lectura y servir archivos | PR #38 integrado con seis checks aprobados. 56 pruebas del backend, compilación y lector de nombres Unicode del frontend verificados. Persisten cuatro alertas altas de npm. |
 | Hecha | ACCESS-004 | Autorizar y hacer recuperable el borrado | PR #39 integrado con seis checks aprobados. 71 pruebas, Compose, arranque, esquema repetido y Ruff verificados. Cubren permisos, cascadas, fallos, reintentos, enlaces, referencias compartidas, recuperación automática y sesiones concurrentes. |
 | Hecha | ACCESS-005 | Hacer consistentes las asignaciones | PR #40 integrado con seis checks aprobados. 116 pruebas PostgreSQL, Ruff, Compose y arranque saludable. Roles y destinatarios vigentes, transiciones explícitas, reintentos idempotentes y transacciones con concurrencia y fallos inyectados verificados. |
-| En revisión | ACCESS-006 | Acotar entradas y revisar respuestas | Límites de IDs, motivos, firmas, JSON y cuerpo HTTP. Cuatro listas paginadas con desempate por ID y frontend con Cargar más. `access-tests python -m pytest -q -p no:cacheprovider --tb=short tests` aprobó 165 pruebas; Ruff, Compose y arranque reconstruido saludables. `npm ci`, `npm test` (7 pruebas) y `npm run build` aprobados. Persisten cuatro alertas altas de npm registradas. Contrato, errores sin valores enviados, UTC y documentación actualizados. Pendiente revisión del PR. |
-| Lista | ACCESS-007 | Restringir PostgreSQL y cerrar operación | Rol con permisos mínimos, imagen sin privilegios, dependencias auditadas, pruebas en CI y arranque limpio. Actualizar documentación y registrar seguimiento. |
+| Hecha | ACCESS-006 | Acotar entradas y revisar respuestas | PR #41 integrado con seis checks aprobados. 165 pruebas backend, 7 frontend, Ruff, Compose y arranque verificados. Páginas con orden estable, límites HTTP y errores sin reflejar valores enviados. |
+| En revisión | ACCESS-007 | Restringir PostgreSQL y cerrar operación | Rol acotado y funciones de autoridad con propietario sin login. Imagen sin privilegios ni herramientas de prueba. Pruebas con rol de ejecución, provisionamiento repetido y arranque en volúmenes nuevos. `access-tests` aprobó 184 pruebas sobre PostgreSQL, Ruff y Compose. `access-audit` aprobó el inventario Python sin avisos. Pendiente revisión del PR y CI. Limpieza automática sintética verificada. Seguimiento de Debian en ACCESS-F01. |
+
+### Seguimiento de la imagen de acceso
+
+| Estado | ID | Tarea | Evidencia y siguiente acción |
+| --- | --- | --- | --- |
+| Seguimiento | ACCESS-F01 | Reevaluar los avisos de Debian al reconstruir | Trivy 0.74.0, 5 de noviembre de 2026, reportó 46 coincidencias altas por paquete, 10 CVE distintos, cero críticos y sin versiones corregidas indicadas. El README de DocumentAccessServices registra imagen, CVE y alcance. Reconstruir y reevaluar al actualizar la base, registrando correcciones o aceptación explícita del riesgo antes de un despliegue público. Las dependencias Python del runtime no reportaron avisos con pip-audit. |
+
+### DocumentLibraryServices
+
+| Estado | ID | Tarea | Criterios de aceptación |
+| --- | --- | --- | --- |
+| Lista | LIB-001 | Analizar contratos, aislamiento y operación | Revisar carpetas, favoritos, recientes y consumidores del frontend. Documentar permisos por tenant y usuario, integridad, concurrencia, paginación, archivos y dependencias. Crear incrementos verificables antes de cambiar el servicio. |
 
 ## Validación
 

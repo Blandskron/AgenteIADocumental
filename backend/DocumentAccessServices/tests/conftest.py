@@ -1,3 +1,4 @@
+from os import environ
 from types import SimpleNamespace
 from uuid import uuid4
 
@@ -20,7 +21,8 @@ def assignment_key():
 
 @pytest.fixture
 def workflow(tmp_path, monkeypatch, assignment_key):
-    engine = create_engine(get_settings().database_url)
+    engine = create_engine(environ["ACCESS_TEST_DATABASE_URL"])
+    runtime_engine = create_engine(get_settings().database_url)
     tenant, foreign_tenant = uuid4().hex, uuid4().hex
     users, documents = {}, {name: uuid4().hex for name in ("owned", "private", "foreign")}
     try:
@@ -82,7 +84,7 @@ def workflow(tmp_path, monkeypatch, assignment_key):
                 })
 
             yield SimpleNamespace(
-                engine=engine, users=users, documents=documents, tenant=tenant, foreign_tenant=foreign_tenant,
+                engine=engine, runtime_engine=runtime_engine, client=client, users=users, documents=documents, tenant=tenant, foreign_tenant=foreign_tenant,
                 post=post, get=get, assign=assign,
             )
     finally:
@@ -93,3 +95,4 @@ def workflow(tmp_path, monkeypatch, assignment_key):
             connection.execute(delete(TenantModel).where(TenantModel.tenant_id.in_([tenant, foreign_tenant])))
             connection.execute(delete(AuthUserModel).where(AuthUserModel.id.in_([int(value) for value in users.values()])))
         engine.dispose()
+        runtime_engine.dispose()

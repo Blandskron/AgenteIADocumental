@@ -50,6 +50,8 @@ La ingesta usa el rol `embedding_runtime`. En Linux, crea `documents` como usuar
 
 La búsqueda documental usa el rol de solo lectura `document_search_runtime`. Puedes cambiar su contraseña local con `SEARCH_DB_PASSWORD` en `.env`. [Operación de búsqueda](backend/DocumentSearchServices/README.md#running-the-service).
 
+El acceso documental usa `document_access_runtime` y `ACCESS_DB_PASSWORD`. En Linux, configura `ACCESS_UID` y `ACCESS_GID` con el mismo propietario del directorio `documents` que usa la ingesta. [Permisos y operación de acceso](backend/DocumentAccessServices/README.md#running-the-service).
+
 Si otra instalación de PostgreSQL ocupa el puerto local 5432, configura `POSTGRES_HOST_PORT=15432` en `.env`. Los contenedores siguen conectándose a PostgreSQL por el puerto interno 5432.
 
 El agregador `docker/docker-compose.yml` carga:

@@ -1,4 +1,5 @@
 import json
+from os import environ
 from pathlib import Path
 from uuid import uuid4
 
@@ -33,7 +34,7 @@ def authorization(signing_key, **claims):
 
 @pytest.fixture
 def records(tmp_path):
-    engine = create_engine(get_settings().database_url)
+    engine = create_engine(environ["ACCESS_TEST_DATABASE_URL"])
     tenant, foreign_tenant = uuid4().hex, uuid4().hex
     kinds = ("owned", "legacy", "group", "global_group", "foreign", "assigned", "managed", "no_download", "legacy_tenant")
     ids = {kind: uuid4().hex for kind in kinds}
@@ -101,7 +102,14 @@ def client(records, signing_key, tmp_path, monkeypatch):
     ))
     settings = get_settings().model_copy(update={"auth_jwt_public_key_path": str(public_key)})
     monkeypatch.setitem(app.dependency_overrides, get_settings, lambda: settings)
-    monkeypatch.setitem(app.dependency_overrides, get_session, lambda: session)
+    def runtime_session():
+        session.execute(text("SET LOCAL ROLE document_access_runtime"))
+        try:
+            yield session
+        finally:
+            session.execute(text("RESET ROLE"))
+
+    monkeypatch.setitem(app.dependency_overrides, get_session, runtime_session)
     monkeypatch.setitem(app.dependency_overrides, get_path_resolver, lambda: LocalDocumentPathResolver(str(tmp_path)))
     async def paused_cleanup(database, path_resolver, stop):
         await stop.wait()

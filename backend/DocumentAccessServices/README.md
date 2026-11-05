@@ -167,9 +167,32 @@ docker compose -f docker/docker-compose.yml up -d --build --wait document-access
 curl http://localhost:8005/api/v1/health/db
 ```
 
-Compose pasa explícitamente las variables del servicio. El chequeo de arranque verifica PostgreSQL, la clave pública JWT y la existencia del directorio de documentos. CORS admite `http://localhost:3000` y `http://127.0.0.1:3000` por defecto. Configura `ACCESS_CORS_ORIGINS` como arreglo JSON para otros orígenes.
+Compose pasa explícitamente las variables del servicio. El chequeo de arranque verifica PostgreSQL, las funciones de autorización, la clave pública JWT y la existencia del directorio de documentos. `health/db` devuelve HTTP 503 sin detalles de conexión si la base o las funciones no están disponibles. CORS admite `http://localhost:3000` y `http://127.0.0.1:3000` por defecto. Configura `ACCESS_CORS_ORIGINS` como arreglo JSON para otros orígenes.
 
-Fuera de Compose, instala `requirements.txt` desde este directorio y configura `DATABASE_URL`, `AUTH_JWT_PUBLIC_KEY_PATH` y `DOCUMENT_STORAGE_BASE_PATH` en el entorno o en el `.env` del servicio. Ejecuta `python -m uvicorn app.main:app --port 8005`. En este modo, configura CORS con `CORS_ORIGINS`.
+`access-db-role` se ejecuta después del esquema y de AuthServices. Provisiona y comprueba el rol `document_access_runtime` de forma repetible. El servicio recibe una URL sin contraseña y `PGPASSWORD` desde `ACCESS_DB_PASSWORD`. Las credenciales administrativas quedan en los trabajos de provisionamiento y en las fixtures de pruebas.
+
+| Recurso | Permisos de ejecución |
+| --- | --- |
+| Documentos | Lectura y borrado. `UPDATE(document_id)` permite adquirir el bloqueo de fila requerido por PostgreSQL. |
+| Fragmentos | Lectura de ID documental, índice y texto, sin acceso al vector. |
+| Asignaciones | Lectura, inserción y actualización de campos de gestión y estado. |
+| Eventos | Lectura e inserción, sin edición ni borrado directo. |
+| Notificaciones | Lectura, inserción y actualización del estado de lectura y sus fechas. |
+| Cola de borrado | Lectura, inserción y actualización de resultados e intentos. |
+| Auditoría | Inserción y lectura del ID y fecha que devuelve el ORM. |
+| Usuarios y membresías | Tres funciones de consulta y bloqueo, sin acceso directo a las tablas ni contraseñas. |
+
+Las funciones `access_active_user`, `access_active_tenant` y `access_active_membership` mantienen los bloqueos compartidos hasta terminar la transacción. Su propietario `document_access_authorizer` no tiene login ni membresías. Usan nombres de tabla cualificados, un `search_path` fijo y ejecución revocada a `PUBLIC`. Esto conserva las comprobaciones vigentes sin conceder edición de cuentas o membresías al servicio. Sigue las recomendaciones de PostgreSQL para [funciones con permisos del propietario](https://www.postgresql.org/docs/16/sql-createfunction.html#SQL-CREATEFUNCTION-SECURITY).
+
+La imagen final ejecuta como UID/GID `10004:10004`, sin capacidades adicionales ni elevación de privilegios. Las herramientas de pruebas y de auditoría viven en etapas separadas. En Linux, prepara el directorio `documents` con el propietario utilizado por la ingesta y configura ambos servicios con esos mismos UID/GID. `ACCESS_UID` y `ACCESS_GID` permiten ajustar el usuario de Compose. Leer requiere acceso a los archivos; retirar una entrada requiere escritura y recorrido de su directorio padre. El servicio no cambia permisos ni propietarios del almacenamiento al arrancar.
+
+Para rotar la contraseña local, cambia `ACCESS_DB_PASSWORD` en `.env`, ejecuta `docker compose -f docker/docker-compose.yml run --rm access-db-role` y recrea el servicio con `up -d --force-recreate document-access-service`. Puedes comprobar el contrato SQL desde PowerShell.
+
+```powershell
+Get-Content scripts/database/access/verify_role.sql | docker compose -f docker/docker-compose.yml exec -T postgres psql -U postgres -d documents_db -v ON_ERROR_STOP=1
+```
+
+Fuera de Compose, instala `requirements.txt` desde este directorio y configura `DATABASE_URL`, `PGPASSWORD`, `AUTH_JWT_PUBLIC_KEY_PATH` y `DOCUMENT_STORAGE_BASE_PATH` en el entorno o en el `.env` del servicio. Provisiona previamente el rol con `scripts/database/access/provision_role.sql` usando una sesión administrativa de psql y `ACCESS_DB_PASSWORD` en su entorno. Ejecuta `python -m uvicorn app.main:app --port 8005`. En este modo, configura CORS con `CORS_ORIGINS`.
 
 El [tablero de modernización](../../ROADMAP.md#documentaccessservices) registra los incrementos de permisos, archivos, borrado, asignaciones y operación que siguen a la configuración inicial.
 
@@ -180,11 +203,20 @@ Con el servicio iniciado, ejecuta las pruebas HTTP con JWT y documentos sintéti
 ```sh
 docker compose -f docker/docker-compose.yml run --build --rm --no-deps access-tests
 docker compose -f docker/docker-compose.yml run --rm --no-deps access-tests ruff check --no-cache app tests
+docker compose -f docker/docker-compose.yml run --build --rm --no-deps access-audit
 ```
 
 Desde `frontend`, `npm test` verifica la adaptación de páginas, fechas y errores HTTP. CI ejecuta estas pruebas antes de compilar la interfaz.
 
-Las pruebas HTTP usan una transacción externa y savepoints para revertir los registros incluso cuando una operación confirma auditoría. Los casos de recuperación y concurrencia confirman registros sintéticos con IDs únicos y los retiran al terminar. Los archivos de prueba se crean en un directorio temporal.
+Las fixtures usan `ACCESS_TEST_DATABASE_URL` para preparar e inspeccionar datos sintéticos. Las operaciones de aplicación usan el rol de ejecución, incluidas las pruebas HTTP, recuperación y concurrencia. Los casos con savepoints revierten sus registros y los casos confirmados usan IDs únicos y los retiran al terminar. Los archivos de prueba se crean en un directorio temporal. CI comprueba el provisionamiento repetido, los permisos negativos, el usuario de la imagen, la ausencia de herramientas de prueba, Ruff y la auditoría Python.
+
+## Estado y seguimiento operativo
+
+El cierre funcional de los incrementos ACCESS-001 a ACCESS-007 cubre permisos, archivos, contenido, borrado recuperable, asignaciones atómicas y páginas acotadas. Se comprobó el arranque con volúmenes nuevos y la retirada automática de un archivo sintético por el proceso sin privilegios. El rol restringe recursos del servicio; el aislamiento por usuario y tenant sigue siendo responsabilidad de las reglas de aplicación probadas, sin RLS por usuario de la API.
+
+El 5 de noviembre de 2026, `pip-audit` 2.10.1 no reportó vulnerabilidades conocidas en el inventario completo de Python de la imagen de ejecución. El objetivo `access-audit` congela ese inventario antes de instalar el auditor, para incluir dependencias transitivas sin confundirlas con las herramientas de auditoría.
+
+Trivy 0.74.0 examinó los paquetes del sistema de la imagen `sha256:341af67dbe506c6caae0beff102eb0c3444060fb20225e2fa3a5c78d16c422b4`, basada en Debian 13.7. Reportó 46 coincidencias altas por paquete, correspondientes a 10 CVE distintos, sin críticos ni versiones corregidas indicadas en el resultado. Los CVE fueron CVE-2025-69720, CVE-2026-119373, CVE-2026-16742, CVE-2026-54369, CVE-2026-76642, CVE-2026-76844, CVE-2026-78408, CVE-2026-78409, CVE-2026-78410 y CVE-2026-9538. ACCESS-F01 en el tablero conserva el seguimiento de la imagen base. Estos avisos requieren reevaluación al reconstruir y no equivalen a una explotación validada de las rutas del servicio.
 
 ## Example Requests
 

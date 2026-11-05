@@ -245,7 +245,7 @@ def test_concurrent_mutations_serialize_without_partial_effects(workflow, race):
 
     def run(index):
         actor = "manager" if race == "create" or (race == "cancel_sign" and index == 0) else "recipient"
-        with Session(workflow.engine) as session:
+        with Session(workflow.runtime_engine) as session:
             repository = DocumentAccessRepositoryPg(session, {"user_id": int(workflow.users[actor])})
             barrier.wait(timeout=10)
             try:
