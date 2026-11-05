@@ -5,6 +5,8 @@ from sqlalchemy.orm import Session
 
 from app.config.security import is_superadmin_user, tenant_ids_for_role, tenant_memberships, user_groups, user_id
 from app.domain.documents import DocumentContent, DocumentFile
+from app.shared.constants import MAX_CONTENT_CHARACTERS
+from app.shared.errors import PayloadTooLarge
 from app.infrastructure.database.models import (
     AuditLogModel,
     DocumentAssignmentEventModel,
@@ -32,20 +34,35 @@ class DocumentAccessRepositoryPg:
             return None
 
         chunks = (
-            self._session.query(DocumentEmbeddingModel.chunk_content)
+            self._session.query(
+                func.left(DocumentEmbeddingModel.chunk_content, MAX_CONTENT_CHARACTERS + 1).label("chunk_content"),
+            )
             .join(DocumentModel, DocumentEmbeddingModel.document_id == DocumentModel.document_id)
             .filter(DocumentEmbeddingModel.document_id == document_id)
         )
         chunks = self._apply_access_filter(chunks).order_by(
             DocumentEmbeddingModel.chunk_index.asc(),
-        ).limit(max_chunks).all()
-        content = "\n\n".join(chunk.chunk_content.strip() for chunk in chunks if chunk.chunk_content.strip())
+        ).limit(max_chunks)
+        parts = []
+        character_count = 0
+        chunk_count = 0
+        with self._session.execute(chunks.statement, execution_options={"yield_per": 1}) as rows:
+            for row in rows:
+                content = row.chunk_content.strip()
+                character_count += len(row.chunk_content)
+                if content and parts:
+                    character_count += 2
+                if character_count > MAX_CONTENT_CHARACTERS:
+                    raise PayloadTooLarge("Document content exceeds 2,000,000 characters.")
+                if content:
+                    parts.append(content)
+                chunk_count += 1
 
         return DocumentContent(
             document_id=str(document.document_id),
             filename=document.filename,
-            content=content,
-            chunk_count=len(chunks),
+            content="\n\n".join(parts),
+            chunk_count=chunk_count,
         )
 
     def delete(self, document_id: str) -> None:

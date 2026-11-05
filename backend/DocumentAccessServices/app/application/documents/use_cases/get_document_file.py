@@ -19,8 +19,9 @@ class GetDocumentFile:
             raise DocumentDownloadNotAllowedError("No tienes permisos para descargar este documento.")
 
         try:
+            path = self._path_resolver.resolve(document.storage_path)
             if for_download:
                 self._repository.record_document_event(document_id, "DOCUMENT_DOWNLOADED")
-            return document, self._path_resolver.resolve(document.storage_path)
+            return document, path
         except FileNotFoundError as exc:
             raise DocumentNotFoundError(f"Document file for {document_id} was not found.") from exc

@@ -14,6 +14,7 @@ from app.config.settings import get_settings
 from app.interfaces.api.v1.dependencies import get_path_resolver
 from app.infrastructure.storage.document_path_resolver import LocalDocumentPathResolver
 from app.main import app
+from app.shared.constants import MAX_CONTENT_CHARACTERS
 
 
 @pytest.fixture(scope="module")
@@ -192,3 +193,129 @@ def test_revocation_removes_recipient_and_sender_access(client, records, signing
         for suffix in ("preview", "content", "download"):
             response = client.get(f"/api/v1/documents/{ids[kind]}/{suffix}", headers=headers)
             assert response.status_code == 404
+
+
+@pytest.mark.parametrize("mime_type", ["text/plain", "application/pdf"])
+def test_historical_file_uri_headers_and_ranges(client, records, signing_key, tmp_path, mime_type):
+    session, ids, _, _ = records
+    path = tmp_path / "document ñ.txt"
+    path.write_text("Synthetic document", encoding="utf-8")
+    session.execute(text("UPDATE documents SET storage_path = :path, mime_type = :mime WHERE document_id = :id"), {
+        "id": ids["owned"], "path": path.as_uri(), "mime": mime_type,
+    })
+    headers = authorization(signing_key)
+    base = f"/api/v1/documents/{ids['owned']}"
+    preview = client.get(f"{base}/preview", headers=headers)
+    download = client.get(f"{base}/download", headers=headers)
+    assert preview.status_code == download.status_code == 200
+    assert preview.headers["content-disposition"].startswith("inline;")
+    assert download.headers["content-disposition"].startswith("attachment;")
+    for response in (preview, download):
+        assert response.headers["x-content-type-options"] == "nosniff"
+        assert response.headers["cache-control"] == "private, no-store"
+        assert response.headers["content-type"].split(";")[0] == mime_type
+    partial = client.get(f"{base}/preview", headers={**headers, "Range": "bytes=0-8"})
+    assert partial.status_code == 206
+    assert partial.text == "Synthetic"
+    assert partial.headers["content-range"] == "bytes 0-8/18"
+
+
+@pytest.mark.parametrize("mime_type,expected", [
+    ("text/html", "application/octet-stream"),
+    ("image/svg+xml", "application/octet-stream"),
+    ("text/html\r\nInjected: true", "application/octet-stream"),
+    ("text/markdown", "text/markdown"),
+])
+def test_unsupported_preview_requires_authorized_download(client, records, signing_key, mime_type, expected):
+    session, ids, _, _ = records
+    session.execute(text("UPDATE documents SET mime_type = :mime WHERE document_id = :id"), {
+        "id": ids["owned"], "mime": mime_type,
+    })
+    base = f"/api/v1/documents/{ids['owned']}"
+    headers = authorization(signing_key)
+    assert client.get(f"{base}/preview", headers=headers).status_code == 415
+    response = client.get(f"{base}/download", headers=headers)
+    assert response.status_code == 200
+    assert response.headers["content-type"].split(";")[0] == expected
+    assert response.headers["content-disposition"].startswith("attachment;")
+    assert "injected" not in response.headers
+
+
+def test_unicode_filename_is_sanitized_for_delivery(client, records, signing_key):
+    session, ids, _, _ = records
+    session.execute(text("UPDATE documents SET filename = :name WHERE document_id = :id"), {
+        "id": ids["owned"], "name": "C:\\private\\Contrato ñ\r\n.txt",
+    })
+    response = client.get(f"/api/v1/documents/{ids['owned']}/download", headers=authorization(signing_key))
+    assert response.status_code == 200
+    assert response.headers["content-disposition"] == "attachment; filename*=utf-8''Contrato%20%C3%B1__.txt"
+
+
+def test_unsupported_preview_preserves_download_denial(client, records, signing_key):
+    session, ids, _, _ = records
+    session.execute(text("UPDATE documents SET mime_type = 'text/html' WHERE document_id = :id"), {"id": ids["no_download"]})
+    base = f"/api/v1/documents/{ids['no_download']}"
+    headers = authorization(signing_key)
+    assert client.get(f"{base}/preview", headers=headers).status_code == 415
+    assert client.get(f"{base}/download", headers=headers).status_code == 400
+
+
+def test_missing_file_returns_404_without_recording_download(client, records, signing_key):
+    session, ids, _, _ = records
+    session.execute(text("UPDATE documents SET storage_path = 'missing.txt' WHERE document_id = :id"), {"id": ids["owned"]})
+    for suffix in ("preview", "download"):
+        response = client.get(f"/api/v1/documents/{ids['owned']}/{suffix}", headers=authorization(signing_key))
+        assert response.status_code == 404
+    assert session.scalar(text("SELECT count(*) FROM audit_logs WHERE resource_id = :id"), {"id": ids["owned"]}) == 0
+
+
+@pytest.mark.parametrize("first_length,second_length,expected", [
+    (MAX_CONTENT_CHARACTERS, None, 200),
+    (MAX_CONTENT_CHARACTERS + 1, None, 413),
+    (MAX_CONTENT_CHARACTERS // 2, MAX_CONTENT_CHARACTERS // 2 - 2, 200),
+    (MAX_CONTENT_CHARACTERS // 2, MAX_CONTENT_CHARACTERS // 2, 413),
+])
+def test_content_character_budget(client, records, signing_key, first_length, second_length, expected):
+    session, ids, _, _ = records
+    session.execute(text("UPDATE document_embeddings SET chunk_content = repeat('x', :length) WHERE document_id = :id"), {
+        "id": ids["owned"], "length": first_length,
+    })
+    if second_length is not None:
+        session.execute(text("""
+            INSERT INTO document_embeddings (document_id, chunk_index, chunk_content, embedding)
+            VALUES (:id, 1, repeat('x', :length), array_fill(1.0::real, ARRAY[384])::vector)
+        """), {"id": ids["owned"], "length": second_length})
+    response = client.get(f"/api/v1/documents/{ids['owned']}/content", headers=authorization(signing_key))
+    assert response.status_code == expected
+    if expected == 200:
+        assert len(response.json()["content"]) == MAX_CONTENT_CHARACTERS
+
+
+def test_content_chunk_limit_and_empty_chunks(client, records, signing_key):
+    session, ids, _, _ = records
+    session.execute(text("""
+        INSERT INTO document_embeddings (document_id, chunk_index, chunk_content, embedding)
+        VALUES (:id, 1, E' \t\n', array_fill(1.0::real, ARRAY[384])::vector)
+    """), {"id": ids["owned"]})
+    base = f"/api/v1/documents/{ids['owned']}/content"
+    headers = authorization(signing_key)
+    for limit in (0, 2001):
+        assert client.get(base, params={"max_chunks": limit}, headers=headers).status_code == 422
+    for limit in (1, 2):
+        response = client.get(base, params={"max_chunks": limit}, headers=headers)
+        assert response.status_code == 200
+        assert response.json()["chunk_count"] == limit
+        assert response.json()["content"] == "Synthetic content"
+
+
+def test_discarded_whitespace_counts_toward_content_budget(client, records, signing_key):
+    session, ids, _, _ = records
+    session.execute(text("UPDATE document_embeddings SET chunk_content = repeat(' ', :length) WHERE document_id = :id"), {
+        "id": ids["owned"], "length": MAX_CONTENT_CHARACTERS // 2,
+    })
+    session.execute(text("""
+        INSERT INTO document_embeddings (document_id, chunk_index, chunk_content, embedding)
+        VALUES (:id, 1, repeat(' ', :length), array_fill(1.0::real, ARRAY[384])::vector)
+    """), {"id": ids["owned"], "length": MAX_CONTENT_CHARACTERS // 2 + 1})
+    response = client.get(f"/api/v1/documents/{ids['owned']}/content", headers=authorization(signing_key))
+    assert response.status_code == 413

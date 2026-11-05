@@ -72,6 +72,14 @@ Las columnas de propietario y tenant tienen prioridad sobre los metadatos histó
 
 La descarga comprueba además su permiso específico. El propietario requiere `documents.allow_download` y el destinatario requiere una asignación vigente con `allow_download`. El administrador del tenant y el superadministrador pueden descargar los documentos que administran. El acceso por grupo o como asignador concede lectura. Si existe lectura pero falta permiso de descarga, la API devuelve HTTP 400.
 
+## Archivos y contenido
+
+El almacenamiento admite rutas relativas, rutas absolutas dentro del directorio configurado y URI `file:` locales. Las URI pueden omitir la autoridad o usar `localhost`. Se decodifican los nombres con espacios y caracteres Unicode. Las rutas fuera del almacenamiento, autoridades remotas, controles y bucles de enlaces devuelven HTTP 400. Las URI con consultas o fragmentos también se rechazan. Los enlaces simbólicos deben terminar dentro del almacenamiento. Un archivo ausente devuelve HTTP 404.
+
+Preview admite `application/pdf`, `text/plain`, `image/png`, `image/jpeg` e `image/tiff`. Los demás tipos devuelven HTTP 415 en preview. La descarga comprueba su permiso y sirve los tipos desconocidos como `application/octet-stream`. Las respuestas de archivo usan `X-Content-Type-Options: nosniff` y `Cache-Control: private, no-store`, conservan Range y preparan un nombre de archivo sin directorios ni controles para `Content-Disposition`. La auditoría de descarga se registra después de resolver un archivo existente.
+
+`content` devuelve hasta `max_chunks` fragmentos, de 1 a 2000, con 500 por defecto. El presupuesto es de 2.000.000 de caracteres recuperados, incluidos los espacios descartados al ensamblar y los separadores entre fragmentos. Si se supera el presupuesto, la API devuelve HTTP 413. La consulta acota cada fragmento en SQL y los procesa con un cursor de una fila para limitar la memoria usada por registros históricos.
+
 ## Architecture
 - **FastAPI** for API layer
 - **SQLAlchemy** for ORM/database access

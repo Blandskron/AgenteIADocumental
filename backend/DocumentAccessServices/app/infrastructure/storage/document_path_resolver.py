@@ -1,5 +1,7 @@
 from pathlib import Path
+from stat import S_ISREG
 from urllib.parse import urlparse
+from urllib.request import url2pathname
 
 from app.shared.errors import ValidationError
 
@@ -9,20 +11,41 @@ class LocalDocumentPathResolver:
         self._base_path = Path(base_path).resolve()
 
     def resolve(self, storage_path: str) -> Path:
-        parsed = urlparse(storage_path)
-        if parsed.scheme and parsed.scheme != "file":
-            raise ValidationError(f"Unsupported storage scheme: {parsed.scheme}")
-
-        raw_path = Path(parsed.path if parsed.scheme == "file" else storage_path)
+        if not storage_path or any(ord(character) < 32 or ord(character) == 127 for character in storage_path):
+            raise ValidationError("Invalid document path.")
+        raw_path = Path(storage_path)
+        if not raw_path.is_absolute():
+            try:
+                parsed = urlparse(storage_path)
+            except ValueError as exc:
+                raise ValidationError("Invalid document URI.") from exc
+            if parsed.scheme:
+                if parsed.scheme != "file" or parsed.netloc.lower() not in ("", "localhost"):
+                    raise ValidationError("Unsupported document location.")
+                if parsed.query or parsed.fragment:
+                    raise ValidationError("Invalid document URI.")
+                decoded_path = url2pathname(parsed.path)
+                if any(ord(character) < 32 or ord(character) == 127 for character in decoded_path):
+                    raise ValidationError("Invalid document URI.")
+                raw_path = Path(decoded_path)
+                if not raw_path.is_absolute():
+                    raise ValidationError("Document URI must be absolute.")
         candidate = raw_path if raw_path.is_absolute() else self._base_path / raw_path
-        resolved = candidate.resolve()
+        try:
+            resolved = candidate.resolve()
+        except (OSError, RuntimeError, ValueError) as exc:
+            raise ValidationError("Document path is unavailable.") from exc
 
         if not self._is_inside_base_path(resolved):
             raise ValidationError("Document path is outside the configured storage directory.")
-        if not resolved.exists():
-            raise FileNotFoundError(f"Document file not found: {resolved}")
-        if not resolved.is_file():
-            raise ValidationError(f"Document path is not a file: {resolved}")
+        try:
+            mode = resolved.stat().st_mode
+        except FileNotFoundError:
+            raise
+        except OSError as exc:
+            raise ValidationError("Document path is unavailable.") from exc
+        if not S_ISREG(mode):
+            raise ValidationError("Document path is not a file.")
 
         return resolved
 

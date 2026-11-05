@@ -77,8 +77,8 @@ La revisión inicial abarcó rutas, JWT, repositorio, resolución de archivos, a
 | Estado | ID | Entrega | Criterio de aceptación |
 |---|---|---|---|
 | Hecha | ACCESS-001 | Aislar configuración y comprobar arranque | PR #36 integrado con seis checks aprobados. Configuración explícita, CORS local y arranque con PostgreSQL, almacenamiento y clave pública verificados. |
-| En revisión | ACCESS-002 | Unificar identidad y permisos de lectura | Compose, arranque, Ruff y 22 pruebas HTTP con PostgreSQL y pgvector aprobados. Cubren JWT, propietario canónico e histórico, tenant, grupos, revocación y permiso específico de descarga. Pruebas integradas en CI. Pendiente revisión del PR. |
-| Lista | ACCESS-003 | Confinar lectura y servir archivos | Probar rutas históricas, enlaces, archivos ausentes, MIME, cabeceras y límites del contenido con archivos sintéticos. |
+| Hecha | ACCESS-002 | Unificar identidad y permisos de lectura | PR #37 integrado con seis checks aprobados. 22 pruebas HTTP verificaron JWT, tenant, grupos, revocación y permisos específicos de descarga. |
+| En revisión | ACCESS-003 | Confinar lectura y servir archivos | Compose, arranque, Ruff y 56 pruebas con PostgreSQL y archivos sintéticos aprobados. Cubren URI y enlaces, MIME, nombres Unicode, Range, archivos ausentes y presupuesto de texto. `npm ci`, build y cinco casos del lector de nombres del frontend verificados. Persisten cuatro alertas altas de npm. Pendiente revisión del PR. |
 | Lista | ACCESS-004 | Autorizar y hacer recuperable el borrado | Separar lectura y borrado. Mantener un estado recuperable ante fallos, reintentos y operaciones concurrentes sobre archivo y PostgreSQL. |
 | Lista | ACCESS-005 | Hacer consistentes las asignaciones | Validar tenant, destinatario, actor y transiciones. Confirmar estado, eventos, notificaciones y auditoría en una transacción y probar concurrencia. |
 | Lista | ACCESS-006 | Acotar entradas y revisar respuestas | Validar IDs, motivos, firmas y metadatos. Paginar listas con orden estable y revisar contrato y errores con el frontend. |
