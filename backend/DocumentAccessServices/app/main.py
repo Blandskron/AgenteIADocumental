@@ -8,7 +8,7 @@ from app.config.logging import configure_logging
 from app.config.settings import get_settings
 from app.infrastructure.database.connection import Database
 from app.interfaces.api.router import api_router
-from app.shared.errors import AppError, NotFoundError, ValidationError
+from app.shared.errors import AppError, NotFoundError, PayloadTooLarge, ValidationError
 
 
 settings = get_settings()
@@ -51,3 +51,8 @@ async def validation_handler(request: Request, exc: ValidationError) -> JSONResp
 @app.exception_handler(AppError)
 async def app_error_handler(request: Request, exc: AppError) -> JSONResponse:
     return JSONResponse(status_code=500, content={"detail": str(exc)})
+
+
+@app.exception_handler(PayloadTooLarge)
+async def payload_too_large_handler(request: Request, exc: PayloadTooLarge) -> JSONResponse:
+    return JSONResponse(status_code=413, content={"detail": str(exc)})

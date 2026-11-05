@@ -1,10 +1,14 @@
-from fastapi import APIRouter, Depends, Query
+import re
+from pathlib import Path
+
+from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import FileResponse
 
 from app.application.documents.use_cases.delete_document import DeleteDocument
 from app.application.documents.use_cases.get_document_content import GetDocumentContent
 from app.application.documents.use_cases.get_document_file import GetDocumentFile
-from app.domain.documents import DocumentContent, DocumentDeleteResult
+from app.domain.documents import DocumentContent, DocumentDeleteResult, DocumentFile
+from app.shared.constants import INLINE_MIME_TYPES, MAX_CONTENT_CHUNKS, SUPPORTED_MIME_TYPES
 from app.infrastructure.database.repositories import DocumentAccessRepositoryPg
 from app.interfaces.api.v1.dependencies import (
     get_delete_document,
@@ -122,12 +126,7 @@ def preview_document(
     use_case: GetDocumentFile = Depends(get_document_file),
 ) -> FileResponse:
     document, path = use_case.execute(document_id)
-    return FileResponse(
-        path=path,
-        media_type=document.mime_type,
-        filename=document.filename,
-        content_disposition_type="inline",
-    )
+    return _file_response(document, path)
 
 
 @router.get("/{document_id}/download")
@@ -136,18 +135,30 @@ def download_document(
     use_case: GetDocumentFile = Depends(get_document_file),
 ) -> FileResponse:
     document, path = use_case.execute(document_id, for_download=True)
+    return _file_response(document, path, for_download=True)
+
+
+def _file_response(document: DocumentFile, path: Path, for_download: bool = False) -> FileResponse:
+    mime_type = document.mime_type.split(";", 1)[0].strip().lower()
+    if not for_download and mime_type not in INLINE_MIME_TYPES:
+        raise HTTPException(status_code=415, detail="Document type does not support preview.")
+    if mime_type not in SUPPORTED_MIME_TYPES:
+        mime_type = "application/octet-stream"
+    filename = document.filename.replace("\\", "/").rsplit("/", 1)[-1]
+    filename = re.sub(r"[\x00-\x1f\x7f]", "_", filename).strip() or "document"
     return FileResponse(
         path=path,
-        media_type=document.mime_type,
-        filename=document.filename,
-        content_disposition_type="attachment",
+        media_type=mime_type,
+        filename=filename,
+        content_disposition_type="attachment" if for_download else "inline",
+        headers={"X-Content-Type-Options": "nosniff", "Cache-Control": "private, no-store"},
     )
 
 
 @router.get("/{document_id}/content", response_model=DocumentContentResponse)
 def document_content(
     document_id: str,
-    max_chunks: int = Query(default=500, ge=1, le=2000),
+    max_chunks: int = Query(default=500, ge=1, le=MAX_CONTENT_CHUNKS),
     use_case: GetDocumentContent = Depends(get_document_content),
 ) -> DocumentContentResponse:
     return _content_response(use_case.execute(document_id=document_id, max_chunks=max_chunks))

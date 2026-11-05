@@ -1,6 +1,15 @@
 function readFilenameFromDisposition(contentDisposition, fallback) {
-  const match = /filename="?([^"]+)"?/i.exec(contentDisposition || "");
-  return match?.[1] || fallback;
+  const disposition = contentDisposition || "";
+  const extended = /(?:^|;)\s*filename\*=utf-8''([^;]+)/i.exec(disposition);
+  if (extended) {
+    try {
+      return decodeURIComponent(extended[1].trim()) || fallback;
+    } catch {
+      // Use the legacy filename field when the extended value is malformed.
+    }
+  }
+  const match = /(?:^|;)\s*filename=(?:"([^"]*)"|([^;]*))/i.exec(disposition);
+  return match?.[1] || match?.[2]?.trim() || fallback;
 }
 
 export async function getDocumentPreview(apiClient, document) {
