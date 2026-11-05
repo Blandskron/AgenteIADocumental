@@ -1,0 +1,13 @@
+# DocumentLibraryServices
+
+Lee el [contrato y diagnóstico](README.md) y retoma la tarjeta activa del [tablero](../../ROADMAP.md#documentlibraryservices). LIB-001 documenta la base; las correcciones quedan en los siguientes incrementos.
+
+- Comprueba identidad JWT, propiedad de carpeta y permiso documental por separado. Una asociación o favorito nunca concede lectura.
+- Contrasta filtros con DocumentSearchServices y DocumentAccessServices. Incluye revocación, columnas canónicas, metadatos históricos y grupos por tenant en listas y conteos.
+- Preserva carpetas y favoritos personales. No conviertas administradores documentales en propietarios de bibliotecas ajenas.
+- Distingue agregar una asociación de mover todas las asociaciones personales. Prueba reintentos y concurrencia con sesiones independientes.
+- Borrar carpetas retira carpetas y asociaciones, nunca documentos ni archivos. Audita relaciones existentes antes de imponer restricciones.
+- Al cambiar `document_folder_items`, revisa al escritor de GoogleDriveImportServices. No uses OAuth ni documentos reales para comprobar integridad SQL.
+- Al cambiar páginas, respuestas o contadores, actualiza adaptador, hook, DocumentSearchPage y ChatPage juntos. No ocultes incompatibilidades convirtiéndolas en arreglos vacíos.
+- Usa PostgreSQL y datos sintéticos. Revierte datos o retíralos por IDs únicos. Separa scripts de código y documentación Markdown.
+- Registra comandos y comprobaciones pendientes en la tarjeta. No declares suites o comandos de CI inexistentes. Al cerrar LIB-008, sustituye el diagnóstico pendiente por el contrato final y retira scaffolding sin consumidores.

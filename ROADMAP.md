@@ -72,7 +72,7 @@ Quedan en seguimiento diez CVE altos únicos de Debian sin versión corregida in
 
 ### DocumentAccessServices
 
-La revisión inicial abarcó rutas, JWT, repositorio, resolución de archivos, asignaciones, notificaciones y consumidores web. El servicio carga el entorno global, acepta CORS abierto y comprueba solo salud HTTP al arrancar. Los permisos de lectura incluyen asignaciones canceladas y grupos sin alcance de tenant. El borrado reutiliza permisos de lectura y elimina el archivo antes de confirmar PostgreSQL. Las asignaciones guardan estado, eventos, notificaciones y auditoría en commits separados. Las siguientes tarjetas cubren estos recorridos por incrementos.
+La modernización de rutas, JWT, permisos, archivos, asignaciones, notificaciones y consumidores web está integrada. El servicio usa configuración explícita, rol acotado, transacciones y borrado recuperable. El README registra el contrato operativo y el seguimiento de la imagen base.
 
 | Estado | ID | Entrega | Criterio de aceptación |
 |---|---|---|---|
@@ -82,7 +82,7 @@ La revisión inicial abarcó rutas, JWT, repositorio, resolución de archivos, a
 | Hecha | ACCESS-004 | Autorizar y hacer recuperable el borrado | PR #39 integrado con seis checks aprobados. 71 pruebas, Compose, arranque, esquema repetido y Ruff verificados. Cubren permisos, cascadas, fallos, reintentos, enlaces, referencias compartidas, recuperación automática y sesiones concurrentes. |
 | Hecha | ACCESS-005 | Hacer consistentes las asignaciones | PR #40 integrado con seis checks aprobados. 116 pruebas PostgreSQL, Ruff, Compose y arranque saludable. Roles y destinatarios vigentes, transiciones explícitas, reintentos idempotentes y transacciones con concurrencia y fallos inyectados verificados. |
 | Hecha | ACCESS-006 | Acotar entradas y revisar respuestas | PR #41 integrado con seis checks aprobados. 165 pruebas backend, 7 frontend, Ruff, Compose y arranque verificados. Páginas con orden estable, límites HTTP y errores sin reflejar valores enviados. |
-| En revisión | ACCESS-007 | Restringir PostgreSQL y cerrar operación | Rol acotado y funciones de autoridad con propietario sin login. Imagen sin privilegios ni herramientas de prueba. Pruebas con rol de ejecución, provisionamiento repetido y arranque en volúmenes nuevos. `access-tests` aprobó 184 pruebas sobre PostgreSQL, Ruff y Compose. `access-audit` aprobó el inventario Python sin avisos. Pendiente revisión del PR y CI. Limpieza automática sintética verificada. Seguimiento de Debian en ACCESS-F01. |
+| Hecha | ACCESS-007 | Restringir PostgreSQL y cerrar operación | PR #42 integrado con seis checks aprobados. 184 pruebas con rol restringido, Ruff, Compose, arranque limpio, provisionamiento repetido y limpieza automática verificados. Auditoría Python sin avisos; seguimiento de Debian en ACCESS-F01. |
 
 ### Seguimiento de la imagen de acceso
 
@@ -94,7 +94,14 @@ La revisión inicial abarcó rutas, JWT, repositorio, resolución de archivos, a
 
 | Estado | ID | Tarea | Criterios de aceptación |
 | --- | --- | --- | --- |
-| Lista | LIB-001 | Analizar contratos, aislamiento y operación | Revisar carpetas, favoritos, recientes y consumidores del frontend. Documentar permisos por tenant y usuario, integridad, concurrencia, paginación, archivos y dependencias. Crear incrementos verificables antes de cambiar el servicio. |
+| En revisión | LIB-001 | Analizar contratos, aislamiento y operación | Doce operaciones, esquema, índices y consumidores revisados. Trece observaciones confirmadas con claves y datos sintéticos revertidos en PostgreSQL; salud HTTP/DB, rechazo sin token, CORS externo y UID comprobados en un contenedor temporal sin puertos. Ruff y pip check aprobados. Auditoría Python registró 58 entradas de aviso en seis paquetes. README y AGENTS locales documentan base, decisiones y alcance; siguientes tarjetas listas. Pendiente revisión del PR. |
+| Lista | LIB-002 | Aislar configuración y establecer pruebas | Retirar env_file global y fallback al entorno raíz; variables explícitas y CORS local. Readiness de tablas de biblioteca y clave pública, cierre fiable del pool y opciones de conexión reales. Añadir objetivo library-tests y CI con datos sintéticos para arranque, CORS y HTTP 401. |
+| Lista | LIB-003 | Validar identidad y unificar permisos | Exigir user_id entero positivo y exp entero vigente. Reproducir el contrato de Search y Access en recientes, favoritos, contenido y conteos de carpetas. Priorizar columnas, excluir CANCELLED/EXPIRED y acotar grupos por tenant. Verificar propietario de carpeta, privacidad ante terceros y limpieza de marcadores revocados sin devolver datos documentales. |
+| Lista | LIB-004 | Reforzar integridad de carpetas y asociaciones | Auditar relaciones, ciclos y nombres existentes antes de migrar. Impedir padres y asociaciones de propietarios distintos; reutilizar índices únicos ya presentes y mapear duplicados a 409. Coordinar el escritor directo de GoogleDriveImportServices y hacer visibles sus errores de asociación. Probar migración repetida, datos inválidos y cascadas que conserven documentos. |
+| Lista | LIB-005 | Hacer idempotentes y concurrentes las escrituras | Resolver consultar-antes-de-insertar de favoritos y asociaciones. Serializar movimientos por usuario/documento conservando agregar a varias carpetas y mover a un destino o ninguno. Probar altas repetidas, movimientos simultáneos, retirada y borrado concurrentes, y rollback ante fallos con sesiones independientes. |
+| Lista | LIB-006 | Acotar entradas y estabilizar errores | Validar IDs, nombres tras trim, metadatos JSON y cuerpo HTTP. Definir errores 400/404/409/413/422 sin reflejar valores enviados ni convertir errores SQL en respuestas exitosas. Probar fronteras y ausencia de escrituras ante solicitudes inválidas. |
+| Lista | LIB-007 | Paginar y revisar el contrato con la interfaz | Páginas con orden estable para carpetas, favoritos, recientes y contenido; preservar conteos por lote. Actualizar adaptador, hook, DocumentSearchPage y ChatPage. Resolver respuestas tardías, errores de count=0 y mapa de asociaciones obsoleto; retirar solicitudes por cada carpeta y métricas ficticias. Documentar el alcance real de navegación jerárquica y probar carga de páginas, revocación y conflictos. |
+| Lista | LIB-008 | Restringir ejecución y cerrar el servicio | Rol PostgreSQL mínimo y repetible, documentos de solo lectura, imagen sin privilegios ni herramientas de prueba. Actualizar y auditar dependencias e imagen, probar arranque limpio y escrituras con rol real en CI. Retirar scaffolding sin consumidores y reemplazar diagnóstico pendiente por documentación final, registrando seguimientos. |
 
 ## Validación
 
