@@ -81,6 +81,16 @@ jobs:
           assert json.loads(search_env["CORS_ORIGINS"]) == [
               "http://localhost:3000", "http://127.0.0.1:3000",
           ]
+          access = services["document-access-service"]
+          access_env = access["environment"]
+          assert set(access_env) == {
+              "APP_ENV", "APP_NAME", "LOG_LEVEL", "CORS_ORIGINS", "DATABASE_URL",
+              "DOCUMENT_STORAGE_BASE_PATH", "AUTH_JWT_PUBLIC_KEY_PATH", "AUTH_JWT_ALGORITHM",
+          }
+          assert json.loads(access_env["CORS_ORIGINS"]) == [
+              "http://localhost:3000", "http://127.0.0.1:3000",
+          ]
+          assert "health/db" in " ".join(access["healthcheck"]["test"])
           for name, service in services.items():
               mounts = {volume["source"]: volume for volume in service.get("volumes", [])}
               assert all(port.get("host_ip") == "127.0.0.1" for port in service.get("ports", [])), name
