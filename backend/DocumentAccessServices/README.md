@@ -72,6 +72,26 @@ Las columnas de propietario y tenant tienen prioridad sobre los metadatos histó
 
 La descarga comprueba además su permiso específico. El propietario requiere `documents.allow_download` y el destinatario requiere una asignación vigente con `allow_download`. El administrador del tenant y el superadministrador pueden descargar los documentos que administran. El acceso por grupo o como asignador concede lectura. Si existe lectura pero falta permiso de descarga, la API devuelve HTTP 400.
 
+## Asignaciones y transiciones
+
+Las escrituras consultan la cuenta activa, el tenant activo y la membresía vigente en PostgreSQL. El rol activo del token sirve al cliente, pero la autorización de estas operaciones usa el rol actual del tenant del documento. Un superadministrador requiere una cuenta activa con `auth_user.is_superuser`. El destinatario debe tener cuenta y membresía activas en ese mismo tenant. Un destinatario inválido devuelve HTTP 400 una vez autorizado el actor.
+
+El administrador puede asignar documentos de su tenant. El superadministrador puede asignar documentos de tenants activos. Un líder requiere además acceso de lectura al documento. Solo el asignador actual, un administrador de ese tenant o un superadministrador pueden reasignar o cancelar. Una cuenta o membresía deshabilitada pierde inmediatamente estas facultades. Solo el destinatario activo puede aceptar, rechazar o firmar, incluso ante una petición de un administrador.
+
+| Acción | Estados de origen | Requisito |
+| --- | --- | --- |
+| Aceptar | `PENDING`, `VIEWED` | Destinatario vigente |
+| Rechazar | `PENDING`, `VIEWED` | Motivo no vacío |
+| Firmar | `PENDING`, `VIEWED`, `ACCEPTED` | Valor de firma no vacío |
+| Cancelar | Todos excepto `EXPIRED` | Asignador vigente o administrador autorizado |
+| Reasignar | Cualquier estado | Gestor autorizado y destinatario vigente |
+
+Una transición incompatible devuelve HTTP 409. Repetir la misma aceptación, rechazo, firma o cancelación conserva el resultado sin duplicar eventos, notificaciones ni auditoría. Un motivo o firma diferente en una acción ya confirmada devuelve HTTP 409. Repetir una asignación pendiente con el mismo asignador, permisos, vencimiento y metadatos también conserva el resultado.
+
+Cancelar revoca la concesión de acceso y conserva la firma anterior. Reasignar devuelve el estado a `PENDING` y limpia firma, fecha de firma y motivo anteriores, conservando los eventos históricos. La firma representa el valor capturado por la aplicación y no una firma criptográfica. `due_at` conserva el vencimiento solicitado y acepta fechas sin zona como UTC por compatibilidad con el formulario actual. El servicio no cambia automáticamente el estado al alcanzar esa fecha.
+
+Cada escritura bloquea primero el documento y después la asignación. Confirma estado, evento, notificación y auditoría en una transacción. Un error revierte todos sus efectos. Los reintentos concurrentes se serializan sobre el documento. La auditoría y las notificaciones conservan el tenant del documento, aunque el tenant activo del token sea otro. Marcar una notificación como leída requiere su destinatario activo y conserva `read_at` al reintentar.
+
 ## Archivos y contenido
 
 El almacenamiento admite rutas relativas, rutas absolutas dentro del directorio configurado y URI `file:` locales. Las URI pueden omitir la autoridad o usar `localhost`. Se decodifican los nombres con espacios y caracteres Unicode. Las rutas fuera del almacenamiento, autoridades remotas, controles y bucles de enlaces devuelven HTTP 400. Las URI con consultas o fragmentos también se rechazan. Los enlaces simbólicos deben terminar dentro del almacenamiento. Un archivo ausente devuelve HTTP 404.
