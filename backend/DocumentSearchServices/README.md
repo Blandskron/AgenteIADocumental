@@ -110,16 +110,26 @@ curl http://localhost:8004/api/v1/health/db
 
 Compose pasa las variables de búsqueda explícitamente. El chequeo de arranque verifica el acceso a PostgreSQL y a la clave pública JWT. CORS admite `http://localhost:3000` y `http://127.0.0.1:3000` por defecto. Configura `SEARCH_CORS_ORIGINS` como arreglo JSON si necesitas otro origen.
 
-Fuera de Compose, instala `requirements.txt` desde este directorio, configura `DATABASE_URL` y `AUTH_JWT_PUBLIC_KEY_PATH` en el entorno o en el `.env` del servicio y ejecuta `python -m uvicorn app.main:app --port 8004`. Para personalizar CORS en este modo, usa `CORS_ORIGINS`.
+Después de aplicar el esquema, Compose aprovisiona `document_search_runtime` mediante `search-db-role`. El rol solo puede leer las columnas necesarias de documentos, fragmentos y asignaciones. Los permisos por documento se aplican en el servicio. Define `SEARCH_DB_PASSWORD` en `.env` para cambiar la contraseña local. El contenedor se ejecuta con UID y GID 10005.
 
-Con el servicio iniciado, ejecuta las pruebas de permisos, paginación y contrato HTTP sobre PostgreSQL y pgvector. HTTPX es una dependencia exclusiva de pruebas. Los registros sintéticos se revierten al terminar.
+Fuera de Compose, provisiona el rol con [el script SQL](../../scripts/database/search/provision_role.sql) usando una cuenta administrativa y `SEARCH_DB_PASSWORD` en el entorno de `psql`. Instala `requirements.txt` desde este directorio, configura `DATABASE_URL` para el rol de lectura y `AUTH_JWT_PUBLIC_KEY_PATH`, y ejecuta `python -m uvicorn app.main:app --port 8004`. Para personalizar CORS en este modo, usa `CORS_ORIGINS`.
+
+Con el servicio iniciado, ejecuta las pruebas de permisos, paginación y contrato HTTP sobre PostgreSQL y pgvector. La imagen de pruebas incluye HTTPX, pytest y Ruff. Las pruebas preparan registros sintéticos en una transacción, ejecutan las consultas con el rol de lectura y revierten los cambios al terminar.
 
 ```sh
-docker compose -f docker/docker-compose.yml cp backend/DocumentSearchServices/tests/test_document_access.py document-search-service:/app/test_document_access.py
-docker compose -f docker/docker-compose.yml cp backend/DocumentSearchServices/requirements-test.txt document-search-service:/app/requirements-test.txt
-docker compose -f docker/docker-compose.yml exec -T document-search-service python -m pip install -r requirements-test.txt
-docker compose -f docker/docker-compose.yml exec -T document-search-service python -m pytest -q test_document_access.py
+docker compose -f docker/docker-compose.yml run --build --rm --no-deps search-tests
+docker compose -f docker/docker-compose.yml run --rm --no-deps search-tests ruff check --no-cache app tests
 ```
+
+## Verificación de la imagen
+
+El 5 de noviembre de 2026 se validó un arranque con volúmenes nuevos, el aprovisionamiento repetido del rol, las comprobaciones SQL y 26 pruebas sobre PostgreSQL con pgvector. Las pruebas incluyen conexiones reales como `document_search_runtime` y verifican que se rechacen lecturas internas, escrituras y creación de tablas. CI repite las comprobaciones del rol, el contrato HTTP, Ruff, el usuario del contenedor y `pip check`.
+
+`pip-audit` no reportó avisos para las versiones Python instaladas en la imagen `sha256:c70c5369e4013879b46b11a86e792119ad080f4df6b76c3d6bc68f555cdd2a43`. Trivy 0.74.0 reportó 46 coincidencias que corresponden a diez CVE altos únicos en Debian 13.7, sin versiones corregidas indicadas por el escáner. Quedan en seguimiento al actualizar la imagen base.
+
+Trivy también reportó CVE-2025-47273 por `setuptools==70.3.0` en `pip/_vendor/vendor.txt`. La copia interna de pip 26.3 incluye `pkg_resources`. La inspección no encontró el módulo `package_index` al que corresponde el aviso. [Aviso de setuptools](https://github.com/pypa/setuptools/security/advisories/GHSA-5rjg-fvgr-3xxf).
+
+Reconstruye con `docker compose -f docker/docker-compose.yml build --pull document-search-service`. Audita las versiones instaladas con `pip-audit` a partir de `pip list --format=freeze` dentro de la imagen. Usa `trivy image --scanners vuln --severity HIGH,CRITICAL docker-document-search-service` para volver a revisar el sistema base y los paquetes incluidos.
 
 ## Example Requests
 

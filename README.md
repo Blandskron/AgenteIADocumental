@@ -46,6 +46,8 @@ El chat RAG usa el rol `rag_chat_runtime`. Puedes cambiar su contraseña local c
 
 La ingesta usa el rol `embedding_runtime`. En Linux, crea `documents` como usuario local y configura `EMBEDDING_UID` y `EMBEDDING_GID` con los IDs de ese usuario antes de levantar Compose. [Operación de ingesta](backend/RagDocumentEmbeddingServices/README.md#running-the-service).
 
+La búsqueda documental usa el rol de solo lectura `document_search_runtime`. Puedes cambiar su contraseña local con `SEARCH_DB_PASSWORD` en `.env`. [Operación de búsqueda](backend/DocumentSearchServices/README.md#running-the-service).
+
 Si otra instalación de PostgreSQL ocupa el puerto local 5432, configura `POSTGRES_HOST_PORT=15432` en `.env`. Los contenedores siguen conectándose a PostgreSQL por el puerto interno 5432.
 
 El agregador `docker/docker-compose.yml` carga:

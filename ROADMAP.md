@@ -65,8 +65,10 @@ Quedan en seguimiento los CVE de Debian 13.7 que Trivy detectó en la imagen de 
 | Hecha | SEARCH-001 | Aislar configuración y comprobar arranque | PR #31 integrado. Compose, arranque, CORS y búsqueda con JWT real de AuthServices verificados. |
 | Hecha | SEARCH-002 | Aplicar permisos en todas las rutas | PR #32 integrado. Compose, Ruff, 10 pruebas con PostgreSQL y pgvector, y acceso verificado con un JWT real de AuthServices. |
 | Hecha | SEARCH-003 | Acotar y estabilizar las consultas | PR #33 integrado con seis checks aprobados. OpenAPI y 18 pruebas verificaron los límites, la paginación y el número de consultas. |
-| En revisión | SEARCH-004 | Revisar el contrato de respuesta | `docker compose config --quiet`, arranque con `up --build --wait`, `ruff check`, 19 pruebas con PostgreSQL y pgvector, `npm ci` y `npm run build`. La prueba HTTP comprueba extractos, errores, selección y exclusión de datos internos. Pendiente revisión del PR. |
-| Lista | SEARCH-005 | Restringir PostgreSQL y cerrar operación | Aprovisionar un rol de lectura y validar permisos, imagen, dependencias y arranque limpio. |
+| Hecha | SEARCH-004 | Revisar el contrato de respuesta | PR #34 integrado con seis checks aprobados. La prueba HTTP comprueba extractos, errores, selección y exclusión de datos internos. |
+| En revisión | SEARCH-005 | Restringir PostgreSQL y cerrar operación | Compose, arranque con volúmenes nuevos, aprovisionamiento repetido, `verify_role.sql`, `pip check`, Ruff y 26 pruebas aprobados. Imagen con UID 10005 y dependencias de pruebas separadas. Auditorías documentadas en el README. Pendiente revisión del PR. |
+
+Quedan en seguimiento diez CVE altos únicos de Debian sin versión corregida indicada por Trivy y un aviso asociado a los metadatos internos de pip. [Evidencia de la imagen](backend/DocumentSearchServices/README.md#verificación-de-la-imagen).
 
 ## Validación
 
