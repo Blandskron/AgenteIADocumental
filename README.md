@@ -52,6 +52,8 @@ La búsqueda documental usa el rol de solo lectura `document_search_runtime`. Pu
 
 El acceso documental usa `document_access_runtime` y `ACCESS_DB_PASSWORD`. En Linux, configura `ACCESS_UID` y `ACCESS_GID` con el mismo propietario del directorio `documents` que usa la ingesta. [Permisos y operación de acceso](backend/DocumentAccessServices/README.md#running-the-service).
 
+La biblioteca documental usa configuración explícita y CORS local. `LIBRARY_CORS_ORIGINS` y `LIBRARY_DB_POOL_*` permiten ajustarlos. [Arranque y pruebas de Library](backend/DocumentLibraryServices/README.md#arranque-actual).
+
 Si otra instalación de PostgreSQL ocupa el puerto local 5432, configura `POSTGRES_HOST_PORT=15432` en `.env`. Los contenedores siguen conectándose a PostgreSQL por el puerto interno 5432.
 
 El agregador `docker/docker-compose.yml` carga:

@@ -97,6 +97,15 @@ jobs:
               "http://localhost:3000", "http://127.0.0.1:3000",
           ]
           assert "health/db" in " ".join(access["healthcheck"]["test"])
+          library = services["document-library-service"]
+          library_env = library["environment"]
+          assert set(library_env) == {
+              "APP_ENV", "APP_NAME", "LOG_LEVEL", "CORS_ORIGINS", "DATABASE_URL",
+              "AUTH_JWT_PUBLIC_KEY_PATH", "AUTH_JWT_ALGORITHM",
+              "DB_POOL_MIN_SIZE", "DB_POOL_MAX_SIZE", "DB_TIMEOUT_SECONDS",
+          }
+          assert json.loads(library_env["CORS_ORIGINS"]) == ["http://localhost:3000", "http://127.0.0.1:3000"]
+          assert "health/db" in " ".join(library["healthcheck"]["test"])
           for name, service in services.items():
               mounts = {volume["source"]: volume for volume in service.get("volumes", [])}
               assert all(port.get("host_ip") == "127.0.0.1" for port in service.get("ports", [])), name
@@ -191,7 +200,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - run: cp .env.example .env
-      - run: docker compose -f docker/docker-compose.yml up -d --build --wait conversation-service document-search-service document-access-service
+      - run: docker compose -f docker/docker-compose.yml up -d --build --wait conversation-service document-search-service document-access-service document-library-service
       - run: docker compose -f docker/docker-compose.yml run --rm --no-deps rag-chat-db-role
       - run: docker compose -f docker/docker-compose.yml run --rm --no-deps embedding-db-role
       - run: docker compose -f docker/docker-compose.yml exec -T postgres psql -U postgres -d documents_db -v ON_ERROR_STOP=1 < scripts/database/auth/verify_roles.sql
@@ -224,5 +233,10 @@ jobs:
           docker compose -f docker/docker-compose.yml run --build --rm --no-deps access-tests
           docker compose -f docker/docker-compose.yml run --rm --no-deps access-tests ruff check --no-cache app tests
           docker compose -f docker/docker-compose.yml run --build --rm --no-deps access-audit
+      - name: Probar configuración, arranque y acceso HTTP de DocumentLibraryServices
+        run: |
+          docker compose -f docker/docker-compose.yml exec -T document-library-service python -m pip --no-cache-dir check
+          docker compose -f docker/docker-compose.yml run --build --rm --no-deps library-tests
+          docker compose -f docker/docker-compose.yml run --rm --no-deps library-tests ruff check --no-cache app tests
       - if: failure()
-        run: docker compose -f docker/docker-compose.yml logs auth-db-roles auth-migrate auth-service conversation-db-role conversation-service rag-chat-db-role embedding-db-role search-db-role document-search-service access-db-role document-access-service
+        run: docker compose -f docker/docker-compose.yml logs auth-db-roles auth-migrate auth-service conversation-db-role conversation-service rag-chat-db-role embedding-db-role search-db-role document-search-service access-db-role document-access-service document-library-service

@@ -1,6 +1,6 @@
 # DocumentLibraryServices
 
-Lee el [contrato y diagnóstico](README.md) y retoma la tarjeta activa del [tablero](../../ROADMAP.md#documentlibraryservices). LIB-001 documenta la base; las correcciones quedan en los siguientes incrementos.
+Lee el [contrato y diagnóstico](README.md) y retoma la tarjeta activa del [tablero](../../ROADMAP.md#documentlibraryservices). LIB-001 documenta la base y LIB-002 incorpora configuración y pruebas. Las reglas de acceso y los contratos se corrigen en las tarjetas siguientes.
 
 - Comprueba identidad JWT, propiedad de carpeta y permiso documental por separado. Una asociación o favorito nunca concede lectura.
 - Contrasta filtros con DocumentSearchServices y DocumentAccessServices. Incluye revocación, columnas canónicas, metadatos históricos y grupos por tenant en listas y conteos.
@@ -11,3 +11,4 @@ Lee el [contrato y diagnóstico](README.md) y retoma la tarjeta activa del [tabl
 - Al cambiar páginas, respuestas o contadores, actualiza adaptador, hook, DocumentSearchPage y ChatPage juntos. No ocultes incompatibilidades convirtiéndolas en arreglos vacíos.
 - Usa PostgreSQL y datos sintéticos. Revierte datos o retíralos por IDs únicos. Separa scripts de código y documentación Markdown.
 - Registra comandos y comprobaciones pendientes en la tarjeta. No declares suites o comandos de CI inexistentes. Al cerrar LIB-008, sustituye el diagnóstico pendiente por el contrato final y retira scaffolding sin consumidores.
+- Ejecuta `library-tests` sobre PostgreSQL y Ruff antes de cerrar cambios del servicio. Conserva la separación entre vida (`health`) y disponibilidad (`health/db`), y prueba cambios de entorno sin cargar secretos del `.env` raíz.
