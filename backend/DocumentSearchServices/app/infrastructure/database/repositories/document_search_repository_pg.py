@@ -1,4 +1,4 @@
-from sqlalchemy import exists, func, null, or_, select
+from sqlalchemy import func, null, or_, select
 from sqlalchemy.orm import Session, defer
 
 from app.config.security import is_superadmin_user, tenant_ids_for_role, tenant_memberships, user_groups, user_id
@@ -92,10 +92,10 @@ class DocumentSearchRepositoryPg:
             statement = statement.filter(DocumentModel.metadata_.op("->>")("source") == source)
         if query:
             like_query = f"%{query}%"
-            matching_chunk_exists = exists().where(
+            matching_chunk_exists = select(1).where(
                 DocumentEmbeddingModel.document_id == DocumentModel.document_id,
                 DocumentEmbeddingModel.chunk_content.ilike(like_query),
-            )
+            ).exists()
             statement = statement.filter(or_(DocumentModel.filename.ilike(like_query), matching_chunk_exists))
         return statement
 

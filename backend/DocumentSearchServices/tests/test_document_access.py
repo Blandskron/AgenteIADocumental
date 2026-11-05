@@ -1,3 +1,4 @@
+from os import environ
 from uuid import uuid4
 
 import jwt
@@ -9,6 +10,7 @@ from fastapi.security import HTTPAuthorizationCredentials
 from fastapi.testclient import TestClient
 from pydantic import ValidationError
 from sqlalchemy import create_engine, event, text
+from sqlalchemy.exc import ProgrammingError
 from sqlalchemy.orm import Session
 
 from app.application.documents.use_cases.build_chat_context import BuildChatContext
@@ -21,6 +23,27 @@ from app.domain.documents import DocumentNotFoundError, InvalidDocumentSelection
 from app.infrastructure.database.repositories.document_search_repository_pg import DocumentSearchRepositoryPg
 from app.interfaces.api.v1.schemas.document_search_schema import ChatSelectionRequest
 from app.main import app
+
+
+@pytest.mark.parametrize("statement", [
+    "SELECT storage_path FROM documents LIMIT 0",
+    "SELECT processing_error FROM documents LIMIT 0",
+    "SELECT embedding FROM document_embeddings LIMIT 0",
+    "SELECT * FROM auth_user LIMIT 0",
+    "UPDATE documents SET filename = filename WHERE false",
+    "DELETE FROM document_embeddings WHERE false",
+    "CREATE TABLE public.synthetic_search_probe (id integer)",
+])
+def test_runtime_connection_rejects_unauthorized_operations(statement):
+    engine = create_engine(get_settings().database_url)
+    try:
+        with engine.connect() as connection:
+            assert connection.scalar(text("SELECT current_user")) == "document_search_runtime"
+            with pytest.raises(ProgrammingError) as error:
+                connection.execute(text(statement))
+            assert error.value.orig.sqlstate == "42501"
+    finally:
+        engine.dispose()
 
 
 @pytest.fixture(scope="module")
@@ -55,7 +78,7 @@ def test_rejects_invalid_jwt(signing_key, tmp_path, claims):
 
 @pytest.fixture
 def records():
-    engine = create_engine(get_settings().database_url)
+    engine = create_engine(environ["SEARCH_TEST_DATABASE_URL"])
     marker = uuid4().hex
     tenant, foreign_tenant = uuid4().hex, uuid4().hex
     ids = {kind: uuid4().hex for kind in ("owned", "legacy", "group", "assigned", "managed", "foreign")}
@@ -96,6 +119,7 @@ def records():
 
 def test_permissions_apply_to_all_search_surfaces(records):
     session, ids, tenant, marker = records
+    session.execute(text("SET LOCAL ROLE document_search_runtime"))
     actor = {"user_id": 42, "groups": ["readers"], "tenant_memberships": [{"tenant_id": tenant}]}
     repository = DocumentSearchRepositoryPg(session, actor)
     page = repository.search(query=marker)
@@ -129,6 +153,7 @@ def test_revocation_removes_assignment_access_for_sender_and_recipient(records):
     repository = DocumentSearchRepositoryPg(session, {"user_id": 42})
     session.execute(text("UPDATE document_assignments SET status = 'CANCELLED' WHERE document_id = :id"), {"id": ids["assigned"]})
     session.execute(text("UPDATE document_assignments SET status = 'EXPIRED' WHERE document_id = :id"), {"id": ids["managed"]})
+    session.execute(text("SET LOCAL ROLE document_search_runtime"))
     page = repository.search(query=marker)
     assert page.total == 2
     assert {item.document_id for item in page.items} == {ids["owned"], ids["legacy"]}
@@ -140,6 +165,7 @@ def test_revocation_removes_assignment_access_for_sender_and_recipient(records):
 
 def test_search_paginates_ties_without_queries_per_document(records):
     session, ids, _, marker = records
+    session.execute(text("SET LOCAL ROLE document_search_runtime"))
     repository = DocumentSearchRepositoryPg(session, {"user_id": 42})
     expected = sorted(ids[kind] for kind in ("owned", "legacy", "assigned", "managed"))
     queries = []
@@ -199,6 +225,7 @@ def test_http_document_contract(records, signing_key, tmp_path, monkeypatch):
         SET chunk_content = :content, metadata = jsonb_build_object('internal', CAST(:value AS text))
         WHERE document_id = :id
     """), {"id": owned, "value": private_value, "content": f"\t{content}\n"})
+    session.execute(text("SET LOCAL ROLE document_search_runtime"))
     public_key = tmp_path / "public.pem"
     public_key.write_bytes(signing_key.public_key().public_bytes(
         serialization.Encoding.PEM, serialization.PublicFormat.SubjectPublicKeyInfo,
@@ -239,7 +266,9 @@ def test_http_document_contract(records, signing_key, tmp_path, monkeypatch):
             denied = client.post(f"{base}/chat-selection", json={"document_ids": [owned, unavailable]})
             assert denied.status_code == 400
             assert denied.json() == {"detail": f"Documents not found: {unavailable}"}
+        session.execute(text("RESET ROLE"))
         session.execute(text("UPDATE documents SET status = 'PENDING' WHERE document_id = :id"), {"id": owned})
+        session.execute(text("SET LOCAL ROLE document_search_runtime"))
         pending = client.post(f"{base}/chat-selection", json={"document_ids": [owned]})
         assert pending.status_code == 400
         assert pending.json()["detail"].startswith("Only processed documents")

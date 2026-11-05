@@ -70,10 +70,13 @@ jobs:
               "http://localhost:3000", "http://127.0.0.1:3000",
           ]
           assert embedding_env["DATABASE_URL"] == "postgresql+psycopg://embedding_runtime@postgres:5432/documents_db"
-          search_env = services["document-search-service"]["environment"]
+          search = services["document-search-service"]
+          assert search["environment"]["DATABASE_URL"] == "postgresql+psycopg://document_search_runtime@postgres:5432/documents_db"
+          assert search["depends_on"]["search-db-role"]["condition"] == "service_completed_successfully"
+          search_env = search["environment"]
           assert set(search_env) == {
               "APP_ENV", "APP_NAME", "LOG_LEVEL", "CORS_ORIGINS", "DATABASE_URL",
-              "AUTH_JWT_PUBLIC_KEY_PATH", "AUTH_JWT_ALGORITHM",
+              "AUTH_JWT_PUBLIC_KEY_PATH", "AUTH_JWT_ALGORITHM", "PGPASSWORD",
           }
           assert json.loads(search_env["CORS_ORIGINS"]) == [
               "http://localhost:3000", "http://127.0.0.1:3000",
@@ -172,13 +175,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - run: cp .env.example .env
-      - run: docker compose -f docker/docker-compose.yml up -d --build --wait conversation-service
+      - run: docker compose -f docker/docker-compose.yml up -d --build --wait conversation-service document-search-service
       - run: docker compose -f docker/docker-compose.yml run --rm --no-deps rag-chat-db-role
       - run: docker compose -f docker/docker-compose.yml run --rm --no-deps embedding-db-role
       - run: docker compose -f docker/docker-compose.yml exec -T postgres psql -U postgres -d documents_db -v ON_ERROR_STOP=1 < scripts/database/auth/verify_roles.sql
       - run: docker compose -f docker/docker-compose.yml exec -T postgres psql -U postgres -d documents_db -v ON_ERROR_STOP=1 < scripts/database/conversation/verify_role.sql
       - run: docker compose -f docker/docker-compose.yml exec -T postgres psql -U postgres -d documents_db -v ON_ERROR_STOP=1 < scripts/database/rag-chat/verify_role.sql
       - run: docker compose -f docker/docker-compose.yml exec -T postgres psql -U postgres -d documents_db -v ON_ERROR_STOP=1 < scripts/database/embedding/verify_role.sql
+      - run: docker compose -f docker/docker-compose.yml exec -T postgres psql -U postgres -d documents_db -v ON_ERROR_STOP=1 < scripts/database/search/verify_role.sql
       - name: Comprobar imagen de ConversationServices
         run: |
           docker compose -f docker/docker-compose.yml exec -T conversation-service python -m pip --no-cache-dir check
@@ -187,5 +191,11 @@ jobs:
         run: |
           docker compose -f docker/docker-compose.yml run --build --rm --no-deps conversation-tests
           docker compose -f docker/docker-compose.yml run --rm --no-deps conversation-tests ruff check --no-cache app tests
+      - name: Validar imagen y contrato de DocumentSearchServices
+        run: |
+          docker compose -f docker/docker-compose.yml exec -T document-search-service python -m pip --no-cache-dir check
+          docker compose -f docker/docker-compose.yml exec -T document-search-service python -c 'import os, importlib.util; assert os.geteuid() == 10005; assert all(importlib.util.find_spec(name) is None for name in ("pytest", "ruff", "httpx"))'
+          docker compose -f docker/docker-compose.yml run --build --rm --no-deps search-tests
+          docker compose -f docker/docker-compose.yml run --rm --no-deps search-tests ruff check --no-cache app tests
       - if: failure()
-        run: docker compose -f docker/docker-compose.yml logs auth-db-roles auth-migrate auth-service conversation-db-role conversation-service rag-chat-db-role embedding-db-role
+        run: docker compose -f docker/docker-compose.yml logs auth-db-roles auth-migrate auth-service conversation-db-role conversation-service rag-chat-db-role embedding-db-role search-db-role document-search-service
