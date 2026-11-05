@@ -107,6 +107,22 @@ class NotificationModel(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 
 
+class DocumentDeletionModel(Base):
+    __tablename__ = "document_deletions"
+
+    document_id: Mapped[str] = mapped_column(Text, primary_key=True)
+    filename: Mapped[str] = mapped_column(Text, nullable=False)
+    storage_path: Mapped[str] = mapped_column(Text, nullable=False)
+    owner_user_id: Mapped[str | None] = mapped_column(Text)
+    tenant_id: Mapped[str | None] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    file_deleted: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    attempts: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    next_attempt_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    last_error: Mapped[str | None] = mapped_column(Text)
+
+
 class AuditLogModel(Base):
     __tablename__ = "audit_logs"
 

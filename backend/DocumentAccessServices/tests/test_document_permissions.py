@@ -1,4 +1,5 @@
 import json
+from pathlib import Path
 from uuid import uuid4
 
 import jwt
@@ -13,6 +14,7 @@ from app.config.database import get_session
 from app.config.settings import get_settings
 from app.interfaces.api.v1.dependencies import get_path_resolver
 from app.infrastructure.storage.document_path_resolver import LocalDocumentPathResolver
+from app.infrastructure.database.repositories import DocumentAccessRepositoryPg
 from app.main import app
 from app.shared.constants import MAX_CONTENT_CHARACTERS
 
@@ -101,6 +103,10 @@ def client(records, signing_key, tmp_path, monkeypatch):
     monkeypatch.setitem(app.dependency_overrides, get_settings, lambda: settings)
     monkeypatch.setitem(app.dependency_overrides, get_session, lambda: session)
     monkeypatch.setitem(app.dependency_overrides, get_path_resolver, lambda: LocalDocumentPathResolver(str(tmp_path)))
+    async def paused_cleanup(database, path_resolver, stop):
+        await stop.wait()
+
+    monkeypatch.setattr("app.main.deletion_cleanup_loop", paused_cleanup)
     with TestClient(app) as test_client:
         yield test_client
 
@@ -319,3 +325,197 @@ def test_discarded_whitespace_counts_toward_content_budget(client, records, sign
     """), {"id": ids["owned"], "length": MAX_CONTENT_CHARACTERS // 2 + 1})
     response = client.get(f"/api/v1/documents/{ids['owned']}/content", headers=authorization(signing_key))
     assert response.status_code == 413
+
+
+@pytest.fixture
+def deletable_file(records, tmp_path):
+    session, ids, _, _ = records
+    path = tmp_path / "owned-only.txt"
+    path.write_text("Synthetic owned file", encoding="utf-8")
+    session.execute(text("UPDATE documents SET storage_path = :path WHERE document_id = :id"), {
+        "id": ids["owned"], "path": str(path),
+    })
+    return path
+
+
+def test_delete_requires_ownership_or_scoped_administration(client, records, signing_key, deletable_file):
+    session, ids, tenant, foreign_tenant = records
+    for claims in (
+        {"user_id": 43},
+        {"user_id": 44, "tenant_memberships": [{"tenant_id": foreign_tenant, "role": "TENANT_ADMIN"}]},
+    ):
+        assert client.delete(f"/api/v1/documents/{ids['owned']}", headers=authorization(signing_key, **claims)).status_code == 404
+    reader = authorization(signing_key, groups=["readers"], tenant_memberships=[{"tenant_id": tenant}])
+    for kind in ("group", "assigned", "managed"):
+        assert client.get(f"/api/v1/documents/{ids[kind]}/preview", headers=reader).status_code == 200
+        assert client.delete(f"/api/v1/documents/{ids[kind]}", headers=reader).status_code == 404
+    assert deletable_file.exists()
+    assert session.scalar(text("SELECT count(*) FROM document_deletions WHERE document_id = :id"), {"id": ids["owned"]}) == 0
+
+
+@pytest.mark.parametrize("actor", ["owner", "tenant_admin", "superadmin"])
+def test_delete_is_idempotent_and_cascades(client, records, signing_key, deletable_file, actor):
+    session, ids, tenant, _ = records
+    assignment_id = session.scalar(text("""
+        INSERT INTO document_assignments (document_id, tenant_id, assigned_to_user_id, assigned_by_user_id)
+        VALUES (:id, :tenant, '43', '42') RETURNING assignment_id
+    """), {"id": ids["owned"], "tenant": tenant})
+    session.execute(text("""
+        INSERT INTO document_assignment_events (assignment_id, actor_user_id, action)
+        VALUES (:id, '42', 'ASSIGNED')
+    """), {"id": assignment_id})
+    session.execute(text("""
+        INSERT INTO notifications (tenant_id, recipient_user_id, document_id, assignment_id, type, title)
+        VALUES (:tenant, '43', :document, :assignment, 'DOCUMENT_ASSIGNMENT', 'Synthetic')
+    """), {"tenant": tenant, "document": ids["owned"], "assignment": assignment_id})
+    claims = {
+        "owner": {},
+        "tenant_admin": {"user_id": 44, "tenant_memberships": [{"tenant_id": tenant, "role": "TENANT_ADMIN"}]},
+        "superadmin": {"user_id": 45, "is_superadmin": True},
+    }[actor]
+    headers = authorization(signing_key, **claims)
+    first = client.delete(f"/api/v1/documents/{ids['owned']}", headers=headers)
+    second = client.delete(f"/api/v1/documents/{ids['owned']}", headers=headers)
+    assert first.status_code == second.status_code == 200
+    assert first.json() == second.json() == {
+        "document_id": ids["owned"], "filename": "owned.txt", "deleted": True, "file_deleted": True,
+    }
+    assert not deletable_file.exists()
+    for table in ("documents", "document_embeddings", "document_assignments", "notifications"):
+        assert session.scalar(text(f"SELECT count(*) FROM {table} WHERE document_id = :id"), {"id": ids["owned"]}) == 0
+    assert session.scalar(text("SELECT count(*) FROM document_assignment_events WHERE assignment_id = :id"), {
+        "id": assignment_id,
+    }) == 0
+    assert session.scalar(text("SELECT count(*) FROM audit_logs WHERE resource_id = :id AND action = 'DOCUMENT_DELETED'"), {
+        "id": ids["owned"],
+    }) == 1
+    assert client.delete(f"/api/v1/documents/{ids['owned']}", headers=authorization(signing_key, user_id=43)).status_code == 404
+
+
+def test_delete_preserves_files_referenced_through_legacy_aliases(client, records, signing_key, tmp_path):
+    session, ids, _, _ = records
+    path = tmp_path / "synthetic.txt"
+    session.execute(text("UPDATE documents SET storage_path = :path WHERE document_id = :id"), {
+        "id": ids["owned"], "path": path.as_uri(),
+    })
+    response = client.delete(f"/api/v1/documents/{ids['owned']}", headers=authorization(signing_key))
+    assert response.status_code == 200
+    assert response.json()["file_deleted"] is False
+    assert path.read_text() == "Synthetic document"
+    assert client.get(f"/api/v1/documents/{ids['legacy']}/preview", headers=authorization(signing_key)).status_code == 200
+
+
+@pytest.mark.parametrize("link_type", ["symbolic", "hard"])
+def test_shared_file_is_cleaned_after_last_reference(client, records, signing_key, deletable_file, tmp_path, link_type):
+    session, ids, _, _ = records
+    alias = tmp_path / "live-alias.txt"
+    if link_type == "symbolic":
+        alias.symlink_to(deletable_file)
+    else:
+        alias.hardlink_to(deletable_file)
+    session.execute(text("UPDATE documents SET storage_path = :path WHERE document_id = :id"), {
+        "id": ids["legacy"], "path": str(alias),
+    })
+    headers = authorization(signing_key)
+    assert client.delete(f"/api/v1/documents/{ids['owned']}", headers=headers).json()["file_deleted"] is False
+    assert client.get(f"/api/v1/documents/{ids['legacy']}/preview", headers=headers).status_code == 200
+    assert deletable_file.exists()
+    assert client.delete(f"/api/v1/documents/{ids['legacy']}", headers=headers).json()["file_deleted"] is True
+    assert client.delete(f"/api/v1/documents/{ids['owned']}", headers=headers).json()["file_deleted"] is True
+    assert not deletable_file.exists()
+    assert not alias.exists()
+
+
+def test_delete_unlinks_a_symlink_without_removing_its_target(client, records, signing_key, tmp_path):
+    session, ids, _, _ = records
+    target = tmp_path.parent / f"{uuid4().hex}-outside.txt"
+    target.write_text("Synthetic external target", encoding="utf-8")
+    link = tmp_path / "document-link"
+    link.symlink_to(target)
+    try:
+        session.execute(text("UPDATE documents SET storage_path = :path WHERE document_id = :id"), {
+            "id": ids["owned"], "path": str(link),
+        })
+        response = client.delete(f"/api/v1/documents/{ids['owned']}", headers=authorization(signing_key))
+        assert response.status_code == 200
+        assert response.json()["file_deleted"] is True
+        assert not link.is_symlink()
+        assert target.read_text() == "Synthetic external target"
+    finally:
+        target.unlink(missing_ok=True)
+
+
+def test_filesystem_failure_is_durable_and_retryable(client, records, signing_key, deletable_file, monkeypatch):
+    session, ids, _, _ = records
+    original_unlink = Path.unlink
+
+    def denied_unlink(path, *args, **kwargs):
+        if path == deletable_file:
+            raise PermissionError("Synthetic filesystem failure")
+        return original_unlink(path, *args, **kwargs)
+
+    headers = authorization(signing_key)
+    with monkeypatch.context() as patch:
+        patch.setattr(Path, "unlink", denied_unlink)
+        response = client.delete(f"/api/v1/documents/{ids['owned']}", headers=headers)
+    assert response.status_code == 200
+    assert response.json()["deleted"] is True
+    assert response.json()["file_deleted"] is False
+    assert deletable_file.exists()
+    pending = session.execute(text("SELECT completed_at, attempts, last_error FROM document_deletions WHERE document_id = :id"), {
+        "id": ids["owned"],
+    }).one()
+    assert pending.completed_at is None
+    assert pending.attempts == 1
+    assert pending.last_error == "PermissionError"
+    assert client.get(f"/api/v1/documents/{ids['owned']}/preview", headers=headers).status_code == 404
+    assert client.delete(f"/api/v1/documents/{ids['owned']}", headers=headers).json()["file_deleted"] is True
+    assert not deletable_file.exists()
+
+
+def test_database_failure_leaves_original_file_and_document(client, records, signing_key, deletable_file, monkeypatch):
+    session, ids, _, _ = records
+    session.commit()
+
+    def failed_commit():
+        raise RuntimeError("Synthetic commit failure")
+
+    with monkeypatch.context() as patch:
+        patch.setattr(session, "commit", failed_commit)
+        with pytest.raises(RuntimeError, match="Synthetic commit failure"):
+            client.delete(f"/api/v1/documents/{ids['owned']}", headers=authorization(signing_key))
+    session.rollback()
+    assert deletable_file.exists()
+    assert session.scalar(text("SELECT count(*) FROM documents WHERE document_id = :id"), {"id": ids["owned"]}) == 1
+    assert session.scalar(text("SELECT count(*) FROM document_deletions WHERE document_id = :id"), {"id": ids["owned"]}) == 0
+
+
+def test_completion_failure_recovers_after_file_removal(client, records, signing_key, deletable_file, monkeypatch):
+    session, ids, _, _ = records
+
+    def failed_completion(*args):
+        raise RuntimeError("Synthetic completion failure")
+
+    with monkeypatch.context() as patch:
+        patch.setattr(DocumentAccessRepositoryPg, "complete_deletion", failed_completion)
+        with pytest.raises(RuntimeError, match="Synthetic completion failure"):
+            client.delete(f"/api/v1/documents/{ids['owned']}", headers=authorization(signing_key))
+    session.rollback()
+    assert not deletable_file.exists()
+    assert session.scalar(text("SELECT count(*) FROM documents WHERE document_id = :id"), {"id": ids["owned"]}) == 0
+    assert session.scalar(text("SELECT count(*) FROM document_deletions WHERE document_id = :id AND completed_at IS NULL"), {
+        "id": ids["owned"],
+    }) == 1
+    response = client.delete(f"/api/v1/documents/{ids['owned']}", headers=authorization(signing_key))
+    assert response.status_code == 200
+    assert response.json()["deleted"] is True
+    assert response.json()["file_deleted"] is False
+
+
+def test_delete_legacy_owner_with_orphaned_tenant_metadata(client, records, signing_key):
+    session, ids, _, _ = records
+    session.execute(text("""
+        UPDATE documents SET tenant_id = NULL, metadata = jsonb_build_object('owner_user_id', 42, 'tenant_id', 'orphan')
+        WHERE document_id = :id
+    """), {"id": ids["legacy"]})
+    assert client.delete(f"/api/v1/documents/{ids['legacy']}", headers=authorization(signing_key)).status_code == 200

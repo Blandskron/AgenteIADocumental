@@ -1,6 +1,5 @@
-from pathlib import Path
-
 from app.application.documents.ports.document_access_repository import DocumentAccessRepository
+from app.application.documents.use_cases.cleanup_document_deletion import CleanupDocumentDeletion
 from app.domain.documents import DocumentDeleteResult
 from app.domain.documents.exceptions import DocumentNotFoundError
 from app.infrastructure.storage.document_path_resolver import LocalDocumentPathResolver
@@ -9,28 +8,13 @@ from app.infrastructure.storage.document_path_resolver import LocalDocumentPathR
 class DeleteDocument:
     def __init__(self, repository: DocumentAccessRepository, path_resolver: LocalDocumentPathResolver) -> None:
         self._repository = repository
-        self._path_resolver = path_resolver
+        self._cleanup = CleanupDocumentDeletion(repository, path_resolver)
 
     def execute(self, document_id: str) -> DocumentDeleteResult:
-        document = self._repository.get_by_id(document_id)
-        if document is None:
+        deletion = self._repository.prepare_deletion(document_id)
+        if deletion is None:
             raise DocumentNotFoundError(f"Document {document_id} was not found.")
-
-        file_deleted = self._delete_file(document.storage_path)
-        self._repository.delete(document_id)
-
-        return DocumentDeleteResult(
-            document_id=document.document_id,
-            filename=document.filename,
-            deleted=True,
-            file_deleted=file_deleted,
-        )
-
-    def _delete_file(self, storage_path: str) -> bool:
-        try:
-            path = self._path_resolver.resolve(storage_path)
-        except FileNotFoundError:
-            return False
-
-        Path(path).unlink()
-        return True
+        result = self._cleanup.execute(document_id)
+        if result is None:
+            raise DocumentNotFoundError(f"Document {document_id} was not found.")
+        return result
