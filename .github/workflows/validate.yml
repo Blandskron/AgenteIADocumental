@@ -84,9 +84,14 @@ jobs:
           ]
           access = services["document-access-service"]
           access_env = access["environment"]
+          assert access_env["DATABASE_URL"] == "postgresql+psycopg://document_access_runtime@postgres:5432/documents_db"
+          assert access["depends_on"]["access-db-role"]["condition"] == "service_completed_successfully"
+          assert access["user"] == "10004:10004"
+          assert access["cap_drop"] == ["ALL"]
+          assert "no-new-privileges:true" in access["security_opt"]
           assert set(access_env) == {
               "APP_ENV", "APP_NAME", "LOG_LEVEL", "CORS_ORIGINS", "DATABASE_URL",
-              "DOCUMENT_STORAGE_BASE_PATH", "AUTH_JWT_PUBLIC_KEY_PATH", "AUTH_JWT_ALGORITHM",
+              "DOCUMENT_STORAGE_BASE_PATH", "AUTH_JWT_PUBLIC_KEY_PATH", "AUTH_JWT_ALGORITHM", "PGPASSWORD",
           }
           assert json.loads(access_env["CORS_ORIGINS"]) == [
               "http://localhost:3000", "http://127.0.0.1:3000",
@@ -194,6 +199,12 @@ jobs:
       - run: docker compose -f docker/docker-compose.yml exec -T postgres psql -U postgres -d documents_db -v ON_ERROR_STOP=1 < scripts/database/rag-chat/verify_role.sql
       - run: docker compose -f docker/docker-compose.yml exec -T postgres psql -U postgres -d documents_db -v ON_ERROR_STOP=1 < scripts/database/embedding/verify_role.sql
       - run: docker compose -f docker/docker-compose.yml exec -T postgres psql -U postgres -d documents_db -v ON_ERROR_STOP=1 < scripts/database/search/verify_role.sql
+      - name: Comprobar permisos e idempotencia de DocumentAccessServices
+        run: |
+          docker compose -f docker/docker-compose.yml run --rm --no-deps access-db-role
+          docker compose -f docker/docker-compose.yml exec -T postgres psql -U postgres -d documents_db -v ON_ERROR_STOP=1 < scripts/database/access/verify_role.sql
+          docker compose -f docker/docker-compose.yml exec -T document-access-service python -m pip --no-cache-dir check
+          docker compose -f docker/docker-compose.yml exec -T document-access-service python -c 'import os, importlib.util; assert os.geteuid() == 10004; assert all(importlib.util.find_spec(name) is None for name in ("pytest", "ruff", "httpx"))'
       - name: Comprobar imagen de ConversationServices
         run: |
           docker compose -f docker/docker-compose.yml exec -T conversation-service python -m pip --no-cache-dir check
@@ -212,5 +223,6 @@ jobs:
         run: |
           docker compose -f docker/docker-compose.yml run --build --rm --no-deps access-tests
           docker compose -f docker/docker-compose.yml run --rm --no-deps access-tests ruff check --no-cache app tests
+          docker compose -f docker/docker-compose.yml run --build --rm --no-deps access-audit
       - if: failure()
-        run: docker compose -f docker/docker-compose.yml logs auth-db-roles auth-migrate auth-service conversation-db-role conversation-service rag-chat-db-role embedding-db-role search-db-role document-search-service document-access-service
+        run: docker compose -f docker/docker-compose.yml logs auth-db-roles auth-migrate auth-service conversation-db-role conversation-service rag-chat-db-role embedding-db-role search-db-role document-search-service access-db-role document-access-service

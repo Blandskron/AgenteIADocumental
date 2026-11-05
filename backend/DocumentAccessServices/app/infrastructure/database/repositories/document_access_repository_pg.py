@@ -1,7 +1,7 @@
 from contextlib import contextmanager
 from datetime import UTC, datetime, timedelta
 
-from sqlalchemy import func, or_, select
+from sqlalchemy import func, or_, select, text
 from sqlalchemy.orm import Session
 
 from app.config.security import is_superadmin_user, tenant_ids_for_role, tenant_memberships, user_groups, user_id
@@ -437,22 +437,20 @@ class DocumentAccessRepositoryPg:
             return None
         if str(numeric_id) != identifier or not 0 < numeric_id <= 2**63 - 1:
             return None
-        return self._session.query(AuthUserModel).filter(
-            AuthUserModel.id == numeric_id, AuthUserModel.is_active.is_(True),
-        ).with_for_update(read=True).populate_existing().first()
+        return self._session.query(AuthUserModel).from_statement(
+            text("SELECT * FROM public.access_active_user(:identifier)"),
+        ).params(identifier=numeric_id).populate_existing().first()
 
     def _active_membership(self, tenant_id: str, identifier: str) -> TenantMembershipModel | None:
-        return self._session.query(TenantMembershipModel).filter(
-            TenantMembershipModel.tenant_id == tenant_id,
-            TenantMembershipModel.user_id == identifier,
-            TenantMembershipModel.status == "ACTIVE",
-        ).with_for_update(read=True).populate_existing().first()
+        return self._session.query(TenantMembershipModel).from_statement(
+            text("SELECT * FROM public.access_active_membership(:tenant, :identifier)"),
+        ).params(tenant=tenant_id, identifier=identifier).populate_existing().first()
 
     def _assignment_role(self, document: DocumentModel, require_membership: bool = False) -> str | None:
         tenant_id = self._document_tenant(document)
-        tenant = self._session.query(TenantModel).filter(
-            TenantModel.tenant_id == tenant_id, TenantModel.status == "ACTIVE",
-        ).with_for_update(read=True).populate_existing().first()
+        tenant = self._session.query(TenantModel).from_statement(
+            text("SELECT * FROM public.access_active_tenant(:identifier)"),
+        ).params(identifier=tenant_id).populate_existing().first()
         actor = self._active_user(user_id(self._current_user))
         if tenant is None or actor is None:
             return None

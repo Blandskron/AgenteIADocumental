@@ -1,5 +1,6 @@
 from concurrent.futures import ThreadPoolExecutor
 from threading import Barrier
+from os import environ
 from uuid import uuid4
 
 import pytest
@@ -15,7 +16,8 @@ from app.infrastructure.storage.document_path_resolver import LocalDocumentPathR
 
 @pytest.fixture
 def committed_document(tmp_path):
-    engine = create_engine(get_settings().database_url)
+    engine = create_engine(environ["ACCESS_TEST_DATABASE_URL"])
+    runtime_engine = create_engine(get_settings().database_url)
     document_id = uuid4().hex
     path = tmp_path / "committed.txt"
     path.write_text("Synthetic committed document", encoding="utf-8")
@@ -25,21 +27,22 @@ def committed_document(tmp_path):
                 INSERT INTO documents (document_id, owner_user_id, filename, storage_path, mime_type)
                 VALUES (:id, '42', 'committed.txt', :path, 'text/plain')
             """), {"id": document_id, "path": str(path)})
-        yield engine, document_id, path
+        yield runtime_engine, document_id, path, engine
     finally:
         with engine.begin() as connection:
             for table, key in (("documents", "document_id"), ("document_deletions", "document_id"), ("audit_logs", "resource_id")):
                 connection.execute(text(f"DELETE FROM {table} WHERE {key} = :id"), {"id": document_id})
         engine.dispose()
+        runtime_engine.dispose()
 
 
 def test_fresh_session_recovers_cleanup_after_committed_removal(committed_document):
-    engine, document_id, path = committed_document
+    engine, document_id, path, admin_engine = committed_document
     with Session(engine) as session:
         repository = DocumentAccessRepositoryPg(session, {"user_id": 42})
         assert repository.prepare_deletion(document_id) is not None
     assert path.exists()
-    with engine.connect() as connection:
+    with admin_engine.connect() as connection:
         assert connection.scalar(text("SELECT count(*) FROM documents WHERE document_id = :id"), {"id": document_id}) == 0
         assert connection.scalar(text("SELECT count(*) FROM document_deletions WHERE document_id = :id"), {"id": document_id}) == 1
     with Session(engine) as session:
@@ -51,7 +54,7 @@ def test_fresh_session_recovers_cleanup_after_committed_removal(committed_docume
 
 
 def test_two_concurrent_deletes_share_one_cleanup(committed_document):
-    engine, document_id, path = committed_document
+    engine, document_id, path, admin_engine = committed_document
     barrier = Barrier(2)
 
     def remove_document():
@@ -68,7 +71,7 @@ def test_two_concurrent_deletes_share_one_cleanup(committed_document):
         results = [future.result(timeout=15) for future in futures]
     assert all(result.deleted and result.file_deleted for result in results)
     assert not path.exists()
-    with engine.connect() as connection:
+    with admin_engine.connect() as connection:
         assert connection.scalar(text("SELECT count(*) FROM document_deletions WHERE document_id = :id"), {"id": document_id}) == 1
         assert connection.scalar(text("SELECT count(*) FROM audit_logs WHERE resource_id = :id AND action = 'DOCUMENT_DELETED'"), {
             "id": document_id,
@@ -76,7 +79,7 @@ def test_two_concurrent_deletes_share_one_cleanup(committed_document):
 
 
 def test_cleanup_worker_skips_locked_job(committed_document):
-    engine, document_id, path = committed_document
+    engine, document_id, path, _ = committed_document
     with Session(engine) as session:
         DocumentAccessRepositoryPg(session, {"user_id": 42}).prepare_deletion(document_id)
     with Session(engine) as holder:

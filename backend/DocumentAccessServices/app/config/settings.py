@@ -14,7 +14,7 @@ class Settings(BaseSettings):
         default_factory=lambda: ["http://localhost:3000", "http://127.0.0.1:3000"],
     )
 
-    database_url: str = "postgresql+psycopg://postgres:admin1234@localhost:5432/documents_db"
+    database_url: str = "postgresql+psycopg://document_access_runtime@localhost:5432/documents_db"
     document_storage_base_path: str = "./documents"
 
     db_pool_min_size: int = 1
