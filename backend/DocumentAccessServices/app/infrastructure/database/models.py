@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Any
 
-from sqlalchemy import Boolean, DateTime, FetchedValue, ForeignKey, Integer, Text, UniqueConstraint, func
+from sqlalchemy import BigInteger, Boolean, DateTime, FetchedValue, ForeignKey, Integer, Text, UniqueConstraint, func
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
@@ -10,6 +10,31 @@ from app.infrastructure.database.types import Vector
 
 class Base(DeclarativeBase):
     pass
+
+
+class AuthUserModel(Base):
+    __tablename__ = "auth_user"
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
+    is_active: Mapped[bool] = mapped_column(Boolean)
+    is_superuser: Mapped[bool] = mapped_column(Boolean)
+
+
+class TenantModel(Base):
+    __tablename__ = "tenants"
+
+    tenant_id: Mapped[str] = mapped_column(Text, primary_key=True)
+    status: Mapped[str] = mapped_column(Text)
+
+
+class TenantMembershipModel(Base):
+    __tablename__ = "tenant_memberships"
+
+    membership_id: Mapped[str] = mapped_column(Text, primary_key=True)
+    tenant_id: Mapped[str] = mapped_column(Text)
+    user_id: Mapped[str] = mapped_column(Text)
+    status: Mapped[str] = mapped_column(Text)
+    role: Mapped[str] = mapped_column(Text)
 
 
 class DocumentModel(Base):

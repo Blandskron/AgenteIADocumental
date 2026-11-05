@@ -11,7 +11,7 @@ from app.infrastructure.database.connection import Database
 from app.infrastructure.storage.deletion_cleanup import deletion_cleanup_loop
 from app.infrastructure.storage.document_path_resolver import LocalDocumentPathResolver
 from app.interfaces.api.router import api_router
-from app.shared.errors import AppError, NotFoundError, PayloadTooLarge, ValidationError
+from app.shared.errors import AppError, ConflictError, NotFoundError, PayloadTooLarge, ValidationError
 
 
 settings = get_settings()
@@ -67,3 +67,8 @@ async def app_error_handler(request: Request, exc: AppError) -> JSONResponse:
 @app.exception_handler(PayloadTooLarge)
 async def payload_too_large_handler(request: Request, exc: PayloadTooLarge) -> JSONResponse:
     return JSONResponse(status_code=413, content={"detail": str(exc)})
+
+
+@app.exception_handler(ConflictError)
+async def conflict_handler(request: Request, exc: ConflictError) -> JSONResponse:
+    return JSONResponse(status_code=409, content={"detail": str(exc)})
