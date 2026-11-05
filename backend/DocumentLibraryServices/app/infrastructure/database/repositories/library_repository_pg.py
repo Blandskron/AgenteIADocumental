@@ -1,9 +1,10 @@
 from __future__ import annotations
 
-from sqlalchemy import false, func, or_
+from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
-from app.config.security import is_superadmin_user, tenant_ids_for_role, user_groups, user_id
+from app.config.security import is_superadmin_user, tenant_ids_for_role, tenant_memberships, user_groups, user_id
+from app.shared.errors import NotFoundError
 from app.infrastructure.database.models import (
     DocumentEmbeddingModel,
     DocumentAssignmentModel,
@@ -18,21 +19,25 @@ class LibraryRepositoryPg:
     def __init__(self, session: Session, current_user: dict) -> None:
         self._session = session
         self._current_user = current_user or {}
-        self._owner_user_id = _owner_user_id(current_user)
+        self._owner_user_id = user_id(self._current_user)
 
     def list_folders(self, parent_folder_id: str | None = None) -> list[DocumentFolderModel]:
+        if parent_folder_id is not None and self._folder(parent_folder_id) is None:
+            raise NotFoundError("Folder not found.")
+        visible_counts = self._apply_document_access_filter(
+            self._session.query(
+                DocumentFolderItemModel.folder_id.label("folder_id"),
+                func.count(DocumentFolderItemModel.document_id).label("document_count"),
+            ).join(DocumentModel, DocumentModel.document_id == DocumentFolderItemModel.document_id)
+            .filter(DocumentFolderItemModel.owner_user_id == self._owner_user_id)
+        ).group_by(DocumentFolderItemModel.folder_id).subquery()
         rows = (
-            self._session.query(DocumentFolderModel, func.count(DocumentFolderItemModel.document_id).label("document_count"))
-            .outerjoin(
-                DocumentFolderItemModel,
-                (DocumentFolderItemModel.folder_id == DocumentFolderModel.folder_id)
-                & (DocumentFolderItemModel.owner_user_id == self._owner_user_id),
-            )
+            self._session.query(DocumentFolderModel, func.coalesce(visible_counts.c.document_count, 0))
+            .outerjoin(visible_counts, visible_counts.c.folder_id == DocumentFolderModel.folder_id)
             .filter(
                 DocumentFolderModel.owner_user_id == self._owner_user_id,
                 DocumentFolderModel.parent_folder_id == parent_folder_id,
             )
-            .group_by(DocumentFolderModel.folder_id)
             .order_by(DocumentFolderModel.name.asc())
             .all()
         )
@@ -77,8 +82,10 @@ class LibraryRepositoryPg:
         return True
 
     def list_folder_documents(self, folder_id: str) -> list[DocumentModel]:
+        if self._folder(folder_id) is None:
+            raise NotFoundError("Folder not found.")
         documents = (
-            self._session.query(DocumentModel)
+            self._accessible_documents_query()
             .join(DocumentFolderItemModel, DocumentFolderItemModel.document_id == DocumentModel.document_id)
             .filter(
                 DocumentFolderItemModel.folder_id == folder_id,
@@ -109,6 +116,8 @@ class LibraryRepositoryPg:
         return True
 
     def remove_document_from_folder(self, folder_id: str, document_id: str) -> bool:
+        if self._folder(folder_id) is None:
+            return False
         item = (
             self._session.query(DocumentFolderItemModel)
             .filter(
@@ -219,31 +228,25 @@ class LibraryRepositoryPg:
         if is_superadmin_user(self._current_user):
             return statement
 
-        clauses = []
         current_user_id = user_id(self._current_user)
+        assignment = DocumentAssignmentModel
+        active_assignment = select(1).where(
+            assignment.document_id == DocumentModel.document_id,
+            assignment.status.not_in(("CANCELLED", "EXPIRED")),
+            or_(assignment.assigned_to_user_id == current_user_id, assignment.assigned_by_user_id == current_user_id),
+        ).exists()
+        owner_id = func.coalesce(DocumentModel.owner_user_id, DocumentModel.metadata_["owner_user_id"].astext)
+        tenant_id = func.coalesce(DocumentModel.tenant_id, DocumentModel.metadata_["tenant_id"].astext)
+        clauses = [owner_id == current_user_id, active_assignment]
         admin_tenant_ids = tenant_ids_for_role(self._current_user, "TENANT_ADMIN")
         if admin_tenant_ids:
-            clauses.append(DocumentModel.tenant_id.in_(admin_tenant_ids))
-            clauses.append(DocumentModel.metadata_.op("->>")("tenant_id").in_(admin_tenant_ids))
-        if current_user_id:
-            assigned_document_ids = (
-                self._session.query(DocumentAssignmentModel.document_id)
-                .filter(DocumentAssignmentModel.assigned_to_user_id == current_user_id)
-                .subquery()
+            clauses.append(tenant_id.in_(admin_tenant_ids))
+        groups = user_groups(self._current_user)
+        if groups:
+            member_tenant_ids = [str(membership["tenant_id"]) for membership in tenant_memberships(self._current_user)
+                                 if membership.get("tenant_id")]
+            clauses.append(
+                or_(tenant_id.is_(None), tenant_id.in_(member_tenant_ids))
+                & or_(*(DocumentModel.metadata_.contains({"owner_groups": [group]}) for group in groups))
             )
-            managed_document_ids = (
-                self._session.query(DocumentAssignmentModel.document_id)
-                .filter(DocumentAssignmentModel.assigned_by_user_id == current_user_id)
-                .subquery()
-            )
-            clauses.append(DocumentModel.owner_user_id == current_user_id)
-            clauses.append(DocumentModel.metadata_.op("->>")("owner_user_id") == current_user_id)
-            clauses.append(DocumentModel.document_id.in_(assigned_document_ids))
-            clauses.append(DocumentModel.document_id.in_(managed_document_ids))
-        for group in user_groups(self._current_user):
-            clauses.append(DocumentModel.metadata_.contains({"owner_groups": [group]}))
-        return statement.filter(or_(*clauses) if clauses else false())
-
-
-def _owner_user_id(current_user: dict) -> str:
-    return str(current_user.get("user_id") or current_user.get("sub") or current_user.get("username") or "unknown")
+        return statement.filter(or_(*clauses))

@@ -2,7 +2,7 @@
 
 Organiza documentos en carpetas personales, favoritos y una vista de documentos actualizados recientemente. Usa FastAPI, SQLAlchemy y el PostgreSQL compartido. El puerto local de Compose es `8006`.
 
-LIB-001 estableció el diagnóstico y el plan. LIB-002 incorpora configuración aislada, comprobación de disponibilidad y base de pruebas. Las correcciones de identidad, permisos documentales, integridad y privilegios de ejecución siguen en las tarjetas posteriores. El [tablero](../../ROADMAP.md#documentlibraryservices) es la fuente de tareas y [AGENTS.md](AGENTS.md) indica cómo intervenir el servicio.
+LIB-001 estableció el diagnóstico y el plan. LIB-002 incorporó configuración y pruebas; LIB-003 valida identidad y unifica permisos documentales. Integridad, concurrencia, límites, paginación y privilegios de ejecución siguen en las tarjetas posteriores. El [tablero](../../ROADMAP.md#documentlibraryservices) es la fuente de tareas y [AGENTS.md](AGENTS.md) indica cómo intervenir el servicio.
 
 ## Recorrido y responsabilidades
 
@@ -20,16 +20,18 @@ Eliminar una carpeta elimina sus descendientes y asociaciones mediante cascadas 
 
 ## Contrato HTTP actual
 
-Las rutas de negocio requieren `Authorization: Bearer <token>`. Los dos healthchecks son públicos. Los listados devuelven arreglos. Solo `recent` admite un límite, entre 1 y 100, con 20 por defecto.
+Las rutas de negocio requieren `Authorization: Bearer <token>` con firma RSA válida, `token_type: access`, `user_id` entero positivo y `exp` entero vigente. Se rechazan identidades ausentes, booleanas, de texto, cero o negativas, y vencimientos ausentes o de otro tipo. `sub`, `username` y `unknown` no sustituyen a `user_id`. Un token inválido devuelve HTTP 401 con `WWW-Authenticate: Bearer` antes del caso de uso.
+
+Los dos healthchecks son públicos. Los listados devuelven arreglos. Solo `recent` admite un límite, entre 1 y 100, con 20 por defecto.
 
 | Método y ruta bajo `/api/v1` | Respuesta actual |
 | --- | --- |
 | `GET /health`, `GET /health/db` | `{"status":"ok"}`. `/health` comprueba vida; `/health/db` valida dependencias y devuelve 503 si fallan. |
-| `GET /folders?parent_folder_id=...` | Carpetas del usuario en ese nivel, con `document_count`. Sin parámetro devuelve raíces. |
+| `GET /folders?parent_folder_id=...` | Carpetas propias en ese nivel, con conteo de documentos visibles. Un padre ajeno o inexistente devuelve 404. Sin parámetro devuelve raíces. |
 | `POST /folders` | Carpeta creada, HTTP 201. |
 | `PATCH /folders/{folder_id}` | Carpeta actualizada. Cambia nombre y metadatos, no padre. |
 | `DELETE /folders/{folder_id}` | `{"deleted":true/false}`. |
-| `GET /folders/{folder_id}/documents` | Documentos asociados por el usuario. |
+| `GET /folders/{folder_id}/documents` | Documentos visibles asociados por el usuario a su carpeta. Carpeta ajena o inexistente devuelve 404. |
 | `POST /folders/{folder_id}/documents/{document_id}` | `{"deleted":true/false}` aunque agrega una asociación. |
 | `DELETE /folders/{folder_id}/documents/{document_id}` | `{"deleted":true/false}`. |
 | `PATCH /library/documents/{document_id}/folder` | `{"success":true}` o HTTP 404. `folder_id: null` retira las asociaciones personales. |
@@ -41,6 +43,24 @@ Las rutas de negocio requieren `Authorization: Bearer <token>`. Los dos healthch
 Hay doce operaciones de negocio y dos healthchecks. La respuesta documental contiene ID, nombre, MIME, estado, cantidad de fragmentos y fecha de actualización. La carpeta incluye ID, nombre, padre, propietario, metadatos, cantidad de documentos y fechas. No se publican rutas de almacenamiento ni vectores.
 
 Crear recibe `name`, `parent_folder_id` opcional y `metadata`. Actualizar recibe `name` y `metadata` opcionales. Mover recibe `folder_id` opcional. Faltan cotas de longitud y tamaño JSON y validación del nombre después de eliminar espacios. Los cambios de contrato deben aplicarse junto con sus consumidores.
+
+## Lectura y organización personal
+
+Recientes, favoritos, contenido de carpeta, conteos y comprobaciones de alta o movimiento aplican la misma política documental que DocumentSearchServices y DocumentAccessServices.
+
+| Concesión | Alcance |
+| --- | --- |
+| Propietario | La columna `owner_user_id` prevalece. Los metadatos sirven de respaldo únicamente si falta la columna. |
+| Asignación | Destinatario o asignador pueden leer mientras el estado no sea `CANCELLED` ni `EXPIRED`. Varias asignaciones no duplican filas ni conteos. |
+| Administrador de tenant | Lee documentos del tenant declarado en sus membresías del JWT. La columna `tenant_id` prevalece sobre metadatos históricos. |
+| Grupo | Requiere coincidencia de grupo y membresía en el tenant efectivo del documento. Los documentos sin tenant conservan acceso por grupo para compatibilidad. |
+| Superadministrador | Puede leer documentos, pero conserva únicamente su propia organización de carpetas y favoritos. |
+
+Las asignaciones se consultan en PostgreSQL en cada operación. Los roles, grupos y membresías se toman del token verificado y mantienen la vigencia de ese token. La revocación de una asignación quita esa concesión en la siguiente consulta; otros permisos independientes pueden seguir concediendo lectura.
+
+Guardar un favorito o una asociación no concede acceso. Los listados y los conteos ocultan documentos inaccesibles, aunque sus marcadores sigan almacenados. Las carpetas vacías siguen apareciendo con cero y el frontend usa `document_count`, conservando el cero sin sustituirlo por un valor histórico de metadatos.
+
+Las carpetas siguen siendo privadas por `user_id`, incluso para administradores de documentos. Leer una carpeta comprueba tanto al propietario de la carpeta como al de sus asociaciones. Retirar una asociación exige carpeta propia; retirar un favorito o una asociación propia permite limpiar marcadores revocados sin devolver información del documento. Agregar o mover requiere lectura documental actual y carpeta destino propia; el movimiento a `null` también comprueba lectura. Los resultados booleanos y contadores de escritura se mantienen hasta la revisión de contrato de las siguientes tarjetas.
 
 ## Consumidores que deben revisarse juntos
 
@@ -58,11 +78,11 @@ Las fuentes principales son el [validador JWT](app/config/security.py), el [repo
 
 | Área | Evidencia y efecto | Incremento |
 | --- | --- | --- |
-| Identidad | El validador aceptó tokens firmados sin `user_id` ni `exp`, con `user_id: true` o con cero. Los fallbacks a `sub`, `username` o `unknown` pueden compartir biblioteca entre identidades ambiguas. | LIB-003 |
-| Revocación | Una asignación `CANCELLED` siguió concediendo acceso; el documento apareció en carpeta y favoritos y siguió contando en la carpeta. El código tampoco excluye `EXPIRED`. | LIB-003 |
-| Precedencia | Metadatos históricos concedieron acceso pese a contradecir propietario o tenant canónico. Búsqueda y acceso ya usan respaldo solo cuando falta la columna. | LIB-003 |
-| Grupos | Un grupo concedió acceso a un documento de otro tenant sin membresía en ese tenant. | LIB-003 |
-| Asociaciones incoherentes | Una fila sintética con propietario de asociación distinto al propietario de carpeta permitió listar un documento ajeno. Este caso requiere una asociación incoherente y no se reprodujo mediante la creación normal de Library. La BD no impone igualdad de propietarios. | LIB-003 / LIB-004 |
+| Identidad | La base aceptaba identidades ambiguas y tokens sin vencimiento requerido. LIB-003 exige claims tipados, firma y token de acceso, sin fallbacks de identidad. | LIB-003 resuelto |
+| Revocación | LIB-003 excluye asignaciones canceladas o expiradas en lecturas, altas y conteos. Las regresiones cambian el estado entre peticiones. | LIB-003 resuelto |
+| Precedencia | LIB-003 prioriza columnas canónicas y limita el respaldo a valores nulos, igual que búsqueda y acceso. | LIB-003 resuelto |
+| Grupos | LIB-003 exige membresía en el tenant efectivo para concesiones por grupo en documentos con tenant. | LIB-003 resuelto |
+| Asociaciones incoherentes | LIB-003 bloquea lecturas y gestión de carpetas ajenas incluso con vínculos incoherentes. La restricción estructural de propietarios y su escritor de Google Drive siguen pendientes de LIB-004. | LIB-004 |
 | Nombres y conflictos | Un nombre de espacios quedó almacenado vacío. Repetir un nombre raíz produjo `IntegrityError`, sin traducción a un conflicto HTTP. Ya existen índices únicos para nombres raíz y bajo un padre. | LIB-004 / LIB-006 |
 | Concurrencia | Favoritos y asociaciones usan consultar-antes-de-insertar. Mover ya retira e inserta en una transacción, pero no serializa movimientos simultáneos. Las carreras requieren pruebas con sesiones independientes. | LIB-005 |
 | Cotas y orden | Carpetas, contenido de carpeta y favoritos no tienen límite. Recientes no permite recorrer páginas. Faltan desempates por ID. El conteo de fragmentos ya se hace por lote y debe conservarse. | LIB-006 / LIB-007 |
@@ -128,7 +148,9 @@ docker compose -f docker/docker-compose.yml run --build --rm --no-deps library-t
 docker compose -f docker/docker-compose.yml run --rm --no-deps library-tests ruff check --no-cache app tests
 ```
 
-La suite usa claves temporales y PostgreSQL real. Comprueba aislamiento del entorno, CORS, rechazo sin token o con token inválido en las doce rutas, petición firmada, disponibilidad de las seis tablas, claves inválidas, HTTP 503 sin detalles internos, saturación y recuperación del pool, rollback y cierre del motor. Los objetos de prueba son temporales o se revierten; no modifica las tablas compartidas. Las regresiones de permisos documentales corresponden a LIB-003 y no quedan cubiertas por este incremento.
+La suite usa claves temporales y PostgreSQL real. Cubre configuración, CORS, autenticación de las doce rutas, disponibilidad, recuperación del pool y cierre del motor. Las regresiones de LIB-003 incluyen tipos de claims, firma y algoritmo, propietario, asignador, destinatario, administradores, grupos y metadatos contradictorios. Comparan los tres listados y los conteos, revocan asignaciones entre peticiones y comprueban altas denegadas, carpetas privadas, vínculos incoherentes y limpieza personal de marcadores revocados. Los registros sintéticos se revierten con una transacción externa y savepoints; las tablas compartidas no se alteran.
+
+Desde `frontend`, `npm test` incluye el conteo canónico de carpetas con cero y metadatos contradictorios. Ejecuta también `npm ci` y `npm run build` para validar cambios de sus consumidores.
 
 CI arranca Library con su comprobación de disponibilidad y ejecuta `pip check`, las pruebas y Ruff. HTTPX está en la etapa Docker de pruebas. Las herramientas heredadas pytest y Ruff todavía forman parte de las dependencias de ejecución y se retirarán en LIB-008 junto con su actualización y auditoría.
 
