@@ -76,8 +76,8 @@ La revisión inicial abarcó rutas, JWT, repositorio, resolución de archivos, a
 
 | Estado | ID | Entrega | Criterio de aceptación |
 |---|---|---|---|
-| En revisión | ACCESS-001 | Aislar configuración y comprobar arranque | `docker compose config --quiet`, arranque con `up --build --wait`, Ruff y aserciones de CI aprobados. Verificados salud HTTP y PostgreSQL, rechazo 401 sin JWT, dos orígenes CORS locales y rechazo de origen externo. Clave pública y volumen aislado comprobados. Pendiente revisión del PR. |
-| Lista | ACCESS-002 | Unificar identidad y permisos de lectura | Validar claims de AuthServices, prioridad de columnas canónicas, aislamiento por tenant y revocación en preview, contenido y descarga. Probar permisos de descarga por separado. |
+| Hecha | ACCESS-001 | Aislar configuración y comprobar arranque | PR #36 integrado con seis checks aprobados. Configuración explícita, CORS local y arranque con PostgreSQL, almacenamiento y clave pública verificados. |
+| En revisión | ACCESS-002 | Unificar identidad y permisos de lectura | Compose, arranque, Ruff y 22 pruebas HTTP con PostgreSQL y pgvector aprobados. Cubren JWT, propietario canónico e histórico, tenant, grupos, revocación y permiso específico de descarga. Pruebas integradas en CI. Pendiente revisión del PR. |
 | Lista | ACCESS-003 | Confinar lectura y servir archivos | Probar rutas históricas, enlaces, archivos ausentes, MIME, cabeceras y límites del contenido con archivos sintéticos. |
 | Lista | ACCESS-004 | Autorizar y hacer recuperable el borrado | Separar lectura y borrado. Mantener un estado recuperable ante fallos, reintentos y operaciones concurrentes sobre archivo y PostgreSQL. |
 | Lista | ACCESS-005 | Hacer consistentes las asignaciones | Validar tenant, destinatario, actor y transiciones. Confirmar estado, eventos, notificaciones y auditoría en una transacción y probar concurrencia. |

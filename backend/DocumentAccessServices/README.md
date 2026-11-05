@@ -64,7 +64,13 @@ DocumentAccessServices is a FastAPI-based microservice responsible for secure ac
 - `file_deleted`: bool
 
 ## Authentication
-All endpoints (except health checks) require a valid JWT access token in the `Authorization: Bearer <token>` header. The token is validated using the configured RSA public key and must have `token_type: access`.
+Las rutas documentales requieren un token de acceso de AuthServices en `Authorization: Bearer <token>`, con firma RSA válida, `user_id` entero positivo y `exp` entero vigente.
+
+Preview y contenido usan la misma regla de lectura que DocumentSearchServices. El acceso puede venir del propietario, un administrador del tenant, un grupo compartido, una asignación vigente como destinatario o asignador, o el rol de superadministrador. Los grupos exigen pertenencia al tenant cuando el documento tiene tenant. Las asignaciones canceladas o expiradas dejan de conceder lectura.
+
+Las columnas de propietario y tenant tienen prioridad sobre los metadatos históricos. Estos sirven como respaldo cuando falta la columna correspondiente. Un documento inaccesible se trata igual que uno inexistente y devuelve HTTP 404.
+
+La descarga comprueba además su permiso específico. El propietario requiere `documents.allow_download` y el destinatario requiere una asignación vigente con `allow_download`. El administrador del tenant y el superadministrador pueden descargar los documentos que administran. El acceso por grupo o como asignador concede lectura. Si existe lectura pero falta permiso de descarga, la API devuelve HTTP 400.
 
 ## Architecture
 - **FastAPI** for API layer
@@ -100,6 +106,17 @@ Compose pasa explícitamente las variables del servicio. El chequeo de arranque 
 Fuera de Compose, instala `requirements.txt` desde este directorio y configura `DATABASE_URL`, `AUTH_JWT_PUBLIC_KEY_PATH` y `DOCUMENT_STORAGE_BASE_PATH` en el entorno o en el `.env` del servicio. Ejecuta `python -m uvicorn app.main:app --port 8005`. En este modo, configura CORS con `CORS_ORIGINS`.
 
 El [tablero de modernización](../../ROADMAP.md#documentaccessservices) registra los incrementos de permisos, archivos, borrado, asignaciones y operación que siguen a la configuración inicial.
+
+## Pruebas
+
+Con el servicio iniciado, ejecuta las pruebas HTTP con JWT y documentos sintéticos sobre PostgreSQL y pgvector.
+
+```sh
+docker compose -f docker/docker-compose.yml run --build --rm --no-deps access-tests
+docker compose -f docker/docker-compose.yml run --rm --no-deps access-tests ruff check --no-cache app tests
+```
+
+Las pruebas usan una transacción externa y savepoints para revertir los registros incluso cuando la descarga confirma auditoría. Los archivos de prueba se crean en un directorio temporal.
 
 ## Example Requests
 
