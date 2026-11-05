@@ -4,6 +4,7 @@ Lee el [contrato y operación](README.md) y toma la tarjeta activa del [tablero]
 
 - Comprueba por separado los permisos de lectura, descarga, borrado y gestión de asignaciones.
 - Revisa los consumidores de `frontend/src/features/document-access` cuando cambies contratos.
+- Conserva la envoltura de páginas `items`, `limit`, `offset`, `has_more`, los límites HTTP y el desempate por ID. No incluyas entradas recibidas en los errores de validación.
 - Usa documentos y archivos sintéticos para probar rutas, borrado y recuperación ante fallos.
 - Conserva la coherencia entre asignaciones, eventos, notificaciones y auditoría cuando cambies una escritura.
 - Para mutar asignaciones, bloquea primero el documento y después la asignación. Mantén los helpers de eventos, notificaciones y auditoría sin commits internos. Consulta las cuentas y membresías vigentes para autorizar escrituras.

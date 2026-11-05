@@ -2,6 +2,7 @@ import asyncio
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
@@ -11,6 +12,7 @@ from app.infrastructure.database.connection import Database
 from app.infrastructure.storage.deletion_cleanup import deletion_cleanup_loop
 from app.infrastructure.storage.document_path_resolver import LocalDocumentPathResolver
 from app.interfaces.api.router import api_router
+from app.interfaces.api.body_limit import RequestBodyLimit
 from app.shared.errors import AppError, ConflictError, NotFoundError, PayloadTooLarge, ValidationError
 
 
@@ -36,6 +38,7 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title=settings.app_name, version="0.1.0", lifespan=lifespan)
+app.add_middleware(RequestBodyLimit)
 
 app.add_middleware(
     CORSMiddleware,
@@ -47,6 +50,13 @@ app.add_middleware(
 )
 
 app.include_router(api_router)
+
+
+@app.exception_handler(RequestValidationError)
+async def request_validation_handler(request: Request, exc: RequestValidationError) -> JSONResponse:
+    # Do not reflect signatures, metadata or other submitted values in errors.
+    errors = [{key: error[key] for key in ("loc", "msg", "type")} for error in exc.errors()]
+    return JSONResponse(status_code=422, content={"detail": errors})
 
 
 @app.exception_handler(NotFoundError)

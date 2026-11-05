@@ -88,9 +88,27 @@ El administrador puede asignar documentos de su tenant. El superadministrador pu
 
 Una transición incompatible devuelve HTTP 409. Repetir la misma aceptación, rechazo, firma o cancelación conserva el resultado sin duplicar eventos, notificaciones ni auditoría. Un motivo o firma diferente en una acción ya confirmada devuelve HTTP 409. Repetir una asignación pendiente con el mismo asignador, permisos, vencimiento y metadatos también conserva el resultado.
 
-Cancelar revoca la concesión de acceso y conserva la firma anterior. Reasignar devuelve el estado a `PENDING` y limpia firma, fecha de firma y motivo anteriores, conservando los eventos históricos. La firma representa el valor capturado por la aplicación y no una firma criptográfica. `due_at` conserva el vencimiento solicitado y acepta fechas sin zona como UTC por compatibilidad con el formulario actual. El servicio no cambia automáticamente el estado al alcanzar esa fecha.
+Cancelar revoca la concesión de acceso y conserva la firma anterior. Reasignar devuelve el estado a `PENDING` y limpia firma, fecha de firma y motivo anteriores, conservando los eventos históricos. La firma representa el valor capturado por la aplicación y no una firma criptográfica. El frontend convierte el vencimiento local a una fecha UTC con zona explícita. `due_at` acepta también fechas sin zona como UTC por compatibilidad con clientes anteriores. El servicio no cambia automáticamente el estado al alcanzar esa fecha.
 
 Cada escritura bloquea primero el documento y después la asignación. Confirma estado, evento, notificación y auditoría en una transacción. Un error revierte todos sus efectos. Los reintentos concurrentes se serializan sobre el documento. La auditoría y las notificaciones conservan el tenant del documento, aunque el tenant activo del token sea otro. Marcar una notificación como leída requiere su destinatario activo y conserva `read_at` al reintentar.
+
+## Entradas, páginas y errores
+
+Los identificadores de ruta admiten entre 1 y 128 caracteres sin controles. El destinatario se envía como texto decimal positivo, sin ceros iniciales, con hasta 19 dígitos y debe corresponder a una cuenta vigente. Los motivos admiten hasta 2000 caracteres y los valores de firma hasta 4096, sin bytes nulos. Los cuerpos de asignación y acción rechazan campos desconocidos.
+
+Los metadatos deben ser un objeto JSON finito de hasta 16.384 bytes UTF-8 al serializarlo sin espacios, con hasta 16 niveles. Se rechazan bytes nulos en claves y valores. Las peticiones POST, PUT y PATCH tienen un presupuesto de 65.536 bytes de cuerpo, contado sobre los bytes recibidos incluso si se omite o altera `Content-Length`. Estos límites validan entradas nuevas; los registros históricos conservan su formato de lectura.
+
+`assigned-to-me`, `managed-by-me`, `notifications` y `assignments/{assignment_id}/events` devuelven un objeto paginado. Esta respuesta sustituye al arreglo anterior y requiere actualizar el frontend junto con el backend.
+
+```json
+{"items": [], "limit": 50, "offset": 0, "has_more": false}
+```
+
+Usa `limit` de 1 a 100, con 50 por defecto, y `offset` de 0 a 100.000, con 0 por defecto. La siguiente página comienza en `offset + items.length`. Las asignaciones y notificaciones se ordenan por fecha de creación descendente e ID descendente. Los eventos usan fecha e ID ascendentes. La consulta recupera como máximo `limit + 1` filas para calcular `has_more`, sin contar todo el historial. Las páginas pertenecen al actor autorizado y `notifications` admite `status=UNREAD`, `status=READ` o `status=ARCHIVED`.
+
+El orden es estable para un conjunto sin cambios. Las páginas por offset no representan una instantánea frente a inserciones o eliminaciones concurrentes. Refrescar vuelve a la primera página. El frontend ofrece **Cargar más**, evita duplicados por ID y muestra contadores de registros cargados. Después de mutaciones o un conflicto HTTP 409 vuelve a consultar el estado.
+
+HTTP 422 indica una entrada o parámetro inválido; HTTP 413 indica un cuerpo o contenido demasiado grande; HTTP 400 conserva las reglas de negocio, incluido destinatario inválido o motivo obligatorio; HTTP 409 indica conflicto de estado. Los errores 422 incluyen `detail` con `loc`, `msg` y `type`, sin reflejar valores enviados ni firmas. El frontend los convierte en texto legible. Consultar eventos de una asignación inexistente o ajena devuelve HTTP 404; una asignación visible sin eventos devuelve una página vacía.
 
 ## Archivos y contenido
 
@@ -163,6 +181,8 @@ Con el servicio iniciado, ejecuta las pruebas HTTP con JWT y documentos sintéti
 docker compose -f docker/docker-compose.yml run --build --rm --no-deps access-tests
 docker compose -f docker/docker-compose.yml run --rm --no-deps access-tests ruff check --no-cache app tests
 ```
+
+Desde `frontend`, `npm test` verifica la adaptación de páginas, fechas y errores HTTP. CI ejecuta estas pruebas antes de compilar la interfaz.
 
 Las pruebas HTTP usan una transacción externa y savepoints para revertir los registros incluso cuando una operación confirma auditoría. Los casos de recuperación y concurrencia confirman registros sintéticos con IDs únicos y los retiran al terminar. Los archivos de prueba se crean en un directorio temporal.
 

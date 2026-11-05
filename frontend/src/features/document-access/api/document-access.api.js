@@ -55,19 +55,22 @@ export function deleteDocument(apiClient, documentId) {
   });
 }
 
-export function listAssignedToMe(apiClient) {
-  return apiClient("/api/v1/documents/assigned-to-me", { method: "GET" }).then(normalizeAssignments);
+export function listAssignedToMe(apiClient, offset = 0) {
+  return listPage(apiClient, "assigned-to-me", offset, normalizeAssignment);
 }
 
-export function listManagedByMe(apiClient) {
-  return apiClient("/api/v1/documents/managed-by-me", { method: "GET" }).then(normalizeAssignments);
+export function listManagedByMe(apiClient, offset = 0) {
+  return listPage(apiClient, "managed-by-me", offset, normalizeAssignment);
 }
 
-export function listNotifications(apiClient, status = "") {
-  const suffix = status ? `?status=${encodeURIComponent(status)}` : "";
-  return apiClient(`/api/v1/documents/notifications${suffix}`, { method: "GET" }).then((payload) =>
-    (Array.isArray(payload) ? payload : []).map(normalizeNotification),
-  );
+export function listNotifications(apiClient, offset = 0) {
+  return listPage(apiClient, "notifications", offset, normalizeNotification);
+}
+
+async function listPage(apiClient, path, offset, normalize) {
+  const payload = await apiClient(`/api/v1/documents/${path}?limit=50&offset=${offset}`, { method: "GET" });
+  return { items: payload.items.map(normalize), hasMore: payload.has_more,
+    nextOffset: payload.offset + payload.items.length };
 }
 
 export function markNotificationRead(apiClient, notificationId) {
@@ -81,7 +84,7 @@ export function assignDocument(apiClient, documentId, payload) {
     body: JSON.stringify({
       assigned_to_user_id: String(payload.userId),
       allow_download: payload.allowDownload !== false,
-      due_at: payload.dueAt || null,
+      due_at: payload.dueAt ? new Date(payload.dueAt).toISOString() : null,
       metadata: payload.metadata || {},
     }),
   }).then(normalizeAssignment);
@@ -109,10 +112,6 @@ function updateAssignmentAction(apiClient, assignmentId, action, payload) {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),
   }).then(normalizeAssignment);
-}
-
-function normalizeAssignments(payload) {
-  return (Array.isArray(payload) ? payload : []).map(normalizeAssignment);
 }
 
 function normalizeAssignment(assignment = {}) {
