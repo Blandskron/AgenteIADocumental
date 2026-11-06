@@ -14,10 +14,18 @@ function normalizeTransfer(transfer = {}) {
   };
 }
 
-export function listTransfers(apiClient, limit = 50) {
-  return apiClient(`/api/v1/transfers?limit=${limit}`, {
+export function listTransfers(apiClient, { limit = 50, offset = 0 } = {}) {
+  return apiClient(`/api/v1/transfers?limit=${limit}&offset=${offset}`, {
     method: "GET",
-  }).then((payload) => (Array.isArray(payload) ? payload.map(normalizeTransfer) : []));
+  }).then((payload) => {
+    if (!payload || !Array.isArray(payload.items) || !Number.isInteger(payload.offset) || payload.offset < 0
+      || payload.offset !== offset || payload.limit !== limit || payload.items.length > limit || typeof payload.has_more !== "boolean"
+      || payload.items.some((item) => !item || typeof item.transfer_id !== "string" || !item.transfer_id)) {
+      throw new Error("Contrato de historial incompatible. Actualiza los servicios y la interfaz juntos.");
+    }
+    return { items: payload.items.map(normalizeTransfer), hasMore: payload.has_more,
+      nextOffset: payload.offset + payload.items.length };
+  });
 }
 
 export function createTransfer(apiClient, payload) {
@@ -29,7 +37,7 @@ export function createTransfer(apiClient, payload) {
 }
 
 export function updateTransfer(apiClient, transferId, payload) {
-  return apiClient(`/api/v1/transfers/${transferId}`, {
+  return apiClient(`/api/v1/transfers/${encodeURIComponent(transferId)}`, {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),

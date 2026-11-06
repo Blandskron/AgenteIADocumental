@@ -1966,6 +1966,8 @@
 }
 
 .transfer-modal {
+  max-height: 85vh;
+  overflow-y: auto;
   position: fixed;
   left: 50%;
   top: 50%;

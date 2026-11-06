@@ -15,14 +15,15 @@ class TransferRepositoryPg:
         self._current_user = current_user
         self._owner_user_id = user_id(current_user)
 
-    def list(self, limit: int = 50) -> list[TransferEventModel]:
-        return (
+    def list(self, limit: int = 50, offset: int = 0) -> dict:
+        rows = (
             self._session.query(TransferEventModel)
             .filter(TransferEventModel.owner_user_id == self._owner_user_id)
-            .order_by(TransferEventModel.created_at.desc())
-            .limit(limit)
+            .order_by(TransferEventModel.created_at.desc(), TransferEventModel.transfer_id.desc())
+            .limit(limit + 1).offset(offset)
             .all()
         )
+        return {"items": rows[:limit], "limit": limit, "offset": offset, "has_more": len(rows) > limit}
 
     def create(self, payload: dict) -> TransferEventModel:
         try:

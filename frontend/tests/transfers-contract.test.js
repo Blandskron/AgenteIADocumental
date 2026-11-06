@@ -57,9 +57,9 @@ test("PATCH preserves explicit nulls and empty metadata and leaves omitted field
 });
 
 test("list keeps metadata and rejected writes preserve the original API error", async () => {
-  const rows = await listTransfers(async () => [{ transfer_id: "synthetic", metadata: { conversation_id: "session" }, size_bytes: 0 }]);
-  assert.deepEqual(rows[0].metadata, { conversation_id: "session" });
-  assert.equal(rows[0].sizeBytes, 0);
+  const page = await listTransfers(async () => ({ items: [{ transfer_id: "synthetic", metadata: { conversation_id: "session" }, size_bytes: 0 }], limit: 50, offset: 0, has_more: false }));
+  assert.deepEqual(page.items[0].metadata, { conversation_id: "session" });
+  assert.equal(page.items[0].sizeBytes, 0);
   const original = new Error("Invalid request value.");
   await assert.rejects(createTransfer(async () => { throw original; }, {}), (error) => error === original);
   await assert.rejects(updateTransfer(async () => { throw original; }, "synthetic", {}), (error) => error === original);
