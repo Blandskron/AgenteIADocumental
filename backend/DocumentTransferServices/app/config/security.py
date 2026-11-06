@@ -4,7 +4,7 @@ from pathlib import Path
 import jwt
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
-from jwt import InvalidTokenError
+from jwt import InvalidKeyError, InvalidTokenError
 
 from app.config.settings import Settings, get_settings
 
@@ -33,9 +33,11 @@ def require_authenticated_user(
             credentials.credentials,
             read_public_key(settings.auth_jwt_public_key_path),
             algorithms=[settings.auth_jwt_algorithm],
-            options={"verify_aud": False},
+            options={"verify_aud": False, "require": ["exp", "user_id"]},
         )
-    except (InvalidTokenError, OSError) as exc:
+        if type(payload["user_id"]) is not int or payload["user_id"] <= 0 or type(payload["exp"]) is not int:
+            raise InvalidTokenError("Invalid identity or expiration claim.")
+    except (InvalidTokenError, InvalidKeyError, OSError, TypeError, OverflowError, ValueError) as exc:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid authentication token.",
@@ -50,6 +52,10 @@ def require_authenticated_user(
         )
 
     return payload
+
+
+def user_id(user: dict) -> str:
+    return str(user["user_id"])
 
 
 def is_superadmin_user(user: dict) -> bool:

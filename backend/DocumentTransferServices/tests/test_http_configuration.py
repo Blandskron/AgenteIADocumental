@@ -9,7 +9,7 @@ from sqlalchemy import create_engine, select, text
 from sqlalchemy.orm import Session
 
 from app.config.database import get_session
-from app.infrastructure.database.models import TransferEventModel
+from app.infrastructure.database.models import DocumentAssignmentModel, DocumentModel, TransferEventModel
 from app.main import app
 
 
@@ -100,6 +100,23 @@ def test_database_outage_returns_private_503_and_recovers(configured_client):
     finally:
         app.dependency_overrides.pop(get_session, None)
         unavailable.dispose()
+    assert client.get("/api/v1/health/db").status_code == 200
+
+
+@pytest.mark.parametrize("model", [DocumentModel, DocumentAssignmentModel])
+def test_readiness_requires_reference_permission_schema(configured_client, engine, model):
+    client, _ = configured_client
+    table = model.__tablename__
+    with engine.connect() as connection:
+        transaction = connection.begin()
+        try:
+            connection.execute(text(f"CREATE TEMP TABLE {table} (synthetic_wrong_column integer)"))
+            with Session(bind=connection, join_transaction_mode="create_savepoint") as session:
+                app.dependency_overrides[get_session] = lambda: session
+                assert client.get("/api/v1/health/db").status_code == 503
+        finally:
+            app.dependency_overrides.pop(get_session, None)
+            transaction.rollback()
     assert client.get("/api/v1/health/db").status_code == 200
 
 
