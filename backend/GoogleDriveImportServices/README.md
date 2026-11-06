@@ -78,6 +78,8 @@ Google Drawing -> PDF
 
 LIB-004 comprueba que `folder_id` pertenezca al usuario antes de consultar OAuth o descargar archivos. Una carpeta ajena o inexistente devuelve 404. El repositorio repite la comprobación al asociar y PostgreSQL exige que carpeta y asociación tengan el mismo propietario.
 
+LIB-005 coordina el alta con los movimientos y retiradas de Library. Después de cargar el documento, toma el mismo bloqueo transaccional por usuario/documento, protege la referencia documental y bloquea la carpeta y sus ancestros desde la raíz. Inserta con conflicto idempotente y confirma. No mantiene bloqueos durante OAuth, descarga ni carga. Consulta el [protocolo de Library](../DocumentLibraryServices/README.md#escrituras-y-concurrencia) antes de cambiar este escritor y despliega ambos servicios juntos, sin escritores antiguos en paralelo.
+
 Si el documento se importa pero la asociación falla, conserva el documento y su ID. El archivo queda `COMPLETED` con advertencia en `error_message` y `metadata.folder_association.status: FAILED`; la importación queda `PARTIAL`, con un mensaje genérico. `processed_files` incluye ese documento y `failed_files` cuenta los fallos de descarga o carga. Una asociación exitosa registra `metadata.folder_association.status: COMPLETED`. Sin carpeta seleccionada no se registra este resultado.
 
 DocumentSearchPage muestra el mensaje de la importación parcial después de refrescar la biblioteca. Revisa los documentos antes de reintentar: repetir la importación podría crear otro documento. No se reintenta automáticamente una carga ya completada.
@@ -91,4 +93,4 @@ docker compose -f docker/docker-compose.yml run --build --rm --no-deps drive-tes
 docker compose -f docker/docker-compose.yml run --rm --no-deps drive-tests ruff check --no-cache app tests
 ```
 
-Las pruebas usan registros sintéticos con IDs únicos y limpieza explícita, PostgreSQL real y un proveedor simulado. No requieren OAuth ni descargan documentos. Cubren propiedad, inserción idempotente y fallos de asociación, incluido un resultado de carga sin ID documental. Este alcance coordina el escritor con Library; no constituye el cierre de modernización de GoogleDriveImportServices.
+Las pruebas usan registros sintéticos con IDs únicos y limpieza explícita, PostgreSQL real y un proveedor simulado. No requieren OAuth ni descargan documentos. Cubren propiedad, inserción idempotente, espera real sobre el bloqueo compartido y fallos de asociación, incluido un resultado de carga sin ID documental. Este alcance coordina el escritor con Library; no constituye el cierre de modernización de GoogleDriveImportServices.

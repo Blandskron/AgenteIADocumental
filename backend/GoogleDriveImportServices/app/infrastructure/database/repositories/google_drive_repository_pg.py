@@ -144,9 +144,28 @@ class GoogleDriveRepository:
 
     def associate_document_with_folder(self, folder_id: str, document_id: str, owner_user_id: str) -> None:
         with self._database.session() as session:
+            # Same transaction lock and order as LibraryRepositoryPg. Never hold it during upload.
+            session.execute(text("""
+                SELECT pg_advisory_xact_lock(hashtextextended(
+                    'blandskron.library.document:' || :owner || ':' || :document, 0))
+            """), {"owner": owner_user_id, "document": document_id})
             if session.scalar(text(
-                "SELECT folder_id FROM document_folders WHERE folder_id = :folder AND owner_user_id = :owner",
-            ), {"folder": folder_id, "owner": owner_user_id}) is None:
+                "SELECT document_id FROM documents WHERE document_id=:document FOR KEY SHARE",
+            ), {"document": document_id}) is None:
+                raise NotFoundError("Document or folder is no longer available.")
+            ancestors = session.scalars(text("""
+                WITH RECURSIVE ancestry AS (
+                    SELECT folder_id, parent_folder_id, 0 AS depth FROM document_folders
+                    WHERE folder_id=:folder AND owner_user_id=:owner
+                    UNION ALL
+                    SELECT p.folder_id, p.parent_folder_id, a.depth + 1
+                    FROM document_folders p JOIN ancestry a ON p.folder_id=a.parent_folder_id
+                    WHERE p.owner_user_id=:owner
+                )
+                SELECT f.folder_id FROM document_folders f JOIN ancestry a ON a.folder_id=f.folder_id
+                ORDER BY a.depth DESC FOR KEY SHARE OF f
+            """), {"folder": folder_id, "owner": owner_user_id}).all()
+            if folder_id not in ancestors:
                 raise NotFoundError("Folder not found.")
             try:
                 session.execute(
