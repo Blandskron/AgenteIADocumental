@@ -8,6 +8,7 @@ router = APIRouter(responses={
     400: {"description": "Invalid request body."},
     401: {"description": "Access token required."},
     404: {"description": "Transfer or document not found."},
+    409: {"description": "State or progress conflicts with the current transfer."},
     413: {"description": "Request body exceeds 65536 bytes."},
     422: {"description": "Invalid request values."},
     500: {"description": "Operation failed."},

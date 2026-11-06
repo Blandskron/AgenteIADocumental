@@ -2,6 +2,23 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { createTransfer, listTransfers, updateTransfer } from "../src/features/transfers/api/transfers.api.js";
+import { transferFailureUpdate } from "../src/features/transfers/lib/failure-update.js";
+import { parseResponse } from "../src/shared/api/httpClient.js";
+
+test("failure preserves server progress and records conversation without reattaching revoked documents", () => {
+  const payload = transferFailureUpdate(new Error("Error sintético"), { conversation_id: "session" });
+  assert.deepEqual(payload, { status: "FAILED", metadata: { conversation_id: "session", error: "Error sintético" } });
+  assert.equal(Object.hasOwn(payload, "progress"), false);
+  assert.equal(Object.hasOwn(payload, "document_id"), false);
+});
+
+test("transfer state conflict keeps HTTP status and message for the consumer", async () => {
+  await assert.rejects(parseResponse(Response.json({ detail: "Transfer state transition is not allowed." }, { status: 409 })), (error) => {
+    assert.equal(error.status, 409);
+    assert.equal(error.message, "Transfer state transition is not allowed.");
+    return true;
+  });
+});
 
 test("transfer metadata from upload and failure flows survives the API round trip", async () => {
   const requests = [];

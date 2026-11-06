@@ -43,7 +43,7 @@ export function useTransfers(apiClient, { autoLoad = true } = {}) {
   async function clearHistory() {
     if (!apiClient) return;
     await clearTransferHistory(apiClient);
-    setTransfers([]);
+    await refreshTransfers();
   }
 
   return {

@@ -1,6 +1,7 @@
 import { uploadDocument } from "../../documents/api/document.api";
 import { waitForDocumentProcessed } from "../../documents/api/document-status.poller";
 import { isDocumentProcessed } from "../../documents/lib/document-status";
+import { transferFailureUpdate } from "../../transfers/lib/failure-update";
 
 export function useDocumentQuestionFlow({ documentClient, conversationId, clearSelectedFile, transfers }) {
   async function uploadAndWait(file) {
@@ -41,11 +42,7 @@ export function useDocumentQuestionFlow({ documentClient, conversationId, clearS
       clearSelectedFile();
       return document;
     } catch (error) {
-      await transfers?.patchTransfer(transfer?.transferId, {
-        status: "FAILED",
-        progress: transfer?.progress || 0,
-        metadata: { conversation_id: conversationId, error: error.message },
-      });
+      await transfers?.patchTransfer(transfer?.transferId, transferFailureUpdate(error, { conversation_id: conversationId }));
       throw error;
     }
   }

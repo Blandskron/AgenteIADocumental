@@ -176,7 +176,8 @@ def test_valid_boundaries_preserve_unicode_names_and_bigint(records):
     assert response.json()["filename"] == "é" * 512 and response.json()["size_bytes"] == 2**63 - 1
     identifier = response.json()["transfer_id"]
     assert session.scalar(text("SELECT size_bytes FROM transfer_events WHERE transfer_id=:id"), {"id": identifier}) == 2**63 - 1
-    assert client.patch(f"/api/v1/transfers/{identifier}", headers=headers, json={"progress": 0, "size_bytes": 0}).status_code == 200
+    assert client.patch(f"/api/v1/transfers/{identifier}", headers=headers, json={"size_bytes": 0}).status_code == 200
+    assert create(client, headers, progress=0).status_code == 200
 
 
 def test_request_body_boundary_and_malformed_json_do_not_write(records):

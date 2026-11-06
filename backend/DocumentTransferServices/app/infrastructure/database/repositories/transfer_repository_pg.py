@@ -1,9 +1,10 @@
 from __future__ import annotations
 
-from sqlalchemy import func, or_, select
+from sqlalchemy import delete, func, or_, select, text
 from sqlalchemy.orm import Session
 
 from app.config.security import is_superadmin_user, tenant_ids_for_role, tenant_memberships, user_groups, user_id
+from app.domain.transfer_state import TERMINAL_STATES, validate_initial_state, validate_transition
 from app.infrastructure.database.models import DocumentAssignmentModel, DocumentModel, TransferEventModel
 from app.shared.errors import NotFoundError
 
@@ -25,58 +26,79 @@ class TransferRepositoryPg:
 
     def create(self, payload: dict) -> TransferEventModel:
         try:
+            validate_initial_state(payload)
+            self._lock_owner()
             if payload.get("document_id") is not None:
                 self._require_document_reference(payload["document_id"])
             transfer = TransferEventModel(owner_user_id=self._owner_user_id, **payload)
             self._session.add(transfer)
-            self._session.commit()
-            self._session.refresh(transfer)
-            return transfer
+            return self._commit_transfer(transfer)
         except Exception:
             self._session.rollback()
             raise
 
     def update(self, transfer_id: str, payload: dict) -> TransferEventModel | None:
         try:
+            self._lock_owner()
             transfer = self._get(transfer_id)
             if transfer is None:
+                self._session.rollback()
                 return None
+            # Documents before event rows: DELETE documents locks in that order for SET NULL.
             if payload.get("document_id") is not None:
                 self._require_document_reference(payload["document_id"])
+            transfer = self._get(transfer_id, lock=True)
+            if transfer is None:
+                self._session.rollback()
+                return None
+            validate_transition(transfer, payload)
             for key, value in payload.items():
                 setattr(transfer, key, value)
-            self._session.commit()
-            self._session.refresh(transfer)
-            return transfer
+            return self._commit_transfer(transfer)
         except Exception:
             self._session.rollback()
             raise
 
     def clear_history(self) -> int:
         try:
-            rows = (
-                self._session.query(TransferEventModel)
-                .filter(
-                    TransferEventModel.owner_user_id == self._owner_user_id,
-                    TransferEventModel.status.in_(["COMPLETED", "FAILED", "CANCELLED"]),
-                )
-                .all()
-            )
-            count = len(rows)
-            for row in rows:
-                self._session.delete(row)
+            self._lock_owner()
+            # One bounded batch, with deterministic ordering and no Python row materialization.
+            candidates = select(TransferEventModel.transfer_id).where(
+                TransferEventModel.owner_user_id == self._owner_user_id,
+                TransferEventModel.status.in_(TERMINAL_STATES),
+            ).order_by(TransferEventModel.created_at, TransferEventModel.transfer_id).limit(1000)
+            result = self._session.execute(delete(TransferEventModel).where(
+                TransferEventModel.owner_user_id == self._owner_user_id,
+                TransferEventModel.status.in_(TERMINAL_STATES),
+                TransferEventModel.transfer_id.in_(candidates),
+            ).execution_options(synchronize_session=False))
+            count = result.rowcount
             self._session.commit()
             return count
         except Exception:
             self._session.rollback()
             raise
 
-    def _get(self, transfer_id: str) -> TransferEventModel | None:
-        return (
-            self._session.query(TransferEventModel)
-            .filter(TransferEventModel.transfer_id == transfer_id, TransferEventModel.owner_user_id == self._owner_user_id)
-            .first()
+    def _lock_owner(self) -> None:
+        self._session.execute(text("SELECT pg_advisory_xact_lock(hashtextextended('blandskron.transfer.owner:' || :owner, 0))"),
+                              {"owner": self._owner_user_id})
+
+    def _commit_transfer(self, transfer: TransferEventModel) -> TransferEventModel:
+        # Snapshot while locks are held. A cleanup immediately after commit must not
+        # turn a successful write into an ORM refresh/expired-instance error.
+        self._session.flush()
+        self._session.refresh(transfer)
+        self._session.expunge(transfer)
+        self._session.commit()
+        return transfer
+
+    def _get(self, transfer_id: str, *, lock: bool = False) -> TransferEventModel | None:
+        query = self._session.query(TransferEventModel).populate_existing().filter(
+            TransferEventModel.transfer_id == transfer_id, TransferEventModel.owner_user_id == self._owner_user_id,
         )
+        if lock:
+            query = query.with_for_update()
+        return query.first()
 
 
     def _require_document_reference(self, document_id: str) -> None:
