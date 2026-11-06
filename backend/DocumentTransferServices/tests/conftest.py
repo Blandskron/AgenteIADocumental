@@ -44,6 +44,17 @@ def engine():
 
 
 @pytest.fixture
+def runtime_engine():
+    configured = create_engine(get_settings().database_url)
+    try:
+        with configured.connect() as connection:
+            assert connection.scalar(text("SELECT session_user")) == "document_transfer_runtime"
+        yield configured
+    finally:
+        configured.dispose()
+
+
+@pytest.fixture
 def committed_records(engine):
     document, transfer = uuid4().hex, uuid4().hex
     owner = int(uuid4().hex[:12], 16)

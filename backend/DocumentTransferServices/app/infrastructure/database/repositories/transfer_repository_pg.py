@@ -104,11 +104,8 @@ class TransferRepositoryPg:
 
     def _require_document_reference(self, document_id: str) -> None:
         # Hold the reference until commit: a concurrent DELETE must wait, then SET NULL.
-        # This requires a narrowly scoped lock helper when runtime is restricted (TRANSFER-007).
-        identifier = self._session.scalar(select(DocumentModel.document_id).where(
-            DocumentModel.document_id == document_id,
-        ).with_for_update(read=True, key_share=True))
-        if identifier is None or not self._accessible_documents().filter(DocumentModel.document_id == document_id).first():
+        exists = self._session.scalar(text("SELECT public.transfer_lock_document_reference(:id)"), {"id": document_id})
+        if not exists or not self._accessible_documents().filter(DocumentModel.document_id == document_id).first():
             raise NotFoundError("Document not found.")
 
     def _accessible_documents(self):

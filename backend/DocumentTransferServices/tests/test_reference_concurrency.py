@@ -27,13 +27,13 @@ def wait_for_lock(engine, pid, future):
 
 
 @pytest.mark.parametrize("operation", ["create", "patch"])
-def test_reference_first_blocks_delete_then_preserves_history(engine, committed_records, operation):
+def test_reference_first_blocks_delete_then_preserves_history(engine, runtime_engine, committed_records, operation):
     document, transfer, owner = committed_records
     reference_ready, release = Event(), Event()
     delete_pid = Queue()
 
     def write():
-        with Session(engine) as session:
+        with Session(runtime_engine) as session:
             def pause_before_commit(current):
                 reference_ready.set()
                 assert release.wait(10), "Reference transaction was not released"
@@ -68,12 +68,12 @@ def test_reference_first_blocks_delete_then_preserves_history(engine, committed_
 
 
 @pytest.mark.parametrize("operation", ["create", "patch"])
-def test_delete_first_rejects_reference_without_fk_error_and_recovers(engine, committed_records, operation):
+def test_delete_first_rejects_reference_without_fk_error_and_recovers(engine, runtime_engine, committed_records, operation):
     document, transfer, owner = committed_records
     write_pid = Queue()
 
     def write():
-        with Session(engine) as session:
+        with Session(runtime_engine) as session:
             write_pid.put(session.scalar(text("SELECT pg_backend_pid()")))
             repository = TransferRepositoryPg(session, {"user_id": owner})
             with pytest.raises(NotFoundError, match="Document not found"):
