@@ -12,6 +12,9 @@ from app.interfaces.api.v1.schemas.library_schema import (
     FolderCreateRequest,
     FolderResponse,
     FolderUpdateRequest,
+    MarkerRequest,
+    MarkerResponse,
+    Page,
 )
 
 router = APIRouter(responses={
@@ -24,9 +27,11 @@ router = APIRouter(responses={
 })
 
 
-@router.get("/folders", response_model=list[FolderResponse])
-def list_folders(parent_folder_id: Identifier | None = None, use_case: ManageLibrary = Depends(get_library_use_case)):
-    return [_folder_response(folder) for folder in use_case.list_folders(parent_folder_id)]
+@router.get("/folders", response_model=Page[FolderResponse])
+def list_folders(parent_folder_id: Identifier | None = None, limit: int = Query(default=50, ge=1, le=100),
+                 offset: int = Query(default=0, ge=0, le=1_000_000), use_case: ManageLibrary = Depends(get_library_use_case)):
+    page = use_case.list_folders(parent_folder_id, limit, offset)
+    return {**page, "items": [_folder_response(folder) for folder in page["items"]]}
 
 
 @router.post("/folders", response_model=FolderResponse, status_code=status.HTTP_201_CREATED)
@@ -50,9 +55,10 @@ def delete_folder(folder_id: Identifier, use_case: ManageLibrary = Depends(get_l
     return DeleteResponse(deleted=use_case.delete_folder(folder_id))
 
 
-@router.get("/folders/{folder_id}/documents", response_model=list[DocumentResponse])
-def folder_documents(folder_id: Identifier, use_case: ManageLibrary = Depends(get_library_use_case)):
-    return [_document_response(document) for document in use_case.list_folder_documents(folder_id)]
+@router.get("/folders/{folder_id}/documents", response_model=Page[DocumentResponse])
+def folder_documents(folder_id: Identifier, limit: int = Query(default=50, ge=1, le=100),
+                     offset: int = Query(default=0, ge=0, le=1_000_000), use_case: ManageLibrary = Depends(get_library_use_case)):
+    return _document_page(use_case.list_folder_documents(folder_id, limit, offset))
 
 
 @router.post("/folders/{folder_id}/documents/{document_id}", response_model=DeleteResponse)
@@ -77,14 +83,25 @@ def move_document_to_folder(
     return ActionResponse(success=True)
 
 
-@router.get("/library/recent", response_model=list[DocumentResponse])
-def recent_documents(limit: int = Query(default=20, ge=1, le=100), use_case: ManageLibrary = Depends(get_library_use_case)):
-    return [_document_response(document) for document in use_case.list_recent(limit)]
+@router.get("/library/recent", response_model=Page[DocumentResponse])
+def recent_documents(limit: int = Query(default=50, ge=1, le=100), offset: int = Query(default=0, ge=0, le=1_000_000),
+                     use_case: ManageLibrary = Depends(get_library_use_case)):
+    return _document_page(use_case.list_recent(limit, offset))
 
 
-@router.get("/library/favorites", response_model=list[DocumentResponse])
-def favorite_documents(use_case: ManageLibrary = Depends(get_library_use_case)):
-    return [_document_response(document) for document in use_case.list_favorites()]
+@router.get("/library/favorites", response_model=Page[DocumentResponse])
+def favorite_documents(limit: int = Query(default=50, ge=1, le=100), offset: int = Query(default=0, ge=0, le=1_000_000),
+                       use_case: ManageLibrary = Depends(get_library_use_case)):
+    return _document_page(use_case.list_favorites(limit, offset))
+
+
+@router.post("/library/markers", response_model=list[MarkerResponse])
+def document_markers(payload: MarkerRequest, use_case: ManageLibrary = Depends(get_library_use_case)):
+    return use_case.document_markers(payload.document_ids)
+
+
+def _document_page(page):
+    return {**page, "items": [_document_response(document) for document in page["items"]]}
 
 
 @router.post("/library/favorites/{document_id}", response_model=CountResponse)
@@ -118,4 +135,5 @@ def _document_response(document) -> DocumentResponse:
         status=document.status,
         chunk_count=getattr(document, "chunk_count", 0),
         updated_at=document.updated_at,
+        is_favorite=getattr(document, "is_favorite", False),
     )

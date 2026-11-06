@@ -15,6 +15,7 @@ from app.main import app
 
 
 OPERATIONS = [
+    ("POST", "/library/markers", {"document_ids": ["synthetic"]}),
     ("GET", "/folders", None), ("POST", "/folders", {"name": "Synthetic"}),
     ("PATCH", "/folders/synthetic", {"name": "Synthetic"}), ("DELETE", "/folders/synthetic", None),
     ("GET", "/folders/synthetic/documents", None), ("POST", "/folders/synthetic/documents/synthetic", None),
@@ -47,7 +48,7 @@ def test_health_and_signed_request_use_postgresql(configured_client, signing_key
     token = jwt.encode({"user_id": 2147483647, "exp": 4102444800, "token_type": "access"}, signing_key, algorithm="RS256")
     response = client.get("/api/v1/folders", headers={"Authorization": f"Bearer {token}"})
     assert response.status_code == 200
-    assert isinstance(response.json(), list)
+    assert set(response.json()) == {"items", "limit", "offset", "has_more"}
 
 
 @pytest.mark.parametrize("origin,allowed", [

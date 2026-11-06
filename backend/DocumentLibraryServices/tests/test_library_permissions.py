@@ -121,12 +121,12 @@ def test_all_lists_and_counts_use_one_document_policy(records, signing_key, acto
     for path in ("/library/recent?limit=100", "/library/favorites", f"/folders/{folders['mine']}/documents"):
         response = client.get(f"/api/v1{path}", headers=headers)
         assert response.status_code == 200
-        rows = response.json()
+        rows = response.json()["items"]
         assert {row["document_id"] for row in rows} == expected_ids - (
             {documents["nonprocessed"]} if path.startswith("/library/recent") else set())
         assert all(row["chunk_count"] == 1 for row in rows)
-        assert all(set(row) == {"document_id", "filename", "mime_type", "status", "chunk_count", "updated_at"} for row in rows)
-    rows = client.get("/api/v1/folders", headers=headers).json()
+        assert all(set(row) == {"document_id", "filename", "mime_type", "status", "chunk_count", "updated_at", "is_favorite"} for row in rows)
+    rows = client.get("/api/v1/folders", headers=headers).json()["items"]
     assert {row["folder_id"] for row in rows} == {folders["mine"], folders["empty"]}
     assert next(row["document_count"] for row in rows if row["folder_id"] == folders["mine"]) == len(expected_ids)
     assert next(row["document_count"] for row in rows if row["folder_id"] == folders["empty"]) == 0
@@ -139,11 +139,11 @@ def test_revocation_is_visible_in_each_subsequent_request(records, signing_key, 
     headers = authorization(signing_key)
     identifier = documents[kind]
     path = f"/api/v1/folders/{folders['mine']}/documents"
-    assert identifier in {row["document_id"] for row in client.get(path, headers=headers).json()}
+    assert identifier in {row["document_id"] for row in client.get(path, headers=headers).json()["items"]}
     session.execute(text("UPDATE document_assignments SET status = :status WHERE document_id = :id"), {"status": status, "id": identifier})
     for path in (path, "/api/v1/library/favorites", "/api/v1/library/recent?limit=100"):
-        assert identifier not in {row["document_id"] for row in client.get(path, headers=headers).json()}
-    rows = client.get("/api/v1/folders", headers=headers).json()
+        assert identifier not in {row["document_id"] for row in client.get(path, headers=headers).json()["items"]}
+    rows = client.get("/api/v1/folders", headers=headers).json()["items"]
     assert next(row["document_count"] for row in rows if row["folder_id"] == folders["mine"]) == len(BASE) - 1
 
 
@@ -165,23 +165,23 @@ def test_folders_remain_private(records, signing_key, superadmin):
 
 def test_valid_identity_has_precedence_over_sub_and_username(records, signing_key):
     client, _, _, folders, _, _ = records
-    rows = client.get("/api/v1/folders", headers=authorization(signing_key, sub="43", username="43")).json()
+    rows = client.get("/api/v1/folders", headers=authorization(signing_key, sub="43", username="43")).json()["items"]
     assert {row["folder_id"] for row in rows} == {folders["mine"], folders["empty"]}
 
 
 def test_owner_parent_and_superadmin_item_owner_are_checked(records, signing_key):
     client, _, documents, folders, _, _ = records
     response = client.get(f"/api/v1/folders?parent_folder_id={folders['mine']}", headers=authorization(signing_key))
-    assert {row["folder_id"] for row in response.json()} == {folders["child"]}
+    assert {row["folder_id"] for row in response.json()["items"]} == {folders["child"]}
     headers = authorization(signing_key, user_id=43, is_superadmin=True)
     response = client.get(f"/api/v1/folders/{folders['foreign']}/documents", headers=headers)
-    assert {row["document_id"] for row in response.json()} == {documents["owned"]}
-    rows = client.get("/api/v1/folders", headers=headers).json()
+    assert {row["document_id"] for row in response.json()["items"]} == {documents["owned"]}
+    rows = client.get("/api/v1/folders", headers=headers).json()["items"]
     assert {row["folder_id"] for row in rows} == {folders["foreign"]}
     assert rows[0]["document_count"] == 1
     headers = authorization(signing_key, user_id=43)
-    assert client.get(f"/api/v1/folders/{folders['foreign']}/documents", headers=headers).json() == []
-    assert client.get("/api/v1/folders", headers=headers).json()[0]["document_count"] == 0
+    assert client.get(f"/api/v1/folders/{folders['foreign']}/documents", headers=headers).json()["items"] == []
+    assert client.get("/api/v1/folders", headers=headers).json()["items"][0]["document_count"] == 0
 
 
 @pytest.mark.parametrize("kind", ["private", "cancelled", "expired", "owner_conflict", "foreign_group"])

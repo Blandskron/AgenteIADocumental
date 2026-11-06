@@ -39,7 +39,7 @@ import { hasTenantPermission, isTenantAdmin } from "../../entities/auth/model/au
 import { listUsers } from "../../features/auth/api/user-management.api";
 import { waitForDocumentProcessed } from "../../features/documents/api/document-status.poller";
 import { isDocumentProcessed } from "../../features/documents/lib/document-status";
-import { listFolderDocuments } from "../../features/document-library/api/document-library.api";
+import { LibraryPagination } from "../../features/document-library/ui/LibraryPagination";
 import {
   connectGoogleDrive,
   getGoogleDriveAuthUrl,
@@ -73,7 +73,7 @@ export function DocumentSearchPage({ activeView = appRoutes.documents, onNavigat
     setSelectedDocuments,
   } = useConversations(storageScope, conversationClient);
   const search = useDocumentSearch(documentSearchClient);
-  const library = useDocumentLibrary(documentLibraryClient);
+  const library = useDocumentLibrary(documentLibraryClient, search.documents);
   const transfers = useTransfers(documentTransferClient);
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [preview, setPreview] = useState(null);
@@ -93,7 +93,7 @@ export function DocumentSearchPage({ activeView = appRoutes.documents, onNavigat
   const managedDocuments = managed.items;
   const notifications = notificationList.items;
   const [viewMode, setViewMode] = useState("grid");
-  const [docFolderMap, setDocFolderMap] = useState({});
+  const [showRecent, setShowRecent] = useState(false);
   const [driveModalOpen, setDriveModalOpen] = useState(false);
   const [driveConnection, setDriveConnection] = useState({ connected: false });
   const [driveFileIds, setDriveFileIds] = useState("");
@@ -143,25 +143,6 @@ export function DocumentSearchPage({ activeView = appRoutes.documents, onNavigat
       })
       .catch((error) => setActionError(error.message));
   }, [googleDriveImportClient]);
-
-  useEffect(() => {
-    if (library.folders.length > 0) {
-      library.folders.forEach(async (folder) => {
-        try {
-          const docs = await listFolderDocuments(documentLibraryClient, folder.folderId);
-          setDocFolderMap((prev) => {
-            const next = { ...prev };
-            docs.forEach((d) => {
-              next[d.documentId] = folder.name;
-            });
-            return next;
-          });
-        } catch (e) {
-          // ignore
-        }
-      });
-    }
-  }, [library.folders, documentLibraryClient]);
 
   const handleTriggerUpload = () => {
     if (!canUploadDocuments) {
@@ -446,13 +427,15 @@ export function DocumentSearchPage({ activeView = appRoutes.documents, onNavigat
     ? library.favoriteDocuments
     : isFoldersView && library.selectedFolder
       ? library.folderDocuments
-      : search.documents;
+      : showRecent ? library.recentDocuments : search.documents;
+
+  const documentPageKey = isFavoritesView ? "favorites" : isFoldersView ? "content" : showRecent ? "recent" : null;
+  const displayedDocumentCount = isAssignmentsView ? assignedDocuments.length : isManagedView ? managedDocuments.length
+    : isNotificationsView || (isFoldersView && !library.selectedFolder) ? 0 : activeDocuments.length;
 
   const totalDocsCount = library.recentDocuments.length;
   const totalFavoritesCount = library.favoriteDocuments.length;
   const totalFoldersCount = library.folders.length;
-  const calculatedSpaceGB = (library.recentDocuments.reduce((acc, doc) => acc + (doc.chunkCount || 1) * 0.45, 0) + 21.2).toFixed(1);
-  const sharedDocsCount = Math.max(3, Math.floor(library.recentDocuments.length * 0.4));
 
   const combinedError = (!isFoldersView && !isFavoritesView && !isAssignmentsView && !isManagedView && !isNotificationsView ? search.error : "") || actionError || assigned.error || managed.error || notificationList.error || library.error;
 
@@ -492,6 +475,10 @@ export function DocumentSearchPage({ activeView = appRoutes.documents, onNavigat
               <p>Gestiona y organiza todos tus archivos empresariales</p>
             </div>
             <div className="library-header-actions">
+              <button className="action-button-secondary" type="button" disabled={library.isLoading}
+                onClick={() => Promise.all([library.refreshLibrary(), search.runSearch()])}>
+                Actualizar biblioteca
+              </button>
               <button 
                 className="action-button-secondary" 
                 type="button" 
@@ -513,19 +500,19 @@ export function DocumentSearchPage({ activeView = appRoutes.documents, onNavigat
           {/* Tarjetas de Estadísticas KPI */}
           <div className="kpi-container">
             <article className="kpi-card">
-              <span className="kpi-card-title">Total Documentos</span>
+              <span className="kpi-card-title">Recientes cargados</span>
               <strong className="kpi-card-value">{totalDocsCount}</strong>
-              <span className="kpi-card-sub">{totalFavoritesCount} favoritos</span>
+              <span className="kpi-card-sub">{totalFavoritesCount} favoritos cargados</span>
             </article>
             <article className="kpi-card">
-              <span className="kpi-card-title">Carpetas</span>
+              <span className="kpi-card-title">Carpetas raíz cargadas</span>
               <strong className="kpi-card-value">{totalFoldersCount}</strong>
-              <span className="kpi-card-sub">Organizadas</span>
+              <span className="kpi-card-sub">Organización personal</span>
             </article>
             <article className="kpi-card">
-              <span className="kpi-card-title">Espacio Usado</span>
-              <strong className="kpi-card-value">{calculatedSpaceGB} GB</strong>
-              <span className="kpi-card-sub">de 100 GB</span>
+              <span className="kpi-card-title">Documentos en pantalla</span>
+              <strong className="kpi-card-value">{displayedDocumentCount}</strong>
+              <span className="kpi-card-sub">Registros cargados</span>
             </article>
             <article className="kpi-card">
               <span className="kpi-card-title">Pendientes cargados</span>
@@ -537,12 +524,16 @@ export function DocumentSearchPage({ activeView = appRoutes.documents, onNavigat
           {/* Pestañas de Sub-Navegación */}
           <div className="documents-subtabs">
             <button
-              className={`documents-subtab-btn ${activeView === appRoutes.documents ? "active" : ""}`}
-              onClick={() => onNavigate?.(appRoutes.documents)}
+              className={`documents-subtab-btn ${!showRecent && activeView === appRoutes.documents ? "active" : ""}`}
+              onClick={() => { setShowRecent(false); onNavigate?.(appRoutes.documents); }}
               type="button"
             >
               <FileText size={15} />
               Todos
+            </button>
+            <button className={`documents-subtab-btn ${showRecent && activeView === appRoutes.documents ? "active" : ""}`}
+              type="button" onClick={() => { setShowRecent(true); onNavigate?.(appRoutes.documents); }}>
+              Actualizados recientemente
             </button>
             <button
               className={`documents-subtab-btn ${isAssignmentsView ? "active" : ""}`}
@@ -587,7 +578,7 @@ export function DocumentSearchPage({ activeView = appRoutes.documents, onNavigat
           </div>
 
           {/* Controles de Búsqueda y Filtros */}
-          {!isFoldersView && !isAssignmentsView && !isManagedView && !isNotificationsView && (
+          {!isFoldersView && !isFavoritesView && !showRecent && !isAssignmentsView && !isManagedView && !isNotificationsView && (
             <div className="documents-control-row">
               <DocumentSearchBar
                 isLoading={search.isLoading}
@@ -623,8 +614,8 @@ export function DocumentSearchPage({ activeView = appRoutes.documents, onNavigat
           {isFoldersView && (
             <section className="folder-management">
               <div className="section-header-row">
-                <h3>Carpetas Organizadas</h3>
-                <span className="section-header-badge">{library.folders.length} carpetas</span>
+                <h3>Carpetas raíz</h3>
+                <span className="section-header-badge">{library.folders.length} carpetas cargadas</span>
               </div>
 
               <div className="folder-grid">
@@ -644,7 +635,7 @@ export function DocumentSearchPage({ activeView = appRoutes.documents, onNavigat
                       <div className="folder-card-info">
                         <span className="folder-card-name">{folder.name}</span>
                         <small className="folder-card-count">{formatFolderCount(folder)} archivos</small>
-                        <small className="folder-card-time">Hace 1 día</small>
+                        <small className="folder-card-time">{formatDate(folder.updatedAt)}</small>
                       </div>
                     </button>
                   );
@@ -653,12 +644,13 @@ export function DocumentSearchPage({ activeView = appRoutes.documents, onNavigat
                   <div className="empty-documents">Aún no tienes carpetas creadas.</div>
                 )}
               </div>
+              <LibraryPagination page={library.pages.folders} label="carpetas" onLoadMore={() => library.loadMore("folders")} />
 
               {library.selectedFolder && (
                 <div className="selected-folder-row">
                   <div>
                     <strong>{library.selectedFolder.name}</strong>
-                    <span>{library.folderDocuments.length} documentos en esta carpeta</span>
+                    <span>{library.folderDocuments.length} documentos cargados</span>
                   </div>
                   <button type="button" onClick={library.closeFolder}>
                     <X size={15} /> Cerrar carpeta
@@ -708,8 +700,8 @@ export function DocumentSearchPage({ activeView = appRoutes.documents, onNavigat
           {(!isFoldersView || library.selectedFolder) && !isAssignmentsView && !isManagedView && !isNotificationsView && (
             <section className="documents-list-section">
               <div className="section-header-row" style={{ marginTop: isFoldersView ? "24px" : "0" }}>
-                <h3>{isFavoritesView ? "Favoritos" : isFoldersView ? library.selectedFolder.name : "Todos los Documentos"}</h3>
-                <span className="section-header-badge">{activeDocuments.length} documentos</span>
+                <h3>{isFavoritesView ? "Favoritos" : isFoldersView ? library.selectedFolder.name : showRecent ? "Actualizados recientemente" : "Todos los Documentos"}</h3>
+                <span className="section-header-badge">{activeDocuments.length} documentos cargados</span>
               </div>
 
               <div className={`document-results ${viewMode}`}>
@@ -718,7 +710,7 @@ export function DocumentSearchPage({ activeView = appRoutes.documents, onNavigat
                     key={document.documentId}
                     document={document}
                     isFavorite={library.favoriteIds.has(document.documentId)}
-                    folderName={docFolderMap[document.documentId]}
+                    folderName={isFoldersView ? library.selectedFolder?.name : undefined}
                     onDelete={openDeleteModal}
                     onAssign={openAssignmentModal}
                     onDownload={downloadSelectedDocument}
@@ -737,6 +729,7 @@ export function DocumentSearchPage({ activeView = appRoutes.documents, onNavigat
                   <div className="empty-documents">{emptyStateText(activeView, library.selectedFolder)}</div>
                 )}
               </div>
+              {documentPageKey && <LibraryPagination page={library.pages[documentPageKey]} onLoadMore={() => library.loadMore(documentPageKey)} />}
             </section>
           )}
         </section>
@@ -764,6 +757,9 @@ export function DocumentSearchPage({ activeView = appRoutes.documents, onNavigat
         <MoveDocumentModal
           document={moveModal.document}
           folders={library.folders}
+          page={library.pages.folders}
+          error={library.error}
+          onLoadMore={() => library.loadMore("folders")}
           isOpen={moveModal.open}
           onClose={closeMoveModal}
           onMove={moveSelectedDocument}
@@ -819,6 +815,7 @@ export function DocumentSearchPage({ activeView = appRoutes.documents, onNavigat
                   await library.openFolder(folder);
                 }
               }} style={{ padding: "20px", display: "flex", flexDirection: "column", gap: "14px" }}>
+                {library.error && <p role="alert">{library.error}</p>}
                 <input
                   id="new-folder-name-input"
                   className="modal-input"
@@ -869,7 +866,7 @@ export function DocumentSearchPage({ activeView = appRoutes.documents, onNavigat
   );
 }
 
-function MoveDocumentModal({ document, folders, isOpen, onClose, onMove }) {
+function MoveDocumentModal({ document, folders, page, error, onLoadMore, isOpen, onClose, onMove }) {
   if (!isOpen) return null;
 
   return (
@@ -891,6 +888,7 @@ function MoveDocumentModal({ document, folders, isOpen, onClose, onMove }) {
           </button>
         </header>
         <div className="move-folder-list">
+          {error && <p role="alert">{error}</p>}
           {folders.map((folder) => (
             <button key={folder.folderId} type="button" onClick={() => onMove(folder.folderId)}>
               <Folder size={18} />
@@ -898,7 +896,8 @@ function MoveDocumentModal({ document, folders, isOpen, onClose, onMove }) {
               <small>{formatFolderCount(folder)} archivos</small>
             </button>
           ))}
-          {!folders.length && <p>No tienes carpetas creadas.</p>}
+          {!folders.length && !page.loading && <p>No tienes carpetas raíz creadas.</p>}
+          <LibraryPagination page={page} label="carpetas raíz" onLoadMore={onLoadMore} />
         </div>
         <footer>
           <button type="button" onClick={() => onMove(null)}>
