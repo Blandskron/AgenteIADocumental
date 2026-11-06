@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 
 from app.application.use_cases.manage_transfers import ManageTransfers
 from app.interfaces.api.v1.dependencies import get_transfer_use_case
-from app.interfaces.api.v1.schemas.transfer_schema import CountResponse, Identifier, TransferCreateRequest, TransferResponse, TransferUpdateRequest
+from app.interfaces.api.v1.schemas.transfer_schema import CountResponse, Identifier, TransferCreateRequest, TransferPage, TransferResponse, TransferUpdateRequest
 
 router = APIRouter(responses={
     400: {"description": "Invalid request body."},
@@ -15,9 +15,11 @@ router = APIRouter(responses={
 })
 
 
-@router.get("/transfers", response_model=list[TransferResponse])
-def list_transfers(limit: int = Query(default=50, ge=1, le=200), use_case: ManageTransfers = Depends(get_transfer_use_case)):
-    return [_transfer_response(transfer) for transfer in use_case.list(limit)]
+@router.get("/transfers", response_model=TransferPage)
+def list_transfers(limit: int = Query(default=50, ge=1, le=200), offset: int = Query(default=0, ge=0, le=10000),
+                   use_case: ManageTransfers = Depends(get_transfer_use_case)):
+    page = use_case.list(limit, offset)
+    return {**page, "items": [_transfer_response(transfer) for transfer in page["items"]]}
 
 
 @router.post("/transfers", response_model=TransferResponse)

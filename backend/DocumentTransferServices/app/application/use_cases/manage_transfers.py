@@ -2,8 +2,8 @@ class ManageTransfers:
     def __init__(self, repository) -> None:
         self._repository = repository
 
-    def list(self, limit):
-        return self._repository.list(limit)
+    def list(self, limit, offset=0):
+        return self._repository.list(limit, offset)
 
     def create(self, payload):
         return self._repository.create(_orm_payload(payload.model_dump()))

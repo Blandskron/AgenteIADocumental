@@ -62,7 +62,7 @@ def test_metadata_round_trip_uses_real_column_and_patch_nulls_are_explicit(recor
     identifier = response.json()["transfer_id"]
     assert response.json()["metadata"] == metadata
     assert session.scalar(text("SELECT metadata FROM transfer_events WHERE transfer_id=:id"), {"id": identifier}) == metadata
-    assert client.get("/api/v1/transfers", headers=headers).json()[0]["metadata"] == metadata
+    assert client.get("/api/v1/transfers", headers=headers).json()["items"][0]["metadata"] == metadata
     response = client.patch(f"/api/v1/transfers/{identifier}", headers=headers, json={"progress": 50})
     assert response.json()["metadata"] == metadata
     assert response.json()["document_id"] == document
@@ -77,7 +77,7 @@ def test_metadata_round_trip_uses_real_column_and_patch_nulls_are_explicit(recor
     assert response.json()["metadata"] == {} and response.json()["document_id"] is None and response.json()["size_bytes"] is None
     assert session.execute(text("SELECT metadata, document_id, size_bytes FROM transfer_events WHERE transfer_id=:id"),
                            {"id": identifier}).one() == ({}, None, None)
-    assert client.get("/api/v1/transfers", headers=headers).json()[0]["metadata"] == {}
+    assert client.get("/api/v1/transfers", headers=headers).json()["items"][0]["metadata"] == {}
     assert session.scalar(text("SELECT count(*) FROM documents WHERE document_id=:id"), {"id": document}) == 1
     assert event_count(session, owner) == 1
 

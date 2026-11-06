@@ -47,7 +47,7 @@ app.include_router(api_router)
 @app.exception_handler(RequestValidationError)
 async def request_validation_handler(request: Request, exc: RequestValidationError) -> JSONResponse:
     fields = {"body", "path", "query", "filename", "direction", "status", "progress", "document_id",
-              "size_bytes", "metadata", "transfer_id", "limit"}
+              "size_bytes", "metadata", "transfer_id", "limit", "offset"}
     errors = [{
         "loc": [part if isinstance(part, int) or part in fields else "field" for part in error["loc"]],
         "msg": "Invalid request value.", "type": error["type"],

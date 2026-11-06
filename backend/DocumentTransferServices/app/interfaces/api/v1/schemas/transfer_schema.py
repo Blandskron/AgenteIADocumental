@@ -94,3 +94,10 @@ class TransferResponse(BaseModel):
 
 class CountResponse(BaseModel):
     count: int
+
+
+class TransferPage(BaseModel):
+    items: list[TransferResponse]
+    limit: int
+    offset: int
+    has_more: bool

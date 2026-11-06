@@ -137,14 +137,14 @@ def test_signed_create_list_update_and_cleanup_are_rolled_back(configured_client
                 assert response.status_code == 200
                 transfer_id = response.json()["transfer_id"]
                 assert response.json()["owner_user_id"] == str(owner)
-                assert [row["transfer_id"] for row in client.get("/api/v1/transfers", headers=headers).json()] == [transfer_id]
+                assert [row["transfer_id"] for row in client.get("/api/v1/transfers", headers=headers).json()["items"]] == [transfer_id]
                 response = client.patch(f"/api/v1/transfers/{transfer_id}", headers=headers,
                                         json={"status": "COMPLETED", "progress": 100})
                 assert response.status_code == 200
                 assert response.json()["status"] == "COMPLETED"
                 assert response.json()["progress"] == 100
                 assert client.delete("/api/v1/transfers/history", headers=headers).json() == {"count": 1}
-                assert client.get("/api/v1/transfers", headers=headers).json() == []
+                assert client.get("/api/v1/transfers", headers=headers).json()["items"] == []
                 # Leave a committed savepoint row to prove the outer rollback removes it.
                 remaining = client.post("/api/v1/transfers", headers=headers,
                                         json={"filename": "synthetic-rollback.txt", "direction": "DOWNLOAD"})

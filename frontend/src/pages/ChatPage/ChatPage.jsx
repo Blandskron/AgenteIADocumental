@@ -5,6 +5,7 @@ import { useAuthContext } from "../../app/providers/AuthProvider";
 import { appRoutes } from "../../app/router/routes";
 import { AppShell } from "../../shared/layouts/AppShell";
 import { TransferModal } from "../../shared/components/TransferModal/TransferModal";
+import { TransferWarning } from "../../shared/components/TransferModal/TransferWarning";
 import { useScrollToBottom } from "../../shared/hooks/useScrollToBottom";
 import { useChat } from "../../features/chat/hooks/useChat";
 import { useConversations } from "../../features/conversations/hooks/useConversations";
@@ -198,8 +199,13 @@ export function ChatPage({ onNavigate }) {
           }
         />
 
+        <TransferWarning warning={transfers.warning} onDismiss={transfers.dismissWarning} />
         <TransferModal
           error={transfers.error}
+          isClearing={transfers.isClearing}
+          hasMore={transfers.hasMore}
+          onLoadMore={transfers.loadMore}
+          onRefresh={transfers.refreshTransfers}
           isLoading={transfers.isLoading}
           isOpen={transfersOpen}
           onClearHistory={transfers.clearHistory}

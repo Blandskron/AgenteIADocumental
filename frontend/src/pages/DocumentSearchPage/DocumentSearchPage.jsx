@@ -7,9 +7,10 @@ import { useAuthContext } from "../../app/providers/AuthProvider";
 import { AppShell } from "../../shared/layouts/AppShell";
 import { IconButton } from "../../shared/components/IconButton/IconButton";
 import { TransferModal } from "../../shared/components/TransferModal/TransferModal";
+import { TransferWarning } from "../../shared/components/TransferModal/TransferWarning";
 import { useConversations } from "../../features/conversations/hooks/useConversations";
 import { useDocumentLibrary } from "../../features/document-library/hooks/useDocumentLibrary";
-import { transferFailureUpdate } from "../../features/transfers/lib/failure-update";
+import { runDocumentUpload, runDocumentDownload } from "../../features/transfers/document-transfer-flows.js";
 import {
   acceptAssignment,
   assignDocument,
@@ -225,39 +226,14 @@ export function DocumentSearchPage({ activeView = appRoutes.documents, onNavigat
     const file = event.target.files?.[0];
     if (!file) return;
     setActionError("");
-    let transfer = null;
     try {
-      transfer = await transfers.recordTransfer({
-        filename: file.name,
-        direction: "UPLOAD",
-        status: "RUNNING",
-        progress: 15,
-        size_bytes: file.size,
+      await runDocumentUpload({
+        transfers, file, upload: () => uploadDocument(documentClient, { file }),
+        poll: (id) => waitForDocumentProcessed(documentClient, id), isProcessed: isDocumentProcessed,
       });
-
-      const doc = await uploadDocument(documentClient, { file });
-
-      await transfers.patchTransfer(transfer?.transferId, {
-        document_id: doc.documentId,
-        progress: isDocumentProcessed(doc.status) ? 100 : 65,
-        status: isDocumentProcessed(doc.status) ? "COMPLETED" : "RUNNING",
-      });
-
-      if (!isDocumentProcessed(doc.status)) {
-        await waitForDocumentProcessed(documentClient, doc.documentId);
-        await transfers.patchTransfer(transfer?.transferId, {
-          document_id: doc.documentId,
-          progress: 100,
-          status: "COMPLETED",
-        });
-      }
-
       await search.runSearch();
       await library.refreshLibrary();
     } catch (err) {
-      if (transfer) {
-        await transfers.patchTransfer(transfer?.transferId, transferFailureUpdate(err));
-      }
       setActionError(err.message);
     } finally {
       if (fileInputRef.current) fileInputRef.current.value = "";
@@ -293,23 +269,9 @@ export function DocumentSearchPage({ activeView = appRoutes.documents, onNavigat
 
   async function downloadSelectedDocument(document) {
     setActionError("");
-    let transfer = null;
     try {
-      transfer = await transfers.recordTransfer({
-        filename: document.filename,
-        direction: "DOWNLOAD",
-        status: "RUNNING",
-        progress: 40,
-        document_id: document.documentId,
-      });
-      await downloadDocument(documentAccessClient, document);
-      await transfers.patchTransfer(transfer?.transferId, {
-        status: "COMPLETED",
-        progress: 100,
-        document_id: document.documentId,
-      });
+      await runDocumentDownload({ transfers, document, download: () => downloadDocument(documentAccessClient, document) });
     } catch (requestError) {
-      await transfers.patchTransfer(transfer?.transferId, transferFailureUpdate(requestError));
       setActionError(requestError.message);
     }
   }
@@ -726,8 +688,13 @@ export function DocumentSearchPage({ activeView = appRoutes.documents, onNavigat
           )}
         </section>
 
+        <TransferWarning warning={transfers.warning} onDismiss={transfers.dismissWarning} />
         <TransferModal
           error={transfers.error}
+          isClearing={transfers.isClearing}
+          hasMore={transfers.hasMore}
+          onLoadMore={transfers.loadMore}
+          onRefresh={transfers.refreshTransfers}
           isLoading={transfers.isLoading}
           isOpen={transfersOpen}
           onClearHistory={transfers.clearHistory}

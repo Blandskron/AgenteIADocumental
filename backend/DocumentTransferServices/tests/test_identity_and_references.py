@@ -176,7 +176,7 @@ def test_history_stays_private_and_legacy_owners_are_untouched(records, signing_
     client, session, documents, events, _, _ = records
     headers = authorization(signing_key, sub="43", username="unknown", is_superadmin=admin)
     response = client.get("/api/v1/transfers", headers=headers)
-    assert {row["transfer_id"] for row in response.json()} == {events["mine"]}
+    assert {row["transfer_id"] for row in response.json()["items"]} == {events["mine"]}
     for identifier in (events["foreign"], events["unknown"], events["legacy"], events["padded"], uuid4().hex):
         response = client.patch(f"/api/v1/transfers/{identifier}", headers=headers, json={"document_id": documents["owned"]})
         assert response.status_code == 404 and response.json() == {"detail": "Transfer not found."}
@@ -206,7 +206,7 @@ def test_revocation_rejects_new_references_but_preserves_personal_journal(record
     assert client.patch(f"/api/v1/transfers/{events['mine']}", headers=headers, json={"document_id": identifier}).status_code == 404
     # Updating an owned journal without a new reference grants no document access.
     assert client.patch(f"/api/v1/transfers/{event}", headers=headers, json={"progress": 50}).status_code == 200
-    rows = client.get("/api/v1/transfers", headers=headers).json()
+    rows = client.get("/api/v1/transfers", headers=headers).json()["items"]
     assert next(row for row in rows if row["transfer_id"] == event)["document_id"] == identifier
 
 
@@ -219,7 +219,7 @@ def test_document_delete_preserves_event_and_clear_preserves_document(records, s
     session.execute(text("DELETE FROM documents WHERE document_id=:id"), {"id": documents["owned"]})
     session.commit()
     session.expire_all()
-    rows = client.get("/api/v1/transfers", headers=headers).json()
+    rows = client.get("/api/v1/transfers", headers=headers).json()["items"]
     assert next(row for row in rows if row["transfer_id"] == event)["document_id"] is None
     assert client.delete("/api/v1/transfers/history", headers=headers).status_code == 200
     assert session.scalar(select(TransferEventModel.transfer_id).where(TransferEventModel.transfer_id == event)) == event
