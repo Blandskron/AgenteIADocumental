@@ -56,6 +56,8 @@ El acceso documental usa `document_access_runtime` y `ACCESS_DB_PASSWORD`. En Li
 
 La biblioteca documental usa `document_library_runtime`, `LIBRARY_DB_PASSWORD` y una función acotada para bloquear referencias sin poder modificar documentos. Ejecuta sin root y mantiene configuración explícita y CORS local; `LIBRARY_CORS_ORIGINS` y `LIBRARY_DB_POOL_*` permiten ajustarlos. [Arranque y pruebas de Library](backend/DocumentLibraryServices/README.md#arranque-y-permisos).
 
+El historial de transferencias recibe solo configuración explícita y CORS local; usa `TRANSFER_CORS_ORIGINS` y `TRANSFER_DB_POOL_*` para ajustarlos. Su healthcheck comprueba PostgreSQL y la clave pública. [Operación y pruebas de Transfer](backend/DocumentTransferServices/README.md#configuración-y-operación-transfer-002).
+
 Si otra instalación de PostgreSQL ocupa el puerto local 5432, configura `POSTGRES_HOST_PORT=15432` en `.env`. Los contenedores siguen conectándose a PostgreSQL por el puerto interno 5432.
 
 El agregador `docker/docker-compose.yml` carga:
