@@ -12,7 +12,7 @@ from test_reference_concurrency import wait_for_lock
 
 
 @pytest.mark.parametrize("scenario", ["progress", "terminal", "patch_clear", "clear_patch", "clear_clear", "create_clear", "rollback_clear"])
-def test_same_owner_writes_serialize_with_effective_results(engine, committed_records, scenario):
+def test_same_owner_writes_serialize_with_effective_results(engine, runtime_engine, committed_records, scenario):
     document, transfer, owner = committed_records
     paused, release = Event(), Event()
     second_pid = Queue()
@@ -21,7 +21,7 @@ def test_same_owner_writes_serialize_with_effective_results(engine, committed_re
             connection.execute(text("UPDATE transfer_events SET status='COMPLETED', progress=100 WHERE transfer_id=:id"), {"id": transfer})
 
     def first():
-        with Session(engine) as session:
+        with Session(runtime_engine) as session:
             def before_commit(current):
                 paused.set()
                 assert release.wait(10)
@@ -41,7 +41,7 @@ def test_same_owner_writes_serialize_with_effective_results(engine, committed_re
             return repository.update(transfer, payload)
 
     def second():
-        with Session(engine) as session:
+        with Session(runtime_engine) as session:
             second_pid.put(session.scalar(text("SELECT pg_backend_pid()")))
             repository = TransferRepositoryPg(session, {"user_id": owner})
             if scenario in ("patch_clear", "clear_clear", "create_clear", "rollback_clear"):
@@ -86,7 +86,7 @@ def test_same_owner_writes_serialize_with_effective_results(engine, committed_re
 
 
 @pytest.mark.parametrize("operation", ["clear", "patch"])
-def test_document_delete_and_history_mutation_use_safe_lock_order(engine, committed_records, operation):
+def test_document_delete_and_history_mutation_use_safe_lock_order(engine, runtime_engine, committed_records, operation):
     document, transfer, owner = committed_records
     with engine.begin() as connection:
         connection.execute(text("UPDATE transfer_events SET document_id=:document, status='COMPLETED', progress=100 WHERE transfer_id=:id"),
@@ -94,7 +94,7 @@ def test_document_delete_and_history_mutation_use_safe_lock_order(engine, commit
     waiting_pid = Queue()
 
     def mutate():
-        with Session(engine) as session:
+        with Session(runtime_engine) as session:
             waiting_pid.put(session.scalar(text("SELECT pg_backend_pid()")))
             repository = TransferRepositoryPg(session, {"user_id": owner})
             if operation == "clear":
@@ -122,17 +122,17 @@ def test_document_delete_and_history_mutation_use_safe_lock_order(engine, commit
         pool.shutdown(wait=True)
 
 
-def test_other_owners_are_independent(engine, committed_records):
+def test_other_owners_are_independent(engine, runtime_engine, committed_records):
     _, transfer, owner = committed_records
     pool = ThreadPoolExecutor(max_workers=1)
 
     def other_owner():
-        with Session(engine) as session:
+        with Session(runtime_engine) as session:
             return TransferRepositoryPg(session, {"user_id": owner + 1}).create({
                 "filename": "synthetic.txt", "direction": "UPLOAD", "status": "PENDING"})
 
     try:
-        with Session(engine) as session:
+        with Session(runtime_engine) as session:
             repository = TransferRepositoryPg(session, {"user_id": owner})
             repository._lock_owner()
             row = pool.submit(other_owner).result(timeout=5)
@@ -145,7 +145,7 @@ def test_other_owners_are_independent(engine, committed_records):
 
 
 @pytest.mark.parametrize("operation", ["clear", "patch"])
-def test_history_mutation_first_allows_document_delete_to_finish(engine, committed_records, operation):
+def test_history_mutation_first_allows_document_delete_to_finish(engine, runtime_engine, committed_records, operation):
     document, transfer, owner = committed_records
     with engine.begin() as connection:
         connection.execute(text("UPDATE transfer_events SET document_id=:document, status='COMPLETED', progress=100 WHERE transfer_id=:id"),
@@ -153,7 +153,7 @@ def test_history_mutation_first_allows_document_delete_to_finish(engine, committ
     paused, release, deleting_pid = Event(), Event(), Queue()
 
     def mutate():
-        with Session(engine) as session:
+        with Session(runtime_engine) as session:
             def before_commit(current):
                 paused.set()
                 assert release.wait(10)
@@ -185,9 +185,9 @@ def test_history_mutation_first_allows_document_delete_to_finish(engine, committ
         pool.shutdown(wait=True)
 
 
-def test_real_commit_failure_rolls_back_then_session_recovers(engine, committed_records):
+def test_real_commit_failure_rolls_back_then_session_recovers(engine, runtime_engine, committed_records):
     _, transfer, owner = committed_records
-    with Session(engine) as session:
+    with Session(runtime_engine) as session:
         def fail(current):
             raise RuntimeError("Synthetic commit interruption")
         event.listen(session, "before_commit", fail, once=True)

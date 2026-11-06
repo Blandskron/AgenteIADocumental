@@ -2,7 +2,7 @@
 
 Registra el historial personal de cargas y descargas mediante FastAPI, SQLAlchemy y PostgreSQL. No recibe archivos, no los descarga ni procesa documentos. Los clientes informan nombres, estados y progreso; este historial no prueba que un navegador haya guardado un archivo ni sustituye la auditoría de DocumentAccessServices. El puerto local de Compose es `8007`.
 
-TRANSFER-001 establece el diagnóstico histórico de la base. TRANSFER-002 incorpora configuración aislada, disponibilidad y pruebas permanentes; TRANSFER-003 establece identidad canónica y referencias autorizadas. TRANSFER-004 corrige metadatos, nulos y límites de entradas. TRANSFER-005 define estados, progreso y limpieza serializada. TRANSFER-006 añade páginas y separa el diario de la operación documental. Ejecución restringida y cierre conservan sus tarjetas. Las correcciones avanzan por incrementos en el [tablero](../../ROADMAP.md#documenttransferservices); [AGENTS.md](AGENTS.md) indica cómo intervenir. Este documento distingue comportamiento observado, decisiones propuestas y comprobaciones pendientes.
+TRANSFER-001 establece el diagnóstico histórico de la base. TRANSFER-002 incorpora configuración aislada, disponibilidad y pruebas permanentes; TRANSFER-003 establece identidad canónica y referencias autorizadas. TRANSFER-004 corrige metadatos, nulos y límites de entradas. TRANSFER-005 define estados, progreso y limpieza serializada. TRANSFER-006 añade páginas y separa el diario de la operación documental. TRANSFER-007 restringe ejecución y registra la auditoría; el cierre documental continúa en TRANSFER-008. Las correcciones avanzan por incrementos en el [tablero](../../ROADMAP.md#documenttransferservices); [AGENTS.md](AGENTS.md) indica cómo intervenir. Este documento distingue comportamiento observado, decisiones propuestas y comprobaciones pendientes.
 
 ## Recorrido y responsabilidades
 
@@ -24,7 +24,7 @@ Todas las rutas de negocio exigen firma RS256, `token_type: access`, `user_id` e
 | Método y ruta bajo `/api/v1` | Comportamiento actual |
 | --- | --- |
 | `GET /health` | Público; devuelve `{"status":"ok"}` como comprobación de vida. |
-| `GET /health/db` | Público; valida una clave pública RSA legible y consulta las proyecciones requeridas de `transfer_events`, `documents` y `document_assignments` con LIMIT 0, sin leer filas. Clave o PostgreSQL no disponibles devuelven 503 genérico. No audita restricciones, índices ni el esquema de otros servicios. |
+| `GET /health/db` | Público; valida una clave pública RSA legible y consulta las proyecciones requeridas de `transfer_events`, `documents` y `document_assignments` con LIMIT 0, sin leer filas. Comprueba también EXECUTE y ejecución de la función acotada de referencia, incluido el permiso de lectura de su propietario. Clave, esquema o permisos no disponibles devuelven 503 genérico; no audita todas las restricciones o índices. |
 | `GET /transfers?limit=50&offset=0` | Página privada con items, limit, offset y has_more; limit de 1 a 200 y offset de 0 a 10000. Orden por created_at e ID descendentes, consultando una fila extra. |
 | `POST /transfers` | Crea un evento del propietario canónico; una referencia documental exige acceso vigente. Responde HTTP 200. |
 | `PATCH /transfers/{transfer_id}` | Actualiza solo campos enviados de un evento propio. document_id y size_bytes admiten null para retirarlos; una referencia no nula revalida acceso. Evento ajeno o inexistente: 404. |
@@ -92,7 +92,7 @@ El servicio no exige PROCESSED, embeddings ni allow_download para registrar una 
 
 Cada vínculo enviado se revalida, incluso si coincide con el anterior. Omitir document_id permite actualizar el diario propio tras una revocación; enviar document_id: null retira la referencia, sin leer el documento ni borrar su historial. Se usa FOR KEY SHARE durante la transacción para impedir que un borrado entre la comprobación y la escritura produzca una FK inválida. Si borra primero, el vínculo responde 404; si vincula primero, el borrado espera y SET NULL conserva el evento. Las excepciones de alta/actualización revierten la sesión. No se afirma serialización total frente a cambios simultáneos de permisos: la política consulta el estado visible en la comprobación, y el JWT mantiene los claims emitidos hasta su renovación/expiración, como los demás servicios. TRANSFER-005 define las reglas de estados y las carreras de limpieza.
 
-La imagen actual usa postgres. FOR KEY SHARE requiere privilegios de bloqueo; TRANSFER-007 deberá sustituirlo por una capacidad acotada al introducir el rol mínimo, manteniendo las pruebas concurrentes y sin conceder UPDATE documental genérico al runtime.
+El runtime usa document_transfer_runtime y adquiere KEY SHARE mediante public.transfer_lock_document_reference(text), propiedad de un rol sin login. No recibe UPDATE sobre documentos; la función consulta la tabla public.documents explícitamente y no concede acceso documental al cliente. Las pruebas concurrentes usan el login real del runtime.
 
 ### Auditoría de propietarios históricos
 
@@ -142,7 +142,7 @@ Un PATCH idéntico puede repetirse y no emite otro UPDATE ni altera fechas; envi
 
 Todas las escrituras del servicio toman un advisory lock transaccional por propietario. Las solicitudes de la misma persona se ordenan; otras personas no comparten ese bloqueo. PATCH vuelve a leer la fila con FOR UPDATE y populate_existing, evitando validar una versión obsoleta. Al adjuntar un documento el orden es propietario → documento (KEY SHARE) → evento, compatible con el borrado documental y su SET NULL. No se bloquea el documento al corregir solo el diario o al retirar la referencia.
 
-Alta y PATCH hacen flush/refresh y separan la respuesta del ORM mientras conservan sus bloqueos; después confirman. Así, una limpieza posterior puede retirar la fila sin provocar un refresh o una carga diferida fallida en la respuesta anterior. Un fallo de confirmación devuelve error y revierte la operación; no se devuelve una instantánea de éxito si falló commit. El protocolo coordina escritores de este servicio; no impone estas reglas a escrituras SQL externas ni crea restricciones nuevas en el esquema compartido. El rol mínimo y la capacidad de bloqueo siguen en TRANSFER-007.
+Alta y PATCH hacen flush/refresh y separan la respuesta del ORM mientras conservan sus bloqueos; después confirman. Así, una limpieza posterior puede retirar la fila sin provocar un refresh o una carga diferida fallida en la respuesta anterior. Un fallo de confirmación devuelve error y revierte la operación; no se devuelve una instantánea de éxito si falló commit. El protocolo coordina escritores de este servicio; no impone estas reglas a escrituras SQL externas ni crea restricciones nuevas en el esquema compartido. TRANSFER-007 restringe el rol e incorpora la capacidad acotada de bloqueo.
 
 DELETE history ejecuta un único DELETE SQL con subconsulta limitada a 1000 terminales propios, ordenados por created_at e ID. No carga sus objetos en Python ni borra documentos, archivos o eventos ajenos. Devuelve el contador efectivo; otra limpieza serializada no cuenta dos veces las mismas filas. Activos, altas posteriores y terminales fuera del lote permanecen. La interfaz informa el límite, refresca la primera página y permite repetir la acción. TRANSFER-006 incorpora páginas, descarta respuestas tardías y presenta errores sin vaciar silenciosamente un contrato inválido.
 
@@ -166,9 +166,66 @@ El modal muestra todos los registros cargados mediante scroll, controles Actuali
 
 Evidencia: 288 pruebas PostgreSQL/HTTP y 60 frontend, Ruff, npm ci/test/build, pip check, Compose y arranque saludable aprobados. La suite backend recorre 207 eventos privados con fechas empatadas, páginas 100/100/7, final vacío y cotas de offset. Web prueba carga incremental, deduplicación/avance bruto, clics repetidos, errores, refresh/reinicio/disposición, respuestas tardías y limpieza con recarga fallida. Los tres flujos se prueban con alta fallida, PATCH fallido, alta pendiente, error documental original y etapas ordenadas después de alta lenta; ninguna operación documental se repite. El render SSR del componente verifica doce filas, tamaño cero, controles y aviso accesible fuera del modal; no equivale a un recorrido visual completo de navegador ni a auditoría de accesibilidad. No se usan IA/OAuth ni archivos reales. Persisten los seguimientos npm e imagen/dependencias.
 
+## Ejecución restringida y operación (TRANSFER-007)
+
+Compose ejecuta la imagen como UID/GID 10007, retira todas las capacidades Linux y aplica no-new-privileges. El contenedor no monta documentos ni claves privadas; conserva solo la clave pública de Auth en modo lectura. Las etapas test y audit separan pytest/Ruff/httpx/pip-audit de runtime. El inventario final tiene 30 distribuciones Python; pip check y la ausencia de herramientas se comprueban en CI.
+
+transfer-db-role espera al esquema compartido y provisiona document_transfer_runtime y document_transfer_reference_owner con una transacción y el bloqueo global de aprovisionamiento. El primero tiene login, sin superusuario, creación de roles/bases, herencia, replicación ni bypass de RLS; el propietario de referencia no tiene login. Ninguno recibe membresías o CREATE sobre public. El acceso mínimo es:
+
+| Rol | Permisos |
+| --- | --- |
+| document_transfer_runtime | SELECT del historial; INSERT en owner_user_id/document_id/filename/direction/status/progress/size_bytes/metadata; UPDATE solo document_id/status/progress/size_bytes/metadata/updated_at; DELETE del historial. |
+| Lectura de referencias por runtime | documents: document_id, tenant_id, owner_user_id y metadata. document_assignments: assignment_id, document_id, assigned_to_user_id, assigned_by_user_id y status. Sin rutas, nombres documentales, contenido, embeddings, Auth o tablas de empresas. |
+| document_transfer_reference_owner | SELECT/UPDATE únicamente de documents.document_id para poder tomar KEY SHARE dentro de la función. No puede iniciar sesión ni delegar esos permisos. |
+| transfer_lock_document_reference(text) | SECURITY DEFINER, STRICT, search_path fijo pg_catalog/pg_temp, tabla public.documents cualificada y sin SQL dinámico. Solo propietario y runtime pueden ejecutarla; PUBLIC y otros roles quedan excluidos. Runtime no puede delegar EXECUTE ni asumir el propietario. |
+
+El verificador compara columnas/operaciones efectivas de todas las tablas de public, secuencias, atributos, membresías y ACL de la función, y rechaza privilegios delegables. Repetir el aprovisionamiento conserva el alcance. Un permiso de tabla/columna añadido fuera de esta política bloquea la verificación y requiere revisión y corrección explícitas; no se arregla borrando datos. El rol es compartido por el servicio, no por usuario: JWT y filtros del repositorio aplican la privacidad personal; no se introduce RLS por usuario.
+
+DATABASE_URL ya no lleva contraseña de postgres; usa document_transfer_runtime y PGPASSWORD procede de TRANSFER_DB_PASSWORD (predeterminado exclusivamente local: blandskron-local-transfer). Para actualizar una instalación, detén el servicio antiguo, respalda la base y levanta la versión nueva. No ejecutes escritores antiguos y nuevos en paralelo. Desde la raíz:
+
+```sh
+docker compose -f docker/docker-compose.yml stop document-transfer-service
+docker compose -f docker/docker-compose.yml up -d --build --wait document-transfer-service
+# Repetición intencional: vuelve a aplicar y verificar la política.
+docker compose -f docker/docker-compose.yml run --rm --no-deps transfer-db-role
+docker compose -f docker/docker-compose.yml exec -T document-transfer-service python -m pip --no-cache-dir check
+docker compose -f docker/docker-compose.yml run --build --rm --no-deps transfer-tests
+docker compose -f docker/docker-compose.yml run --rm --no-deps transfer-tests ruff check --no-cache app tests
+docker compose -f docker/docker-compose.yml run --build --rm --no-deps transfer-audit
+```
+
+El job auth-db-roles arranca desde volúmenes nuevos, repite provisión, ejecuta verify_role.sql, inspecciona UID/herramientas, prueba la suite, audita Python y reinicia Transfer sobre su volumen existente. Localmente se comprobaron el volumen existente y otro limpio sin puertos adicionales, ambos con rol repetido y servicio saludable. El recorrido HTTP real sobre la instalación limpia usó un access token emitido por Auth: alta/metadatos/página, 409 al retroceder, completado y limpieza 1/0. Se verificaron limpieza de eventos y rollback del usuario sintético, sin mostrar claves o tokens.
+
+Las 317 pruebas backend incluyen conexiones reales con current_user/session_user=document_transfer_runtime, denegaciones SQL, workflow HTTP, sombra temporal inocua de documents, drift y readiness al retirar EXECUTE o lectura al propietario de referencia. Las pruebas de drift usan bases aisladas, con esquema inicializado/reaplicación de permisos y eliminación por nombre sintético comprobado; las carreras usan escritores runtime y una conexión administrativa distinta para simular borrado documental. No se exige a runtime modificar documentos para ejecutar las pruebas. Persiste una deprecación del TestClient httpx de Starlette; actualizar ese adaptador de pruebas no cambia las dependencias del runtime.
+
+## Verificación de dependencias e imagen
+
+Se alinearon FastAPI 0.162.0, Starlette 1.10.0, PyJWT 2.15.1, cryptography 50.0.2 y python-dotenv 1.2.4 con los servicios ya modernizados; pip es 26.3. pytest 9.0.3 queda solo en test. pip-audit 2.10.1 auditó el inventario congelado **antes** de instalar sus propias dependencias: no reportó avisos en las 30 distribuciones del runtime. Esto no equivale a ausencia general de vulnerabilidades.
+
+El 6 de noviembre de 2026 se reconstruyó con --pull y se escaneó el artefacto exportado mediante Trivy 0.74.0, solo vulnerabilidades HIGH/CRITICAL. Base python:3.12-slim: `sha256:4840d514c583a4d3d8cad3940e68dee6f0f6f3635c12fcd0a3d74c21a5b93a54`. Manifiesto del runtime auditado: `sha256:640cfb3918c1fb9af04f689156653d0fd8273488b701a687f299e951014df765`; ImageID del informe: `sha256:6f448b7c1622f71bd6fdb5bf778e56a014dc0cbc7be628bede5fad40e2dd0213`. SHA-256 del informe JSON: `fe4ef545efc82d748b155ef8d017a55d516c5ce0fefdc2e61c1f6fa0e78a5982`.
+
+| Alcance | Resultado observado | Seguimiento |
+| --- | --- | --- |
+| Debian 13.7, 87 paquetes detectados | 49 coincidencias altas por paquete; 13 CVE distintos; cero críticos y ninguna versión corregida indicada por Trivy. | TRANSFER-F01: reconstruir/repetir escaneo y resolver o registrar disposición antes de despliegue público. |
+| Python instalado | pip-audit sin avisos; setuptools no figura como distribución instalada. | Mantener auditoría del inventario realmente construido. |
+| Metadatos vendorizados | Trivy reporta CVE-2025-47273 en setuptools 70.3.0 e indica 78.1.1. pip 26.3 conserva esa declaración en _vendor/vendor.txt. | TRANSFER-F02: revisar actualización upstream y repetir escaneo. Instalar otro setuptools no sustituye esa copia ni demuestra corrección. |
+
+Los CVE distintos de Debian son CVE-2025-69720, CVE-2026-119373, CVE-2026-119374, CVE-2026-119379, CVE-2026-16742, CVE-2026-54369, CVE-2026-76642, CVE-2026-76844, CVE-2026-78408, CVE-2026-78409, CVE-2026-78410, CVE-2026-85091 y CVE-2026-9538. La suma es 50 coincidencias altas de Trivy contando el aviso vendorizado, no 50 vulnerabilidades únicas instaladas. No se validó explotación de cada aviso ni se trasladan estos conteos a otras imágenes; su reconstrucción transversal sigue en PLAT-002.
+
+Para reproducir el escaneo sin montar el socket Docker, construye el runtime con --pull, expórtalo mediante docker save y ejecuta Trivy sobre ese archivo; por ejemplo desde la raíz en bash:
+
+```sh
+docker build --pull -t blandskron-transfer-audit backend/DocumentTransferServices
+audit_dir="$(mktemp -d)"
+docker save -o "$audit_dir/runtime.tar" blandskron-transfer-audit
+docker run --rm -v "$audit_dir:/audit" -v blandskron-trivy-cache:/root/.cache/trivy aquasec/trivy:0.74.0 image --scanners vuln --severity HIGH,CRITICAL --format json --output /audit/trivy.json --input /audit/runtime.tar
+```
+
+Usa un directorio temporal para estos artefactos y no los agregues a Git. El resultado depende de la imagen y de la base de avisos del momento. Los seguimientos son visibles; no se ocultan CVE, no se declara libre de riesgos la imagen y no se presenta esta comprobación como escaneo de secretos o auditoría exhaustiva del código.
+
 ## Configuración y operación (TRANSFER-002)
 
-Compose transmite solo diez variables: APP_ENV, APP_NAME, LOG_LEVEL, CORS_ORIGINS, DATABASE_URL, AUTH_JWT_PUBLIC_KEY_PATH, AUTH_JWT_ALGORITHM y las tres opciones DB_POOL_MIN_SIZE, DB_POOL_MAX_SIZE, DB_TIMEOUT_SECONDS. El servicio no carga archivos .env automáticamente. Compose usa el archivo raíz para interpolar opciones explícitas; no lo inyecta completo. Transfer no necesita claves de Groq, OAuth ni la clave privada de Auth.
+Compose transmite once variables explícitas: APP_ENV, APP_NAME, LOG_LEVEL, CORS_ORIGINS, DATABASE_URL, AUTH_JWT_PUBLIC_KEY_PATH, AUTH_JWT_ALGORITHM y las tres opciones DB_POOL_MIN_SIZE, DB_POOL_MAX_SIZE, DB_TIMEOUT_SECONDS y PGPASSWORD. El servicio no carga archivos .env automáticamente. Compose usa el archivo raíz para interpolar opciones explícitas; no lo inyecta completo. Transfer no necesita claves de Groq, OAuth ni la clave privada de Auth.
 
 CORS permite por defecto http://localhost:3000 y http://127.0.0.1:3000, sin credenciales de navegador. Puede configurarse con TRANSFER_CORS_ORIGINS como arreglo JSON. RS256 es el único algoritmo configurable admitido. Se monta únicamente el volumen público de Auth, de solo lectura.
 
@@ -193,11 +250,11 @@ docker compose -f docker/docker-compose.yml run --build --rm --no-deps transfer-
 docker compose -f docker/docker-compose.yml run --rm --no-deps transfer-tests ruff check --no-cache app tests
 ```
 
-La etapa Docker test instala requirements-test.txt; la imagen runtime no contiene pytest, Ruff ni httpx. El job auth-db-roles de CI arranca Transfer y ejecuta la suite y Ruff; el job compose comprueba las diez variables y readiness. El job ejecuta también la auditoría agregada de propietarios. La suite requiere TRANSFER_TEST_DATABASE_URL explícita para operaciones sintéticas y DATABASE_URL para el motor de la aplicación; Compose configura ambas contra PostgreSQL local. No ejecutar contra producción. No usa create_all ni migra tablas compartidas.
+La etapa Docker test instala requirements-test.txt; la imagen runtime no contiene pytest, Ruff ni httpx. El job auth-db-roles de CI arranca Transfer y ejecuta la suite y Ruff; el job compose comprueba las once variables y readiness. El job ejecuta también la auditoría agregada de propietarios. La suite requiere TRANSFER_TEST_DATABASE_URL explícita para operaciones sintéticas y DATABASE_URL para el motor de la aplicación; Compose configura ambas contra PostgreSQL local. No ejecutar contra producción. No usa create_all ni migra tablas compartidas.
 
 Evidencia local de TRANSFER-002: 46 pruebas aprobadas con PostgreSQL y claves RSA temporales; Ruff, pip check, Compose y arranque real con clave pública montada aprobados. Se verificaron límites de settings, precedencia del entorno sin carga de .env, capacidad/timeout/recuperación del pool, rollback tras error SQL, cierre normal/interrumpido/fallo de arranque, reapertura, CORS, 401 en cuatro operaciones, clave ausente/malformada/no RSA y su recuperación, cada columna requerida, conexión caída con 503 privado y recorrido crear/listar/actualizar/limpiar con rollback verificado. Las alteraciones de esquema se limitan a tablas temporales de una conexión, sin cambiar las compartidas.
 
-El arranque local se verificó sobre dependencias de desarrollo existentes, sin publicar puertos adicionales; CI comprueba el arranque desde su entorno desechable. No se ejecutó el stack completo ni una prueba con proveedor IA. Starlette emite un aviso de deprecación de BlockingPortal con AnyIO; la actualización y auditoría de dependencias corresponde a TRANSFER-007. La imagen aún ejecuta como root y usa postgres: rol mínimo, auditoría y ejecución restringida permanecen pendientes. TRANSFER-006 amplía la suite a 288 pruebas backend y 60 frontend; ejecución restringida, auditoría y cierre operativo permanecen pendientes.
+El arranque local se verificó sobre dependencias de desarrollo existentes, sin publicar puertos adicionales; CI comprueba el arranque desde su entorno desechable. No se ejecutó el stack completo ni una prueba con proveedor IA. La actualización de Starlette retiró el aviso anterior de BlockingPortal; la suite actual emite una deprecación por su cliente de pruebas httpx, fuera de la imagen runtime. TRANSFER-007 ejecuta con UID 10007 y rol mínimo; amplía la suite a 317 pruebas backend. El cierre operativo y retiro del diagnóstico histórico permanecen en TRANSFER-008. El frontend mantiene 60 pruebas aprobadas en TRANSFER-006; no cambia en este incremento.
 
 ## Licencia
 
