@@ -152,6 +152,8 @@ Para actualizar una instalación existente, detén la ingesta y el chat, respald
 
 ### Prueba del recorrido documental
 
+La actualización del esquema incluye la auditoría de integridad de carpetas. Si detecta relaciones, ciclos o nombres inválidos, aborta sin borrar datos. Consulta la [operación de Library](backend/DocumentLibraryServices/README.md#integridad-y-migración-de-carpetas) antes de actualizar una base existente.
+
 Con el stack local activo y `GROQ_API_KEY` configurada, ejecuta desde PowerShell 7:
 
 ```powershell

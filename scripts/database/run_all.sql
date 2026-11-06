@@ -13,6 +13,7 @@ BEGIN;
 \ir schemas/011_notifications_audit.sql
 \ir schemas/012_document_deletions.sql
 \ir constraints/001_document_constraints.sql
+\ir migrations/002_library_integrity.sql
 \ir indexes/001_indexes.sql
 \ir functions/001_functions.sql
 \ir triggers/001_updated_at_triggers.sql

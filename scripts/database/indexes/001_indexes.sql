@@ -54,13 +54,7 @@ CREATE INDEX IF NOT EXISTS chat_messages_owner_session_created_at_idx
 CREATE INDEX IF NOT EXISTS document_folders_owner_parent_idx
     ON document_folders (owner_user_id, parent_folder_id);
 
-CREATE UNIQUE INDEX IF NOT EXISTS document_folders_owner_root_name_unique
-    ON document_folders (owner_user_id, name)
-    WHERE parent_folder_id IS NULL;
-
-CREATE UNIQUE INDEX IF NOT EXISTS document_folders_owner_child_name_unique
-    ON document_folders (owner_user_id, parent_folder_id, name)
-    WHERE parent_folder_id IS NOT NULL;
+\ir 002_folder_names.sql
 
 CREATE INDEX IF NOT EXISTS document_folder_items_owner_idx
     ON document_folder_items (owner_user_id, added_at DESC);

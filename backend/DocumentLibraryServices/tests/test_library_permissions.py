@@ -30,7 +30,7 @@ def records(configured_client, monkeypatch):
         "private", "nonprocessed",
     )
     documents = {kind: uuid4().hex for kind in kinds}
-    folders = {kind: uuid4().hex for kind in ("mine", "empty", "child", "foreign", "foreign_child", "inconsistent_child")}
+    folders = {kind: uuid4().hex for kind in ("mine", "empty", "child", "foreign", "foreign_child")}
     try:
         with engine.connect() as connection:
             transaction = connection.begin()
@@ -66,13 +66,12 @@ def records(configured_client, monkeypatch):
                     """), [{"id": identifier} for identifier in documents.values()])
                     session.execute(text("INSERT INTO document_folders (folder_id, name, parent_folder_id, owner_user_id) VALUES (:id, :name, :parent, :owner)"), [
                         {"id": identifier, "name": f"Synthetic {kind}",
-                         "parent": folders["mine"] if kind == "child" else folders["foreign"] if kind in ("foreign_child", "inconsistent_child") else None,
+                         "parent": folders["mine"] if kind == "child" else folders["foreign"] if kind == "foreign_child" else None,
                          "owner": "43" if kind in ("foreign", "foreign_child") else "42"}
                         for kind, identifier in folders.items()
                     ])
                     session.execute(text("INSERT INTO document_folder_items (folder_id, document_id, owner_user_id) VALUES (:folder, :document, :owner)"), [
                         *[{"folder": folders["mine"], "document": identifier, "owner": "42"} for identifier in documents.values()],
-                        {"folder": folders["foreign"], "document": documents["private"], "owner": "42"},
                         {"folder": folders["foreign"], "document": documents["owned"], "owner": "43"},
                     ])
                     session.execute(text("INSERT INTO document_favorites (document_id, owner_user_id) VALUES (:id, '42')"), [
@@ -149,7 +148,7 @@ def test_revocation_is_visible_in_each_subsequent_request(records, signing_key, 
 
 
 @pytest.mark.parametrize("superadmin", [False, True])
-def test_folders_remain_private_even_with_inconsistent_items(records, signing_key, superadmin):
+def test_folders_remain_private(records, signing_key, superadmin):
     client, session, documents, folders, _, _ = records
     headers = authorization(signing_key, is_superadmin=superadmin)
     for identifier in (folders["foreign"], uuid4().hex):
@@ -159,7 +158,7 @@ def test_folders_remain_private_even_with_inconsistent_items(records, signing_ke
         assert response.status_code == 404 and response.json() == {"detail": "Folder not found."}
     response = client.delete(f"/api/v1/folders/{folders['foreign']}/documents/{documents['private']}", headers=headers)
     assert response.json() == {"deleted": False}
-    assert session.scalar(text("SELECT count(*) FROM document_folder_items WHERE folder_id=:id AND owner_user_id='42'"), {"id": folders["foreign"]}) == 1
+    assert session.scalar(text("SELECT count(*) FROM document_folder_items WHERE folder_id=:id AND owner_user_id='42'"), {"id": folders["foreign"]}) == 0
     assert client.patch(f"/api/v1/folders/{folders['foreign']}", json={"name": "Forbidden"}, headers=headers).status_code == 404
     assert client.delete(f"/api/v1/folders/{folders['foreign']}", headers=headers).json() == {"deleted": False}
 

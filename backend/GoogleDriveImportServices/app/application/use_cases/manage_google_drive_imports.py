@@ -66,6 +66,8 @@ class ManageGoogleDriveImports:
         file_requests = payload.files[: self._settings.max_import_files]
         if not file_requests:
             raise ValidationError("At least one Google Drive file is required.")
+        if payload.folder_id and not self._repository.owns_folder(payload.folder_id, owner_user_id):
+            raise NotFoundError("Folder not found.")
 
         connection = self._repository.get_connection(owner_user_id)
         if connection is None:
@@ -80,6 +82,7 @@ class ManageGoogleDriveImports:
 
         processed = 0
         failed = 0
+        folder_warnings = 0
 
         for file_request in file_requests:
             file_record = self._repository.add_import_file(
@@ -114,6 +117,21 @@ class ManageGoogleDriveImports:
                     },
                 )
                 document_id = upload_response.get("document_id")
+                folder_warning = None
+                association = {}
+                if payload.folder_id:
+                    try:
+                        if not document_id:
+                            raise ValidationError("Document ID required for folder association.")
+                        self._repository.associate_document_with_folder(
+                            folder_id=payload.folder_id, document_id=document_id, owner_user_id=owner_user_id,
+                        )
+                        association = {"folder_association": {"status": "COMPLETED", "folder_id": payload.folder_id}}
+                    except Exception:
+                        # Upload has already succeeded. Preserve it and expose partial completion.
+                        folder_warnings += 1
+                        folder_warning = "Documento importado, pero no se pudo agregar a la carpeta seleccionada."
+                        association = {"folder_association": {"status": "FAILED", "folder_id": payload.folder_id}}
                 self._repository.update_import_file(
                     file_record.import_file_id,
                     {
@@ -126,20 +144,11 @@ class ManageGoogleDriveImports:
                         "metadata_": {
                             "google_web_view_link": downloaded.metadata.web_view_link,
                             "document_status": upload_response.get("status"),
+                            **association,
                         },
-                        "error_message": None,
+                        "error_message": folder_warning,
                     },
                 )
-                if payload.folder_id and document_id:
-                    try:
-                        self._repository.associate_document_with_folder(
-                            folder_id=payload.folder_id,
-                            document_id=document_id,
-                            owner_user_id=owner_user_id,
-                        )
-                    except Exception as folder_exc:
-                        # Log or handle warning if linking folder fails but continue
-                        pass
                 processed += 1
             except Exception as exc:
                 failed += 1
@@ -148,8 +157,9 @@ class ManageGoogleDriveImports:
                     {"status": "FAILED", "error_message": str(exc)},
                 )
 
-        status = "COMPLETED" if failed == 0 else "PARTIAL" if processed else "FAILED"
-        finished = self._repository.finish_import(import_record.import_id, processed, failed, status, None)
+        status = "COMPLETED" if failed == 0 and folder_warnings == 0 else "PARTIAL" if processed else "FAILED"
+        warning = "Algunos documentos se importaron sin poder agregarse a la carpeta seleccionada." if folder_warnings else None
+        finished = self._repository.finish_import(import_record.import_id, processed, failed, status, warning)
         return finished, self._repository.list_import_files(import_record.import_id)
 
     def list_imports(self, owner_user_id: str, limit: int) -> list[Any]:

@@ -8,7 +8,7 @@ from app.config.logging import configure_logging
 from app.config.settings import get_settings
 from app.infrastructure.database.connection import Database
 from app.interfaces.api.router import api_router
-from app.shared.errors import AppError, NotFoundError, ValidationError
+from app.shared.errors import AppError, ConflictError, NotFoundError, ValidationError
 
 
 settings = get_settings()
@@ -53,3 +53,8 @@ async def validation_handler(request: Request, exc: ValidationError) -> JSONResp
 @app.exception_handler(AppError)
 async def app_error_handler(request: Request, exc: AppError) -> JSONResponse:
     return JSONResponse(status_code=500, content={"detail": str(exc)})
+
+
+@app.exception_handler(ConflictError)
+async def conflict_handler(request: Request, exc: ConflictError) -> JSONResponse:
+    return JSONResponse(status_code=409, content={"detail": str(exc)})

@@ -238,5 +238,9 @@ jobs:
           docker compose -f docker/docker-compose.yml exec -T document-library-service python -m pip --no-cache-dir check
           docker compose -f docker/docker-compose.yml run --build --rm --no-deps library-tests
           docker compose -f docker/docker-compose.yml run --rm --no-deps library-tests ruff check --no-cache app tests
+      - name: Probar asociación de carpetas desde Google Drive sin OAuth
+        run: |
+          docker compose -f docker/docker-compose.yml run --build --rm --no-deps drive-tests
+          docker compose -f docker/docker-compose.yml run --rm --no-deps drive-tests ruff check --no-cache app tests
       - if: failure()
         run: docker compose -f docker/docker-compose.yml logs auth-db-roles auth-migrate auth-service conversation-db-role conversation-service rag-chat-db-role embedding-db-role search-db-role document-search-service access-db-role document-access-service document-library-service

@@ -298,6 +298,9 @@ services:
       target: test
     environment:
       DATABASE_URL: postgresql+psycopg://postgres:admin1234@postgres:5432/documents_db
+      LIBRARY_TEST_DATABASE_URL: postgresql+psycopg://postgres:admin1234@postgres:5432/documents_db
+    volumes:
+      - ../../scripts/database:/database-scripts:ro
     depends_on:
       document-library-service:
         condition: service_healthy
@@ -404,3 +407,14 @@ services:
         condition: service_healthy
       rag-document-embedding-service:
         condition: service_healthy
+
+  drive-tests:
+    profiles: ["test"]
+    build:
+      context: ../../backend/GoogleDriveImportServices
+      target: test
+    environment:
+      DATABASE_URL: postgresql+psycopg://postgres:admin1234@postgres:5432/documents_db
+    depends_on:
+      database-schema:
+        condition: service_completed_successfully
