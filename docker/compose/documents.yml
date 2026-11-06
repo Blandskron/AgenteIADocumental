@@ -332,14 +332,17 @@ services:
       context: ../../backend/DocumentTransferServices
       dockerfile: Dockerfile
     container_name: document-transfer-service
-    env_file:
-      - ../../.env
     environment:
+      APP_ENV: ${APP_ENV:-local}
       APP_NAME: document-transfer-service
-      CORS_ORIGINS: '["*"]'
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      CORS_ORIGINS: '${TRANSFER_CORS_ORIGINS:-["http://localhost:3000","http://127.0.0.1:3000"]}'
       DATABASE_URL: postgresql+psycopg://postgres:admin1234@postgres:5432/documents_db
       AUTH_JWT_PUBLIC_KEY_PATH: /app/auth_keys/public.pem
       AUTH_JWT_ALGORITHM: RS256
+      DB_POOL_MIN_SIZE: ${TRANSFER_DB_POOL_MIN_SIZE:-1}
+      DB_POOL_MAX_SIZE: ${TRANSFER_DB_POOL_MAX_SIZE:-10}
+      DB_TIMEOUT_SECONDS: ${TRANSFER_DB_TIMEOUT_SECONDS:-30}
     ports:
       - "127.0.0.1:8007:8000"
     volumes:
@@ -348,7 +351,7 @@ services:
       test:
         [
           "CMD-SHELL",
-          "python -c \"import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/v1/health', timeout=3)\"",
+          "python -c \"import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/v1/health/db', timeout=3)\"",
         ]
       interval: 10s
       timeout: 5s
@@ -357,6 +360,18 @@ services:
       database-schema:
         condition: service_completed_successfully
       auth-service:
+        condition: service_healthy
+
+  transfer-tests:
+    profiles: ["test"]
+    build:
+      context: ../../backend/DocumentTransferServices
+      target: test
+    environment:
+      DATABASE_URL: postgresql+psycopg://postgres:admin1234@postgres:5432/documents_db
+      TRANSFER_TEST_DATABASE_URL: postgresql+psycopg://postgres:admin1234@postgres:5432/documents_db
+    depends_on:
+      document-transfer-service:
         condition: service_healthy
 
   document-export-service:

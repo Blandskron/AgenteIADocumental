@@ -2,7 +2,7 @@
 
 Registra el historial personal de cargas y descargas mediante FastAPI, SQLAlchemy y PostgreSQL. No recibe archivos, no los descarga ni procesa documentos. Los clientes informan nombres, estados y progreso; este historial no prueba que un navegador haya guardado un archivo ni sustituye la auditoría de DocumentAccessServices. El puerto local de Compose es `8007`.
 
-TRANSFER-001 establece el diagnóstico de la base actual. Las correcciones avanzan por incrementos en el [tablero](../../ROADMAP.md#documenttransferservices); [AGENTS.md](AGENTS.md) indica cómo intervenir. Este documento distingue comportamiento observado, decisiones propuestas y comprobaciones pendientes.
+TRANSFER-001 establece el diagnóstico histórico de la base. TRANSFER-002 incorpora configuración aislada, disponibilidad y pruebas permanentes; las brechas restantes conservan su tarjeta. Las correcciones avanzan por incrementos en el [tablero](../../ROADMAP.md#documenttransferservices); [AGENTS.md](AGENTS.md) indica cómo intervenir. Este documento distingue comportamiento observado, decisiones propuestas y comprobaciones pendientes.
 
 ## Recorrido y responsabilidades
 
@@ -17,14 +17,14 @@ La tabla contiene propietario, referencia documental opcional, nombre, direcció
 
 Aunque el modelo ORM omite `ForeignKey`, el [esquema compartido](../../scripts/database/schemas/001_documents.sql) sí contiene la referencia a `documents`, con `ON DELETE SET NULL`. Borrar un documento conserva el evento y su nombre. Borrar eventos no elimina documentos ni archivos. No se encontró caducidad automática: la limpieza actual es manual y solo considera estados terminales.
 
-## Contrato HTTP de la base
+## Contrato HTTP vigente
 
 Todas las rutas de negocio verifican firma JWT y `token_type: access`. La base no exige `exp` ni un `user_id` entero positivo; el repositorio usa `user_id`, luego `sub`, luego `username` y finalmente `unknown`. TRANSFER-003 debe sustituir esas alternativas por la identidad canónica antes de considerar cerrado el aislamiento. Los tokens de Auth normales incluyen los claims; la sonda comprueba qué ocurre ante otros claims firmados, sin usar la clave de Auth.
 
 | Método y ruta bajo `/api/v1` | Comportamiento actual |
 | --- | --- |
 | `GET /health` | Público; devuelve `{"status":"ok"}` como comprobación de vida. |
-| `GET /health/db` | Público; consulta un ID de `transfer_events`. No valida la clave pública ni todas las columnas; errores de PostgreSQL no se traducen a 503. |
+| `GET /health/db` | Público; valida una clave pública RSA legible y consulta todas las columnas de `transfer_events` con LIMIT 0, sin leer historial. Clave o PostgreSQL no disponibles devuelven 503 genérico. No audita restricciones, índices ni el esquema de otros servicios. |
 | `GET /transfers?limit=50` | Arreglo de eventos propios, ordenados por creación descendente; `limit` de 1 a 200. No tiene offset ni desempate por ID. |
 | `POST /transfers` | Crea un evento del propietario resuelto; responde HTTP 200. |
 | `PATCH /transfers/{transfer_id}` | Cambia campos no nulos de un evento propio. Un ID ajeno o inexistente devuelve 404. |
@@ -46,9 +46,9 @@ El campo HTTP `metadata` no se mapea al atributo ORM `metadata_`. En las sondas,
 
 Los porcentajes 15, 40 y 65 son indicadores de etapas definidos por el cliente, no mediciones de bytes transferidos. Un fallo usa el progreso del objeto inicial, que puede ser anterior al último progreso enviado. Por eso las reglas de monotonía y estados deben coordinarse con estos consumidores. No basta con bloquear regresiones en SQL sin revisar los flujos de error.
 
-## Diagnóstico TRANSFER-001
+## Diagnóstico histórico TRANSFER-001
 
-Se revisaron todos los módulos del servicio, las seis rutas, el esquema, restricciones, índice, trigger, Compose, workflow de CI y los consumidores anteriores. La sonda temporal confirmó 25 observaciones sobre PostgreSQL con datos sintéticos y transacción externa/savepoints; también confirmó su rollback final. No cargó archivos, llamó a IA ni utilizó OAuth o claves reales.
+Esta tabla describe la imagen anterior a TRANSFER-002; configuración, disponibilidad y ausencia de pruebas ya se corrigieron como se explica abajo. Las demás brechas siguen pendientes. Se revisaron todos los módulos del servicio, las seis rutas, el esquema, restricciones, índice, trigger, Compose, workflow de CI y los consumidores anteriores. La sonda temporal confirmó 25 observaciones sobre PostgreSQL con datos sintéticos y transacción externa/savepoints; también confirmó su rollback final. No cargó archivos, llamó a IA ni utilizó OAuth o claves reales.
 
 | Área | Evidencia y efecto | Incremento |
 | --- | --- | --- |
@@ -66,7 +66,7 @@ Se revisaron todos los módulos del servicio, las seis rutas, el esquema, restri
 
 La línea base del 6 de noviembre de 2026 construyó el manifiesto `sha256:f6c7ec04a4696251eef382a621cdfc90cbd2009f334461a2cd404a9acbdc1c67` sin cambiar el servicio. En un contenedor desechable se congelaron 33 paquetes antes de instalar las herramientas de la sonda. `pip-audit` 2.10.1 informó 58 entradas en `cryptography 46.0.6`, `pip 25.0.1`, `PyJWT 2.12.1`, `pytest 8.3.5`, `python-dotenv 1.1.0` y `starlette 0.46.2`. Las entradas pueden incluir aliases o duplicaciones; no representan 58 vulnerabilidades únicas validadas. El sistema operativo de esta imagen no se escaneó en TRANSFER-001; se hará al actualizar la imagen.
 
-La evidencia combina inspección estática y sondas. No constituye una auditoría exhaustiva ni afirma explotación de los avisos de dependencias. Las pruebas permanentes y comprobaciones concurrentes se incorporarán con las correcciones, sin convertir la base defectuosa en el comportamiento esperado a conservar.
+La evidencia combina inspección estática y sondas. No constituye una auditoría exhaustiva ni afirma explotación de los avisos de dependencias. Las pruebas permanentes de configuración ya se incorporaron; las comprobaciones concurrentes del historial se incorporarán con sus correcciones, sin convertir la base defectuosa en el comportamiento esperado a conservar.
 
 ## Decisiones para los incrementos
 
@@ -78,20 +78,38 @@ La evidencia combina inspección estática y sondas. No constituye una auditorí
 6. Paginar con orden estable, conservar activos al limpiar y descartar respuestas de clientes anteriores. Adaptar ambos recorridos web, hook, adaptador y modal en el mismo incremento.
 7. Terminar con rol mínimo, imagen sin root, auditoría y README operativo. Mantener contexto breve en AGENTS y las tareas en ROADMAP, siguiendo los principios de leer primero y aportar evidencia de la [guía agents-first compartida](https://github.com/Blandskron/agents-first-repo-docs/blob/main/README.md) (v3.2.0, revisada el 6 de noviembre de 2026).
 
-## Arranque y comprobaciones de la base
+## Configuración y operación (TRANSFER-002)
 
-Prepara `.env` siguiendo el [README principal](../../README.md). Los comandos disponibles desde la raíz son:
+Compose transmite solo diez variables: APP_ENV, APP_NAME, LOG_LEVEL, CORS_ORIGINS, DATABASE_URL, AUTH_JWT_PUBLIC_KEY_PATH, AUTH_JWT_ALGORITHM y las tres opciones DB_POOL_MIN_SIZE, DB_POOL_MAX_SIZE, DB_TIMEOUT_SECONDS. El servicio no carga archivos .env automáticamente. Compose usa el archivo raíz para interpolar opciones explícitas; no lo inyecta completo. Transfer no necesita claves de Groq, OAuth ni la clave privada de Auth.
+
+CORS permite por defecto http://localhost:3000 y http://127.0.0.1:3000, sin credenciales de navegador. Puede configurarse con TRANSFER_CORS_ORIGINS como arreglo JSON. RS256 es el único algoritmo configurable admitido. Se monta únicamente el volumen público de Auth, de solo lectura.
+
+| Variable de Compose | Predeterminado | Semántica |
+| --- | --- | --- |
+| TRANSFER_DB_POOL_MIN_SIZE | 1 | Conexiones retenidas por el pool, creadas bajo demanda, de 1 a 100; no es un precalentamiento mínimo. |
+| TRANSFER_DB_POOL_MAX_SIZE | 10 | Capacidad total, de 1 a 100 y al menos el tamaño retenido; el excedente se descarta al liberarse. |
+| TRANSFER_DB_TIMEOUT_SECONDS | 30 | De 1 a 300 segundos; espera del pool y connect_timeout de PostgreSQL. No limita la duración de cada consulta SQL. |
+
+La configuración inválida detiene la aplicación antes del arranque. El pool usa pre_ping; las sesiones cierran y revierten trabajo no confirmado al salir, incluso ante excepciones. El lifespan libera el motor mediante finally y puede volver a abrirlo en otro arranque. Liveness no requiere dependencias; readiness no usa la caché de claves JWT y detecta cambios en el archivo en cada llamada.
+
+Prepara `.env` siguiendo el [README principal](../../README.md). Desde la raíz:
 
 ```sh
 docker compose -f docker/docker-compose.yml config --quiet
 docker compose -f docker/docker-compose.yml up -d --build --wait document-transfer-service
 curl http://localhost:8007/api/v1/health
 curl http://localhost:8007/api/v1/health/db
-docker compose -f docker/docker-compose.yml run --rm --no-deps document-transfer-service python -m pip --no-cache-dir check
-docker compose -f docker/docker-compose.yml run --rm --no-deps document-transfer-service ruff check --no-cache app
+
+docker compose -f docker/docker-compose.yml exec -T document-transfer-service python -m pip --no-cache-dir check
+docker compose -f docker/docker-compose.yml run --build --rm --no-deps transfer-tests
+docker compose -f docker/docker-compose.yml run --rm --no-deps transfer-tests ruff check --no-cache app tests
 ```
 
-Durante TRANSFER-001 se verificaron Compose, construcción de la imagen, pip check, Ruff y la sonda HTTP/SQL aislada descrita arriba. No se levantó el stack completo ni se ejecutó una suite propia inexistente. No se modificaron dependencias, rutas, datos persistentes o configuración del servicio. La siguiente tarjeta incorpora configuración aislada y pruebas reproducibles en CI.
+La etapa Docker test instala requirements-test.txt; la imagen runtime no contiene pytest, Ruff ni httpx. El job auth-db-roles de CI arranca Transfer y ejecuta la suite y Ruff; el job compose comprueba las diez variables y readiness. La suite requiere TRANSFER_TEST_DATABASE_URL explícita para operaciones sintéticas y DATABASE_URL para el motor de la aplicación; Compose configura ambas contra PostgreSQL local. No ejecutar contra producción. No usa create_all ni migra tablas compartidas.
+
+Evidencia local de TRANSFER-002: 46 pruebas aprobadas con PostgreSQL y claves RSA temporales; Ruff, pip check, Compose y arranque real con clave pública montada aprobados. Se verificaron límites de settings, precedencia del entorno sin carga de .env, capacidad/timeout/recuperación del pool, rollback tras error SQL, cierre normal/interrumpido/fallo de arranque, reapertura, CORS, 401 en cuatro operaciones, clave ausente/malformada/no RSA y su recuperación, cada columna requerida, conexión caída con 503 privado y recorrido crear/listar/actualizar/limpiar con rollback verificado. Las alteraciones de esquema se limitan a tablas temporales de una conexión, sin cambiar las compartidas.
+
+El arranque local se verificó sobre dependencias de desarrollo existentes, sin publicar puertos adicionales; CI comprueba el arranque desde su entorno desechable. No se ejecutó el stack completo ni una prueba con proveedor IA. Starlette emite un aviso de deprecación de BlockingPortal con AnyIO; la actualización y auditoría de dependencias corresponde a TRANSFER-007. La imagen aún ejecuta como root y usa postgres: rol mínimo, auditoría y ejecución restringida permanecen pendientes. Las 46 pruebas no acreditan haber corregido las brechas de identidad, metadatos, límites y estados del diagnóstico.
 
 ## Licencia
 

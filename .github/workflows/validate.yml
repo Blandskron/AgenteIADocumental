@@ -111,6 +111,15 @@ jobs:
           assert library["depends_on"]["library-db-role"]["condition"] == "service_completed_successfully"
           assert library["cap_drop"] == ["ALL"]
           assert "no-new-privileges:true" in library["security_opt"]
+          transfer = services["document-transfer-service"]
+          transfer_env = transfer["environment"]
+          assert set(transfer_env) == {
+              "APP_ENV", "APP_NAME", "LOG_LEVEL", "CORS_ORIGINS", "DATABASE_URL",
+              "AUTH_JWT_PUBLIC_KEY_PATH", "AUTH_JWT_ALGORITHM",
+              "DB_POOL_MIN_SIZE", "DB_POOL_MAX_SIZE", "DB_TIMEOUT_SECONDS",
+          }
+          assert json.loads(transfer_env["CORS_ORIGINS"]) == ["http://localhost:3000", "http://127.0.0.1:3000"]
+          assert "health/db" in " ".join(transfer["healthcheck"]["test"])
           for name, service in services.items():
               mounts = {volume["source"]: volume for volume in service.get("volumes", [])}
               assert all(port.get("host_ip") == "127.0.0.1" for port in service.get("ports", [])), name
@@ -205,7 +214,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - run: cp .env.example .env
-      - run: docker compose -f docker/docker-compose.yml up -d --build --wait conversation-service document-search-service document-access-service document-library-service
+      - run: docker compose -f docker/docker-compose.yml up -d --build --wait conversation-service document-search-service document-access-service document-library-service document-transfer-service
       - run: docker compose -f docker/docker-compose.yml run --rm --no-deps rag-chat-db-role
       - run: docker compose -f docker/docker-compose.yml run --rm --no-deps embedding-db-role
       - run: docker compose -f docker/docker-compose.yml exec -T postgres psql -U postgres -d documents_db -v ON_ERROR_STOP=1 < scripts/database/auth/verify_roles.sql
@@ -247,9 +256,15 @@ jobs:
           docker compose -f docker/docker-compose.yml run --build --rm --no-deps library-tests
           docker compose -f docker/docker-compose.yml run --rm --no-deps library-tests ruff check --no-cache app tests
           docker compose -f docker/docker-compose.yml run --build --rm --no-deps library-audit
+      - name: Probar configuración y disponibilidad de DocumentTransferServices
+        run: |
+          docker compose -f docker/docker-compose.yml exec -T document-transfer-service python -m pip --no-cache-dir check
+          docker compose -f docker/docker-compose.yml exec -T document-transfer-service python -c 'import importlib.util; assert all(importlib.util.find_spec(name) is None for name in ("pytest", "ruff", "httpx"))'
+          docker compose -f docker/docker-compose.yml run --build --rm --no-deps transfer-tests
+          docker compose -f docker/docker-compose.yml run --rm --no-deps transfer-tests ruff check --no-cache app tests
       - name: Probar asociación de carpetas desde Google Drive sin OAuth
         run: |
           docker compose -f docker/docker-compose.yml run --build --rm --no-deps drive-tests
           docker compose -f docker/docker-compose.yml run --rm --no-deps drive-tests ruff check --no-cache app tests
       - if: failure()
-        run: docker compose -f docker/docker-compose.yml logs auth-db-roles auth-migrate auth-service conversation-db-role conversation-service rag-chat-db-role embedding-db-role search-db-role document-search-service access-db-role document-access-service library-db-role document-library-service
+        run: docker compose -f docker/docker-compose.yml logs auth-db-roles auth-migrate auth-service conversation-db-role conversation-service rag-chat-db-role embedding-db-role search-db-role document-search-service access-db-role document-access-service library-db-role document-library-service document-transfer-service

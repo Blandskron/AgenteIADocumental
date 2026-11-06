@@ -7,5 +7,3 @@ psycopg[binary]==3.2.9
 PyJWT==2.12.1
 cryptography==46.0.6
 python-dotenv==1.1.0
-pytest==8.3.5
-ruff==0.11.9
