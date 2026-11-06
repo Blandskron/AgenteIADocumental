@@ -12,7 +12,7 @@ class Settings(BaseSettings):
     log_level: str = "INFO"
     cors_origins: list[str] = Field(default_factory=lambda: ["http://localhost:3000", "http://127.0.0.1:3000"])
 
-    database_url: str = "postgresql+psycopg://postgres:admin1234@localhost:5432/documents_db"
+    database_url: str = "postgresql+psycopg://document_library_runtime@localhost:5432/documents_db"
 
     db_pool_min_size: int = Field(default=1, ge=1, le=100)
     db_pool_max_size: int = Field(default=10, ge=1, le=100)

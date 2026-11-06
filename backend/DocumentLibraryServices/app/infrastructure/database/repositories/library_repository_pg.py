@@ -223,10 +223,10 @@ class LibraryRepositoryPg:
         """), {"owner": self._owner_user_id, "document": document_id})
 
     def _lock_document(self, document_id: str, *, require_access: bool = True) -> bool:
-        query = self._accessible_documents_query() if require_access else self._session.query(DocumentModel)
-        return query.filter(DocumentModel.document_id == document_id).with_for_update(
-            read=True, key_share=True,
-        ).populate_existing().first() is not None
+        # The runtime has no UPDATE privilege on documents, even for acquiring a row lock.
+        if not self._session.scalar(text("SELECT public.library_lock_document_reference(:id)"), {"id": document_id}):
+            return False
+        return not require_access or self._accessible_documents_query().filter(DocumentModel.document_id == document_id).populate_existing().first() is not None
 
     def _lock_folder(self, folder_id: str) -> bool:
         # Root first: a cascading ancestor delete must wait before touching any links.
