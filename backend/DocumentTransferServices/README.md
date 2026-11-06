@@ -2,7 +2,7 @@
 
 Registra el historial personal de cargas y descargas mediante FastAPI, SQLAlchemy y PostgreSQL. No recibe archivos, no los descarga ni procesa documentos. Los clientes informan nombres, estados y progreso; este historial no prueba que un navegador haya guardado un archivo ni sustituye la auditoría de DocumentAccessServices. El puerto local de Compose es `8007`.
 
-TRANSFER-001 establece el diagnóstico histórico de la base. TRANSFER-002 incorpora configuración aislada, disponibilidad y pruebas permanentes; TRANSFER-003 establece identidad canónica y referencias autorizadas. Las brechas restantes conservan su tarjeta. Las correcciones avanzan por incrementos en el [tablero](../../ROADMAP.md#documenttransferservices); [AGENTS.md](AGENTS.md) indica cómo intervenir. Este documento distingue comportamiento observado, decisiones propuestas y comprobaciones pendientes.
+TRANSFER-001 establece el diagnóstico histórico de la base. TRANSFER-002 incorpora configuración aislada, disponibilidad y pruebas permanentes; TRANSFER-003 establece identidad canónica y referencias autorizadas. TRANSFER-004 corrige metadatos, nulos y límites de entradas. Las brechas restantes conservan su tarjeta. Las correcciones avanzan por incrementos en el [tablero](../../ROADMAP.md#documenttransferservices); [AGENTS.md](AGENTS.md) indica cómo intervenir. Este documento distingue comportamiento observado, decisiones propuestas y comprobaciones pendientes.
 
 ## Recorrido y responsabilidades
 
@@ -27,14 +27,12 @@ Todas las rutas de negocio exigen firma RS256, `token_type: access`, `user_id` e
 | `GET /health/db` | Público; valida una clave pública RSA legible y consulta las proyecciones requeridas de `transfer_events`, `documents` y `document_assignments` con LIMIT 0, sin leer filas. Clave o PostgreSQL no disponibles devuelven 503 genérico. No audita restricciones, índices ni el esquema de otros servicios. |
 | `GET /transfers?limit=50` | Arreglo de eventos propios, ordenados por creación descendente; `limit` de 1 a 200. No tiene offset ni desempate por ID. |
 | `POST /transfers` | Crea un evento del propietario canónico; una referencia documental exige acceso vigente. Responde HTTP 200. |
-| `PATCH /transfers/{transfer_id}` | Cambia campos no nulos de un evento propio. Si incluye document_id no nulo, revalida acceso. Un evento ajeno o inexistente devuelve 404. |
+| `PATCH /transfers/{transfer_id}` | Actualiza solo campos enviados de un evento propio. document_id y size_bytes admiten null para retirarlos; una referencia no nula revalida acceso. Evento ajeno o inexistente: 404. |
 | `DELETE /transfers/history` | Devuelve `{"count":N}` y elimina eventos propios COMPLETED, FAILED o CANCELLED. Conserva PENDING y RUNNING. Materializa las filas antes de borrarlas. |
 
 Son cuatro operaciones de negocio y dos healthchecks. La respuesta incluye `transfer_id`, `owner_user_id`, `document_id`, `filename`, `direction`, `status`, `progress`, `size_bytes`, `metadata`, `created_at` y `updated_at`. Las rutas no devuelven rutas de almacenamiento ni contenido documental.
 
-Crear recibe nombre, dirección, estado opcional (PENDING por defecto), progreso (0 por defecto), referencia documental, tamaño y metadatos. Actualizar admite estado, progreso, referencia, tamaño y metadatos. Los modelos ignoran campos extra y no limitan longitudes, tamaño JSON o cuerpo HTTP. El nombre solo exige longitud antes de recortar; el tamaño no tiene cota no negativa ni de BIGINT. `model_dump(exclude_none=True)` hace que enviar `document_id: null` no retire una referencia existente.
-
-El campo HTTP `metadata` no se mapea al atributo ORM `metadata_`. En las sondas, crear o actualizar con un objeto no vacío devuelve y conserva `{}` en la columna. TRANSFER-004 debe corregir ese round trip sin escribir sobre el atributo reservado de SQLAlchemy ni inventar datos históricos que no llegaron a guardarse.
+Crear recibe nombre, dirección, estado opcional (PENDING por defecto), progreso (0 por defecto), referencia documental, tamaño y metadatos. Actualizar admite estado, progreso, referencia, tamaño y metadatos. Los modelos rechazan campos extra. `metadata` HTTP se mapea explícitamente a `metadata_` ORM y persiste en la columna JSONB; no se asigna el atributo reservado metadata de SQLAlchemy. Los límites y campos nulos se describen abajo.
 
 ## Consumidores que deben cambiar juntos
 
@@ -48,7 +46,7 @@ Los porcentajes 15, 40 y 65 son indicadores de etapas definidos por el cliente, 
 
 ## Diagnóstico histórico TRANSFER-001
 
-Esta tabla describe la imagen anterior a TRANSFER-002/003; configuración, disponibilidad, identidad y referencias ya se corrigieron como se explica abajo. Las demás brechas conservan sus incrementos pendientes. Se revisaron todos los módulos del servicio, las seis rutas, el esquema, restricciones, índice, trigger, Compose, workflow de CI y los consumidores anteriores. La sonda temporal confirmó 25 observaciones sobre PostgreSQL con datos sintéticos y transacción externa/savepoints; también confirmó su rollback final. No cargó archivos, llamó a IA ni utilizó OAuth o claves reales.
+Esta tabla describe la imagen anterior a TRANSFER-002/003/004; configuración, disponibilidad, identidad, referencias, metadatos y límites ya se corrigieron como se explica abajo. Las demás brechas conservan sus incrementos pendientes. Se revisaron todos los módulos del servicio, las seis rutas, el esquema, restricciones, índice, trigger, Compose, workflow de CI y los consumidores anteriores. La sonda temporal confirmó 25 observaciones sobre PostgreSQL con datos sintéticos y transacción externa/savepoints; también confirmó su rollback final. No cargó archivos, llamó a IA ni utilizó OAuth o claves reales.
 
 | Área | Evidencia y efecto | Incremento |
 | --- | --- | --- |
@@ -92,7 +90,7 @@ Crear con document_id o enviar document_id no nulo en PATCH exige lectura vigent
 
 El servicio no exige PROCESSED, embeddings ni allow_download para registrar una referencia: este historial no ejecuta ni autoriza descargas. El resultado de la operación documental corresponde a su servicio. Un documento ajeno o inexistente devuelve el mismo 404 `Document not found.`. En PATCH se comprueba primero la propiedad del evento; un evento ajeno o inexistente devuelve 404 `Transfer not found.` sin revelar sus referencias.
 
-Cada vínculo enviado se revalida, incluso si coincide con el anterior. Omitir document_id permite actualizar el diario propio tras una revocación; el contrato de null explícito sigue pendiente de TRANSFER-004. Se usa FOR KEY SHARE durante la transacción para impedir que un borrado entre la comprobación y la escritura produzca una FK inválida. Si borra primero, el vínculo responde 404; si vincula primero, el borrado espera y SET NULL conserva el evento. Las excepciones de alta/actualización revierten la sesión. No se afirma serialización total frente a cambios simultáneos de permisos: la política consulta el estado visible en la comprobación, y el JWT mantiene los claims emitidos hasta su renovación/expiración, como los demás servicios. Las reglas de estados y sus carreras continúan en TRANSFER-005.
+Cada vínculo enviado se revalida, incluso si coincide con el anterior. Omitir document_id permite actualizar el diario propio tras una revocación; enviar document_id: null retira la referencia, sin leer el documento ni borrar su historial. Se usa FOR KEY SHARE durante la transacción para impedir que un borrado entre la comprobación y la escritura produzca una FK inválida. Si borra primero, el vínculo responde 404; si vincula primero, el borrado espera y SET NULL conserva el evento. Las excepciones de alta/actualización revierten la sesión. No se afirma serialización total frente a cambios simultáneos de permisos: la política consulta el estado visible en la comprobación, y el JWT mantiene los claims emitidos hasta su renovación/expiración, como los demás servicios. Las reglas de estados y sus carreras continúan en TRANSFER-005.
 
 La imagen actual usa postgres. FOR KEY SHARE requiere privilegios de bloqueo; TRANSFER-007 deberá sustituirlo por una capacidad acotada al introducir el rol mínimo, manteniendo las pruebas concurrentes y sin conceder UPDATE documental genérico al runtime.
 
@@ -109,6 +107,26 @@ En bash se puede usar la misma llamada psql con `< scripts/database/transfer/aud
 La ejecución local sobre la base de desarrollo revisada encontró cero eventos; no representa una auditoría de otras instalaciones. Las pruebas verifican las cuatro categorías con datos sintéticos y que el SELECT conserva los valores originales. CI ejecuta también el script completo.
 
 Evidencia TRANSFER-003: 155 pruebas aprobadas, Ruff, Compose, pip check y arranque real. Las matrices HTTP cubren claims inválidos en las cuatro operaciones, firmas/algoritmos incorrectos, precedencia de identidad, privacidad incluso para administradores, propietarios históricos, permisos por dueño/asignación/tenant/grupo, precedencia de columnas sobre JSON, revocación, 404 indistinguible, preservación documental e historial. Cuatro casos concurrentes con sesiones independientes observan pg_stat_activity.wait_event_type=Lock y comprueban ambos órdenes de alta/PATCH frente al borrado, recuperación y limpieza por IDs sintéticos. La suite usa claves temporales; una comprobación adicional contra el contenedor real aceptó access tokens emitidos y renovados por Auth y rechazó refresh, con rollback del usuario sintético y sin escribir historial.
+
+## Entradas, metadatos y errores (TRANSFER-004)
+
+| Campo o límite | Contrato de entrada |
+| --- | --- |
+| filename | Texto de 1 a 512 caracteres Unicode válidos. Conserva espacios de los extremos; rechaza nombres compuestos solo de espacios y controles C0/DEL. Es una etiqueta, nunca una ruta para abrir archivos. |
+| document_id y transfer_id de PATCH | Texto de 1 a 128 caracteres, no vacío/blanco, sin controles ni Unicode inválido. No exige UUID para conservar IDs históricos válidos. |
+| progress | Entero estricto de 0 a 100. No convierte cadenas, booleanos ni floats. TRANSFER-005 definirá transiciones entre estados y progreso. |
+| size_bytes | Entero estricto de 0 a 9223372036854775807, compatible con BIGINT; cero es un tamaño conocido. null representa tamaño desconocido. |
+| metadata | Objeto JSON de hasta 16384 bytes UTF-8 en serialización compacta sin escapes ASCII. Máximo 16 niveles desde la raíz (raíz en 0; claves/valores/elementos incrementan nivel). Rechaza NaN/Infinity, NUL en claves o valores y Unicode inválido. |
+| Cuerpo HTTP | Hasta 65536 bytes reales, incluidos espacios y fragmentos, con o sin Content-Length; excederlos devuelve 413 antes del parseo y de la ruta. No es un timeout de lectura ni un control de tasa. |
+| Campos desconocidos | 422, incluidos owner_user_id, metadata_ o campos inmutables enviados en PATCH. |
+
+En PATCH, omitir un campo lo conserva. document_id: null y size_bytes: null retiran sus valores; metadata: {} vacía el JSON. metadata reemplaza el objeto completo, no lo mezcla. status, progress y metadata explícitamente nulos se rechazan; un PATCH vacío también devuelve 422. Crear admite document_id/size_bytes nulos, pero metadata requiere objeto. No se crean metadatos históricos a partir de datos que no llegaron a persistir.
+
+La respuesta conserva su forma, nombres y códigos de éxito. Los 422 contienen ubicación normalizada, tipo de error y mensaje genérico, sin input, contexto, valores ni claves arbitrarias enviados. SQLAlchemy devuelve 500 `Database operation failed.` y AppError interno devuelve 500 genérico; las escrituras de alta, PATCH y limpieza revierten la sesión tras errores. Las validaciones de dominio mantienen 400 y referencias/eventos inexistentes o ajenos mantienen 404. JSON malformado o excesivamente profundo devuelve 400/422 privado según la fase de parseo/validación. Una respuesta de error no refleja el documento ni las credenciales de conexión.
+
+Se revisaron transfers.api.js, useTransfers, TransferModal, DocumentSearchPage y useDocumentQuestionFlow. Los payloads actuales usan campos admitidos y objetos JSON: conversation_id puede ser null dentro de metadata y los errores de operación se conservan dentro del límite. El adaptador preserva estos datos, tamaño cero y nulos explícitos; no requiere cambiar su código para este incremento. Las pruebas de contrato web verifican esa compatibilidad y la propagación del error original del cliente HTTP. La separación entre operación documental y fallos del historial, las respuestas tardías y paginación siguen en TRANSFER-006; un error o nombre superior al límite se rechaza, no se trunca silenciosamente.
+
+Evidencia TRANSFER-004: 230 pruebas backend con PostgreSQL y 32 frontend, Ruff, npm ci/test/build, pip check, Compose y arranque real aprobados. Round trip JSONB de alta/PATCH/listado, reemplazo y vaciado; ausencia frente a null; fronteras de Unicode, IDs, BIGINT, profundidad/bytes JSON, números no finitos, cuerpo completo/fragmentado y cabeceras engañosas; rechazo sin escrituras, privacidad y recuperación cubiertos. Fallos SQL reales en INSERT/UPDATE/DELETE se inyectan únicamente en una tabla y función temporales de una conexión, sin modificar tablas compartidas; después del 500 la misma sesión puede operar. Datos sintéticos con rollback verificado. No cambia el esquema ni corrige datos históricos. Persisten el aviso de deprecación Starlette/AnyIO y cuatro alertas altas de npm, en sus seguimientos.
 
 ## Configuración y operación (TRANSFER-002)
 
@@ -141,7 +159,7 @@ La etapa Docker test instala requirements-test.txt; la imagen runtime no contien
 
 Evidencia local de TRANSFER-002: 46 pruebas aprobadas con PostgreSQL y claves RSA temporales; Ruff, pip check, Compose y arranque real con clave pública montada aprobados. Se verificaron límites de settings, precedencia del entorno sin carga de .env, capacidad/timeout/recuperación del pool, rollback tras error SQL, cierre normal/interrumpido/fallo de arranque, reapertura, CORS, 401 en cuatro operaciones, clave ausente/malformada/no RSA y su recuperación, cada columna requerida, conexión caída con 503 privado y recorrido crear/listar/actualizar/limpiar con rollback verificado. Las alteraciones de esquema se limitan a tablas temporales de una conexión, sin cambiar las compartidas.
 
-El arranque local se verificó sobre dependencias de desarrollo existentes, sin publicar puertos adicionales; CI comprueba el arranque desde su entorno desechable. No se ejecutó el stack completo ni una prueba con proveedor IA. Starlette emite un aviso de deprecación de BlockingPortal con AnyIO; la actualización y auditoría de dependencias corresponde a TRANSFER-007. La imagen aún ejecuta como root y usa postgres: rol mínimo, auditoría y ejecución restringida permanecen pendientes. TRANSFER-003 amplía la suite a 155 pruebas para identidad y referencias; metadatos, límites y estados permanecen pendientes.
+El arranque local se verificó sobre dependencias de desarrollo existentes, sin publicar puertos adicionales; CI comprueba el arranque desde su entorno desechable. No se ejecutó el stack completo ni una prueba con proveedor IA. Starlette emite un aviso de deprecación de BlockingPortal con AnyIO; la actualización y auditoría de dependencias corresponde a TRANSFER-007. La imagen aún ejecuta como root y usa postgres: rol mínimo, auditoría y ejecución restringida permanecen pendientes. TRANSFER-004 amplía la suite a 230 pruebas backend; estados, limpieza concurrente, paginación, consumidores y ejecución restringida permanecen pendientes.
 
 ## Licencia
 

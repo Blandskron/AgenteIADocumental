@@ -44,8 +44,7 @@ class TransferRepositoryPg:
             if payload.get("document_id") is not None:
                 self._require_document_reference(payload["document_id"])
             for key, value in payload.items():
-                if value is not None:
-                    setattr(transfer, key, value)
+                setattr(transfer, key, value)
             self._session.commit()
             self._session.refresh(transfer)
             return transfer
@@ -54,19 +53,23 @@ class TransferRepositoryPg:
             raise
 
     def clear_history(self) -> int:
-        rows = (
-            self._session.query(TransferEventModel)
-            .filter(
-                TransferEventModel.owner_user_id == self._owner_user_id,
-                TransferEventModel.status.in_(["COMPLETED", "FAILED", "CANCELLED"]),
+        try:
+            rows = (
+                self._session.query(TransferEventModel)
+                .filter(
+                    TransferEventModel.owner_user_id == self._owner_user_id,
+                    TransferEventModel.status.in_(["COMPLETED", "FAILED", "CANCELLED"]),
+                )
+                .all()
             )
-            .all()
-        )
-        count = len(rows)
-        for row in rows:
-            self._session.delete(row)
-        self._session.commit()
-        return count
+            count = len(rows)
+            for row in rows:
+                self._session.delete(row)
+            self._session.commit()
+            return count
+        except Exception:
+            self._session.rollback()
+            raise
 
     def _get(self, transfer_id: str) -> TransferEventModel | None:
         return (
