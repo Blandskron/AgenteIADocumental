@@ -128,7 +128,7 @@ def test_name_conflicts_return_409_and_session_recovers(migrated_database, confi
         second = client.post("/api/v1/folders", json={"name": "Second"}, headers=headers)
         assert second.status_code == 201
         assert client.patch(f"/api/v1/folders/{second.json()['folder_id']}", json={"name": "Root"}, headers=headers).status_code == 409
-        assert client.post("/api/v1/folders", json={"name": "   "}, headers=headers).status_code == 400
+        assert client.post("/api/v1/folders", json={"name": "   "}, headers=headers).status_code == 422
         assert client.patch(f"/api/v1/folders/{identifier}", json={"name": "Renamed", "metadata": {"synthetic": True}}, headers=headers).status_code == 200
 
 

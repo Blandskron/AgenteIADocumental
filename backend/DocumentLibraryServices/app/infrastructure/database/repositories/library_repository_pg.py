@@ -90,6 +90,9 @@ class LibraryRepositoryPg:
             if constraint == "document_folders_name_nonblank_check":
                 raise ValidationError("Folder name must not be blank.") from exc
             raise
+        except Exception:
+            self._session.rollback()
+            raise
 
     def delete_folder(self, folder_id: str) -> bool:
         with self._write_transaction():
