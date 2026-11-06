@@ -1,6 +1,9 @@
 from __future__ import annotations
 
-from sqlalchemy import func, or_, select
+from contextlib import contextmanager
+
+from sqlalchemy import delete, func, or_, select, text
+from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -89,12 +92,11 @@ class LibraryRepositoryPg:
             raise
 
     def delete_folder(self, folder_id: str) -> bool:
-        folder = self._folder(folder_id)
-        if folder is None:
-            return False
-        self._session.delete(folder)
-        self._session.commit()
-        return True
+        with self._write_transaction():
+            return self._session.execute(delete(DocumentFolderModel).where(
+                DocumentFolderModel.folder_id == folder_id,
+                DocumentFolderModel.owner_user_id == self._owner_user_id,
+            ).returning(DocumentFolderModel.folder_id)).scalar_one_or_none() is not None
 
     def list_folder_documents(self, folder_id: str) -> list[DocumentModel]:
         if self._folder(folder_id) is None:
@@ -112,41 +114,23 @@ class LibraryRepositoryPg:
         return self._attach_chunk_counts(documents)
 
     def add_document_to_folder(self, folder_id: str, document_id: str) -> bool:
-        if self._folder(folder_id) is None or self._accessible_document(document_id) is None:
-            return False
-        exists = (
-            self._session.query(DocumentFolderItemModel)
-            .filter(
-                DocumentFolderItemModel.folder_id == folder_id,
-                DocumentFolderItemModel.document_id == document_id,
-                DocumentFolderItemModel.owner_user_id == self._owner_user_id,
-            )
-            .first()
-        )
-        if exists is None:
-            self._session.add(
-                DocumentFolderItemModel(folder_id=folder_id, document_id=document_id, owner_user_id=self._owner_user_id)
-            )
-            self._session.commit()
-        return True
+        with self._write_transaction():
+            self._lock_document_organization(document_id)
+            if not self._lock_document(document_id) or not self._lock_folder(folder_id):
+                return False
+            self._insert_folder_item(folder_id, document_id)
+            return True
 
     def remove_document_from_folder(self, folder_id: str, document_id: str) -> bool:
-        if self._folder(folder_id) is None:
-            return False
-        item = (
-            self._session.query(DocumentFolderItemModel)
-            .filter(
+        with self._write_transaction():
+            self._lock_document_organization(document_id)
+            if not self._lock_document(document_id, require_access=False) or not self._lock_folder(folder_id):
+                return False
+            return self._session.execute(delete(DocumentFolderItemModel).where(
                 DocumentFolderItemModel.folder_id == folder_id,
                 DocumentFolderItemModel.document_id == document_id,
                 DocumentFolderItemModel.owner_user_id == self._owner_user_id,
-            )
-            .first()
-        )
-        if item is None:
-            return False
-        self._session.delete(item)
-        self._session.commit()
-        return True
+            ).returning(DocumentFolderItemModel.document_id)).scalar_one_or_none() is not None
 
     def list_recent(self, limit: int = 20) -> list[DocumentModel]:
         documents = (
@@ -169,47 +153,82 @@ class LibraryRepositoryPg:
         return self._attach_chunk_counts(documents)
 
     def add_favorite(self, document_id: str) -> bool:
-        if self._accessible_document(document_id) is None:
-            return False
-        exists = (
-            self._session.query(DocumentFavoriteModel)
-            .filter(DocumentFavoriteModel.document_id == document_id, DocumentFavoriteModel.owner_user_id == self._owner_user_id)
-            .first()
-        )
-        if exists is None:
-            self._session.add(DocumentFavoriteModel(document_id=document_id, owner_user_id=self._owner_user_id))
-        self._session.commit()
-        return True
+        with self._write_transaction():
+            self._lock_document_organization(document_id)
+            if not self._lock_document(document_id):
+                return False
+            self._session.execute(insert(DocumentFavoriteModel).values(
+                document_id=document_id, owner_user_id=self._owner_user_id,
+            ).on_conflict_do_nothing(index_elements=["document_id", "owner_user_id"]))
+            return True
 
     def move_document_to_folder(self, document_id: str, folder_id: str | None) -> bool:
-        if self._accessible_document(document_id) is None:
-            return False
-        if folder_id is not None and self._folder(folder_id) is None:
-            return False
-
-        self._session.query(DocumentFolderItemModel).filter(
-            DocumentFolderItemModel.document_id == document_id,
-            DocumentFolderItemModel.owner_user_id == self._owner_user_id,
-        ).delete(synchronize_session=False)
-
-        if folder_id is not None:
-            self._session.add(
-                DocumentFolderItemModel(folder_id=folder_id, document_id=document_id, owner_user_id=self._owner_user_id)
-            )
-        self._session.commit()
-        return True
+        with self._write_transaction():
+            self._lock_document_organization(document_id)
+            if not self._lock_document(document_id):
+                return False
+            if folder_id is not None and not self._lock_folder(folder_id):
+                return False
+            self._session.execute(delete(DocumentFolderItemModel).where(
+                DocumentFolderItemModel.document_id == document_id,
+                DocumentFolderItemModel.owner_user_id == self._owner_user_id,
+            ))
+            if folder_id is not None:
+                self._insert_folder_item(folder_id, document_id)
+            return True
 
     def remove_favorite(self, document_id: str) -> bool:
-        favorite = (
-            self._session.query(DocumentFavoriteModel)
-            .filter(DocumentFavoriteModel.document_id == document_id, DocumentFavoriteModel.owner_user_id == self._owner_user_id)
-            .first()
-        )
-        if favorite is None:
-            return False
-        self._session.delete(favorite)
-        self._session.commit()
-        return True
+        with self._write_transaction():
+            self._lock_document_organization(document_id)
+            if not self._lock_document(document_id, require_access=False):
+                return False
+            return self._session.execute(delete(DocumentFavoriteModel).where(
+                DocumentFavoriteModel.document_id == document_id,
+                DocumentFavoriteModel.owner_user_id == self._owner_user_id,
+            ).returning(DocumentFavoriteModel.document_id)).scalar_one_or_none() is not None
+
+    @contextmanager
+    def _write_transaction(self):
+        try:
+            yield
+            self._session.commit()
+        except Exception:
+            self._session.rollback()
+            raise
+
+    def _lock_document_organization(self, document_id: str) -> None:
+        # Protocol shared with GoogleDriveRepository: advisory -> document -> folder -> markers.
+        self._session.execute(text("""
+            SELECT pg_advisory_xact_lock(hashtextextended(
+                'blandskron.library.document:' || :owner || ':' || :document, 0))
+        """), {"owner": self._owner_user_id, "document": document_id})
+
+    def _lock_document(self, document_id: str, *, require_access: bool = True) -> bool:
+        query = self._accessible_documents_query() if require_access else self._session.query(DocumentModel)
+        return query.filter(DocumentModel.document_id == document_id).with_for_update(
+            read=True, key_share=True,
+        ).populate_existing().first() is not None
+
+    def _lock_folder(self, folder_id: str) -> bool:
+        # Root first: a cascading ancestor delete must wait before touching any links.
+        identifiers = self._session.scalars(text("""
+            WITH RECURSIVE ancestry AS (
+                SELECT folder_id, parent_folder_id, 0 AS depth FROM document_folders
+                WHERE folder_id=:folder AND owner_user_id=:owner
+                UNION ALL
+                SELECT p.folder_id, p.parent_folder_id, a.depth + 1
+                FROM document_folders p JOIN ancestry a ON p.folder_id=a.parent_folder_id
+                WHERE p.owner_user_id=:owner
+            )
+            SELECT f.folder_id FROM document_folders f JOIN ancestry a ON a.folder_id=f.folder_id
+            ORDER BY a.depth DESC FOR KEY SHARE OF f
+        """), {"folder": folder_id, "owner": self._owner_user_id}).all()
+        return folder_id in identifiers
+
+    def _insert_folder_item(self, folder_id: str, document_id: str) -> None:
+        self._session.execute(insert(DocumentFolderItemModel).values(
+            folder_id=folder_id, document_id=document_id, owner_user_id=self._owner_user_id,
+        ).on_conflict_do_nothing(index_elements=["folder_id", "document_id"]))
 
     def _folder(self, folder_id: str) -> DocumentFolderModel | None:
         return (
@@ -217,9 +236,6 @@ class LibraryRepositoryPg:
             .filter(DocumentFolderModel.folder_id == folder_id, DocumentFolderModel.owner_user_id == self._owner_user_id)
             .first()
         )
-
-    def _accessible_document(self, document_id: str) -> DocumentModel | None:
-        return self._accessible_documents_query().filter(DocumentModel.document_id == document_id).first()
 
     def _attach_chunk_counts(self, documents: list[DocumentModel]) -> list[DocumentModel]:
         document_ids = [str(document.document_id) for document in documents]

@@ -2,7 +2,7 @@
 
 Organiza documentos en carpetas personales, favoritos y una vista de documentos actualizados recientemente. Usa FastAPI, SQLAlchemy y el PostgreSQL compartido. El puerto local de Compose es `8006`.
 
-LIB-001 estableció el diagnóstico y el plan. LIB-002 incorporó configuración y pruebas; LIB-003 valida identidad y unifica permisos documentales; LIB-004 refuerza la integridad SQL y coordina al escritor de Google Drive. Concurrencia, límites, paginación y privilegios de ejecución siguen en las tarjetas posteriores. El [tablero](../../ROADMAP.md#documentlibraryservices) es la fuente de tareas y [AGENTS.md](AGENTS.md) indica cómo intervenir el servicio.
+LIB-001 estableció el diagnóstico y el plan. LIB-002 incorporó configuración y pruebas; LIB-003 valida identidad y unifica permisos documentales; LIB-004 refuerza la integridad SQL; LIB-005 serializa escrituras personales y coordina al escritor de Google Drive. Límites, paginación y privilegios de ejecución siguen en las tarjetas posteriores. El [tablero](../../ROADMAP.md#documentlibraryservices) es la fuente de tareas y [AGENTS.md](AGENTS.md) indica cómo intervenir el servicio.
 
 ## Recorrido y responsabilidades
 
@@ -62,6 +62,25 @@ Guardar un favorito o una asociación no concede acceso. Los listados y los cont
 
 Las carpetas siguen siendo privadas por `user_id`, incluso para administradores de documentos. Leer una carpeta comprueba tanto al propietario de la carpeta como al de sus asociaciones. Retirar una asociación exige carpeta propia; retirar un favorito o una asociación propia permite limpiar marcadores revocados sin devolver información del documento. Agregar o mover requiere lectura documental actual y carpeta destino propia; el movimiento a `null` también comprueba lectura. Los resultados booleanos y contadores de escritura se mantienen hasta la revisión de contrato de las siguientes tarjetas.
 
+## Escrituras y concurrencia
+
+Agregar a favoritos o a una carpeta es idempotente: una repetición autorizada devuelve éxito y conserva un único marcador, sin cambiar su fecha original. Se usa `INSERT ... ON CONFLICT DO NOTHING` sobre las claves existentes, según el [contrato de PostgreSQL](https://www.postgresql.org/docs/16/sql-insert.html). Retirar devuelve si esta operación eliminó un marcador; repetir una retirada devuelve cero o falso. Borrar una carpeta también informa si esta operación la eliminó.
+
+Agregar permite varias carpetas propias. Mover reemplaza todas las asociaciones del usuario por un destino o ninguno, en una sola transacción. Dos movimientos simultáneos quedan ordenados: al terminar conserva el destino del último movimiento que obtuvo el bloqueo, nunca la unión accidental de ambos. Un alta posterior a un movimiento puede agregar otra carpeta. Otros usuarios conservan sus asociaciones.
+
+Library y Google Drive usan el mismo protocolo bajo el aislamiento PostgreSQL predeterminado `READ COMMITTED`:
+
+1. Bloqueo transaccional `pg_advisory_xact_lock(hashtextextended('blandskron.library.document:' || owner || ':' || document, 0))`. El propietario es el ID de usuario canónico como texto. La clave identifica la organización de ese usuario y documento; una posible colisión del hash solo añade espera.
+2. Referencia documental con `FOR KEY SHARE`; las altas y movimientos consultan además el filtro de acceso actual. Las retiradas permiten limpiar marcadores revocados y no devuelven información documental.
+3. Carpeta propia y sus ancestros con `FOR KEY SHARE`, en orden raíz a destino. Esto coordina las escrituras con borrados en cascada de cualquier ancestro.
+4. Inserción o retirada de marcadores y commit. Un fallo revierte toda la operación; las salidas denegadas también terminan la transacción y liberan los bloqueos.
+
+Los [bloqueos transaccionales de PostgreSQL](https://www.postgresql.org/docs/16/explicit-locking.html) se liberan al hacer commit o rollback. No se mantiene una transacción abierta durante descargas, carga documental o llamadas al proveedor. Usuarios o documentos distintos pueden organizarse en paralelo; el bloqueo de referencia solo coordina el borrado del documento compartido. Una escritura que espera un borrado vuelve a comprobar la existencia antes de modificar marcadores.
+
+El protocolo es cooperativo: cualquier nuevo escritor directo de asociaciones debe respetar la misma clave y orden. Las claves foráneas siguen protegiendo la integridad SQL. No cambia la vigencia de claims del JWT ni convierte un marcador en permiso. Al desplegar LIB-005, actualiza Library y Google Drive juntos y evita mantener escritores antiguos en paralelo. No requiere migración adicional sobre LIB-004.
+
+LIB-008 debe resolver el privilegio requerido por `SELECT FOR KEY SHARE` mediante un mecanismo acotado, conservando los documentos sin permisos generales de modificación para el rol de Library. No basta con sustituir la conexión administrativa por un rol con solo `SELECT` y asumir que estas escrituras seguirán funcionando.
+
 ## Consumidores que deben revisarse juntos
 
 - El [adaptador](../../frontend/src/features/document-library/api/document-library.api.js) normaliza arreglos. Un objeto paginado sin adaptar produciría listas vacías.
@@ -101,7 +120,7 @@ Las fuentes principales son el [validador JWT](app/config/security.py), el [repo
 | Grupos | LIB-003 exige membresía en el tenant efectivo para concesiones por grupo en documentos con tenant. | LIB-003 resuelto |
 | Asociaciones incoherentes | LIB-003 bloquea lecturas ajenas; LIB-004 añade restricciones SQL de propietarios y coordina Google Drive con errores visibles. | LIB-004 resuelto |
 | Nombres y conflictos | LIB-004 rechaza nombres vacíos en SQL y traduce índices únicos existentes a HTTP 409. Los límites y normalización completa siguen pendientes. | LIB-004 resuelto / LIB-006 |
-| Concurrencia | Favoritos y asociaciones usan consultar-antes-de-insertar. Mover ya retira e inserta en una transacción, pero no serializa movimientos simultáneos. Las carreras requieren pruebas con sesiones independientes. | LIB-005 |
+| Concurrencia | LIB-005 usa altas idempotentes, retiradas SQL, serialización por usuario/documento y referencias protegidas frente a borrados. Pruebas independientes verifican esperas reales, orden y rollback. | LIB-005 resuelto |
 | Cotas y orden | Carpetas, contenido de carpeta y favoritos no tienen límite. Recientes no permite recorrer páginas. Faltan desempates por ID. El conteo de fragmentos ya se hace por lote y debe conservarse. | LIB-006 / LIB-007 |
 | Configuración | La base importaba el entorno global, admitía CORS abierto y comprobaba solo vida del proceso. LIB-002 aplica configuración explícita, disponibilidad de dependencias, cierre con `finally` y opciones efectivas del pool, con pruebas. | LIB-002 resuelto |
 | Ejecución | Se conecta como `postgres`, ejecuta como UID 0 e instala pytest y Ruff. LIB-002 añadió `library-tests` y CI; el rol mínimo, la imagen y las dependencias siguen pendientes. | LIB-008 |
@@ -168,6 +187,8 @@ docker compose -f docker/docker-compose.yml run --rm --no-deps library-tests ruf
 La suite usa claves temporales y PostgreSQL real. Cubre configuración, CORS, autenticación de las doce rutas, disponibilidad, recuperación del pool y cierre del motor. Las regresiones de LIB-003 incluyen tipos de claims, firma y algoritmo, propietario, asignador, destinatario, administradores, grupos y metadatos contradictorios. Comparan los tres listados y los conteos, revocan asignaciones entre peticiones y comprueban altas denegadas, carpetas privadas, vínculos incoherentes y limpieza personal de marcadores revocados. Los registros sintéticos se revierten con una transacción externa y savepoints; las tablas compartidas no se alteran.
 
 LIB-004 añade pruebas de migración repetida, datos inválidos conservados ante rechazo, ciclos, propietarios, conflictos HTTP, desaparición del padre y cascadas que preservan documentos y favoritos. Monta los scripts SQL en solo lectura. `LIBRARY_TEST_DATABASE_URL` es una conexión administrativa exclusiva para pruebas: crea bases aisladas `lib004_<UUID>` y retira únicamente la base creada por cada caso. No la configures contra producción. Las pruebas ordinarias mantienen sus transacciones y savepoints.
+
+LIB-005 reutiliza esas bases aisladas para sesiones independientes con datos confirmados. Las pruebas pausan una transacción antes de commit y observan `pg_blocking_pids` para comprobar la espera real de la segunda. Cubren reintentos, movimientos con y sin asociaciones previas, destino nulo, altas y retiradas, independencia por usuario/documento, borrados documentales y de ancestros, fallos antes del commit y recuperación de sesión. Drive prueba que su escritor espera el mismo bloqueo y asocia después de liberarlo.
 
 Desde `frontend`, `npm test` incluye el conteo canónico con cero y el contrato de advertencias de importación. Ejecuta también `npm ci` y `npm run build` para validar cambios de sus consumidores. CI ejecuta además `drive-tests` y Ruff para el escritor compartido.
 

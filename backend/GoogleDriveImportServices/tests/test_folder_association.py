@@ -1,3 +1,6 @@
+from concurrent.futures import ThreadPoolExecutor
+from threading import Event
+from time import monotonic, sleep
 from types import SimpleNamespace
 from uuid import uuid4
 
@@ -51,6 +54,47 @@ def test_repository_reports_missing_document_without_sql_details(committed_recor
     database, folder_id, _, _ = committed_records
     with pytest.raises(NotFoundError, match="Document or folder is no longer available"):
         GoogleDriveRepository(database).associate_document_with_folder(folder_id, uuid4().hex, "42")
+
+
+def test_drive_writer_obeys_library_transaction_lock(committed_records):
+    database, folder_id, _, document_id = committed_records
+    started = Event()
+    pid = []
+
+    def writer():
+        # Capture the real writer connection, not a separate observer connection.
+        from sqlalchemy import event
+
+        def capture(connection, cursor, statement, parameters, context, executemany):
+            if "pg_advisory_xact_lock" in statement:
+                pid.append(connection.connection.driver_connection.info.backend_pid)
+                started.set()
+
+        event.listen(database._engine, "before_cursor_execute", capture)
+        try:
+            GoogleDriveRepository(database).associate_document_with_folder(folder_id, document_id, "42")
+        finally:
+            event.remove(database._engine, "before_cursor_execute", capture)
+
+    with database.session() as blocker:
+        blocker.execute(text("""SELECT pg_advisory_xact_lock(hashtextextended(
+            'blandskron.library.document:' || :owner || ':' || :document, 0))"""), {"owner": "42", "document": document_id})
+        with ThreadPoolExecutor(max_workers=1) as pool:
+            future = pool.submit(writer)
+            try:
+                assert started.wait(3), "Drive bypassed the shared lock protocol"
+                deadline = monotonic() + 3
+                with database.session() as observer:
+                    while not observer.scalar(text("SELECT cardinality(pg_blocking_pids(:pid)) > 0"), {"pid": pid[0]}):
+                        assert not future.done()
+                        assert monotonic() < deadline
+                        sleep(0.01)
+                    assert observer.scalar(text("SELECT count(*) FROM document_folder_items WHERE document_id=:id"), {"id": document_id}) == 0
+            finally:
+                blocker.rollback()
+            future.result(timeout=4)
+    with database.session() as session:
+        assert session.scalar(text("SELECT count(*) FROM document_folder_items WHERE document_id=:id"), {"id": document_id}) == 1
 
 
 class ImportRepository:

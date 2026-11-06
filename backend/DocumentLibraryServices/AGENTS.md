@@ -1,11 +1,13 @@
 # DocumentLibraryServices
 
-Lee el [contrato y diagnóstico](README.md) y retoma la tarjeta activa del [tablero](../../ROADMAP.md#documentlibraryservices). La configuración, pruebas, acceso e integridad están cubiertos hasta LIB-004. Las siguientes tarjetas refuerzan concurrencia y contratos.
+Lee el [contrato y diagnóstico](README.md) y retoma la tarjeta activa del [tablero](../../ROADMAP.md#documentlibraryservices). La configuración, pruebas, acceso, integridad y concurrencia están cubiertos hasta LIB-005. Las siguientes tarjetas refuerzan límites, contratos y ejecución.
 
 - Comprueba identidad JWT, propiedad de carpeta y permiso documental por separado. Una asociación o favorito nunca concede lectura.
 - Contrasta filtros con DocumentSearchServices y DocumentAccessServices. Incluye revocación, columnas canónicas, metadatos históricos y grupos por tenant en listas y conteos.
 - Preserva carpetas y favoritos personales. No conviertas administradores documentales en propietarios de bibliotecas ajenas.
 - Distingue agregar una asociación de mover todas las asociaciones personales. Prueba reintentos y concurrencia con sesiones independientes.
+- Conserva el protocolo compartido con Drive: bloqueo transaccional por usuario/documento, referencia documental, ancestros de raíz a destino y marcadores. Usa altas con conflicto explícito y rollback ante fallos. Prueba esperas reales y liberación de bloqueos también en salidas denegadas.
+- Al implementar el rol mínimo en LIB-008, resuelve el bloqueo de referencia sin conceder modificación general de documentos. `SELECT FOR KEY SHARE` necesita privilegios adicionales a `SELECT`.
 - Borrar carpetas retira carpetas y asociaciones, nunca documentos ni archivos. Audita relaciones existentes antes de imponer restricciones.
 - Preserva las claves compuestas de propietario y el trigger de estructura: ID, propietario y padre de carpeta son inmutables. Los padres se insertan primero. Reubicar carpetas requiere diseño explícito y pruebas de ciclos.
 - Las pruebas de migración usan `LIBRARY_TEST_DATABASE_URL` administrativo para bases aisladas con UUID; nunca producción. Monta los scripts SQL en solo lectura y conserva la limpieza de cada base creada por la fixture.
