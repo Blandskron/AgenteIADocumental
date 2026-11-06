@@ -1,13 +1,16 @@
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from sqlalchemy.exc import SQLAlchemyError
 
 from app.config.logging import configure_logging
 from app.config.settings import get_settings
 from app.infrastructure.database.connection import Database
 from app.interfaces.api.router import api_router
+from app.interfaces.api.body_limit import RequestBodyLimit
 from app.shared.errors import AppError, ConflictError, NotFoundError, ValidationError
 
 
@@ -27,6 +30,7 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title=settings.app_name, version="0.1.0", lifespan=lifespan)
+app.add_middleware(RequestBodyLimit)
 
 app.add_middleware(
     CORSMiddleware,
@@ -38,6 +42,21 @@ app.add_middleware(
 )
 
 app.include_router(api_router)
+
+
+@app.exception_handler(RequestValidationError)
+async def request_validation_handler(request: Request, exc: RequestValidationError) -> JSONResponse:
+    fields = {"body", "path", "query", "name", "metadata", "folder_id", "parent_folder_id", "document_id", "limit"}
+    errors = [{
+        "loc": [part if isinstance(part, int) or part in fields else "field" for part in error["loc"]],
+        "msg": "Invalid request value.", "type": error["type"],
+    } for error in exc.errors()]
+    return JSONResponse(status_code=422, content={"detail": errors})
+
+
+@app.exception_handler(SQLAlchemyError)
+async def database_error_handler(request: Request, exc: SQLAlchemyError) -> JSONResponse:
+    return JSONResponse(status_code=500, content={"detail": "Database operation failed."})
 
 
 @app.exception_handler(NotFoundError)
@@ -52,7 +71,7 @@ async def validation_handler(request: Request, exc: ValidationError) -> JSONResp
 
 @app.exception_handler(AppError)
 async def app_error_handler(request: Request, exc: AppError) -> JSONResponse:
-    return JSONResponse(status_code=500, content={"detail": str(exc)})
+    return JSONResponse(status_code=500, content={"detail": "Application operation failed."})
 
 
 @app.exception_handler(ConflictError)

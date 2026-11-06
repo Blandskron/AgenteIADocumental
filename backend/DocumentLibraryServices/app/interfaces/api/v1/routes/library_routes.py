@@ -8,16 +8,24 @@ from app.interfaces.api.v1.schemas.library_schema import (
     DeleteResponse,
     DocumentMoveRequest,
     DocumentResponse,
+    Identifier,
     FolderCreateRequest,
     FolderResponse,
     FolderUpdateRequest,
 )
 
-router = APIRouter()
+router = APIRouter(responses={
+    400: {"description": "Malformed body or invalid application operation."},
+    404: {"description": "Resource unavailable to this user."},
+    409: {"description": "Folder name already exists at this level."},
+    413: {"description": "Request body exceeds 65536 bytes."},
+    422: {"description": "Invalid request; submitted values are omitted from errors."},
+    500: {"description": "Internal operation failed; no SQL details are returned."},
+})
 
 
 @router.get("/folders", response_model=list[FolderResponse])
-def list_folders(parent_folder_id: str | None = None, use_case: ManageLibrary = Depends(get_library_use_case)):
+def list_folders(parent_folder_id: Identifier | None = None, use_case: ManageLibrary = Depends(get_library_use_case)):
     return [_folder_response(folder) for folder in use_case.list_folders(parent_folder_id)]
 
 
@@ -30,7 +38,7 @@ def create_folder(payload: FolderCreateRequest, use_case: ManageLibrary = Depend
 
 
 @router.patch("/folders/{folder_id}", response_model=FolderResponse)
-def update_folder(folder_id: str, payload: FolderUpdateRequest, use_case: ManageLibrary = Depends(get_library_use_case)):
+def update_folder(folder_id: Identifier, payload: FolderUpdateRequest, use_case: ManageLibrary = Depends(get_library_use_case)):
     folder = use_case.update_folder(folder_id, payload)
     if folder is None:
         raise HTTPException(status_code=404, detail="Folder not found.")
@@ -38,28 +46,28 @@ def update_folder(folder_id: str, payload: FolderUpdateRequest, use_case: Manage
 
 
 @router.delete("/folders/{folder_id}", response_model=DeleteResponse)
-def delete_folder(folder_id: str, use_case: ManageLibrary = Depends(get_library_use_case)):
+def delete_folder(folder_id: Identifier, use_case: ManageLibrary = Depends(get_library_use_case)):
     return DeleteResponse(deleted=use_case.delete_folder(folder_id))
 
 
 @router.get("/folders/{folder_id}/documents", response_model=list[DocumentResponse])
-def folder_documents(folder_id: str, use_case: ManageLibrary = Depends(get_library_use_case)):
+def folder_documents(folder_id: Identifier, use_case: ManageLibrary = Depends(get_library_use_case)):
     return [_document_response(document) for document in use_case.list_folder_documents(folder_id)]
 
 
 @router.post("/folders/{folder_id}/documents/{document_id}", response_model=DeleteResponse)
-def add_document_to_folder(folder_id: str, document_id: str, use_case: ManageLibrary = Depends(get_library_use_case)):
+def add_document_to_folder(folder_id: Identifier, document_id: Identifier, use_case: ManageLibrary = Depends(get_library_use_case)):
     return DeleteResponse(deleted=use_case.add_document_to_folder(folder_id, document_id))
 
 
 @router.delete("/folders/{folder_id}/documents/{document_id}", response_model=DeleteResponse)
-def remove_document_from_folder(folder_id: str, document_id: str, use_case: ManageLibrary = Depends(get_library_use_case)):
+def remove_document_from_folder(folder_id: Identifier, document_id: Identifier, use_case: ManageLibrary = Depends(get_library_use_case)):
     return DeleteResponse(deleted=use_case.remove_document_from_folder(folder_id, document_id))
 
 
 @router.patch("/library/documents/{document_id}/folder", response_model=ActionResponse)
 def move_document_to_folder(
-    document_id: str,
+    document_id: Identifier,
     payload: DocumentMoveRequest,
     use_case: ManageLibrary = Depends(get_library_use_case),
 ):
@@ -80,12 +88,12 @@ def favorite_documents(use_case: ManageLibrary = Depends(get_library_use_case)):
 
 
 @router.post("/library/favorites/{document_id}", response_model=CountResponse)
-def add_favorite(document_id: str, use_case: ManageLibrary = Depends(get_library_use_case)):
+def add_favorite(document_id: Identifier, use_case: ManageLibrary = Depends(get_library_use_case)):
     return CountResponse(count=1 if use_case.add_favorite(document_id) else 0)
 
 
 @router.delete("/library/favorites/{document_id}", response_model=CountResponse)
-def remove_favorite(document_id: str, use_case: ManageLibrary = Depends(get_library_use_case)):
+def remove_favorite(document_id: Identifier, use_case: ManageLibrary = Depends(get_library_use_case)):
     return CountResponse(count=1 if use_case.remove_favorite(document_id) else 0)
 
 

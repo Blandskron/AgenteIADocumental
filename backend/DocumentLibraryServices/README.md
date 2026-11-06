@@ -2,7 +2,7 @@
 
 Organiza documentos en carpetas personales, favoritos y una vista de documentos actualizados recientemente. Usa FastAPI, SQLAlchemy y el PostgreSQL compartido. El puerto local de Compose es `8006`.
 
-LIB-001 estableció el diagnóstico y el plan. LIB-002 incorporó configuración y pruebas; LIB-003 valida identidad y unifica permisos documentales; LIB-004 refuerza la integridad SQL; LIB-005 serializa escrituras personales y coordina al escritor de Google Drive. Límites, paginación y privilegios de ejecución siguen en las tarjetas posteriores. El [tablero](../../ROADMAP.md#documentlibraryservices) es la fuente de tareas y [AGENTS.md](AGENTS.md) indica cómo intervenir el servicio.
+LIB-001 estableció el diagnóstico y el plan. LIB-002 incorporó configuración y pruebas; LIB-003 valida identidad y unifica permisos documentales; LIB-004 refuerza la integridad SQL; LIB-005 serializa escrituras personales; LIB-006 limita entradas y estabiliza errores HTTP. Paginación y privilegios de ejecución siguen en las tarjetas posteriores. El [tablero](../../ROADMAP.md#documentlibraryservices) es la fuente de tareas y [AGENTS.md](AGENTS.md) indica cómo intervenir el servicio.
 
 ## Recorrido y responsabilidades
 
@@ -42,7 +42,31 @@ Los dos healthchecks son públicos. Los listados devuelven arreglos. Solo `recen
 
 Hay doce operaciones de negocio y dos healthchecks. La respuesta documental contiene ID, nombre, MIME, estado, cantidad de fragmentos y fecha de actualización. La carpeta incluye ID, nombre, padre, propietario, metadatos, cantidad de documentos y fechas. No se publican rutas de almacenamiento ni vectores.
 
-Crear recibe `name`, `parent_folder_id` opcional y `metadata`. Actualizar recibe `name` y `metadata` opcionales. Mover recibe `folder_id` opcional. Faltan cotas de longitud y tamaño JSON y validación del nombre después de eliminar espacios. Los cambios de contrato deben aplicarse junto con sus consumidores.
+Crear recibe `name`, `parent_folder_id` opcional y `metadata`. Actualizar recibe al menos `name` o `metadata`; omitir un campo lo conserva y enviar `null` se rechaza. Mover exige `folder_id` explícito: un ID selecciona destino y `null` retira las asociaciones personales. Un cuerpo vacío nunca se interpreta como mover a ninguno. Los tres cuerpos rechazan campos desconocidos.
+
+## Límites y errores de entrada
+
+| Entrada | Contrato LIB-006 |
+| --- | --- |
+| IDs en ruta, consulta o cuerpo | Texto de 1 a 128 caracteres, Unicode válido, no compuesto solo de espacios ni con controles ASCII o DEL. No se exige UUID ni se recortan los IDs. |
+| Nombre | Texto Unicode válido de 1 a 200 caracteres después de `strip`. Se rechazan controles ASCII y DEL incluso antes de recortar; se preservan mayúsculas y espacios interiores. |
+| Metadatos | Objeto JSON, máximo 16384 bytes UTF-8 al serializar sin espacios con `ensure_ascii=False`, profundidad máxima 16 desde raíz 0. Claves y valores cuentan para la profundidad. Sin NUL, Unicode inválido ni números no finitos. `{}` vacía los metadatos. |
+| Cuerpo HTTP | Máximo 65536 bytes reales, incluidos espacios y fragmentos del stream. No depende de `Content-Length`; se comprueba antes de decodificar JSON y ejecutar el caso de uso. Aplica también a cuerpos de GET y DELETE. |
+| Recientes | `limit` entre 1 y 100, por defecto 20. La paginación completa sigue en LIB-007. |
+
+Estos límites son parte del contrato, sin variables nuevas de entorno ni migración. No se recortan nombres o metadatos históricos al leerlos. Los consumidores actuales envían un destino explícito al mover y nombre recortado al crear. El adaptador y el lector compartido de errores admiten `detail` de texto o una lista de errores.
+
+| HTTP | Significado |
+| --- | --- |
+| 400 | Fallo de decodificación del cuerpo o validación de una operación de aplicación; mensajes constantes. |
+| 401 | JWT ausente o inválido, con `WWW-Authenticate: Bearer`. |
+| 404 | Recurso ajeno o inexistente en las operaciones que usan 404. Se conservan los booleanos y contadores de las otras operaciones. |
+| 409 | Nombre de carpeta repetido al mismo nivel; rollback antes de responder. |
+| 413 | Cuerpo mayor a 65536 bytes, incluso sin autenticación: se comprueba antes del router. CORS se conserva para orígenes permitidos. |
+| 422 | JSON mal formado o incumplimiento del esquema: nombre, ID, metadatos, tipo, campos desconocidos o cambios ausentes. |
+| 500 | Error interno SQL o de aplicación; respuesta genérica. No se convierte un fallo en un booleano o contador exitoso. |
+
+Los errores 422 conservan solo `loc`, `msg` y `type`; omiten `input`, `ctx` y el cuerpo. Las ubicaciones desconocidas se sustituyen por `field` y el mensaje es constante, de modo que tampoco se reflejan claves enviadas por el cliente. Esto adapta el [manejo de RequestValidationError de FastAPI](https://fastapi.tiangolo.com/tutorial/handling-errors/) al contrato de privacidad del servicio. Los errores SQL no publican consultas ni parámetros; las escrituras revierten antes de propagar errores y recuperan la sesión. OpenAPI documenta las restricciones y respuestas comunes.
 
 ## Lectura y organización personal
 
@@ -95,7 +119,7 @@ La [migración LIB-004](../../scripts/database/migrations/002_library_integrity.
 
 Las claves foráneas compuestas exigen el mismo propietario en padre e hijo y en carpeta y asociación. Su clave única de destino sigue el [contrato de PostgreSQL](https://www.postgresql.org/docs/16/ddl-constraints.html). El padre debe existir antes de insertar un hijo. Un trigger mantiene inmutables el ID, propietario y padre de cada carpeta; permite cambiar nombre y metadatos. Esto impide ciclos, incluidas inserciones de varias filas. Reubicar carpetas requerirá un diseño y migración explícitos; el endpoint de mover documentos no cambia padres de carpetas.
 
-Los índices únicos existentes mantienen la comparación exacta de nombres por propietario y nivel, sensible a mayúsculas. Crear o renombrar con un nombre repetido devuelve HTTP 409 y revierte la transacción. Un nombre sin caracteres distintos de espacios se rechaza también en SQL. Las cotas y normalización completa de entradas siguen en LIB-006. Si el padre desaparece entre la comprobación y la inserción, la API devuelve 404 y recupera la sesión.
+Los índices únicos existentes mantienen la comparación exacta de nombres por propietario y nivel, sensible a mayúsculas. Crear o renombrar con un nombre repetido devuelve HTTP 409 y revierte la transacción. Un nombre sin caracteres distintos de espacios se rechaza también en SQL; LIB-006 lo rechaza antes con HTTP 422. Si el padre desaparece entre la comprobación y la inserción, la API devuelve 404 y recupera la sesión.
 
 Para inspeccionar una base histórica antes de actualizar, instala únicamente la función de auditoría desde la raíz con PowerShell y credenciales administrativas del entorno:
 
@@ -119,9 +143,9 @@ Las fuentes principales son el [validador JWT](app/config/security.py), el [repo
 | Precedencia | LIB-003 prioriza columnas canónicas y limita el respaldo a valores nulos, igual que búsqueda y acceso. | LIB-003 resuelto |
 | Grupos | LIB-003 exige membresía en el tenant efectivo para concesiones por grupo en documentos con tenant. | LIB-003 resuelto |
 | Asociaciones incoherentes | LIB-003 bloquea lecturas ajenas; LIB-004 añade restricciones SQL de propietarios y coordina Google Drive con errores visibles. | LIB-004 resuelto |
-| Nombres y conflictos | LIB-004 rechaza nombres vacíos en SQL y traduce índices únicos existentes a HTTP 409. Los límites y normalización completa siguen pendientes. | LIB-004 resuelto / LIB-006 |
+| Nombres y conflictos | LIB-004 traduce índices existentes a HTTP 409. LIB-006 valida nombre tras trim, IDs, JSON y tamaño HTTP, y evita reflejar entradas o SQL en errores. | LIB-004 / LIB-006 resueltos |
 | Concurrencia | LIB-005 usa altas idempotentes, retiradas SQL, serialización por usuario/documento y referencias protegidas frente a borrados. Pruebas independientes verifican esperas reales, orden y rollback. | LIB-005 resuelto |
-| Cotas y orden | Carpetas, contenido de carpeta y favoritos no tienen límite. Recientes no permite recorrer páginas. Faltan desempates por ID. El conteo de fragmentos ya se hace por lote y debe conservarse. | LIB-006 / LIB-007 |
+| Cotas y orden | LIB-006 acota entradas. Carpetas, contenido y favoritos aún requieren paginación; recientes no permite recorrer páginas. Faltan desempates por ID. El conteo de fragmentos por lote debe conservarse. | LIB-007 |
 | Configuración | La base importaba el entorno global, admitía CORS abierto y comprobaba solo vida del proceso. LIB-002 aplica configuración explícita, disponibilidad de dependencias, cierre con `finally` y opciones efectivas del pool, con pruebas. | LIB-002 resuelto |
 | Ejecución | Se conecta como `postgres`, ejecuta como UID 0 e instala pytest y Ruff. LIB-002 añadió `library-tests` y CI; el rol mínimo, la imagen y las dependencias siguen pendientes. | LIB-008 |
 | Mantenibilidad | Hay entidades, tipo vectorial, constantes de extracción y utilidades sin consumidores internos identificados. Retirarlos al cierre tras revisar imports. | LIB-008 |
@@ -191,6 +215,8 @@ LIB-004 añade pruebas de migración repetida, datos inválidos conservados ante
 LIB-005 reutiliza esas bases aisladas para sesiones independientes con datos confirmados. Las pruebas pausan una transacción antes de commit y observan `pg_blocking_pids` para comprobar la espera real de la segunda. Cubren reintentos, movimientos con y sin asociaciones previas, destino nulo, altas y retiradas, independencia por usuario/documento, borrados documentales y de ancestros, fallos antes del commit y recuperación de sesión. Drive prueba que su escritor espera el mismo bloqueo y asocia después de liberarlo.
 
 Desde `frontend`, `npm test` incluye el conteo canónico con cero y el contrato de advertencias de importación. Ejecuta también `npm ci` y `npm run build` para validar cambios de sus consumidores. CI ejecuta además `drive-tests` y Ruff para el escritor compartido.
+
+LIB-006 prueba fronteras de nombres, IDs, metadatos UTF-8 y profundidad; cuerpos fragmentados con tamaño declarado ausente o incorrecto, 413 con CORS y errores privados. Un guard impide llegar a métodos del caso de uso con entradas inválidas. PostgreSQL confirma el round trip de límites válidos, ausencia de escrituras rechazadas, conflictos y recuperación tras un trigger sintético que provoca un error SQL desconocido. También se verifica OpenAPI.
 
 CI arranca Library con su comprobación de disponibilidad y ejecuta `pip check`, las pruebas y Ruff. HTTPX está en la etapa Docker de pruebas. Las herramientas heredadas pytest y Ruff todavía forman parte de las dependencias de ejecución y se retirarán en LIB-008 junto con su actualización y auditoría.
 

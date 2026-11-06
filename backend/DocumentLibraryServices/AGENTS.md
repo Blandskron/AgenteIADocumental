@@ -1,8 +1,9 @@
 # DocumentLibraryServices
 
-Lee el [contrato y diagnóstico](README.md) y retoma la tarjeta activa del [tablero](../../ROADMAP.md#documentlibraryservices). La configuración, pruebas, acceso, integridad y concurrencia están cubiertos hasta LIB-005. Las siguientes tarjetas refuerzan límites, contratos y ejecución.
+Lee el [contrato y diagnóstico](README.md) y retoma la tarjeta activa del [tablero](../../ROADMAP.md#documentlibraryservices). La configuración, pruebas, acceso, integridad, concurrencia y límites están cubiertos hasta LIB-006. Las siguientes tarjetas refuerzan paginación y ejecución.
 
 - Comprueba identidad JWT, propiedad de carpeta y permiso documental por separado. Una asociación o favorito nunca concede lectura.
+- Reutiliza Identifier y los esquemas de entrada. Valida nombres tras trim, metadatos y cuerpos según README. Mover exige destino explícito; PATCH rechaza cambios nulos o ausentes. Conserva errores sin input, ctx, claves desconocidas o detalles SQL, y no traduzcas errores inesperados a éxitos.
 - Contrasta filtros con DocumentSearchServices y DocumentAccessServices. Incluye revocación, columnas canónicas, metadatos históricos y grupos por tenant en listas y conteos.
 - Preserva carpetas y favoritos personales. No conviertas administradores documentales en propietarios de bibliotecas ajenas.
 - Distingue agregar una asociación de mover todas las asociaciones personales. Prueba reintentos y concurrencia con sesiones independientes.
