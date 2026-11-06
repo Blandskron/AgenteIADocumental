@@ -1,11 +1,11 @@
 import io
-import os
 import uuid
 from PIL import Image
 from fastapi import APIRouter, Depends, HTTPException, status, File, UploadFile, Request
 
 from app.application.use_cases.manage_profile import ManageProfile
 from app.config.security import is_admin_user, require_authenticated_user, user_groups
+from app.config.settings import Settings, get_settings
 from app.interfaces.api.v1.dependencies import get_profile_use_case
 from app.interfaces.api.v1.schemas.profile_schema import ProfileResponse, ProfileUpdateRequest, ProfileUploadResponse
 
@@ -131,6 +131,7 @@ def upload_profile_picture(
     request: Request,
     file: UploadFile = File(...),
     current_user: dict = Depends(require_authenticated_user),
+    settings: Settings = Depends(get_settings),
 ):
     # 1. Leer el contenido del archivo
     content = file.file.read()
@@ -154,12 +155,12 @@ def upload_profile_picture(
     filename = f"{uuid.uuid4().hex}.{img_format}"
 
     # 5. Guardar en el directorio físico
-    uploads_dir = os.path.abspath(os.getenv("PROFILE_UPLOADS_DIR", "./uploads"))
-    os.makedirs(uploads_dir, exist_ok=True)
-    file_path = os.path.join(uploads_dir, filename)
-
-    with open(file_path, "wb") as f:
-        f.write(content)
+    file_path = settings.profile_uploads_dir / filename
+    try:
+        with file_path.open("wb") as f:
+            f.write(content)
+    except OSError:
+        raise HTTPException(status_code=503, detail="Profile storage is unavailable.") from None
 
     # 6. Retornar URL dinámica
     base_url = str(request.base_url).rstrip("/")

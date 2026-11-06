@@ -1,10 +1,11 @@
 from datetime import datetime
 from typing import Any
 
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 
 class ProfileResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
     profile_id: str | None
     user_id: str
     email: str | None
@@ -15,9 +16,6 @@ class ProfileResponse(BaseModel):
     permissions: list[str]
     created_at: datetime | None
     updated_at: datetime | None
-
-    class Config:
-        from_attributes = True
 
 
 class ProfileUpdateRequest(BaseModel):

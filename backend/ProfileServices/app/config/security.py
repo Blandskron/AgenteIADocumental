@@ -1,19 +1,26 @@
-from functools import lru_cache
 from pathlib import Path
 
 import jwt
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from jwt import InvalidTokenError
+from cryptography.hazmat.primitives.serialization import load_pem_public_key
+from cryptography.hazmat.primitives.asymmetric.rsa import RSAPublicKey
 
 from app.config.settings import Settings, get_settings
 
 bearer_scheme = HTTPBearer(auto_error=False)
 
 
-@lru_cache
-def read_public_key(path: str) -> str:
-    return Path(path).read_text(encoding="utf-8")
+def read_public_key(path: str | Path) -> str:
+    try:
+        content = Path(path).read_text(encoding="utf-8")
+        key = load_pem_public_key(content.encode("utf-8"))
+        if not isinstance(key, RSAPublicKey) or key.key_size < 2048:
+            raise ValueError
+        return content
+    except (OSError, ValueError, UnicodeError):
+        raise RuntimeError("Profile verification key is unavailable or invalid.") from None
 
 
 def require_authenticated_user(
@@ -34,7 +41,7 @@ def require_authenticated_user(
             algorithms=[settings.auth_jwt_algorithm],
             options={"verify_aud": False},
         )
-    except (InvalidTokenError, OSError) as exc:
+    except (InvalidTokenError, RuntimeError) as exc:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid authentication token.",
