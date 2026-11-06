@@ -2,9 +2,16 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 
 from app.application.use_cases.manage_transfers import ManageTransfers
 from app.interfaces.api.v1.dependencies import get_transfer_use_case
-from app.interfaces.api.v1.schemas.transfer_schema import CountResponse, TransferCreateRequest, TransferResponse, TransferUpdateRequest
+from app.interfaces.api.v1.schemas.transfer_schema import CountResponse, Identifier, TransferCreateRequest, TransferResponse, TransferUpdateRequest
 
-router = APIRouter()
+router = APIRouter(responses={
+    400: {"description": "Invalid request body."},
+    401: {"description": "Access token required."},
+    404: {"description": "Transfer or document not found."},
+    413: {"description": "Request body exceeds 65536 bytes."},
+    422: {"description": "Invalid request values."},
+    500: {"description": "Operation failed."},
+})
 
 
 @router.get("/transfers", response_model=list[TransferResponse])
@@ -18,7 +25,7 @@ def create_transfer(payload: TransferCreateRequest, use_case: ManageTransfers = 
 
 
 @router.patch("/transfers/{transfer_id}", response_model=TransferResponse)
-def update_transfer(transfer_id: str, payload: TransferUpdateRequest, use_case: ManageTransfers = Depends(get_transfer_use_case)):
+def update_transfer(transfer_id: Identifier, payload: TransferUpdateRequest, use_case: ManageTransfers = Depends(get_transfer_use_case)):
     transfer = use_case.update(transfer_id, payload)
     if transfer is None:
         raise HTTPException(status_code=404, detail="Transfer not found.")

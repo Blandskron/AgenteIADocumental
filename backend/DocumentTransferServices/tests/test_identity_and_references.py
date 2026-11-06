@@ -187,7 +187,7 @@ def test_history_stays_private_and_legacy_owners_are_untouched(records, signing_
         ("foreign", "43"), ("unknown", "unknown"), ("legacy", "synthetic-username"), ("padded", "042"))}
     created = client.post("/api/v1/transfers", headers=headers, json={
         "filename": "synthetic.txt", "direction": "UPLOAD", "owner_user_id": "43"})
-    assert created.status_code == 200 and created.json()["owner_user_id"] == "42"
+    assert created.status_code == 422
 
 
 @pytest.mark.parametrize("kind", ["assigned", "managed"])
