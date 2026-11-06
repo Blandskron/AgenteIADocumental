@@ -3,10 +3,10 @@
 Lee el [contrato y diagnóstico](README.md) y retoma la tarjeta del [tablero](../../ROADMAP.md#documenttransferservices). TRANSFER-001 documenta la base; las correcciones deben aportar evidencia antes de cambiar contratos.
 
 - El servicio registra historial; no transfiere archivos ni acredita que el navegador los recibió. No conviertas un evento en permiso documental ni en auditoría autoritativa.
-- Separa identidad canónica, propiedad del evento y acceso a la referencia documental. Conserva historial privado incluso para administradores; trata referencias ajenas como inexistentes.
+- Exige user_id entero positivo y exp entero vigente en JWT access. Separa propiedad del evento y acceso a la referencia documental según la política de Library/Access. Conserva historial privado incluso para administradores y tras revocación; enviar una referencia nueva o repetida requiere acceso vigente. Trata referencias ajenas como inexistentes.
 - `metadata` HTTP debe mapearse a `metadata_` en SQLAlchemy. Diferencia campos ausentes y nulos; comprueba round trip real en PostgreSQL.
-- La FK de `transfer_events.document_id` existe en el esquema compartido y usa SET NULL. No deduzcas su ausencia del comentario del modelo ORM ni uses create_all como migración.
-- Mantén documentos y archivos al borrar historial. Audita datos existentes antes de cambiar restricciones o reparar propietarios históricos.
+- Al introducir el rol mínimo, conserva el bloqueo de referencia con capacidad acotada y prueba ambos órdenes frente al borrado. La FK de `transfer_events.document_id` existe en el esquema compartido y usa SET NULL. No deduzcas su ausencia del comentario del modelo ORM ni uses create_all como migración.
+- Mantén documentos y archivos al borrar historial. Ejecuta scripts/database/transfer/audit_owners.sql en modo de solo lectura antes de reparar propietarios históricos. Ni siquiera un owner numérico prueba el origen de un antiguo sub/username: no reasignes ni borres automáticamente.
 - Revisa estados y progreso junto con DocumentSearchPage y useDocumentQuestionFlow. Los porcentajes actuales representan etapas; no son progreso medido en bytes.
 - Un fallo del historial no debe ocasionar repetir una operación documental ya realizada ni ocultar el error original. Conserva advertencias visibles y procesos activos al limpiar.
 - Al cambiar respuestas, revisa adaptador, useTransfers, TransferModal, DocumentSearchPage y ChatPage. No conviertas contratos incompatibles en listas vacías; prueba respuestas tardías y cambio de cliente.

@@ -2,7 +2,7 @@
 
 Registra el historial personal de cargas y descargas mediante FastAPI, SQLAlchemy y PostgreSQL. No recibe archivos, no los descarga ni procesa documentos. Los clientes informan nombres, estados y progreso; este historial no prueba que un navegador haya guardado un archivo ni sustituye la auditoría de DocumentAccessServices. El puerto local de Compose es `8007`.
 
-TRANSFER-001 establece el diagnóstico histórico de la base. TRANSFER-002 incorpora configuración aislada, disponibilidad y pruebas permanentes; las brechas restantes conservan su tarjeta. Las correcciones avanzan por incrementos en el [tablero](../../ROADMAP.md#documenttransferservices); [AGENTS.md](AGENTS.md) indica cómo intervenir. Este documento distingue comportamiento observado, decisiones propuestas y comprobaciones pendientes.
+TRANSFER-001 establece el diagnóstico histórico de la base. TRANSFER-002 incorpora configuración aislada, disponibilidad y pruebas permanentes; TRANSFER-003 establece identidad canónica y referencias autorizadas. Las brechas restantes conservan su tarjeta. Las correcciones avanzan por incrementos en el [tablero](../../ROADMAP.md#documenttransferservices); [AGENTS.md](AGENTS.md) indica cómo intervenir. Este documento distingue comportamiento observado, decisiones propuestas y comprobaciones pendientes.
 
 ## Recorrido y responsabilidades
 
@@ -19,15 +19,15 @@ Aunque el modelo ORM omite `ForeignKey`, el [esquema compartido](../../scripts/d
 
 ## Contrato HTTP vigente
 
-Todas las rutas de negocio verifican firma JWT y `token_type: access`. La base no exige `exp` ni un `user_id` entero positivo; el repositorio usa `user_id`, luego `sub`, luego `username` y finalmente `unknown`. TRANSFER-003 debe sustituir esas alternativas por la identidad canónica antes de considerar cerrado el aislamiento. Los tokens de Auth normales incluyen los claims; la sonda comprueba qué ocurre ante otros claims firmados, sin usar la clave de Auth.
+Todas las rutas de negocio exigen firma RS256, `token_type: access`, `user_id` entero positivo y `exp` entero vigente. Se rechazan booleanos, cadenas, floats, claims ausentes y tokens refresh con 401 y WWW-Authenticate: Bearer. No se resuelve identidad por sub, username o unknown. El propietario del evento siempre es el user_id canónico, aunque el cliente envíe otro o el JWT incluya roles de administración.
 
 | Método y ruta bajo `/api/v1` | Comportamiento actual |
 | --- | --- |
 | `GET /health` | Público; devuelve `{"status":"ok"}` como comprobación de vida. |
-| `GET /health/db` | Público; valida una clave pública RSA legible y consulta todas las columnas de `transfer_events` con LIMIT 0, sin leer historial. Clave o PostgreSQL no disponibles devuelven 503 genérico. No audita restricciones, índices ni el esquema de otros servicios. |
+| `GET /health/db` | Público; valida una clave pública RSA legible y consulta las proyecciones requeridas de `transfer_events`, `documents` y `document_assignments` con LIMIT 0, sin leer filas. Clave o PostgreSQL no disponibles devuelven 503 genérico. No audita restricciones, índices ni el esquema de otros servicios. |
 | `GET /transfers?limit=50` | Arreglo de eventos propios, ordenados por creación descendente; `limit` de 1 a 200. No tiene offset ni desempate por ID. |
-| `POST /transfers` | Crea un evento del propietario resuelto; responde HTTP 200. |
-| `PATCH /transfers/{transfer_id}` | Cambia campos no nulos de un evento propio. Un ID ajeno o inexistente devuelve 404. |
+| `POST /transfers` | Crea un evento del propietario canónico; una referencia documental exige acceso vigente. Responde HTTP 200. |
+| `PATCH /transfers/{transfer_id}` | Cambia campos no nulos de un evento propio. Si incluye document_id no nulo, revalida acceso. Un evento ajeno o inexistente devuelve 404. |
 | `DELETE /transfers/history` | Devuelve `{"count":N}` y elimina eventos propios COMPLETED, FAILED o CANCELLED. Conserva PENDING y RUNNING. Materializa las filas antes de borrarlas. |
 
 Son cuatro operaciones de negocio y dos healthchecks. La respuesta incluye `transfer_id`, `owner_user_id`, `document_id`, `filename`, `direction`, `status`, `progress`, `size_bytes`, `metadata`, `created_at` y `updated_at`. Las rutas no devuelven rutas de almacenamiento ni contenido documental.
@@ -48,7 +48,7 @@ Los porcentajes 15, 40 y 65 son indicadores de etapas definidos por el cliente, 
 
 ## Diagnóstico histórico TRANSFER-001
 
-Esta tabla describe la imagen anterior a TRANSFER-002; configuración, disponibilidad y ausencia de pruebas ya se corrigieron como se explica abajo. Las demás brechas siguen pendientes. Se revisaron todos los módulos del servicio, las seis rutas, el esquema, restricciones, índice, trigger, Compose, workflow de CI y los consumidores anteriores. La sonda temporal confirmó 25 observaciones sobre PostgreSQL con datos sintéticos y transacción externa/savepoints; también confirmó su rollback final. No cargó archivos, llamó a IA ni utilizó OAuth o claves reales.
+Esta tabla describe la imagen anterior a TRANSFER-002/003; configuración, disponibilidad, identidad y referencias ya se corrigieron como se explica abajo. Las demás brechas conservan sus incrementos pendientes. Se revisaron todos los módulos del servicio, las seis rutas, el esquema, restricciones, índice, trigger, Compose, workflow de CI y los consumidores anteriores. La sonda temporal confirmó 25 observaciones sobre PostgreSQL con datos sintéticos y transacción externa/savepoints; también confirmó su rollback final. No cargó archivos, llamó a IA ni utilizó OAuth o claves reales.
 
 | Área | Evidencia y efecto | Incremento |
 | --- | --- | --- |
@@ -66,7 +66,7 @@ Esta tabla describe la imagen anterior a TRANSFER-002; configuración, disponibi
 
 La línea base del 6 de noviembre de 2026 construyó el manifiesto `sha256:f6c7ec04a4696251eef382a621cdfc90cbd2009f334461a2cd404a9acbdc1c67` sin cambiar el servicio. En un contenedor desechable se congelaron 33 paquetes antes de instalar las herramientas de la sonda. `pip-audit` 2.10.1 informó 58 entradas en `cryptography 46.0.6`, `pip 25.0.1`, `PyJWT 2.12.1`, `pytest 8.3.5`, `python-dotenv 1.1.0` y `starlette 0.46.2`. Las entradas pueden incluir aliases o duplicaciones; no representan 58 vulnerabilidades únicas validadas. El sistema operativo de esta imagen no se escaneó en TRANSFER-001; se hará al actualizar la imagen.
 
-La evidencia combina inspección estática y sondas. No constituye una auditoría exhaustiva ni afirma explotación de los avisos de dependencias. Las pruebas permanentes de configuración ya se incorporaron; las comprobaciones concurrentes del historial se incorporarán con sus correcciones, sin convertir la base defectuosa en el comportamiento esperado a conservar.
+La evidencia combina inspección estática y sondas. No constituye una auditoría exhaustiva ni afirma explotación de los avisos de dependencias. Las pruebas permanentes de configuración, identidad, referencias y su carrera con borrado ya se incorporaron; la concurrencia de estados y limpieza se incorporará en TRANSFER-005, sin convertir la base defectuosa en el comportamiento esperado a conservar.
 
 ## Decisiones para los incrementos
 
@@ -77,6 +77,38 @@ La evidencia combina inspección estática y sondas. No constituye una auditorí
 5. Separar el resultado documental del resultado del historial. Un fallo al registrar no debe provocar otra carga/descarga automática ni presentar como perdido un documento ya creado; las advertencias deben seguir visibles.
 6. Paginar con orden estable, conservar activos al limpiar y descartar respuestas de clientes anteriores. Adaptar ambos recorridos web, hook, adaptador y modal en el mismo incremento.
 7. Terminar con rol mínimo, imagen sin root, auditoría y README operativo. Mantener contexto breve en AGENTS y las tareas en ROADMAP, siguiendo los principios de leer primero y aportar evidencia de la [guía agents-first compartida](https://github.com/Blandskron/agents-first-repo-docs/blob/main/README.md) (v3.2.0, revisada el 6 de noviembre de 2026).
+
+## Identidad, referencias e historial personal (TRANSFER-003)
+
+El listado, PATCH y limpieza filtran siempre por el propietario del evento. Ser superadmin o administrador de tenant no permite consultar ni modificar el historial de otra persona. Los nombres y metadatos ya registrados permanecen en el historial personal después de revocar un permiso documental; no conceden lectura, descarga ni otro permiso sobre el documento.
+
+Crear con document_id o enviar document_id no nulo en PATCH exige lectura vigente según la política compartida por Library y Access:
+
+- Propietario: columna owner_user_id; solo si es SQL NULL se usa metadata.owner_user_id. Una columna vacía o diferente no se sustituye por metadatos.
+- Asignación como destinatario o remitente, con estado distinto de CANCELLED/EXPIRED.
+- Administrador del tenant resuelto: columna tenant_id y fallback de metadatos únicamente si es NULL.
+- Grupo documental presente en el JWT, limitado a los tenants de membresía o a un documento sin tenant.
+- Superadmin puede referenciar documentos globalmente, conservando su historial privado.
+
+El servicio no exige PROCESSED, embeddings ni allow_download para registrar una referencia: este historial no ejecuta ni autoriza descargas. El resultado de la operación documental corresponde a su servicio. Un documento ajeno o inexistente devuelve el mismo 404 `Document not found.`. En PATCH se comprueba primero la propiedad del evento; un evento ajeno o inexistente devuelve 404 `Transfer not found.` sin revelar sus referencias.
+
+Cada vínculo enviado se revalida, incluso si coincide con el anterior. Omitir document_id permite actualizar el diario propio tras una revocación; el contrato de null explícito sigue pendiente de TRANSFER-004. Se usa FOR KEY SHARE durante la transacción para impedir que un borrado entre la comprobación y la escritura produzca una FK inválida. Si borra primero, el vínculo responde 404; si vincula primero, el borrado espera y SET NULL conserva el evento. Las excepciones de alta/actualización revierten la sesión. No se afirma serialización total frente a cambios simultáneos de permisos: la política consulta el estado visible en la comprobación, y el JWT mantiene los claims emitidos hasta su renovación/expiración, como los demás servicios. Las reglas de estados y sus carreras continúan en TRANSFER-005.
+
+La imagen actual usa postgres. FOR KEY SHARE requiere privilegios de bloqueo; TRANSFER-007 deberá sustituirlo por una capacidad acotada al introducir el rol mínimo, manteniendo las pruebas concurrentes y sin conceder UPDATE documental genérico al runtime.
+
+### Auditoría de propietarios históricos
+
+Antes de actualizar una instalación con historial, ejecuta la auditoría agregada de solo lectura desde PowerShell:
+
+```powershell
+Get-Content scripts/database/transfer/audit_owners.sql | docker compose -f docker/docker-compose.yml exec -T postgres psql -U postgres -d documents_db -v ON_ERROR_STOP=1
+```
+
+En bash se puede usar la misma llamada psql con `< scripts/database/transfer/audit_owners.sql`. El script ejecuta BEGIN READ ONLY y devuelve categorías/conteos, sin imprimir identificadores ni modificar filas. Distingue unknown, números con formato canónico, números no canónicos y otros valores. Un número canónico **no acredita** propiedad histórica: podría provenir de un antiguo sub o username numérico. Los registros ambiguos se preservan; no se reasignan por similitud ni se borran. Investigar su procedencia y cualquier reparación requiere respaldo, evidencia de propiedad y decisión explícita. Los propietarios no canónicos no son alcanzables mediante la nueva identidad canónica.
+
+La ejecución local sobre la base de desarrollo revisada encontró cero eventos; no representa una auditoría de otras instalaciones. Las pruebas verifican las cuatro categorías con datos sintéticos y que el SELECT conserva los valores originales. CI ejecuta también el script completo.
+
+Evidencia TRANSFER-003: 155 pruebas aprobadas, Ruff, Compose, pip check y arranque real. Las matrices HTTP cubren claims inválidos en las cuatro operaciones, firmas/algoritmos incorrectos, precedencia de identidad, privacidad incluso para administradores, propietarios históricos, permisos por dueño/asignación/tenant/grupo, precedencia de columnas sobre JSON, revocación, 404 indistinguible, preservación documental e historial. Cuatro casos concurrentes con sesiones independientes observan pg_stat_activity.wait_event_type=Lock y comprueban ambos órdenes de alta/PATCH frente al borrado, recuperación y limpieza por IDs sintéticos. La suite usa claves temporales; una comprobación adicional contra el contenedor real aceptó access tokens emitidos y renovados por Auth y rechazó refresh, con rollback del usuario sintético y sin escribir historial.
 
 ## Configuración y operación (TRANSFER-002)
 
@@ -105,11 +137,11 @@ docker compose -f docker/docker-compose.yml run --build --rm --no-deps transfer-
 docker compose -f docker/docker-compose.yml run --rm --no-deps transfer-tests ruff check --no-cache app tests
 ```
 
-La etapa Docker test instala requirements-test.txt; la imagen runtime no contiene pytest, Ruff ni httpx. El job auth-db-roles de CI arranca Transfer y ejecuta la suite y Ruff; el job compose comprueba las diez variables y readiness. La suite requiere TRANSFER_TEST_DATABASE_URL explícita para operaciones sintéticas y DATABASE_URL para el motor de la aplicación; Compose configura ambas contra PostgreSQL local. No ejecutar contra producción. No usa create_all ni migra tablas compartidas.
+La etapa Docker test instala requirements-test.txt; la imagen runtime no contiene pytest, Ruff ni httpx. El job auth-db-roles de CI arranca Transfer y ejecuta la suite y Ruff; el job compose comprueba las diez variables y readiness. El job ejecuta también la auditoría agregada de propietarios. La suite requiere TRANSFER_TEST_DATABASE_URL explícita para operaciones sintéticas y DATABASE_URL para el motor de la aplicación; Compose configura ambas contra PostgreSQL local. No ejecutar contra producción. No usa create_all ni migra tablas compartidas.
 
 Evidencia local de TRANSFER-002: 46 pruebas aprobadas con PostgreSQL y claves RSA temporales; Ruff, pip check, Compose y arranque real con clave pública montada aprobados. Se verificaron límites de settings, precedencia del entorno sin carga de .env, capacidad/timeout/recuperación del pool, rollback tras error SQL, cierre normal/interrumpido/fallo de arranque, reapertura, CORS, 401 en cuatro operaciones, clave ausente/malformada/no RSA y su recuperación, cada columna requerida, conexión caída con 503 privado y recorrido crear/listar/actualizar/limpiar con rollback verificado. Las alteraciones de esquema se limitan a tablas temporales de una conexión, sin cambiar las compartidas.
 
-El arranque local se verificó sobre dependencias de desarrollo existentes, sin publicar puertos adicionales; CI comprueba el arranque desde su entorno desechable. No se ejecutó el stack completo ni una prueba con proveedor IA. Starlette emite un aviso de deprecación de BlockingPortal con AnyIO; la actualización y auditoría de dependencias corresponde a TRANSFER-007. La imagen aún ejecuta como root y usa postgres: rol mínimo, auditoría y ejecución restringida permanecen pendientes. Las 46 pruebas no acreditan haber corregido las brechas de identidad, metadatos, límites y estados del diagnóstico.
+El arranque local se verificó sobre dependencias de desarrollo existentes, sin publicar puertos adicionales; CI comprueba el arranque desde su entorno desechable. No se ejecutó el stack completo ni una prueba con proveedor IA. Starlette emite un aviso de deprecación de BlockingPortal con AnyIO; la actualización y auditoría de dependencias corresponde a TRANSFER-007. La imagen aún ejecuta como root y usa postgres: rol mínimo, auditoría y ejecución restringida permanecen pendientes. TRANSFER-003 amplía la suite a 155 pruebas para identidad y referencias; metadatos, límites y estados permanecen pendientes.
 
 ## Licencia
 

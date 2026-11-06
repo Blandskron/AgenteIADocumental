@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 
 from app.config.database import get_session
 from app.config.settings import Settings, get_settings
-from app.infrastructure.database.models import TransferEventModel
+from app.infrastructure.database.models import DocumentAssignmentModel, DocumentModel, TransferEventModel
 
 router = APIRouter()
 
@@ -28,6 +28,8 @@ def health_db(session: Session = Depends(get_session), settings: Settings = Depe
             raise ValueError("RSA public key required.")
         # Check every mapped column, including an empty table, without reading history.
         session.execute(select(TransferEventModel).limit(0))
+        session.execute(select(DocumentModel).limit(0))
+        session.execute(select(DocumentAssignmentModel).limit(0))
     except (OSError, ValueError, UnsupportedAlgorithm, SQLAlchemyError) as exc:
         raise HTTPException(status_code=503, detail="Document transfer dependencies are unavailable.") from exc
     return {"status": "ok"}
