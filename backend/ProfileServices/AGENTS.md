@@ -5,7 +5,8 @@ Lee [README.md](README.md) para el contrato actual y la evidencia, y [ROADMAP.md
 ## Límites del componente
 
 - Perfil/contacto/avatar pertenecen a este servicio; identidad, credenciales y membresías pertenecen a Auth. No escribir identidad de Auth desde el repositorio de perfiles.
-- No asumir que ser administrador de documentos permite leer perfiles personales. La política propuesta por dueño requiere implementación y pruebas en PROFILE-003.
+- La API y el repositorio solo permiten el perfil propio; ningún rol administrativo amplía el dueño. No reintroducir listados globales ni IDs de destino. `/static` sigue público hasta PROFILE-005 y debe migrarse junto al consumidor web.
+- Conserva el contrato JWT de Auth y comprueba cuenta activa y huella de contraseña en cada petición; no devuelvas ni registres esa huella. La consulta solo debe devolver un booleano. El contrato HTTP real se prueba con `scripts/profile/verify_auth_contract.py`, además de los JWT sintéticos de la suite.
 - Revisa juntos rutas, esquemas, caso de uso, repositorio, SQL y consumidores (`features/profile`, `ProfilePage`, `AuthProvider`, `Sidebar`). Una URL de avatar privada requiere adaptar `<img>` mediante el cliente autorizado.
 - Antes de cambiar almacenamiento o relaciones, inventaría referencias y huérfanos. No borres uploads ni datos antiguos indiscriminadamente. Conserva rollback, recuperación y compatibilidad explícita.
 - JWT de prueba con clave temporal; archivos e identidades sintéticos. No montes uploads reales para ensayar fallos o límites, ni imprimas tokens, `.env`, cuerpos de perfil o claves.

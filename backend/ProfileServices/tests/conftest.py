@@ -1,4 +1,5 @@
 import os
+import hashlib
 from time import time
 from uuid import uuid4
 
@@ -35,36 +36,65 @@ def settings(tmp_path, signing_key):
 
 @pytest.fixture
 def profile_id():
-    return "profile002-" + uuid4().hex
+    return str(1_000_000_000 + int(uuid4().hex[:7], 16))
 
 
 @pytest.fixture
-def token_headers(signing_key, profile_id):
+def encoded_password():
+    return "pbkdf2_sha256$1000000$profile003$synthetic"
+
+
+@pytest.fixture
+def token_headers(signing_key, profile_id, encoded_password):
     def make_headers(**claims):
-        payload = {"user_id": profile_id, "token_type": "access", "exp": int(time()) + 300}
+        payload = {"user_id": int(profile_id), "token_type": "access", "exp": int(time()) + 300,
+                   "iat": int(time()), "jti": uuid4().hex,
+                   "hash_password": hashlib.md5(encoded_password.encode()).hexdigest().upper()}
         payload.update(claims)
         return {"Authorization": "Bearer " + jwt.encode(payload, signing_key, algorithm="RS256")}
     return make_headers
 
 
 @pytest.fixture
-def db_session(settings, profile_id):
+def db_session(settings, profile_id, encoded_password):
     # Explicit opt-in URL, existing schema only. Even route-level commit stays in the savepoint.
     engine = create_engine(settings.database_url, hide_parameters=True)
     with engine.connect() as connection:
         transaction = connection.begin()
         session = Session(bind=connection, join_transaction_mode="create_savepoint")
+        identifiers = [int(profile_id)]
+        session.info["synthetic_ids"] = identifiers
         try:
+            insert_user(session, int(profile_id), encoded_password)
             yield session
         finally:
             session.close()
             transaction.rollback()
     try:
         with engine.connect() as connection:
-            assert connection.scalar(text("SELECT count(*) FROM user_profiles WHERE user_id=:id"),
-                                     {"id": profile_id}) == 0
+            for identifier in identifiers:
+                assert connection.scalar(text("SELECT count(*) FROM user_profiles WHERE user_id=:id"),
+                                         {"id": str(identifier)}) == 0
+                assert connection.scalar(text("SELECT count(*) FROM auth_user WHERE id=:id"),
+                                         {"id": identifier}) == 0
     finally:
         engine.dispose()
+
+
+def insert_user(session, identifier, password):
+    session.execute(text("""
+        INSERT INTO auth_user (id, password, is_superuser, username, first_name, last_name,
+                               email, is_staff, is_active, date_joined)
+        VALUES (:id, :password, FALSE, :username, '', '', '', FALSE, TRUE, NOW())
+    """), {"id": identifier, "password": password, "username": "profile003-" + uuid4().hex})
+
+
+@pytest.fixture
+def other_id(db_session, encoded_password):
+    identifier = 1_500_000_000 + int(uuid4().hex[:7], 16)
+    insert_user(db_session, identifier, encoded_password)
+    db_session.info["synthetic_ids"].append(identifier)
+    return str(identifier)
 
 
 @pytest.fixture

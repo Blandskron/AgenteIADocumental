@@ -2,7 +2,7 @@
 
 Servicio FastAPI de perfil y avatar de Blandskron Documental, publicado localmente en `http://localhost:8015`. AuthServices administra identidad, credenciales y membresías; Profile guarda datos de contacto y presentación en `user_profiles` y archivos en `uploads/profile`.
 
-**Estado:** PROFILE-001 integrado en PR #59. PROFILE-002 incorpora configuración explícita, validación de dependencias al arrancar, pool/timeouts, pruebas permanentes y dependencias actualizadas. La autorización por dueño, límites de entradas y ciclo privado del avatar siguen pendientes en PROFILE-003 a PROFILE-006; el rol DB acotado y usuario de contenedor en PROFILE-007. El [diagnóstico histórico](#diagnóstico-profile-001) describe la línea base, no las garantías actuales. El estado vive en el [tablero](../../ROADMAP.md#profileservices).
+**Estado:** PROFILE-001 y PROFILE-002 integrados en PR #59/#60. PROFILE-003 valida la identidad vigente y limita los datos del perfil a su dueño; retira las rutas globales y por ID. Los límites/consistencia de escritura y el ciclo privado del avatar siguen en PROFILE-004 a PROFILE-006; el rol DB acotado y usuario de contenedor en PROFILE-007. El [diagnóstico histórico](#diagnóstico-profile-001) describe la línea base, no las garantías actuales. El estado vive en el [tablero](../../ROADMAP.md#profileservices).
 
 ## Mapa para trabajar
 
@@ -10,8 +10,8 @@ Servicio FastAPI de perfil y avatar de Blandskron Documental, publicado localmen
 | --- | --- |
 | `app/main.py` | Factory `create_app`, lifespan, CORS, excepciones y montaje público `/static` |
 | `app/config/` | Settings, JWT, logging y sesión por petición |
-| `app/interfaces/api/v1/` | Dos rutas de salud, seis operaciones de perfil, dependencias y esquemas |
-| `app/application/use_cases/manage_profile.py` | Perfil vacío cuando no existe, actualización y listado |
+| `app/interfaces/api/v1/` | Dos rutas de salud, tres operaciones propias, dependencias y esquemas |
+| `app/application/use_cases/manage_profile.py` | Perfil propio vacío cuando no existe y actualización |
 | `app/domain/entities.py` | Entidad de perfil |
 | `app/infrastructure/database/` | SQLAlchemy, sesiones y repositorio PostgreSQL |
 | [Esquema](../../scripts/database/schemas/008_profiles.sql) y [triggers](../../scripts/database/triggers/001_updated_at_triggers.sql) | PK generada, `user_id` único, metadata JSONB y `updated_at` |
@@ -26,22 +26,27 @@ Servicio FastAPI de perfil y avatar de Blandskron Documental, publicado localmen
 | Método | Ruta | Comportamiento |
 | --- | --- | --- |
 | GET | `/api/v1/health` | Público; devuelve `status: ok`, sin comprobar dependencias |
-| GET | `/api/v1/health/db` | Público; comprueba tabla, clave pública y escritura temporal en storage; 503 genérico si fallan |
+| GET | `/api/v1/health/db` | Público; comprueba tablas de perfil/identidad, clave pública y escritura temporal en storage; 503 genérico si fallan |
 | GET | `/api/v1/profile` | Perfil propio o entidad vacía con ID y timestamps nulos; consultar no inserta |
 | PUT | `/api/v1/profile` | Crea o actualiza perfil propio |
-| GET | `/api/v1/profiles` | Admin; todos los perfiles sin paginación ni orden declarado |
-| GET | `/api/v1/profiles/{user_id}` | Dueño o admin; entidad vacía si no existe |
-| PUT | `/api/v1/profiles/{user_id}` | Dueño o admin; crea o actualiza |
 | POST | `/api/v1/profile/upload` | JWT access; verifica imagen, guarda archivo y devuelve `{ "url": "..." }` |
 | GET | `/static/{filename}` | Archivo público, sin JWT ni comprobación de propiedad |
 
-Las seis operaciones de perfil requieren Bearer access. El JWT se verifica con clave pública y algoritmo configurado; el helper usa `user_id`, luego `sub`, luego `username`. Admin significa superadmin/superuser, rol `SUPERADMIN` o una membresía con rol `TENANT_ADMIN`; no se consultan permisos específicos, vigencia ni pertenencia del destino.
+Las tres operaciones requieren Bearer access RS256 y cuenta vigente. `user_id` debe ser un entero positivo dentro de int64 (no booleano, cadena ni decimal). Se exigen `exp`, `iat`, `jti`, `token_type` y `hash_password`; tiempos enteros válidos, `iat` no negativo y anterior a `exp`, `jti` no vacío de hasta 128 caracteres y tipo `access`. Un `sub` opcional debe ser la cadena decimal canónica del mismo ID; no hay fallback a `username`. Flags booleanos y listas de grupos/permisos/roles, si aparecen, deben tener tipos correctos. El contrato actual de Auth no emite issuer/audience; no se introducen valores inventados que rompan login.
+
+Cada petición autenticada consulta si `public.auth_user` contiene ese ID activo y si `upper(md5(password))` coincide con `hash_password`, como `CHECK_REVOKE_TOKEN` de SimpleJWT en Auth. La expresión opera sobre la contraseña **ya codificada por Django** y reproduce su huella de revocación; no reemplaza el algoritmo de contraseña por MD5. La consulta devuelve solo un booleano, nunca la contraseña codificada. Una cuenta inexistente/inactiva/eliminada o contraseña cambiada devuelve 401 genérico con `WWW-Authenticate: Bearer`; un fallo de consulta devuelve 503 sin detalles internos.
+
+El repositorio queda ligado al dueño autenticado al construirse: consultas y escrituras no reciben un ID de destino del cliente ni disponen de listado global. Ser superadmin, staff o administrador de tenant no amplía ese alcance. El chequeo de vigencia ocurre al autenticar la petición; no promete serializar una escritura frente a cambios simultáneos de Auth (consistencia/concurrencia en PROFILE-004 y PLAT-001).
+
+**Transición de contrato:** se retiran `GET /api/v1/profiles`, `GET /api/v1/profiles/{user_id}` y `PUT /api/v1/profiles/{user_id}`. Devuelven 404 y no figuran en OpenAPI, incluso para el propio ID o administradores. La búsqueda de consumidores no encontró usos en la web; las integraciones externas deben usar `/api/v1/profile` con la sesión del dueño. Los tokens anteriores sin los claims requeridos se rechazan; renueva la sesión en Auth. No se migran ni borran perfiles históricos: registros asociados a username o IDs no canónicos requerirán inventario y reparación explícita en PROFILE-004.
 
 PUT admite `email`, `phone_number`, `profile_picture_url` y `additional_info`. Los tres primeros son cadenas libres; la metadata es un objeto JSON libre. Los campos desconocidos se ignoran. En un registro existente, omitir un campo o enviar `null` conserva el valor; una cadena vacía sí lo reemplaza. La metadata enviada sustituye el objeto completo. Es una actualización parcial pese al verbo PUT.
 
-La respuesta contiene `profile_id`, `user_id`, esos cuatro campos y `created_at`/`updated_at`. Añade `groups` y `permissions` del JWT para el dueño; para otro usuario devuelve listas vacías. Este email no actualiza `auth_user.email`, las credenciales ni los claims emitidos por Auth.
+La respuesta contiene `profile_id`, `user_id`, esos cuatro campos y `created_at`/`updated_at`. Añade `groups` y `permissions` del JWT validado para mostrar el contexto de la sesión; no son una nueva fuente de autorización ni se refrescan desde membresías en Profile. Cambios de permisos se reflejan al renovar el token en Auth. No se devuelven huella, contraseña, jti ni otros internos del token. Este email no actualiza `auth_user.email`, las credenciales ni los claims de Auth.
 
-El upload genera un UUID y extensión según el formato detectado, sin reutilizar el nombre enviado. Verifica con `Image.verify()` y escribe los bytes originales. No asocia automáticamente la foto al perfil: la web recibe la URL y después guarda con PUT. No hay inventario de propietario de archivo, reemplazo ni recolección de archivos abandonados.
+La revocación aquí cubre cambio de contraseña y estado/existencia de cuenta. El logout de Auth invalida el refresh; un access ya emitido puede seguir válido hasta su expiración (10 minutos según Auth), salvo cambio de contraseña o cuenta. No se afirma revocación instantánea de access por logout.
+
+El upload exige la misma identidad vigente, genera un UUID y extensión según el formato detectado, sin reutilizar el nombre enviado. Verifica con `Image.verify()` y escribe los bytes originales. No asocia automáticamente la foto al perfil: la web recibe la URL y después guarda con PUT. `/static` continúa público hasta la transición coordinada de PROFILE-005: la privacidad del JSON de perfil no implica todavía privacidad del archivo. No hay inventario de propietario de archivo, reemplazo ni recolección de archivos abandonados.
 
 ## Arranque y configuración actuales
 
@@ -79,18 +84,33 @@ Desde la raíz, con PostgreSQL/esquema inicializados por Compose:
 
 ```powershell
 docker compose -f docker/docker-compose.yml run --build --rm --no-deps profile-tests
-docker compose -f docker/docker-compose.yml run --rm --no-deps profile-tests ruff check --no-cache app tests
+docker compose -f docker/docker-compose.yml run --rm --no-deps profile-tests ruff check --no-cache app tests /profile-checks
 docker compose -f docker/docker-compose.yml run --build --rm --no-deps profile-audit
 docker compose -f docker/docker-compose.yml exec -T profile-service python -m pip check
 ```
 
 La suite exige `PROFILE_TEST_DATABASE_URL` explícita, provista por el servicio `profile-tests`. No crea/migra tablas ni usa uploads reales. Las escrituras HTTP quedan dentro de savepoints y una transacción exterior; al terminar se comprueba desde otra conexión que no persiste el usuario sintético. Las pruebas de pool y statement timeout usan conexiones PostgreSQL reales. Los fallos de escritura por permisos se inyectan para que el resultado no dependa de ejecutar la suite como root.
 
-El job `auth-db-roles` construye/arranca Profile, comprueba ausencia de herramientas de test/audit en runtime, ejecuta suite/Ruff/auditoría y verifica reinicio saludable. El job Compose verifica la lista de variables explícitas. Un resultado verde no valida aún privacidad, revocación ni concurrencia de escrituras del perfil: esos criterios están en las tarjetas siguientes.
+El job `auth-db-roles` construye/arranca Profile, comprueba ausencia de herramientas de test/audit en runtime, ejecuta suite/Ruff/auditoría y verifica reinicio saludable. Después ejecuta el [contrato HTTP Auth–Profile](../../scripts/profile/verify_auth_contract.py) contra ambos servicios reales. El job Compose verifica la lista de variables explícitas. La concurrencia de escrituras, límites y privacidad de archivos permanecen en sus tarjetas.
 
 PROFILE-002 actualiza FastAPI/Starlette, PyJWT, cryptography, python-dotenv, Pillow y python-multipart, conservando el resto del conjunto compatible. La auditoría consulta el inventario de runtime antes de instalar herramientas; no confundir ese resultado con un escaneo de SO o de copias vendorizadas (PROFILE-007). TestClient emite una advertencia sobre la futura migración de httpx a httpx2, limitada a la etapa de pruebas.
 
 Evidencia local de PROFILE-002 (6 de noviembre de 2026): **52 pruebas aprobadas**, Ruff y pip check aprobados; `profile-audit` sin avisos conocidos, sin supresiones. Se construyeron las tres etapas con proyecto `library008-release`, se comprobó la lista de variables/CORS/montaje de clave/healthcheck y se validó arranque y reinicio contra PostgreSQL existente y clave pública real de Auth, con volumen sintético separado. Runtime no contiene pytest/Ruff/httpx/pip-audit. No se usaron avatares reales ni se ejecutó OAuth, IA, navegador o un flujo de login con JWT real en esta tarjeta. CI verifica además el arranque sobre su instalación nueva; el estado de su ejecución se registra en el PR.
+
+### Comprobar tokens reales de Auth
+
+Con Auth y Profile saludables, desde la raíz:
+
+```powershell
+docker compose -f docker/docker-compose.yml cp scripts/profile/verify_auth_contract.py auth-service:/tmp/profile-auth-contract.py
+docker compose -f docker/docker-compose.yml exec -T auth-service python /tmp/profile-auth-contract.py
+```
+
+El script solo admite `AUTH_ENV=development`. Crea tres identidades y un tenant sintéticos, usa login y refresh HTTP reales, comprueba aislamiento de rutas incluso para tenant admin/superadmin y prueba revocación por contraseña, desactivación y eliminación. No imprime tokens ni contraseñas; no escribe perfiles ni avatares. El `finally` elimina y verifica sus identidades, tenant y presupuestos de login por cuenta; conserva el presupuesto compartido del origen para respetar la protección de Auth. Los tokens pendientes de sus usuarios se limpian por cascada de Django. No ejecutarlo en producción ni interrumpirlo durante la limpieza.
+
+Las regresiones PostgreSQL usan JWT sintéticos compatibles con Auth, usuarios efímeros y rollback; verifican también que no queden identidades ni perfiles propios de la prueba. Las consultas de identidad que fallen se cierran con 503, sin permitir la operación del perfil. Estos checks no sustituyen las pruebas de concurrencia ni de avatar de las tarjetas siguientes.
+
+Evidencia local de PROFILE-003: **112 pruebas aprobadas**, Ruff sobre app/tests/script, pip check, Compose y enlaces aprobados; auditoría runtime sin avisos conocidos. El contrato HTTP real de arriba pasó con usuario normal, tenant admin y superadmin, login y refresh, cambio de contraseña, cuenta inactiva/eliminada y limpieza verificada. Se conservaron los datos existentes y se usó el volumen sintético de Profile; el estado de CI y la revisión se registran en el PR.
 
 ## Diagnóstico PROFILE-001
 

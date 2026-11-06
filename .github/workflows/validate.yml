@@ -287,10 +287,12 @@ jobs:
           docker compose -f docker/docker-compose.yml exec -T profile-service python -m pip --no-cache-dir check
           docker compose -f docker/docker-compose.yml exec -T profile-service python -c 'import importlib.util; assert all(importlib.util.find_spec(name) is None for name in ("pytest", "ruff", "httpx", "pip_audit"))'
           docker compose -f docker/docker-compose.yml run --build --rm --no-deps profile-tests
-          docker compose -f docker/docker-compose.yml run --rm --no-deps profile-tests ruff check --no-cache app tests
+          docker compose -f docker/docker-compose.yml run --rm --no-deps profile-tests ruff check --no-cache app tests /profile-checks
           docker compose -f docker/docker-compose.yml run --build --rm --no-deps profile-audit
           docker compose -f docker/docker-compose.yml restart profile-service
           docker compose -f docker/docker-compose.yml up -d --no-deps --wait profile-service
+          docker compose -f docker/docker-compose.yml cp scripts/profile/verify_auth_contract.py auth-service:/tmp/profile-auth-contract.py
+          docker compose -f docker/docker-compose.yml exec -T auth-service python /tmp/profile-auth-contract.py
       - name: Probar asociación de carpetas desde Google Drive sin OAuth
         run: |
           docker compose -f docker/docker-compose.yml run --build --rm --no-deps drive-tests
