@@ -75,9 +75,5 @@ def tenant_ids_for_role(user: dict, *roles: str) -> list[str]:
     ]
 
 
-def is_admin_user(user: dict) -> bool:
-    return is_superadmin_user(user) or bool(tenant_ids_for_role(user, "TENANT_ADMIN"))
-
-
 def user_groups(user: dict) -> list[str]:
     return list(user.get("groups") or user.get("grupos") or [])

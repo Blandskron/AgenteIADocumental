@@ -1,208 +1,170 @@
 # DocumentTransferServices
 
-Registra el historial personal de cargas y descargas mediante FastAPI, SQLAlchemy y PostgreSQL. No recibe archivos, no los descarga ni procesa documentos. Los clientes informan nombres, estados y progreso; este historial no prueba que un navegador haya guardado un archivo ni sustituye la auditoría de DocumentAccessServices. El puerto local de Compose es `8007`.
+Historial personal de cargas y descargas de Blandskron Documental. FastAPI registra los eventos que informa el cliente; no recibe archivos, no los descarga ni acredita su recepción. El puerto local es 8007. Google Drive usa otro recorrido y no registra aquí todas sus importaciones.
 
-TRANSFER-001 establece el diagnóstico histórico de la base. TRANSFER-002 incorpora configuración aislada, disponibilidad y pruebas permanentes; TRANSFER-003 establece identidad canónica y referencias autorizadas. TRANSFER-004 corrige metadatos, nulos y límites de entradas. TRANSFER-005 define estados, progreso y limpieza serializada. TRANSFER-006 añade páginas y separa el diario de la operación documental. TRANSFER-007 restringe ejecución y registra la auditoría; el cierre documental continúa en TRANSFER-008. Las correcciones avanzan por incrementos en el [tablero](../../ROADMAP.md#documenttransferservices); [AGENTS.md](AGENTS.md) indica cómo intervenir. Este documento distingue comportamiento observado, decisiones propuestas y comprobaciones pendientes.
-
-## Recorrido y responsabilidades
+## Recorrido y archivos de referencia
 
 ```text
-DocumentSearchPage / ChatPage → useTransfers → transfers.api.js
-  → rutas → ManageTransfers → TransferRepositoryPg → transfer_events
+Search / Chat → flujos documentales + cola independiente del diario
+  → useTransfers / controlador por cliente → API → caso de uso → repositorio → PostgreSQL
 ```
 
-Solo este servicio escribe directamente `transfer_events` en el backend revisado. El frontend informa eventos desde la carga documental y la descarga; `useDocumentQuestionFlow` también envía el ID de conversación. Google Drive importa por otro flujo y no registra aquí una transferencia explícita. No se debe presentar el historial como un inventario completo de toda operación del sistema.
-
-La tabla contiene propietario, referencia documental opcional, nombre, dirección, estado, progreso, tamaño, JSON y fechas. PostgreSQL exige direcciones UPLOAD/DOWNLOAD, estados conocidos y progreso entre 0 y 100. El índice existente es `(owner_user_id, created_at DESC)` y un trigger actualiza `updated_at`.
-
-Aunque el modelo ORM omite `ForeignKey`, el [esquema compartido](../../scripts/database/schemas/001_documents.sql) sí contiene la referencia a `documents`, con `ON DELETE SET NULL`. Borrar un documento conserva el evento y su nombre. Borrar eventos no elimina documentos ni archivos. No se encontró caducidad automática: la limpieza actual es manual y solo considera estados terminales.
-
-## Contrato HTTP vigente
-
-Todas las rutas de negocio exigen firma RS256, `token_type: access`, `user_id` entero positivo y `exp` entero vigente. Se rechazan booleanos, cadenas, floats, claims ausentes y tokens refresh con 401 y WWW-Authenticate: Bearer. No se resuelve identidad por sub, username o unknown. El propietario del evento siempre es el user_id canónico, aunque el cliente envíe otro o el JWT incluya roles de administración.
-
-| Método y ruta bajo `/api/v1` | Comportamiento actual |
+| Responsabilidad | Referencia |
 | --- | --- |
-| `GET /health` | Público; devuelve `{"status":"ok"}` como comprobación de vida. |
-| `GET /health/db` | Público; valida una clave pública RSA legible y consulta las proyecciones requeridas de `transfer_events`, `documents` y `document_assignments` con LIMIT 0, sin leer filas. Comprueba también EXECUTE y ejecución de la función acotada de referencia, incluido el permiso de lectura de su propietario. Clave, esquema o permisos no disponibles devuelven 503 genérico; no audita todas las restricciones o índices. |
-| `GET /transfers?limit=50&offset=0` | Página privada con items, limit, offset y has_more; limit de 1 a 200 y offset de 0 a 10000. Orden por created_at e ID descendentes, consultando una fila extra. |
-| `POST /transfers` | Crea un evento del propietario canónico; una referencia documental exige acceso vigente. Responde HTTP 200. |
-| `PATCH /transfers/{transfer_id}` | Actualiza solo campos enviados de un evento propio. document_id y size_bytes admiten null para retirarlos; una referencia no nula revalida acceso. Evento ajeno o inexistente: 404. |
-| `DELETE /transfers/history` | Devuelve `{"count":N}` con las filas realmente borradas: hasta 1000 terminales propios por petición, empezando por los más antiguos. Conserva PENDING y RUNNING; repetir hasta count=0 vacía los terminales disponibles. |
+| Contratos, límites y rutas | [schemas](app/interfaces/api/v1/schemas/transfer_schema.py), [rutas](app/interfaces/api/v1/routes/transfer_routes.py), [límite de cuerpo](app/interfaces/api/body_limit.py) |
+| Estados y transacciones | [dominio](app/domain/transfer_state.py), [caso de uso](app/application/use_cases/manage_transfers.py), [repositorio](app/infrastructure/database/repositories/transfer_repository_pg.py) |
+| Configuración y arranque | [settings](app/config/settings.py), [lifespan y errores](app/main.py), [Compose](../../docker/compose/documents.yml) |
+| Esquema y rol mínimo | [esquema compartido](../../scripts/database/schemas/001_documents.sql), [permisos](../../scripts/database/transfer/permissions.sql), [verificador](../../scripts/database/transfer/verify_role.sql) |
+| Consumidores web | [controlador](../../frontend/src/features/transfers/transfer-controller.js), [flujos](../../frontend/src/features/transfers/document-transfer-flows.js), [hook de Chat](../../frontend/src/features/chat/hooks/useDocumentQuestionFlow.js) |
 
-Son cuatro operaciones de negocio y dos healthchecks. La respuesta incluye `transfer_id`, `owner_user_id`, `document_id`, `filename`, `direction`, `status`, `progress`, `size_bytes`, `metadata`, `created_at` y `updated_at`. Las rutas no devuelven rutas de almacenamiento ni contenido documental.
+[AGENTS.md](AGENTS.md) contiene las reglas de intervención; el [tablero](../../ROADMAP.md#documenttransferservices) conserva el historial de entregas y los seguimientos. Los comandos y contratos siguientes describen la versión vigente.
 
-Crear recibe nombre, dirección, estado opcional (PENDING por defecto), progreso (0 por defecto), referencia documental, tamaño y metadatos. Actualizar admite estado, progreso, referencia, tamaño y metadatos. Los modelos rechazan campos extra. `metadata` HTTP se mapea explícitamente a `metadata_` ORM y persiste en la columna JSONB; no se asigna el atributo reservado metadata de SQLAlchemy. Los límites y campos nulos se describen abajo.
+## Contrato HTTP
 
-## Consumidores que deben cambiar juntos
+Todas las operaciones de negocio exigen firma RS256, token_type access, user_id entero positivo y exp entero vigente. Booleanos, floats, cadenas y claims ausentes se rechazan con 401 y WWW-Authenticate: Bearer. No hay identidad alternativa por sub, username o unknown. El propietario siempre procede del JWT, incluso para administradores.
 
-- El [adaptador](../../frontend/src/features/transfers/api/transfers.api.js) valida páginas explícitas, normaliza sus elementos y codifica IDs. Contratos antiguos o incompletos fallan de forma visible; no se convierten en listas vacías.
-- El [hook](../../frontend/src/features/transfers/hooks/useTransfers.js) conecta un controlador por cliente API a React mediante useSyncExternalStore. Refrescar, desmontar o reiniciar invalida respuestas anteriores. Más páginas conservan registros cargados ante fallos; limpiar conserva activos en caché incluso si falla la recarga.
-- [TransferModal](../../frontend/src/shared/components/TransferModal/TransferModal.jsx) recorre todos los registros cargados mediante scroll, permite actualizar/cargar más y muestra el conteo cargado. Marca RUNNING, distingue tamaño cero y explica limpieza de terminales por lote.
-- [DocumentSearchPage](../../frontend/src/pages/DocumentSearchPage/DocumentSearchPage.jsx) usa los flujos compartidos de carga/descarga. El archivo avanza sin esperar al historial; fallos del diario se anuncian fuera del modal y no repiten el archivo ni reemplazan su error original.
-- [ChatPage](../../frontend/src/pages/ChatPage/ChatPage.jsx) usa el mismo hook y modal. [useDocumentQuestionFlow](../../frontend/src/features/chat/hooks/useDocumentQuestionFlow.js) espera las escrituras del historial durante la carga y envía `conversation_id` y errores como metadatos.
+| Método bajo /api/v1 | Resultado |
+| --- | --- |
+| GET /health | Vida pública, sin consultar dependencias. |
+| GET /health/db | Clave pública RSA legible, proyecciones necesarias de tres tablas con LIMIT 0 y función de referencia ejecutable. Una sonda no nula comprueba también permisos de su propietario. Dependencia indisponible: 503 genérico. |
+| GET /transfers?limit=50&offset=0 | Página privada: items, limit, offset y has_more. Limit 1..200; offset 0..10000. Orden created_at e ID descendentes, con una fila extra para determinar has_more. |
+| POST /transfers | Crea un evento propio; 200. Cada POST es una operación nueva, sin deduplicación por nombre ni reintento automático tras perder una respuesta. |
+| PATCH /transfers/{transfer_id} | Cambia solo campos enviados de un evento propio; 200. Evento ajeno o inexistente: 404 Transfer not found. Conflicto de estado/progreso: 409. |
+| DELETE /transfers/history | Borra hasta 1000 terminales propios por petición, empezando por los más antiguos; devuelve count efectivo. Repetir hasta count=0 retira los terminales disponibles. |
 
-Los porcentajes 15, 40 y 65 son indicadores de etapas definidos por el cliente, no mediciones de bytes transferidos. Los consumidores ahora omiten progress al guardar FAILED, para conservar la última etapa aceptada por el servidor, y no vuelven a adjuntar un document_id que podría haber sido revocado. La cola del diario se mantiene independiente del resultado documental en TRANSFER-006.
+Cada evento responde transfer_id, owner_user_id, document_id, filename, direction, status, progress, size_bytes, metadata, created_at y updated_at. Nunca incluye rutas de almacenamiento ni contenido documental. La forma paginada exige desplegar backend y frontend juntos.
 
-## Diagnóstico histórico TRANSFER-001
+## Entradas y errores
 
-Esta tabla describe la imagen anterior a TRANSFER-002 a 005; configuración, disponibilidad, identidad, referencias, metadatos, límites, estados y limpieza ya se corrigieron como se explica abajo. Las demás brechas conservan sus incrementos pendientes. Se revisaron todos los módulos del servicio, las seis rutas, el esquema, restricciones, índice, trigger, Compose, workflow de CI y los consumidores anteriores. La sonda temporal confirmó 25 observaciones sobre PostgreSQL con datos sintéticos y transacción externa/savepoints; también confirmó su rollback final. No cargó archivos, llamó a IA ni utilizó OAuth o claves reales.
+| Campo | Regla |
+| --- | --- |
+| filename | 1..512 caracteres Unicode válidos; conserva espacios de extremos y rechaza nombres blancos y controles C0/DEL. Es una etiqueta, nunca una ruta para abrir archivos. |
+| document_id / transfer_id de PATCH | Texto de 1..128 caracteres, no blanco, sin controles o Unicode inválido. No exige UUID para conservar IDs históricos válidos. |
+| direction / status | UPLOAD o DOWNLOAD; estados PENDING, RUNNING, COMPLETED, FAILED, CANCELLED. |
+| progress | Entero estricto 0..100, sin conversión de cadenas, booleanos o floats. Representa etapas informadas por el cliente, no bytes medidos. |
+| size_bytes | Entero estricto 0..9223372036854775807, compatible con BIGINT. Cero es conocido; null es desconocido. |
+| metadata | Objeto JSON de hasta 16384 bytes UTF-8 compactos, sin escapes ASCII; hasta 16 niveles desde la raíz en 0. Claves, valores y elementos incrementan nivel. Sin NUL, NaN/Infinity o Unicode inválido. |
+| Cuerpo HTTP | Hasta 65536 bytes reales, contados por fragmentos con o sin Content-Length fiable; exceso: 413 antes del parseo/ruta. No es un timeout de lectura ni control de tasa. |
+| Campos extra | 422; incluye owner_user_id, metadata_ y campos inmutables enviados en PATCH. |
 
-| Área | Evidencia y efecto | Incremento |
-| --- | --- | --- |
-| Identidad | Un access token firmado sin exp y otro con user_id booleano fueron aceptados. Dos conjuntos distintos de claims sin identidad operaron sobre el mismo propietario `unknown`. | TRANSFER-003 |
-| Propiedad personal | Con identidades canónicas distintas, el listado filtra por propietario y PATCH ajeno devuelve 404. Mantener esa privacidad sin privilegios globales de administradores. | TRANSFER-003 |
-| Referencia documental | Se aceptó un ID documental ajeno; el servicio no consulta permisos documentales. Un ID inexistente produjo 500 por la FK. No se observó lectura de su contenido: la incoherencia es del vínculo del historial. | TRANSFER-003 |
-| Metadatos y nulos | Crear y actualizar JSON no vacío no lo persistió. Enviar document_id null no retiró el vínculo. | TRANSFER-004 |
-| Entradas y errores | Se aceptaron nombre de espacios y tamaño negativo. Un entero fuera de BIGINT produjo 500. Un error 422 reflejó el valor enviado. | TRANSFER-004 |
-| Estados | Se aceptó COMPLETED con progreso 1 y se reabrió un COMPLETED como RUNNING con progreso 0. No hay exclusión entre actualizaciones ni política de reintentos. | TRANSFER-005 |
-| Limpieza y retención | La limpieza SQL conservó RUNNING; la interfaz elimina también esos registros de su caché. El borrado actual materializa todas las filas terminales; las carreras requieren pruebas independientes. | TRANSFER-005 / TRANSFER-006 |
-| Configuración | CORS autoriza `*`; Compose inyecta el entorno global y usa postgres. Settings acepta cotas negativas de pool; el motor retiene tamaño 5 pese al mínimo declarado 1 y no aplica las opciones publicadas. | TRANSFER-002 / TRANSFER-007 |
-| Disponibilidad | health/db devolvió 200 con una ruta de clave inexistente. Una excepción en lifespan omite database.close. | TRANSFER-002 |
-| Ejecución y mantenimiento | Imagen UID 0, con pytest y Ruff. Sin suite propia ni etapa de tests en CI. Entidad, tipo vectorial, constantes de extracción y utilidades sin consumidores internos encontrados. | TRANSFER-002 / TRANSFER-007 / TRANSFER-008 |
-| Dependencias | pip check y Ruff aprobaron, pero la auditoría detectó avisos en seis paquetes. No confundir resolución de dependencias o lint con seguridad de la imagen. | TRANSFER-007 |
+En PATCH, ausente conserva; document_id/size_bytes null retiran; metadata reemplaza el objeto entero y {} lo vacía. Otros nulos y PATCH vacío se rechazan. Crear admite document_id/size_bytes nulos, pero metadata requiere objeto. metadata HTTP se mapea a metadata_ ORM y persiste en la columna JSONB; no se inventan datos históricos que antes no llegaron a guardarse.
 
-La línea base del 6 de noviembre de 2026 construyó el manifiesto `sha256:f6c7ec04a4696251eef382a621cdfc90cbd2009f334461a2cd404a9acbdc1c67` sin cambiar el servicio. En un contenedor desechable se congelaron 33 paquetes antes de instalar las herramientas de la sonda. `pip-audit` 2.10.1 informó 58 entradas en `cryptography 46.0.6`, `pip 25.0.1`, `PyJWT 2.12.1`, `pytest 8.3.5`, `python-dotenv 1.1.0` y `starlette 0.46.2`. Las entradas pueden incluir aliases o duplicaciones; no representan 58 vulnerabilidades únicas validadas. El sistema operativo de esta imagen no se escaneó en TRANSFER-001; se hará al actualizar la imagen.
+Los 422 normalizan ubicaciones y omiten valores, contexto y claves arbitrarias. JSON malformado o excesivamente profundo se rechaza con 400/422 privado según la fase de validación. SQLAlchemy y errores internos devuelven 500 genérico; las escrituras revierten la sesión. Las validaciones de dominio mantienen 400 y las referencias/eventos ajenos o inexistentes mantienen 404. No se reflejan credenciales ni detalles SQL.
 
-La evidencia combina inspección estática y sondas. No constituye una auditoría exhaustiva ni afirma explotación de los avisos de dependencias. Las pruebas permanentes de configuración, identidad, referencias y su carrera con borrado ya se incorporaron; la concurrencia de estados y limpieza se incorporó en TRANSFER-005, sin convertir la base defectuosa en el comportamiento esperado a conservar.
+## Identidad y referencias documentales
 
-## Decisiones para los incrementos
+Listar, modificar y limpiar siempre filtran por dueño del evento; ser administrador no abre el historial de otra persona. Revocar lectura documental no elimina nombres/metadatos del diario personal ni permite descargar el documento a través de ese diario.
 
-1. Mantener el historial privado por user_id canónico. Un evento no concede lectura documental y no es una prueba de entrega de archivos. No agregar tenant ni una vista administrativa global sin una decisión explícita.
-2. Validar vínculos según los permisos documentales vigentes y responder de forma indistinguible ante IDs ajenos o inexistentes. Conservar eventos después de borrar documentos y no reasignar registros `unknown` a un usuario sin evidencia de propiedad.
-3. Definir campos ausentes frente a nulos, persistir JSON correctamente y acotar datos antes de escribir. Auditar datos existentes antes de imponer nuevas restricciones; no corregirlos mediante borrados silenciosos.
-4. Definir transiciones y reintentos coherentes con los indicadores de etapas del cliente. Probar concurrencia y rollback entre sesiones antes de declarar consistencia.
-5. Separar el resultado documental del resultado del historial. Un fallo al registrar no debe provocar otra carga/descarga automática ni presentar como perdido un documento ya creado; las advertencias deben seguir visibles.
-6. Paginar con orden estable, conservar activos al limpiar y descartar respuestas de clientes anteriores. Adaptar ambos recorridos web, hook, adaptador y modal en el mismo incremento.
-7. Terminar con rol mínimo, imagen sin root, auditoría y README operativo. Mantener contexto breve en AGENTS y las tareas en ROADMAP, siguiendo los principios de leer primero y aportar evidencia de la [guía agents-first compartida](https://github.com/Blandskron/agents-first-repo-docs/blob/main/README.md) (v3.2.0, revisada el 6 de noviembre de 2026).
+Crear con document_id o enviarlo no nulo en PATCH exige lectura vigente según la política de Library/Access:
 
-## Identidad, referencias e historial personal (TRANSFER-003)
-
-El listado, PATCH y limpieza filtran siempre por el propietario del evento. Ser superadmin o administrador de tenant no permite consultar ni modificar el historial de otra persona. Los nombres y metadatos ya registrados permanecen en el historial personal después de revocar un permiso documental; no conceden lectura, descarga ni otro permiso sobre el documento.
-
-Crear con document_id o enviar document_id no nulo en PATCH exige lectura vigente según la política compartida por Library y Access:
-
-- Propietario: columna owner_user_id; solo si es SQL NULL se usa metadata.owner_user_id. Una columna vacía o diferente no se sustituye por metadatos.
-- Asignación como destinatario o remitente, con estado distinto de CANCELLED/EXPIRED.
-- Administrador del tenant resuelto: columna tenant_id y fallback de metadatos únicamente si es NULL.
-- Grupo documental presente en el JWT, limitado a los tenants de membresía o a un documento sin tenant.
+- Dueño: columna owner_user_id; fallback metadata.owner_user_id solo si es SQL NULL. Una columna vacía o distinta tiene precedencia.
+- Asignación como destinatario/remitente, con estado distinto de CANCELLED/EXPIRED.
+- Administración del tenant resuelto, con columna tenant_id y fallback JSON solo si es NULL.
+- Grupo presente en el JWT, limitado a los tenants de membresía o a un documento sin tenant.
 - Superadmin puede referenciar documentos globalmente, conservando su historial privado.
 
-El servicio no exige PROCESSED, embeddings ni allow_download para registrar una referencia: este historial no ejecuta ni autoriza descargas. El resultado de la operación documental corresponde a su servicio. Un documento ajeno o inexistente devuelve el mismo 404 `Document not found.`. En PATCH se comprueba primero la propiedad del evento; un evento ajeno o inexistente devuelve 404 `Transfer not found.` sin revelar sus referencias.
+No exige PROCESSED, embeddings ni allow_download para registrar: Transfer no ejecuta ni autoriza la descarga. Documento ajeno o inexistente: el mismo 404 Document not found. PATCH comprueba primero la propiedad del evento. Cada referencia enviada se revalida, aunque sea la anterior; omitirla permite corregir el diario tras revocación y null la retira.
 
-Cada vínculo enviado se revalida, incluso si coincide con el anterior. Omitir document_id permite actualizar el diario propio tras una revocación; enviar document_id: null retira la referencia, sin leer el documento ni borrar su historial. Se usa FOR KEY SHARE durante la transacción para impedir que un borrado entre la comprobación y la escritura produzca una FK inválida. Si borra primero, el vínculo responde 404; si vincula primero, el borrado espera y SET NULL conserva el evento. Las excepciones de alta/actualización revierten la sesión. No se afirma serialización total frente a cambios simultáneos de permisos: la política consulta el estado visible en la comprobación, y el JWT mantiene los claims emitidos hasta su renovación/expiración, como los demás servicios. TRANSFER-005 define las reglas de estados y las carreras de limpieza.
+La FK SQL de transfer_events.document_id existe y usa ON DELETE SET NULL, aunque el ORM sea una proyección sin ForeignKey. Borrar un documento conserva evento y nombre; limpiar historial conserva documentos y archivos. No hay caducidad automática. No se usa create_all como migración.
 
-El runtime usa document_transfer_runtime y adquiere KEY SHARE mediante public.transfer_lock_document_reference(text), propiedad de un rol sin login. No recibe UPDATE sobre documentos; la función consulta la tabla public.documents explícitamente y no concede acceso documental al cliente. Las pruebas concurrentes usan el login real del runtime.
+## Estados y concurrencia
 
-### Auditoría de propietarios históricos
+| Estado actual | Siguientes admitidos |
+| --- | --- |
+| PENDING | PENDING, RUNNING o cualquier terminal. |
+| RUNNING | RUNNING, COMPLETED, FAILED o CANCELLED. |
+| Terminal | Solo el mismo estado. Una nueva operación crea otro evento. |
 
-Antes de actualizar una instalación con historial, ejecuta la auditoría agregada de solo lectura desde PowerShell:
+El progreso nunca disminuye y queda congelado al terminar. PENDING/RUNNING admiten 0..100; llegar a 100 por sí solo no termina la operación. FAILED/CANCELLED conservan la última etapa si se omite progress. COMPLETED exige 100: crear otra combinación devuelve 400; un PATCH incompatible devuelve 409 sin cambios parciales. El servidor no infiere resultados ni completa porcentajes omitidos.
+
+Un PATCH idéntico no emite otro UPDATE ni altera fechas; una referencia enviada sigue revalidándose. Un terminal admite correcciones de metadatos, tamaño o referencia sin reabrirse. Datos históricos incoherentes se conservan o limpian; reparar estado/progreso requiere una decisión explícita.
+
+Todas las escrituras toman un advisory lock transaccional por propietario. PATCH vuelve a leer con FOR UPDATE/populate_existing. Al adjuntar un documento el orden es dueño → documento (KEY SHARE mediante función acotada) → evento, compatible con DELETE documental/SET NULL. Si borra primero, la referencia responde 404; si vincula primero, el borrado espera. No se bloquea el documento al corregir solo el diario o retirar el vínculo.
+
+Alta/PATCH cargan y separan la respuesta del ORM antes de commit, manteniendo bloqueos. Una limpieza inmediata no convierte un éxito en fallo por refresh de una fila retirada. Si commit falla, se revierte y no se devuelve éxito. DELETE usa un único SQL con subconsulta limitada a 1000, ordenada por created_at e ID; no materializa eventos en Python ni cuenta dos veces una limpieza concurrente.
+
+El protocolo coordina escritores de Transfer; no impone reglas a SQL externo ni serializa todos los cambios simultáneos de permisos. La autorización consulta el estado visible en la comprobación y mantiene los claims del JWT hasta renovación/expiración, como los demás servicios.
+
+## Consumidores y límites del diario
+
+La web carga páginas de 50, muestra todos los registros cargados por scroll y ofrece Actualizar/Cargar más. El contador es de filas cargadas, no total global. Deduplicar no cambia el avance por tamaño bruto de página. Offset no es una instantánea: altas/limpiezas externas pueden mover posiciones; refresca ante cambios y al alcanzar la cota de offset. Las escrituras propias reinician la ventana en primera página.
+
+El controlador por cliente/generación descarta respuestas y avisos antiguos tras refresh, desmontaje o reinicio de efectos de React. Clics repetidos de paginación/limpieza no duplican peticiones. Cargar más conserva filas ante fallos; limpiar conserva activos en caché incluso si falla la recarga. El adaptador rechaza contratos antiguos o incompletos, no los disfraza de lista vacía.
+
+Search, carga desde Chat y descarga comparten flujos que ejecutan el archivo una vez sin esperar al diario. La cola independiente ordena alta → etapa 65, si corresponde → terminal. Fallos o peticiones pendientes de alta/PATCH no bloquean el resultado documental. Su error original se propaga intacto aunque también falle guardar FAILED. Los fallos omiten progreso obsoleto y una referencia repetida que podría haberse revocado.
+
+Las advertencias se muestran fuera del modal, sobreviven al refresh y pueden cerrarse. Un cliente retirado no inicia pasos pendientes del diario ni publica avisos en el siguiente. Descartar una respuesta no revierte una petición ya confirmada; cerrar la pestaña no garantiza terminar la cola. Este historial no es entrega duradera ni auditoría autoritativa.
+
+## Operación
+
+Prepara .env según el [README raíz](../../README.md). Para Transfer solo se necesitan PostgreSQL y Auth; no IA, embeddings, OAuth, documentos montados ni claves privadas. El servicio no carga .env automáticamente: Compose interpola once variables explícitas, con CORS local para localhost:3000/127.0.0.1:3000 y sin credenciales de navegador.
+
+| Ajuste Compose | Predeterminado / semántica |
+| --- | --- |
+| TRANSFER_DB_PASSWORD | blandskron-local-transfer, solo desarrollo local; PGPASSWORD del rol document_transfer_runtime. La contraseña no va en DATABASE_URL. |
+| TRANSFER_CORS_ORIGINS | Arreglo JSON con http://localhost:3000 y http://127.0.0.1:3000. |
+| TRANSFER_DB_POOL_MIN_SIZE | 1; tamaño retenido 1..100, conexiones creadas bajo demanda, sin precalentamiento. |
+| TRANSFER_DB_POOL_MAX_SIZE | 10; capacidad total 1..100 y al menos el tamaño retenido. |
+| TRANSFER_DB_TIMEOUT_SECONDS | 30; 1..300 segundos para espera del pool y connect_timeout, no para duración de consultas. |
+
+Las demás variables son APP_ENV, APP_NAME, LOG_LEVEL, DATABASE_URL, AUTH_JWT_PUBLIC_KEY_PATH y AUTH_JWT_ALGORITHM=RS256. La configuración inválida detiene el arranque. El pool usa pre_ping; la sesión cierra/revierte trabajo no confirmado y el lifespan libera conexiones con finally, incluso tras fallos.
+
+Para actualizar una instalación, respalda la base y detén Transfer antiguo antes de levantar la nueva versión; evita escritores antiguos/nuevos en paralelo. Desde la raíz:
+
+```sh
+docker compose -f docker/docker-compose.yml config --quiet
+docker compose -f docker/docker-compose.yml stop document-transfer-service
+docker compose -f docker/docker-compose.yml up -d --build --wait document-transfer-service
+curl http://localhost:8007/api/v1/health
+curl http://localhost:8007/api/v1/health/db
+# Reaplicación intencional: mantiene y verifica el alcance del rol.
+docker compose -f docker/docker-compose.yml run --rm --no-deps transfer-db-role
+```
+
+Compose espera al esquema y a los roles antes de arrancar Transfer. Ejecuta UID/GID 10007 con capacidades retiradas y no-new-privileges; solo monta la clave pública de Auth en lectura. Reinicia Transfer al rotar claves: autenticación mantiene caché por ruta, mientras readiness relee el archivo. Liveness no depende de la base; readiness comprueba sus dependencias, no todos los índices/restricciones.
+
+## Permisos de PostgreSQL
+
+| Rol / objeto | Alcance |
+| --- | --- |
+| document_transfer_runtime | SELECT del historial; INSERT en dueño/referencia/nombre/dirección/estado/progreso/tamaño/JSON; UPDATE solo referencia/estado/progreso/tamaño/JSON/updated_at; DELETE del historial. Sin modificar dueño, nombre, dirección, ID o created_at. |
+| Lectura de referencias | documents: document_id, tenant_id, owner_user_id, metadata. document_assignments: assignment_id, document_id, assigned_to_user_id, assigned_by_user_id, status. Sin acceso a otras columnas documentales ni a embeddings, Auth o tablas de empresas. |
+| document_transfer_reference_owner | Sin login; SELECT/UPDATE solo de documents.document_id para tomar KEY SHARE mediante public.transfer_lock_document_reference(text). Runtime no recibe UPDATE documental. |
+| Función de referencia | SECURITY DEFINER, STRICT, search_path pg_catalog/pg_temp, tabla public.documents cualificada, sin SQL dinámico. Solo propietario/runtime pueden ejecutar; sin PUBLIC, otros ejecutores o delegación por runtime. |
+
+Ambos roles carecen de superusuario, creación de bases/roles, herencia, replicación, bypass RLS y membresías; no pueden crear en public. El verificador compara columnas/operaciones efectivas, secuencias, atributos y ACL. Permisos excesivos o delegables bloquean la comprobación y requieren revisión explícita. El aprovisionamiento es transaccional/repetible y usa el bloqueo global de roles. El rol es compartido por el servicio; la privacidad por usuario se aplica mediante JWT/filtros, sin RLS personal.
+
+Antes de reparar propietarios históricos, ejecuta la auditoría de solo lectura desde PowerShell:
 
 ```powershell
 Get-Content scripts/database/transfer/audit_owners.sql | docker compose -f docker/docker-compose.yml exec -T postgres psql -U postgres -d documents_db -v ON_ERROR_STOP=1
 ```
 
-En bash se puede usar la misma llamada psql con `< scripts/database/transfer/audit_owners.sql`. El script ejecuta BEGIN READ ONLY y devuelve categorías/conteos, sin imprimir identificadores ni modificar filas. Distingue unknown, números con formato canónico, números no canónicos y otros valores. Un número canónico **no acredita** propiedad histórica: podría provenir de un antiguo sub o username numérico. Los registros ambiguos se preservan; no se reasignan por similitud ni se borran. Investigar su procedencia y cualquier reparación requiere respaldo, evidencia de propiedad y decisión explícita. Los propietarios no canónicos no son alcanzables mediante la nueva identidad canónica.
+En bash, usa la misma llamada psql con redirección `< scripts/database/transfer/audit_owners.sql`. Devuelve categorías/conteos sin imprimir IDs, reasignar o borrar. Incluso un owner numérico canónico podría provenir de un antiguo sub/username: no prueba autoría. Preserva registros ambiguos y exige respaldo/evidencia/decisión antes de repararlos. Los owners no canónicos no son alcanzables por la nueva identidad canónica.
 
-La ejecución local sobre la base de desarrollo revisada encontró cero eventos; no representa una auditoría de otras instalaciones. Las pruebas verifican las cuatro categorías con datos sintéticos y que el SELECT conserva los valores originales. CI ejecuta también el script completo.
+## Validación y límites de la evidencia
 
-Evidencia TRANSFER-003: 155 pruebas aprobadas, Ruff, Compose, pip check y arranque real. Las matrices HTTP cubren claims inválidos en las cuatro operaciones, firmas/algoritmos incorrectos, precedencia de identidad, privacidad incluso para administradores, propietarios históricos, permisos por dueño/asignación/tenant/grupo, precedencia de columnas sobre JSON, revocación, 404 indistinguible, preservación documental e historial. Cuatro casos concurrentes con sesiones independientes observan pg_stat_activity.wait_event_type=Lock y comprueban ambos órdenes de alta/PATCH frente al borrado, recuperación y limpieza por IDs sintéticos. La suite usa claves temporales; una comprobación adicional contra el contenedor real aceptó access tokens emitidos y renovados por Auth y rechazó refresh, con rollback del usuario sintético y sin escribir historial.
-
-## Entradas, metadatos y errores (TRANSFER-004)
-
-| Campo o límite | Contrato de entrada |
-| --- | --- |
-| filename | Texto de 1 a 512 caracteres Unicode válidos. Conserva espacios de los extremos; rechaza nombres compuestos solo de espacios y controles C0/DEL. Es una etiqueta, nunca una ruta para abrir archivos. |
-| document_id y transfer_id de PATCH | Texto de 1 a 128 caracteres, no vacío/blanco, sin controles ni Unicode inválido. No exige UUID para conservar IDs históricos válidos. |
-| progress | Entero estricto de 0 a 100. No convierte cadenas, booleanos ni floats. TRANSFER-005 exige monotonía y congela progreso terminal. |
-| size_bytes | Entero estricto de 0 a 9223372036854775807, compatible con BIGINT; cero es un tamaño conocido. null representa tamaño desconocido. |
-| metadata | Objeto JSON de hasta 16384 bytes UTF-8 en serialización compacta sin escapes ASCII. Máximo 16 niveles desde la raíz (raíz en 0; claves/valores/elementos incrementan nivel). Rechaza NaN/Infinity, NUL en claves o valores y Unicode inválido. |
-| Cuerpo HTTP | Hasta 65536 bytes reales, incluidos espacios y fragmentos, con o sin Content-Length; excederlos devuelve 413 antes del parseo y de la ruta. No es un timeout de lectura ni un control de tasa. |
-| Campos desconocidos | 422, incluidos owner_user_id, metadata_ o campos inmutables enviados en PATCH. |
-
-En PATCH, omitir un campo lo conserva. document_id: null y size_bytes: null retiran sus valores; metadata: {} vacía el JSON. metadata reemplaza el objeto completo, no lo mezcla. status, progress y metadata explícitamente nulos se rechazan; un PATCH vacío también devuelve 422. Crear admite document_id/size_bytes nulos, pero metadata requiere objeto. No se crean metadatos históricos a partir de datos que no llegaron a persistir.
-
-La respuesta conserva su forma, nombres y códigos de éxito. Los 422 contienen ubicación normalizada, tipo de error y mensaje genérico, sin input, contexto, valores ni claves arbitrarias enviados. SQLAlchemy devuelve 500 `Database operation failed.` y AppError interno devuelve 500 genérico; las escrituras de alta, PATCH y limpieza revierten la sesión tras errores. Las validaciones de dominio mantienen 400 y referencias/eventos inexistentes o ajenos mantienen 404. JSON malformado o excesivamente profundo devuelve 400/422 privado según la fase de parseo/validación. Una respuesta de error no refleja el documento ni las credenciales de conexión.
-
-Se revisaron transfers.api.js, useTransfers, TransferModal, DocumentSearchPage y useDocumentQuestionFlow. Los payloads actuales usan campos admitidos y objetos JSON: conversation_id puede ser null dentro de metadata y los errores de operación se conservan dentro del límite. El adaptador preserva estos datos, tamaño cero y nulos explícitos; no requiere cambiar su código para este incremento. Las pruebas de contrato web verifican esa compatibilidad y la propagación del error original del cliente HTTP. TRANSFER-006 separa las operaciones y descarta respuestas tardías; un error o nombre superior al límite se rechaza, no se trunca silenciosamente.
-
-Evidencia TRANSFER-004: 230 pruebas backend con PostgreSQL y 32 frontend, Ruff, npm ci/test/build, pip check, Compose y arranque real aprobados. Round trip JSONB de alta/PATCH/listado, reemplazo y vaciado; ausencia frente a null; fronteras de Unicode, IDs, BIGINT, profundidad/bytes JSON, números no finitos, cuerpo completo/fragmentado y cabeceras engañosas; rechazo sin escrituras, privacidad y recuperación cubiertos. Fallos SQL reales en INSERT/UPDATE/DELETE se inyectan únicamente en una tabla y función temporales de una conexión, sin modificar tablas compartidas; después del 500 la misma sesión puede operar. Datos sintéticos con rollback verificado. No cambia el esquema ni corrige datos históricos. Persisten el aviso de deprecación Starlette/AnyIO y cuatro alertas altas de npm, en sus seguimientos.
-
-## Estados, progreso y limpieza (TRANSFER-005)
-
-| Estado actual | Estados siguientes admitidos |
-| --- | --- |
-| PENDING | PENDING, RUNNING, COMPLETED, FAILED, CANCELLED |
-| RUNNING | RUNNING, COMPLETED, FAILED, CANCELLED |
-| COMPLETED / FAILED / CANCELLED | Solo el mismo estado; no se reabre un terminal. Una nueva operación crea otro evento. |
-
-El progreso representa etapas informadas por el cliente, no bytes medidos. Es independiente de PENDING/RUNNING y puede ir de 0 a 100 en ambos; 100 por sí solo no termina una operación. Nunca disminuye. Al pasar a terminal queda congelado; FAILED/CANCELLED conservan la última etapa si se omite progress. COMPLETED exige progress=100: crear otra combinación devuelve 400 y un PATCH incompatible devuelve 409, sin escrituras parciales. El servidor no infiere el resultado documental ni completa porcentajes omitidos.
-
-Un PATCH idéntico puede repetirse y no emite otro UPDATE ni altera fechas; enviar una referencia sigue revalidando su permiso. Se permiten correcciones de metadatos, tamaño y referencia en un terminal sin reabrirlo. Los registros históricos incoherentes no se reparan automáticamente: pueden conservarse o limpiarse; corregir su estado/progreso histórico requiere una decisión y reparación explícitas. POST crea un evento nuevo cada vez: no deduplica por nombre ni debe reintentarse automáticamente después de perder una respuesta.
-
-Todas las escrituras del servicio toman un advisory lock transaccional por propietario. Las solicitudes de la misma persona se ordenan; otras personas no comparten ese bloqueo. PATCH vuelve a leer la fila con FOR UPDATE y populate_existing, evitando validar una versión obsoleta. Al adjuntar un documento el orden es propietario → documento (KEY SHARE) → evento, compatible con el borrado documental y su SET NULL. No se bloquea el documento al corregir solo el diario o al retirar la referencia.
-
-Alta y PATCH hacen flush/refresh y separan la respuesta del ORM mientras conservan sus bloqueos; después confirman. Así, una limpieza posterior puede retirar la fila sin provocar un refresh o una carga diferida fallida en la respuesta anterior. Un fallo de confirmación devuelve error y revierte la operación; no se devuelve una instantánea de éxito si falló commit. El protocolo coordina escritores de este servicio; no impone estas reglas a escrituras SQL externas ni crea restricciones nuevas en el esquema compartido. TRANSFER-007 restringe el rol e incorpora la capacidad acotada de bloqueo.
-
-DELETE history ejecuta un único DELETE SQL con subconsulta limitada a 1000 terminales propios, ordenados por created_at e ID. No carga sus objetos en Python ni borra documentos, archivos o eventos ajenos. Devuelve el contador efectivo; otra limpieza serializada no cuenta dos veces las mismas filas. Activos, altas posteriores y terminales fuera del lote permanecen. La interfaz informa el límite, refresca la primera página y permite repetir la acción. TRANSFER-006 incorpora páginas, descarta respuestas tardías y presenta errores sin vaciar silenciosamente un contrato inválido.
-
-DocumentSearchPage y useDocumentQuestionFlow usan un constructor común de fallo que envía FAILED y metadata.error/conversation_id, sin progreso inicial obsoleto ni una referencia documental repetida. La interfaz conserva la advertencia de que se limpian solo terminales. TRANSFER-006 completa la separación entre el resultado del archivo y el diario, con advertencia visible ante un fallo tardío.
-
-Evidencia: 280 pruebas backend PostgreSQL y 34 frontend, Ruff, npm ci/test/build, pip check, Compose y arranque sobre volumen existente. La matriz de 25 transiciones, monotonía, terminales, completion=100, reintentos sin UPDATE y lotes 1000/1/0 se verifica por HTTP y SQL. Sesiones independientes observan esperas Lock para avances concurrentes, conflictos terminales, PATCH/alta frente a limpieza, dos limpiezas, rollback frente a limpieza y ambos órdenes de PATCH/limpieza frente al borrado documental. Se comprueban independencia entre propietarios, snapshots utilizables tras borrado, SET NULL, ausencia de conteos dobles, rollback y recuperación. Los fixtures compartidos limpian datos sintéticos; ninguna prueba usa IA u OAuth. Persisten las cuatro alertas altas npm y la deprecación Starlette/AnyIO registradas.
-
-## Páginas y operaciones independientes (TRANSFER-006)
-
-GET transfers devuelve `{items, limit, offset, has_more}`. La web solicita 50 registros y puede cargar las páginas siguientes; el contador representa filas cargadas, no un total global. La API admite hasta 200 por página y offset hasta 10000, con 422 privado fuera de rango. El orden usa created_at e ID para resolver empates. La deduplicación web no altera el avance del offset, calculado con el tamaño bruto de la página.
-
-Offset no crea una instantánea entre peticiones: altas o limpiezas externas pueden mover las posiciones y requerir Actualizar historial. El cliente vuelve a la primera página después de sus propias escrituras para no conservar offsets incoherentes. Actualizar descarta la ventana anterior; un fallo al cargar más conserva los registros anteriores y permite reintentar. Al alcanzar la cota de offset, la API devuelve 422; refresca o limpia terminales para reducir la ventana. No se afirma recorrido ilimitado ni consistencia de instantánea ante cambios externos.
-
-Cada cliente tiene un controlador independiente con generaciones para peticiones y ciclo de vida. Descarta listas, escrituras, limpiezas y advertencias tardías de un cliente desmontado o de una generación previa, incluido el reinicio de efectos de React. Un clic repetido de paginación o limpieza no duplica esa solicitud. Los errores de listado/limpieza se muestran en el modal. Tras una limpieza correcta, la caché conserva los activos incluso si falla la consulta posterior; los terminales restantes se vuelven a consultar.
-
-Los flujos compartidos de carga, carga desde Chat y descarga inician la operación documental una vez, sin esperar la creación del diario. Sus actualizaciones se encadenan en una cola de alta → etapa 65 (si corresponde) → terminal, independiente de la respuesta documental. Un fallo, retraso o petición pendiente del diario no impide obtener el archivo/documento ni cambia su resultado. Si falla la operación documental, se propaga exactamente su error original; fallar al registrar FAILED no lo sustituye. No hay reintento automático de archivos ni de POST del historial.
-
-Las advertencias del historial se conservan aunque se refresque el listado y aparecen como estado visible fuera del modal en Search y Chat; pueden cerrarse explícitamente. Un cliente retirado no inicia pasos pendientes del diario ni publica avisos en el siguiente. Una petición ya enviada puede completar en el servidor: descartar su respuesta no revierte ese commit. Tampoco se promete entrega duradera del diario si se cierra la pestaña antes de completar la cola; este historial continúa siendo información del cliente, no prueba de entrega ni auditoría autoritativa.
-
-El modal muestra todos los registros cargados mediante scroll, controles Actualizar/Cargar más y tamaños de cero bytes. Backend y frontend deben desplegarse juntos: el adaptador rechaza arreglos antiguos, offsets/limit incorrectos o filas sin ID en vez de ocultarlos con una lista vacía. Las respuestas de alta/PATCH y el lote de limpieza no cambian.
-
-Evidencia: 288 pruebas PostgreSQL/HTTP y 60 frontend, Ruff, npm ci/test/build, pip check, Compose y arranque saludable aprobados. La suite backend recorre 207 eventos privados con fechas empatadas, páginas 100/100/7, final vacío y cotas de offset. Web prueba carga incremental, deduplicación/avance bruto, clics repetidos, errores, refresh/reinicio/disposición, respuestas tardías y limpieza con recarga fallida. Los tres flujos se prueban con alta fallida, PATCH fallido, alta pendiente, error documental original y etapas ordenadas después de alta lenta; ninguna operación documental se repite. El render SSR del componente verifica doce filas, tamaño cero, controles y aviso accesible fuera del modal; no equivale a un recorrido visual completo de navegador ni a auditoría de accesibilidad. No se usan IA/OAuth ni archivos reales. Persisten los seguimientos npm e imagen/dependencias.
-
-## Ejecución restringida y operación (TRANSFER-007)
-
-Compose ejecuta la imagen como UID/GID 10007, retira todas las capacidades Linux y aplica no-new-privileges. El contenedor no monta documentos ni claves privadas; conserva solo la clave pública de Auth en modo lectura. Las etapas test y audit separan pytest/Ruff/httpx/pip-audit de runtime. El inventario final tiene 30 distribuciones Python; pip check y la ausencia de herramientas se comprueban en CI.
-
-transfer-db-role espera al esquema compartido y provisiona document_transfer_runtime y document_transfer_reference_owner con una transacción y el bloqueo global de aprovisionamiento. El primero tiene login, sin superusuario, creación de roles/bases, herencia, replicación ni bypass de RLS; el propietario de referencia no tiene login. Ninguno recibe membresías o CREATE sobre public. El acceso mínimo es:
-
-| Rol | Permisos |
-| --- | --- |
-| document_transfer_runtime | SELECT del historial; INSERT en owner_user_id/document_id/filename/direction/status/progress/size_bytes/metadata; UPDATE solo document_id/status/progress/size_bytes/metadata/updated_at; DELETE del historial. |
-| Lectura de referencias por runtime | documents: document_id, tenant_id, owner_user_id y metadata. document_assignments: assignment_id, document_id, assigned_to_user_id, assigned_by_user_id y status. Sin rutas, nombres documentales, contenido, embeddings, Auth o tablas de empresas. |
-| document_transfer_reference_owner | SELECT/UPDATE únicamente de documents.document_id para poder tomar KEY SHARE dentro de la función. No puede iniciar sesión ni delegar esos permisos. |
-| transfer_lock_document_reference(text) | SECURITY DEFINER, STRICT, search_path fijo pg_catalog/pg_temp, tabla public.documents cualificada y sin SQL dinámico. Solo propietario y runtime pueden ejecutarla; PUBLIC y otros roles quedan excluidos. Runtime no puede delegar EXECUTE ni asumir el propietario. |
-
-El verificador compara columnas/operaciones efectivas de todas las tablas de public, secuencias, atributos, membresías y ACL de la función, y rechaza privilegios delegables. Repetir el aprovisionamiento conserva el alcance. Un permiso de tabla/columna añadido fuera de esta política bloquea la verificación y requiere revisión y corrección explícitas; no se arregla borrando datos. El rol es compartido por el servicio, no por usuario: JWT y filtros del repositorio aplican la privacidad personal; no se introduce RLS por usuario.
-
-DATABASE_URL ya no lleva contraseña de postgres; usa document_transfer_runtime y PGPASSWORD procede de TRANSFER_DB_PASSWORD (predeterminado exclusivamente local: blandskron-local-transfer). Para actualizar una instalación, detén el servicio antiguo, respalda la base y levanta la versión nueva. No ejecutes escritores antiguos y nuevos en paralelo. Desde la raíz:
+Desde la raíz, con el servicio saludable:
 
 ```sh
-docker compose -f docker/docker-compose.yml stop document-transfer-service
-docker compose -f docker/docker-compose.yml up -d --build --wait document-transfer-service
-# Repetición intencional: vuelve a aplicar y verificar la política.
-docker compose -f docker/docker-compose.yml run --rm --no-deps transfer-db-role
-docker compose -f docker/docker-compose.yml exec -T document-transfer-service python -m pip --no-cache-dir check
 docker compose -f docker/docker-compose.yml run --build --rm --no-deps transfer-tests
 docker compose -f docker/docker-compose.yml run --rm --no-deps transfer-tests ruff check --no-cache app tests
+docker compose -f docker/docker-compose.yml exec -T document-transfer-service python -m pip --no-cache-dir check
 docker compose -f docker/docker-compose.yml run --build --rm --no-deps transfer-audit
 ```
 
-El job auth-db-roles arranca desde volúmenes nuevos, repite provisión, ejecuta verify_role.sql, inspecciona UID/herramientas, prueba la suite, audita Python y reinicia Transfer sobre su volumen existente. Localmente se comprobaron el volumen existente y otro limpio sin puertos adicionales, ambos con rol repetido y servicio saludable. El recorrido HTTP real sobre la instalación limpia usó un access token emitido por Auth: alta/metadatos/página, 409 al retroceder, completado y limpieza 1/0. Se verificaron limpieza de eventos y rollback del usuario sintético, sin mostrar claves o tokens.
+Desde frontend: npm ci, npm test y npm run build. La suite backend tiene 317 casos PostgreSQL/HTTP; frontend tiene 60 pruebas de contratos, controlador, flujos y render SSR. Cubren identidad, permisos, referencias/revocación, metadatos y nulos, límites/errores privados, estados, lotes, 207 eventos empatados y páginas 100/100/7, recuperación y carreras con esperas Lock observadas. Los escritores concurrentes usan login real document_transfer_runtime; preparar datos o simular borrado documental corresponde a conexiones administrativas distintas.
 
-Las 317 pruebas backend incluyen conexiones reales con current_user/session_user=document_transfer_runtime, denegaciones SQL, workflow HTTP, sombra temporal inocua de documents, drift y readiness al retirar EXECUTE o lectura al propietario de referencia. Las pruebas de drift usan bases aisladas, con esquema inicializado/reaplicación de permisos y eliminación por nombre sintético comprobado; las carreras usan escritores runtime y una conexión administrativa distinta para simular borrado documental. No se exige a runtime modificar documentos para ejecutar las pruebas. Persiste una deprecación del TestClient httpx de Starlette; actualizar ese adaptador de pruebas no cambia las dependencias del runtime.
+Las pruebas usan claves/datos sintéticos, rollback o limpieza por IDs/propietarios sintéticos. Drift y readiness se prueban en bases aisladas que se retiran por nombre comprobado. Requieren TRANSFER_TEST_DATABASE_URL administrativa explícita y DATABASE_URL/PGPASSWORD runtime; Compose configura ambas. No usan create_all ni migran tablas compartidas; no ejecutar en producción. La suite conserva una deprecación del adaptador de pruebas httpx de Starlette, fuera de runtime.
+
+CI valida Compose/UID/herramientas, arranque limpio, roles repetidos, auditoría, pruebas y reinicio sobre el volumen existente. La revisión de cierre comprobó un recorrido HTTP real con access/renovación de Auth, rol mínimo y dos usuarios: privacidad incluso frente a administrador, JSON, preservación documental al limpiar, SET NULL al borrar documentos, activos conservados y contadores. Se verificaron limpieza de eventos/documentos sintéticos y rollback de ambos usuarios; los consumidores aprobaron sus 60 pruebas y build. También se importaron los 30 módulos vigentes tras retirar cinco archivos y cuatro símbolos sin consumidores. Es validación funcional del servicio, no auditoría exhaustiva de seguridad, accesibilidad o recorrido visual completo de navegador. El cierre transversal del sistema sigue en el tablero.
+
 
 ## Verificación de dependencias e imagen
 
-Se alinearon FastAPI 0.162.0, Starlette 1.10.0, PyJWT 2.15.1, cryptography 50.0.2 y python-dotenv 1.2.4 con los servicios ya modernizados; pip es 26.3. pytest 9.0.3 queda solo en test. pip-audit 2.10.1 auditó el inventario congelado **antes** de instalar sus propias dependencias: no reportó avisos en las 30 distribuciones del runtime. Esto no equivale a ausencia general de vulnerabilidades.
+El runtime usa FastAPI 0.162.0, Starlette 1.10.0, PyJWT 2.15.1, cryptography 50.0.2, python-dotenv 1.2.4 y pip 26.3. pytest 9.0.3 queda solo en test. pip-audit 2.10.1 auditó el inventario congelado **antes** de instalar sus propias dependencias: no reportó avisos en las 30 distribuciones del runtime. Esto no equivale a ausencia general de vulnerabilidades.
 
-El 6 de noviembre de 2026 se reconstruyó con --pull y se escaneó el artefacto exportado mediante Trivy 0.74.0, solo vulnerabilidades HIGH/CRITICAL. Base python:3.12-slim: `sha256:4840d514c583a4d3d8cad3940e68dee6f0f6f3635c12fcd0a3d74c21a5b93a54`. Manifiesto del runtime auditado: `sha256:640cfb3918c1fb9af04f689156653d0fd8273488b701a687f299e951014df765`; ImageID del informe: `sha256:6f448b7c1622f71bd6fdb5bf778e56a014dc0cbc7be628bede5fad40e2dd0213`. SHA-256 del informe JSON: `fe4ef545efc82d748b155ef8d017a55d516c5ce0fefdc2e61c1f6fa0e78a5982`.
+El 6 de noviembre de 2026 se reconstruyó con --pull y se escaneó el artefacto exportado mediante Trivy 0.74.0, solo vulnerabilidades HIGH/CRITICAL. Base python:3.12-slim: `sha256:4840d514c583a4d3d8cad3940e68dee6f0f6f3635c12fcd0a3d74c21a5b93a54`. Manifiesto del runtime auditado: `sha256:28cdb65f8ccf693688c660abea53e980612c20f6a27d9d671f9a6a3d15a012e4`; ImageID del informe: `sha256:b7fb3fb73d59191cdaf82a1cdbf6910182ddc6c1a5ca3480966a7e32befd4b7f`. SHA-256 del informe JSON: `070a1493d2192e8eaa7e5f4a128707c038270d58f4e25bbadfdeca381321b23f`.
 
 | Alcance | Resultado observado | Seguimiento |
 | --- | --- | --- |
@@ -223,38 +185,6 @@ docker run --rm -v "$audit_dir:/audit" -v blandskron-trivy-cache:/root/.cache/tr
 
 Usa un directorio temporal para estos artefactos y no los agregues a Git. El resultado depende de la imagen y de la base de avisos del momento. Los seguimientos son visibles; no se ocultan CVE, no se declara libre de riesgos la imagen y no se presenta esta comprobación como escaneo de secretos o auditoría exhaustiva del código.
 
-## Configuración y operación (TRANSFER-002)
-
-Compose transmite once variables explícitas: APP_ENV, APP_NAME, LOG_LEVEL, CORS_ORIGINS, DATABASE_URL, AUTH_JWT_PUBLIC_KEY_PATH, AUTH_JWT_ALGORITHM y las tres opciones DB_POOL_MIN_SIZE, DB_POOL_MAX_SIZE, DB_TIMEOUT_SECONDS y PGPASSWORD. El servicio no carga archivos .env automáticamente. Compose usa el archivo raíz para interpolar opciones explícitas; no lo inyecta completo. Transfer no necesita claves de Groq, OAuth ni la clave privada de Auth.
-
-CORS permite por defecto http://localhost:3000 y http://127.0.0.1:3000, sin credenciales de navegador. Puede configurarse con TRANSFER_CORS_ORIGINS como arreglo JSON. RS256 es el único algoritmo configurable admitido. Se monta únicamente el volumen público de Auth, de solo lectura.
-
-| Variable de Compose | Predeterminado | Semántica |
-| --- | --- | --- |
-| TRANSFER_DB_POOL_MIN_SIZE | 1 | Conexiones retenidas por el pool, creadas bajo demanda, de 1 a 100; no es un precalentamiento mínimo. |
-| TRANSFER_DB_POOL_MAX_SIZE | 10 | Capacidad total, de 1 a 100 y al menos el tamaño retenido; el excedente se descarta al liberarse. |
-| TRANSFER_DB_TIMEOUT_SECONDS | 30 | De 1 a 300 segundos; espera del pool y connect_timeout de PostgreSQL. No limita la duración de cada consulta SQL. |
-
-La configuración inválida detiene la aplicación antes del arranque. El pool usa pre_ping; las sesiones cierran y revierten trabajo no confirmado al salir, incluso ante excepciones. El lifespan libera el motor mediante finally y puede volver a abrirlo en otro arranque. Liveness no requiere dependencias; readiness no usa la caché de claves JWT y detecta cambios en el archivo en cada llamada.
-
-Prepara `.env` siguiendo el [README principal](../../README.md). Desde la raíz:
-
-```sh
-docker compose -f docker/docker-compose.yml config --quiet
-docker compose -f docker/docker-compose.yml up -d --build --wait document-transfer-service
-curl http://localhost:8007/api/v1/health
-curl http://localhost:8007/api/v1/health/db
-
-docker compose -f docker/docker-compose.yml exec -T document-transfer-service python -m pip --no-cache-dir check
-docker compose -f docker/docker-compose.yml run --build --rm --no-deps transfer-tests
-docker compose -f docker/docker-compose.yml run --rm --no-deps transfer-tests ruff check --no-cache app tests
-```
-
-La etapa Docker test instala requirements-test.txt; la imagen runtime no contiene pytest, Ruff ni httpx. El job auth-db-roles de CI arranca Transfer y ejecuta la suite y Ruff; el job compose comprueba las once variables y readiness. El job ejecuta también la auditoría agregada de propietarios. La suite requiere TRANSFER_TEST_DATABASE_URL explícita para operaciones sintéticas y DATABASE_URL para el motor de la aplicación; Compose configura ambas contra PostgreSQL local. No ejecutar contra producción. No usa create_all ni migra tablas compartidas.
-
-Evidencia local de TRANSFER-002: 46 pruebas aprobadas con PostgreSQL y claves RSA temporales; Ruff, pip check, Compose y arranque real con clave pública montada aprobados. Se verificaron límites de settings, precedencia del entorno sin carga de .env, capacidad/timeout/recuperación del pool, rollback tras error SQL, cierre normal/interrumpido/fallo de arranque, reapertura, CORS, 401 en cuatro operaciones, clave ausente/malformada/no RSA y su recuperación, cada columna requerida, conexión caída con 503 privado y recorrido crear/listar/actualizar/limpiar con rollback verificado. Las alteraciones de esquema se limitan a tablas temporales de una conexión, sin cambiar las compartidas.
-
-El arranque local se verificó sobre dependencias de desarrollo existentes, sin publicar puertos adicionales; CI comprueba el arranque desde su entorno desechable. No se ejecutó el stack completo ni una prueba con proveedor IA. La actualización de Starlette retiró el aviso anterior de BlockingPortal; la suite actual emite una deprecación por su cliente de pruebas httpx, fuera de la imagen runtime. TRANSFER-007 ejecuta con UID 10007 y rol mínimo; amplía la suite a 317 pruebas backend. El cierre operativo y retiro del diagnóstico histórico permanecen en TRANSFER-008. El frontend mantiene 60 pruebas aprobadas en TRANSFER-006; no cambia en este incremento.
 
 ## Licencia
 

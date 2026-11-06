@@ -12,15 +12,3 @@ class ValidationError(AppError):
 
 class ConflictError(AppError):
     pass
-
-
-class ExternalServiceError(AppError):
-    pass
-
-
-class DatabaseError(AppError):
-    pass
-
-
-class ExtractionError(AppError):
-    pass
