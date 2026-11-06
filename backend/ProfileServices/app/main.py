@@ -1,4 +1,3 @@
-import os
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
@@ -7,55 +6,54 @@ from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from app.config.logging import configure_logging
-from app.config.settings import get_settings
+from app.config.readiness import check_dependencies
+from app.config.settings import Settings, get_settings
 from app.infrastructure.database.connection import Database
 from app.interfaces.api.router import api_router
 from app.shared.errors import AppError, NotFoundError, ValidationError
 
 
-settings = get_settings()
-database = Database(settings.database_url)
+def create_app(settings: Settings | None = None) -> FastAPI:
+    settings = settings or get_settings()
+    database = Database(settings.database_url, settings.db_pool_min_size,
+                        settings.db_pool_max_size, settings.db_timeout_seconds)
 
+    @asynccontextmanager
+    async def lifespan(app: FastAPI):
+        configure_logging(settings.log_level)
+        try:
+            try:
+                database.open()
+                with database.session() as session:
+                    check_dependencies(settings, session, prepare=True)
+            except Exception:
+                raise RuntimeError("Profile dependencies are unavailable.") from None
+            yield
+        finally:
+            database.close()
 
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    configure_logging(settings.log_level)
-    database.open()
+    app = FastAPI(title=settings.app_name, version="0.1.0", lifespan=lifespan)
     app.state.database = database
-    yield
-    database.close()
+    app.dependency_overrides[get_settings] = lambda: settings
+    app.add_middleware(
+        CORSMiddleware, allow_origins=settings.cors_origins, allow_credentials=False,
+        allow_methods=["*"], allow_headers=["*"], expose_headers=["Content-Disposition"],
+    )
+    app.include_router(api_router)
+    app.mount("/static", StaticFiles(directory=settings.profile_uploads_dir, check_dir=False), name="static")
+    app.add_exception_handler(NotFoundError, not_found_handler)
+    app.add_exception_handler(ValidationError, validation_handler)
+    app.add_exception_handler(AppError, app_error_handler)
+    return app
 
 
-app = FastAPI(title=settings.app_name, version="0.1.0", lifespan=lifespan)
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=settings.cors_origins,
-    allow_credentials=False,
-    allow_methods=["*"],
-    allow_headers=["*"],
-    expose_headers=["Content-Disposition"],
-)
-
-app.include_router(api_router)
-
-# Configurar y montar directorio para subida de fotos de perfil
-uploads_dir = os.path.abspath(os.getenv("PROFILE_UPLOADS_DIR", "./uploads"))
-os.makedirs(uploads_dir, exist_ok=True)
-app.mount("/static", StaticFiles(directory=uploads_dir), name="static")
-
-
-
-@app.exception_handler(NotFoundError)
 async def not_found_handler(request: Request, exc: NotFoundError) -> JSONResponse:
     return JSONResponse(status_code=404, content={"detail": str(exc)})
 
 
-@app.exception_handler(ValidationError)
 async def validation_handler(request: Request, exc: ValidationError) -> JSONResponse:
     return JSONResponse(status_code=400, content={"detail": str(exc)})
 
 
-@app.exception_handler(AppError)
 async def app_error_handler(request: Request, exc: AppError) -> JSONResponse:
     return JSONResponse(status_code=500, content={"detail": str(exc)})

@@ -2,13 +2,13 @@
 
 Servicio FastAPI de perfil y avatar de Blandskron Documental, publicado localmente en `http://localhost:8015`. AuthServices administra identidad, credenciales y membresías; Profile guarda datos de contacto y presentación en `user_profiles` y archivos en `uploads/profile`.
 
-**Estado:** diagnóstico PROFILE-001 sobre `main` en `1776a6f`, realizado el 6 de noviembre de 2026. La modernización está pendiente. Esta entrega documenta el comportamiento existente y el plan; no cambia la API ni corrige los problemas descritos. El estado de los incrementos vive en el [tablero](../../ROADMAP.md#profileservices).
+**Estado:** PROFILE-001 integrado en PR #59. PROFILE-002 incorpora configuración explícita, validación de dependencias al arrancar, pool/timeouts, pruebas permanentes y dependencias actualizadas. La autorización por dueño, límites de entradas y ciclo privado del avatar siguen pendientes en PROFILE-003 a PROFILE-006; el rol DB acotado y usuario de contenedor en PROFILE-007. El [diagnóstico histórico](#diagnóstico-profile-001) describe la línea base, no las garantías actuales. El estado vive en el [tablero](../../ROADMAP.md#profileservices).
 
 ## Mapa para trabajar
 
 | Ubicación | Responsabilidad actual |
 | --- | --- |
-| `app/main.py` | Lifespan, CORS, excepciones y montaje público `/static` |
+| `app/main.py` | Factory `create_app`, lifespan, CORS, excepciones y montaje público `/static` |
 | `app/config/` | Settings, JWT, logging y sesión por petición |
 | `app/interfaces/api/v1/` | Dos rutas de salud, seis operaciones de perfil, dependencias y esquemas |
 | `app/application/use_cases/manage_profile.py` | Perfil vacío cuando no existe, actualización y listado |
@@ -19,14 +19,14 @@ Servicio FastAPI de perfil y avatar de Blandskron Documental, publicado localmen
 | [Cliente web](../../frontend/src/features/profile/api/profile.api.js), [hook](../../frontend/src/features/profile/hooks/useProfile.js) y [página](../../frontend/src/pages/ProfilePage/ProfilePage.jsx) | Consulta/actualización propia, upload y cambio de contraseña vía Auth |
 | [AuthProvider](../../frontend/src/app/providers/AuthProvider.jsx) y [Sidebar](../../frontend/src/widgets/Sidebar/Sidebar.jsx) | Perfil global y avatar |
 
-No se encontró una suite propia ni un job de CI que ejecute pruebas de Profile. `pytest` y `ruff` están instalados en la imagen de ejecución. No hay aplicación Django ni código Python dentro de una carpeta documental que sea necesario trasladar.
+`tests/` contiene la suite permanente y CI la ejecuta sobre PostgreSQL. Las etapas Docker `runtime`, `test` y `audit` separan las herramientas del servicio; el inventario auditado se captura antes de instalar pip-audit. No hay aplicación Django ni código Python dentro de una carpeta documental que sea necesario trasladar.
 
 ## Contrato actual
 
 | Método | Ruta | Comportamiento |
 | --- | --- | --- |
 | GET | `/api/v1/health` | Público; devuelve `status: ok`, sin comprobar dependencias |
-| GET | `/api/v1/health/db` | Público; consulta `user_profiles` |
+| GET | `/api/v1/health/db` | Público; comprueba tabla, clave pública y escritura temporal en storage; 503 genérico si fallan |
 | GET | `/api/v1/profile` | Perfil propio o entidad vacía con ID y timestamps nulos; consultar no inserta |
 | PUT | `/api/v1/profile` | Crea o actualiza perfil propio |
 | GET | `/api/v1/profiles` | Admin; todos los perfiles sin paginación ni orden declarado |
@@ -52,21 +52,49 @@ docker compose -f docker/docker-compose.yml config --quiet
 docker compose -f docker/docker-compose.yml up -d --build --wait profile-service
 ```
 
-El segundo comando es la vía disponible de operación, no una validación ejecutada por PROFILE-001: monta el directorio persistente del usuario y arranca dependencias. El diagnóstico construyó solo la imagen y usó contenedores descartables con `/tmp` para los avatares.
+Compose monta el directorio persistente `uploads/profile`. Las pruebas usan directorios temporales y rollback; la comprobación local de arranque de PROFILE-002 usó un volumen Docker sintético separado. No se necesita clave de IA/OAuth para Profile.
 
 | Variable | Situación actual |
 | --- | --- |
-| `DATABASE_URL` | Default de desarrollo con usuario PostgreSQL administrador; Compose también lo fija |
-| `AUTH_JWT_PUBLIC_KEY_PATH` | Compose monta solo la clave pública en `/app/auth_keys/public.pem` |
-| `AUTH_JWT_ALGORITHM` | `RS256` por defecto; configurable sin restringir validación de Settings |
-| `CORS_ORIGINS` | Lista JSON; Compose fija `["*"]`, sin credenciales CORS |
-| `PROFILE_UPLOADS_DIR` | Leída con `os.getenv` fuera de Settings; Compose usa `/app/uploads` |
+| `DATABASE_URL` | Obligatoria, driver `postgresql+psycopg`, host/usuario/base explícitos; sin default ni contraseña embebida en la aplicación |
+| `PGPASSWORD` | Compose declara la contraseña de desarrollo de la infraestructura local; no se inyecta el `.env` global. El rol sigue siendo `postgres` hasta PROFILE-007 |
+| `AUTH_JWT_PUBLIC_KEY_PATH` | Obligatoria y absoluta; Compose monta solo la clave pública en `/app/auth_keys/public.pem`; se exige RSA pública de al menos 2048 bits |
+| `AUTH_JWT_ALGORITHM` | Solo `RS256` |
+| `CORS_ORIGINS` | Lista JSON de orígenes HTTP(S) explícitos, sin comodines, rutas ni credenciales; default localhost/127.0.0.1:3000. `[]` deshabilita CORS |
+| `PROFILE_UPLOADS_DIR` | Obligatoria y absoluta; misma configuración para upload, static y salud. Compose usa `/app/uploads` |
 | `APP_ENV`, `APP_NAME`, `LOG_LEVEL` | Entorno, título y logging |
-| `DB_POOL_MIN_SIZE`, `DB_POOL_MAX_SIZE`, `DB_TIMEOUT_SECONDS` | Declaradas, pero no aplicadas al crear el engine |
+| `DB_POOL_MIN_SIZE`, `DB_POOL_MAX_SIZE`, `DB_TIMEOUT_SECONDS` | Defaults 1/10/30; tamaños 1–100, min ≤ max, timeout 1–300 segundos. Pool retenido = min, overflow = max − min; no se preabren min conexiones |
 
-Settings lee `.env` y `../../.env`; Compose inyecta además el `.env` global. La imagen copia solo `requirements.txt` y `app`, ejecuta como root y usa `python:3.12-slim` sin digest fijado. El directorio de uploads se crea al importar `main`; el engine se inicializa en lifespan sin validar conexión o clave. El healthcheck de Compose consulta únicamente `/health`.
+Settings no lee archivos `.env`. Compose permite ajustar `PROFILE_CORS_ORIGINS`, `PROFILE_DB_POOL_MIN_SIZE`, `PROFILE_DB_POOL_MAX_SIZE` y `PROFILE_DB_TIMEOUT_SECONDS` mediante interpolación explícita; no transmite claves de IA/OAuth. Los errores de validación ocultan los valores de entrada y el repr de Settings excluye la URL DB.
+
+El timeout se aplica a espera del pool, conexión y consultas PostgreSQL (`statement_timeout`). El engine usa pre-ping, oculta parámetros SQL, revierte sesiones con error y se libera aun si falla el arranque. La factory no crea archivos ni conexiones al importar; lifespan valida DB/tabla y clave, prepara storage y prueba escritura temporal que se elimina automáticamente. Una dependencia inválida aborta con un mensaje genérico. `/health` indica vida del proceso; `/health/db` vuelve a comprobar dependencias y es el healthcheck de Compose. La clave se relee para detectar pérdida/cambio posterior sin cache obsoleta.
+
+La imagen de ejecución sigue como root sobre `python:3.12-slim`; el rol y los permisos finales se entregan en PROFILE-007. El upload aún no tiene el límite/canonización/privacidad de PROFILE-005. Configurar un directorio no implica haber completado su confinamiento ante todas las carreras de archivos.
+
+Para ejecución fuera de Docker, declara `DATABASE_URL`, `AUTH_JWT_PUBLIC_KEY_PATH` y `PROFILE_UPLOADS_DIR` (rutas absolutas), instala `requirements.txt` en un entorno virtual y desde este directorio ejecuta `uvicorn app.main:create_app --factory --port 8015`. La contraseña de DB puede suministrarse por `PGPASSWORD`. No cargar un `.env` global dentro de la aplicación.
+
+## Pruebas y auditoría
+
+Desde la raíz, con PostgreSQL/esquema inicializados por Compose:
+
+```powershell
+docker compose -f docker/docker-compose.yml run --build --rm --no-deps profile-tests
+docker compose -f docker/docker-compose.yml run --rm --no-deps profile-tests ruff check --no-cache app tests
+docker compose -f docker/docker-compose.yml run --build --rm --no-deps profile-audit
+docker compose -f docker/docker-compose.yml exec -T profile-service python -m pip check
+```
+
+La suite exige `PROFILE_TEST_DATABASE_URL` explícita, provista por el servicio `profile-tests`. No crea/migra tablas ni usa uploads reales. Las escrituras HTTP quedan dentro de savepoints y una transacción exterior; al terminar se comprueba desde otra conexión que no persiste el usuario sintético. Las pruebas de pool y statement timeout usan conexiones PostgreSQL reales. Los fallos de escritura por permisos se inyectan para que el resultado no dependa de ejecutar la suite como root.
+
+El job `auth-db-roles` construye/arranca Profile, comprueba ausencia de herramientas de test/audit en runtime, ejecuta suite/Ruff/auditoría y verifica reinicio saludable. El job Compose verifica la lista de variables explícitas. Un resultado verde no valida aún privacidad, revocación ni concurrencia de escrituras del perfil: esos criterios están en las tarjetas siguientes.
+
+PROFILE-002 actualiza FastAPI/Starlette, PyJWT, cryptography, python-dotenv, Pillow y python-multipart, conservando el resto del conjunto compatible. La auditoría consulta el inventario de runtime antes de instalar herramientas; no confundir ese resultado con un escaneo de SO o de copias vendorizadas (PROFILE-007). TestClient emite una advertencia sobre la futura migración de httpx a httpx2, limitada a la etapa de pruebas.
+
+Evidencia local de PROFILE-002 (6 de noviembre de 2026): **52 pruebas aprobadas**, Ruff y pip check aprobados; `profile-audit` sin avisos conocidos, sin supresiones. Se construyeron las tres etapas con proyecto `library008-release`, se comprobó la lista de variables/CORS/montaje de clave/healthcheck y se validó arranque y reinicio contra PostgreSQL existente y clave pública real de Auth, con volumen sintético separado. Runtime no contiene pytest/Ruff/httpx/pip-audit. No se usaron avatares reales ni se ejecutó OAuth, IA, navegador o un flujo de login con JWT real en esta tarjeta. CI verifica además el arranque sobre su instalación nueva; el estado de su ejecución se registra en el PR.
 
 ## Diagnóstico PROFILE-001
+
+**Evidencia histórica del 6 de noviembre de 2026, commit `1776a6f`.** Las observaciones de configuración/dependencias/salud siguientes corresponden a esa versión anterior a PROFILE-002 y se conservan para trazar el trabajo pendiente.
 
 Se revisaron todos los módulos del servicio, Dockerfile, dependencias, esquema y trigger compartidos, Compose, identidad/membresías de Auth y consumidores web. La inspección se complementó con sondas TestClient sobre la imagen construida, usando PostgreSQL real del entorno local, clave RSA y usuarios sintéticos. Las escrituras se encerraron en una transacción externa con savepoints y se verificó desde otra conexión que el rollback no dejó perfiles sintéticos. Los archivos se crearon exclusivamente en `/tmp` del contenedor eliminado al terminar. No se utilizaron claves de proveedores, datos personales ni el volumen real de avatares.
 
@@ -129,6 +157,6 @@ Para auditar se congelaron primero los paquetes de la imagen con `pip freeze > /
 4. Avatar local asociado al dueño, lectura autenticada y recodificación. Propuesta inicial: hasta 5 MiB para coincidir con la UI; concretar formato, píxeles, dimensiones y frames en PROFILE-005 mediante pruebas. Una operación debe dejar referencia y archivo consistentes o recuperar/limpiar el fallo; inventariar URLs anteriores antes de retirar `/static`. La adaptación mínima del consumidor se entrega junto al cambio de acceso, sin dejar un incremento con avatares rotos; PROFILE-006 completa estados, carreras y experiencia web.
 5. Pruebas PostgreSQL y contratos HTTP en CI, consumidor web probado con cambios de sesión, rol DB mínimo e imagen sin root. Cerrar después de validar instalación nueva, actualización y artefacto final con seguimientos visibles.
 
-El orden y los criterios están en [PROFILE-002 a PROFILE-008](../../ROADMAP.md#profileservices). La próxima entrega es configuración/dependencias/pruebas; este análisis no cierra Profile.
+El orden y los criterios están en [PROFILE-002 a PROFILE-008](../../ROADMAP.md#profileservices). PROFILE-002 incorpora la base de configuración/dependencias/pruebas; este análisis no cierra Profile.
 
 Referencias consultadas: [Agents First Framework](https://github.com/Blandskron/agents-first-repo-docs) para contexto verificable y documentación sin duplicación; [FastAPI UploadFile](https://fastapi.tiangolo.com/tutorial/request-files/#uploadfile) para spooling y lectura; [Pillow Image.verify](https://pillow.readthedocs.io/en/stable/reference/Image.html#PIL.Image.Image.verify) para diferenciar verificación de decodificación. Las decisiones se basan en este código y sus sondas, no en una certificación del framework.

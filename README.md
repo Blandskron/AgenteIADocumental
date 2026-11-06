@@ -58,6 +58,8 @@ La biblioteca documental usa `document_library_runtime`, `LIBRARY_DB_PASSWORD` y
 
 El historial de transferencias usa document_transfer_runtime, TRANSFER_DB_PASSWORD, UID 10007 y una función de referencia acotada. Recibe solo configuración explícita y CORS local; usa `TRANSFER_CORS_ORIGINS` y `TRANSFER_DB_POOL_*` para ajustarlos. Su healthcheck comprueba PostgreSQL y la clave pública. El historial carga páginas de 50 con Cargar más y Actualizar historial; el contador indica registros cargados. Cada limpieza retira hasta 1000 procesos terminados propios y conserva los activos; repite la acción si quedan registros. Un fallo del historial muestra un aviso y no repite ni bloquea la operación documental. [Operación y pruebas de Transfer](backend/DocumentTransferServices/README.md#operación).
 
+Profile recibe solo configuración explícita y CORS local. Valida PostgreSQL, clave pública y escritura temporal de avatares al arrancar y en `/api/v1/health/db`; usa `PROFILE_CORS_ORIGINS`, `PROFILE_DB_POOL_*` y `PROFILE_DB_TIMEOUT_SECONDS` para ajustar operación. Su modernización continúa: privacidad del perfil/avatar y rol DB acotado siguen pendientes. [Operación y pruebas de Profile](backend/ProfileServices/README.md#pruebas-y-auditoría).
+
 Si otra instalación de PostgreSQL ocupa el puerto local 5432, configura `POSTGRES_HOST_PORT=15432` en `.env`. Los contenedores siguen conectándose a PostgreSQL por el puerto interno 5432.
 
 El agregador `docker/docker-compose.yml` carga:
