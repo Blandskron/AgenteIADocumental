@@ -1,10 +1,11 @@
 from __future__ import annotations
 
 from sqlalchemy import func, or_, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.config.security import is_superadmin_user, tenant_ids_for_role, tenant_memberships, user_groups, user_id
-from app.shared.errors import NotFoundError
+from app.shared.errors import ConflictError, NotFoundError, ValidationError
 from app.infrastructure.database.models import (
     DocumentEmbeddingModel,
     DocumentAssignmentModel,
@@ -57,7 +58,7 @@ class LibraryRepositoryPg:
             metadata_=metadata or {},
         )
         self._session.add(folder)
-        self._session.commit()
+        self._commit_folder()
         self._session.refresh(folder)
         return folder
 
@@ -69,9 +70,23 @@ class LibraryRepositoryPg:
             folder.name = name.strip()
         if metadata is not None:
             folder.metadata_ = metadata
-        self._session.commit()
+        self._commit_folder()
         self._session.refresh(folder)
         return folder
+
+    def _commit_folder(self) -> None:
+        try:
+            self._session.commit()
+        except IntegrityError as exc:
+            self._session.rollback()
+            constraint = getattr(getattr(exc.orig, "diag", None), "constraint_name", None)
+            if constraint in ("document_folders_owner_root_name_unique", "document_folders_owner_child_name_unique"):
+                raise ConflictError("Folder name already exists at this level.") from exc
+            if constraint in ("document_folders_parent_owner_fkey", "document_folders_parent_folder_id_fkey"):
+                raise NotFoundError("Parent folder not found.") from exc
+            if constraint == "document_folders_name_nonblank_check":
+                raise ValidationError("Folder name must not be blank.") from exc
+            raise
 
     def delete_folder(self, folder_id: str) -> bool:
         folder = self._folder(folder_id)

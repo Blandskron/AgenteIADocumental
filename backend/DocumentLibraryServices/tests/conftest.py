@@ -1,7 +1,15 @@
+import re
+from os import environ
+from uuid import uuid4
+
 import pytest
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
 from fastapi.testclient import TestClient
+from sqlalchemy import create_engine
+from sqlalchemy.engine import make_url
+
+from database_support import SQL_ROOT, execute_script, migrate
 
 from app.config.settings import get_settings
 from app.main import app
@@ -22,3 +30,33 @@ def configured_client(tmp_path, monkeypatch, signing_key):
     monkeypatch.setitem(app.dependency_overrides, get_settings, lambda: settings)
     with TestClient(app) as client:
         yield client, settings
+
+
+@pytest.fixture
+def legacy_database():
+    name = f"lib004_{uuid4().hex}"
+    admin_url = make_url(environ["LIBRARY_TEST_DATABASE_URL"])
+    admin = create_engine(admin_url, isolation_level="AUTOCOMMIT")
+    engine, created = None, False
+    try:
+        with admin.connect() as connection:
+            connection.exec_driver_sql(f'CREATE DATABASE "{name}"')
+            created = True
+        engine = create_engine(admin_url.set(database=name))
+        with engine.connect() as connection:
+            execute_script(connection, SQL_ROOT / "run_all.sql", legacy=True)
+        yield engine
+    finally:
+        if engine is not None:
+            engine.dispose()
+        if created:
+            assert re.fullmatch(r"lib004_[0-9a-f]{32}", name)
+            with admin.connect() as connection:
+                connection.exec_driver_sql(f'DROP DATABASE "{name}" WITH (FORCE)')
+        admin.dispose()
+
+
+@pytest.fixture
+def migrated_database(legacy_database):
+    migrate(legacy_database)
+    return legacy_database

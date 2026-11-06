@@ -2,7 +2,7 @@
 
 Organiza documentos en carpetas personales, favoritos y una vista de documentos actualizados recientemente. Usa FastAPI, SQLAlchemy y el PostgreSQL compartido. El puerto local de Compose es `8006`.
 
-LIB-001 estableció el diagnóstico y el plan. LIB-002 incorporó configuración y pruebas; LIB-003 valida identidad y unifica permisos documentales. Integridad, concurrencia, límites, paginación y privilegios de ejecución siguen en las tarjetas posteriores. El [tablero](../../ROADMAP.md#documentlibraryservices) es la fuente de tareas y [AGENTS.md](AGENTS.md) indica cómo intervenir el servicio.
+LIB-001 estableció el diagnóstico y el plan. LIB-002 incorporó configuración y pruebas; LIB-003 valida identidad y unifica permisos documentales; LIB-004 refuerza la integridad SQL y coordina al escritor de Google Drive. Concurrencia, límites, paginación y privilegios de ejecución siguen en las tarjetas posteriores. El [tablero](../../ROADMAP.md#documentlibraryservices) es la fuente de tareas y [AGENTS.md](AGENTS.md) indica cómo intervenir el servicio.
 
 ## Recorrido y responsabilidades
 
@@ -68,7 +68,24 @@ Las carpetas siguen siendo privadas por `user_id`, incluso para administradores 
 - El [hook](../../frontend/src/features/document-library/hooks/useDocumentLibrary.js) carga raíces, veinte recientes y favoritos con `Promise.all`. Actualiza favoritos de forma optimista e ignora el `count` devuelto. No protege respuestas frente a cambios de cliente o carpeta mientras hay peticiones en vuelo.
 - [DocumentSearchPage](../../frontend/src/pages/DocumentSearchPage/DocumentSearchPage.jsx) consulta documentos por cada carpeta para construir etiquetas. El mapa acumula asociaciones antiguas y respuestas tardías pueden sobrescribir datos recientes. Algunas métricas usan constantes de demostración.
 - [ChatPage](../../frontend/src/pages/ChatPage/ChatPage.jsx) reutiliza carpetas y favoritos en la barra lateral. La interfaz no consume todo el CRUD ni la jerarquía expuesta por la API.
-- [GoogleDriveImportServices](../GoogleDriveImportServices/app/infrastructure/database/repositories/google_drive_repository_pg.py) inserta directamente en `document_folder_items`. Su caso de uso pasa `folder_id` sin comprobar aquí el propietario de la carpeta y descarta errores de asociación. LIB-004 debe coordinar este escritor, sin requerir OAuth para probar integridad SQL.
+- [GoogleDriveImportServices](../GoogleDriveImportServices/README.md) inserta directamente en `document_folder_items`. LIB-004 comprueba la carpeta propia antes de consultar al proveedor y vuelve a comprobarla al asociar. Una asociación fallida conserva el documento importado, marca la importación `PARTIAL` y muestra una advertencia en DocumentSearchPage. Las pruebas usan un proveedor simulado, sin OAuth.
+
+## Integridad y migración de carpetas
+
+La [migración LIB-004](../../scripts/database/migrations/002_library_integrity.sql) se ejecuta dentro de la transacción de `database-schema`, tanto en instalaciones nuevas como existentes. Antes de modificar restricciones audita propietarios, referencias ausentes, ciclos, nombres vacíos y duplicados. Si encuentra problemas, aborta sin reparar ni borrar registros. Bloquea temporalmente escrituras en carpetas, asociaciones y favoritos; programa la actualización y respalda la base antes de aplicarla.
+
+Las claves foráneas compuestas exigen el mismo propietario en padre e hijo y en carpeta y asociación. Su clave única de destino sigue el [contrato de PostgreSQL](https://www.postgresql.org/docs/16/ddl-constraints.html). El padre debe existir antes de insertar un hijo. Un trigger mantiene inmutables el ID, propietario y padre de cada carpeta; permite cambiar nombre y metadatos. Esto impide ciclos, incluidas inserciones de varias filas. Reubicar carpetas requerirá un diseño y migración explícitos; el endpoint de mover documentos no cambia padres de carpetas.
+
+Los índices únicos existentes mantienen la comparación exacta de nombres por propietario y nivel, sensible a mayúsculas. Crear o renombrar con un nombre repetido devuelve HTTP 409 y revierte la transacción. Un nombre sin caracteres distintos de espacios se rechaza también en SQL. Las cotas y normalización completa de entradas siguen en LIB-006. Si el padre desaparece entre la comprobación y la inserción, la API devuelve 404 y recupera la sesión.
+
+Para inspeccionar una base histórica antes de actualizar, instala únicamente la función de auditoría desde la raíz con PowerShell y credenciales administrativas del entorno:
+
+```powershell
+Get-Content scripts/database/functions/002_library_integrity_audit.sql -Raw | docker compose -f docker/docker-compose.yml exec -T postgres psql -U postgres -d documents_db -v ON_ERROR_STOP=1
+docker compose -f docker/docker-compose.yml exec -T postgres psql -U postgres -d documents_db -c 'SELECT * FROM public.library_integrity_audit() WHERE affected > 0;'
+```
+
+La función es `SECURITY INVOKER` y no concede ejecución a `PUBLIC`. Los resultados son categorías y cantidades, sin nombres ni documentos. Si la migración falla, revisa los datos bajo control administrativo y decide su reparación; vuelve a ejecutar `database-schema` después. Para aplicar solo este archivo con `psql`, usa obligatoriamente `--single-transaction` y `ON_ERROR_STOP=1`.
 
 ## Diagnóstico LIB-001
 
@@ -82,8 +99,8 @@ Las fuentes principales son el [validador JWT](app/config/security.py), el [repo
 | Revocación | LIB-003 excluye asignaciones canceladas o expiradas en lecturas, altas y conteos. Las regresiones cambian el estado entre peticiones. | LIB-003 resuelto |
 | Precedencia | LIB-003 prioriza columnas canónicas y limita el respaldo a valores nulos, igual que búsqueda y acceso. | LIB-003 resuelto |
 | Grupos | LIB-003 exige membresía en el tenant efectivo para concesiones por grupo en documentos con tenant. | LIB-003 resuelto |
-| Asociaciones incoherentes | LIB-003 bloquea lecturas y gestión de carpetas ajenas incluso con vínculos incoherentes. La restricción estructural de propietarios y su escritor de Google Drive siguen pendientes de LIB-004. | LIB-004 |
-| Nombres y conflictos | Un nombre de espacios quedó almacenado vacío. Repetir un nombre raíz produjo `IntegrityError`, sin traducción a un conflicto HTTP. Ya existen índices únicos para nombres raíz y bajo un padre. | LIB-004 / LIB-006 |
+| Asociaciones incoherentes | LIB-003 bloquea lecturas ajenas; LIB-004 añade restricciones SQL de propietarios y coordina Google Drive con errores visibles. | LIB-004 resuelto |
+| Nombres y conflictos | LIB-004 rechaza nombres vacíos en SQL y traduce índices únicos existentes a HTTP 409. Los límites y normalización completa siguen pendientes. | LIB-004 resuelto / LIB-006 |
 | Concurrencia | Favoritos y asociaciones usan consultar-antes-de-insertar. Mover ya retira e inserta en una transacción, pero no serializa movimientos simultáneos. Las carreras requieren pruebas con sesiones independientes. | LIB-005 |
 | Cotas y orden | Carpetas, contenido de carpeta y favoritos no tienen límite. Recientes no permite recorrer páginas. Faltan desempates por ID. El conteo de fragmentos ya se hace por lote y debe conservarse. | LIB-006 / LIB-007 |
 | Configuración | La base importaba el entorno global, admitía CORS abierto y comprobaba solo vida del proceso. LIB-002 aplica configuración explícita, disponibilidad de dependencias, cierre con `finally` y opciones efectivas del pool, con pruebas. | LIB-002 resuelto |
@@ -150,7 +167,9 @@ docker compose -f docker/docker-compose.yml run --rm --no-deps library-tests ruf
 
 La suite usa claves temporales y PostgreSQL real. Cubre configuración, CORS, autenticación de las doce rutas, disponibilidad, recuperación del pool y cierre del motor. Las regresiones de LIB-003 incluyen tipos de claims, firma y algoritmo, propietario, asignador, destinatario, administradores, grupos y metadatos contradictorios. Comparan los tres listados y los conteos, revocan asignaciones entre peticiones y comprueban altas denegadas, carpetas privadas, vínculos incoherentes y limpieza personal de marcadores revocados. Los registros sintéticos se revierten con una transacción externa y savepoints; las tablas compartidas no se alteran.
 
-Desde `frontend`, `npm test` incluye el conteo canónico de carpetas con cero y metadatos contradictorios. Ejecuta también `npm ci` y `npm run build` para validar cambios de sus consumidores.
+LIB-004 añade pruebas de migración repetida, datos inválidos conservados ante rechazo, ciclos, propietarios, conflictos HTTP, desaparición del padre y cascadas que preservan documentos y favoritos. Monta los scripts SQL en solo lectura. `LIBRARY_TEST_DATABASE_URL` es una conexión administrativa exclusiva para pruebas: crea bases aisladas `lib004_<UUID>` y retira únicamente la base creada por cada caso. No la configures contra producción. Las pruebas ordinarias mantienen sus transacciones y savepoints.
+
+Desde `frontend`, `npm test` incluye el conteo canónico con cero y el contrato de advertencias de importación. Ejecuta también `npm ci` y `npm run build` para validar cambios de sus consumidores. CI ejecuta además `drive-tests` y Ruff para el escritor compartido.
 
 CI arranca Library con su comprobación de disponibilidad y ejecuta `pip check`, las pruebas y Ruff. HTTPX está en la etapa Docker de pruebas. Las herramientas heredadas pytest y Ruff todavía forman parte de las dependencias de ejecución y se retirarán en LIB-008 junto con su actualización y auditoría.
 

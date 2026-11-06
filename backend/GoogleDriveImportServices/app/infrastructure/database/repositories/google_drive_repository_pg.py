@@ -2,8 +2,10 @@ from datetime import datetime
 from typing import Any
 
 from sqlalchemy import desc, select, text
+from sqlalchemy.exc import IntegrityError
 
 from app.infrastructure.database.connection import Database
+from app.shared.errors import NotFoundError
 from app.infrastructure.database.models import (
     GoogleDriveConnectionModel,
     GoogleDriveImportFileModel,
@@ -134,16 +136,32 @@ class GoogleDriveRepository:
             session.refresh(record)
             return record
 
+    def owns_folder(self, folder_id: str, owner_user_id: str) -> bool:
+        with self._database.session() as session:
+            return session.scalar(text(
+                "SELECT folder_id FROM document_folders WHERE folder_id = :folder AND owner_user_id = :owner",
+            ), {"folder": folder_id, "owner": owner_user_id}) is not None
+
     def associate_document_with_folder(self, folder_id: str, document_id: str, owner_user_id: str) -> None:
         with self._database.session() as session:
-            session.execute(
-                text(
-                    """
-                    INSERT INTO document_folder_items (folder_id, document_id, owner_user_id)
-                    VALUES (:folder_id, :document_id, :owner_user_id)
-                    ON CONFLICT (folder_id, document_id) DO NOTHING
-                    """
-                ),
-                {"folder_id": folder_id, "document_id": document_id, "owner_user_id": owner_user_id},
-            )
-            session.commit()
+            if session.scalar(text(
+                "SELECT folder_id FROM document_folders WHERE folder_id = :folder AND owner_user_id = :owner",
+            ), {"folder": folder_id, "owner": owner_user_id}) is None:
+                raise NotFoundError("Folder not found.")
+            try:
+                session.execute(
+                    text(
+                        """
+                        INSERT INTO document_folder_items (folder_id, document_id, owner_user_id)
+                        VALUES (:folder_id, :document_id, :owner_user_id)
+                        ON CONFLICT (folder_id, document_id) DO NOTHING
+                        """
+                    ),
+                    {"folder_id": folder_id, "document_id": document_id, "owner_user_id": owner_user_id},
+                )
+                session.commit()
+            except IntegrityError as exc:
+                session.rollback()
+                if getattr(exc.orig, "sqlstate", None) == "23503":
+                    raise NotFoundError("Document or folder is no longer available.") from exc
+                raise

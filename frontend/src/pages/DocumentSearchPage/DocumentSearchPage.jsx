@@ -47,6 +47,7 @@ import {
   importGoogleDriveFiles,
 } from "../../features/google-drive-import/api/google-drive-import.api";
 import { openGoogleDrivePicker } from "../../features/google-drive-import/google-picker";
+import { getImportWarning } from "../../features/google-drive-import/import-result";
 
 export function DocumentSearchPage({ activeView = appRoutes.documents, onNavigate }) {
   const {
@@ -204,7 +205,7 @@ export function DocumentSearchPage({ activeView = appRoutes.documents, onNavigat
     setDriveImportBusy(true);
     setActionError("");
     try {
-      await importGoogleDriveFiles(googleDriveImportClient, {
+      const imported = await importGoogleDriveFiles(googleDriveImportClient, {
         files,
         folderId: library.selectedFolder?.folderId,
         metadata: { imported_from_ui: true },
@@ -214,6 +215,7 @@ export function DocumentSearchPage({ activeView = appRoutes.documents, onNavigat
       setDriveModalOpen(false);
       await search.runSearch();
       await library.refreshLibrary();
+      setActionError(getImportWarning(imported));
     } catch (error) {
       setActionError(error.message);
     } finally {

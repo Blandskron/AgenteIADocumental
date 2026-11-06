@@ -10,6 +10,10 @@ class ValidationError(AppError):
     pass
 
 
+class ConflictError(AppError):
+    pass
+
+
 class ExternalServiceError(AppError):
     pass
 
