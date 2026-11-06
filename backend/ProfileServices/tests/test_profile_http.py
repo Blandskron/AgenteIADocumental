@@ -14,6 +14,7 @@ def test_openapi_documents_auth_and_multipart(client):
     assert upload["security"] == [{"HTTPBearer": []}]
     assert "multipart/form-data" in upload["requestBody"]["content"]
     assert "security" not in paths["/api/v1/health/db"]["get"]
+    assert not any(path.startswith("/api/v1/profiles") for path in paths)
 
 
 @pytest.mark.parametrize("origin", ["http://localhost:3000", "http://127.0.0.1:3000"])
@@ -62,8 +63,8 @@ def test_own_profile_roundtrip(client, token_headers, profile_id, db_session):
 
 
 def test_other_profile_denied_for_ordinary_user(client, token_headers):
-    assert client.get("/api/v1/profiles/unrelated", headers=token_headers()).status_code == 403
-    assert client.put("/api/v1/profiles/unrelated", headers=token_headers(), json={}).status_code == 403
+    assert client.get("/api/v1/profiles/unrelated", headers=token_headers()).status_code == 404
+    assert client.put("/api/v1/profiles/unrelated", headers=token_headers(), json={}).status_code == 404
 
 
 def test_upload_uses_same_configured_storage_as_static(client, settings, token_headers, monkeypatch):

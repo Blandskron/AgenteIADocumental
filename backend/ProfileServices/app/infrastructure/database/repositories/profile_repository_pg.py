@@ -4,24 +4,28 @@ from app.infrastructure.database.models import UserProfileModel
 
 
 class UserProfileRepositoryPg:
-    def __init__(self, session: Session) -> None:
+    def __init__(self, session: Session, owner_id: str) -> None:
         self._session = session
+        self._owner_id = owner_id
 
-    def get_by_user_id(self, user_id: str) -> UserProfileModel | None:
-        return self._session.query(UserProfileModel).filter(UserProfileModel.user_id == user_id).first()
+    @property
+    def owner_id(self) -> str:
+        return self._owner_id
+
+    def get_own(self) -> UserProfileModel | None:
+        return self._session.query(UserProfileModel).filter(UserProfileModel.user_id == self._owner_id).first()
 
     def create_or_update(
         self,
-        user_id: str,
         email: str | None = None,
         phone_number: str | None = None,
         profile_picture_url: str | None = None,
         additional_info: dict | None = None,
     ) -> UserProfileModel:
-        profile = self.get_by_user_id(user_id)
+        profile = self.get_own()
         if profile is None:
             profile = UserProfileModel(
-                user_id=user_id,
+                user_id=self._owner_id,
                 email=email,
                 phone_number=phone_number,
                 profile_picture_url=profile_picture_url,
@@ -41,6 +45,3 @@ class UserProfileRepositoryPg:
         self._session.commit()
         self._session.refresh(profile)
         return profile
-
-    def list_all(self) -> list[UserProfileModel]:
-        return self._session.query(UserProfileModel).all()
