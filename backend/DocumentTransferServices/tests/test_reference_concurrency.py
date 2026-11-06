@@ -2,7 +2,6 @@ from concurrent.futures import ThreadPoolExecutor
 from queue import Queue
 from threading import Event
 from time import monotonic
-from uuid import uuid4
 
 import pytest
 from sqlalchemy import event, text
@@ -25,30 +24,6 @@ def wait_for_lock(engine, pid, future):
             observer.rollback()
             tick.wait(0.02)
     pytest.fail("Expected PostgreSQL lock wait was not observed")
-
-
-@pytest.fixture
-def committed_records(engine):
-    document, transfer = uuid4().hex, uuid4().hex
-    owner = int(uuid4().hex[:12], 16)
-    with engine.begin() as connection:
-        connection.execute(text("""
-            INSERT INTO documents (document_id, owner_user_id, filename, storage_path, mime_type)
-            VALUES (:id, :owner, 'synthetic.txt', 'synthetic.txt', 'text/plain')
-        """), {"id": document, "owner": str(owner)})
-        connection.execute(text("""
-            INSERT INTO transfer_events (transfer_id, owner_user_id, filename, direction, status)
-            VALUES (:id, :owner, 'synthetic.txt', 'UPLOAD', 'PENDING')
-        """), {"id": transfer, "owner": str(owner)})
-    try:
-        yield document, transfer, owner
-    finally:
-        with engine.begin() as connection:
-            connection.execute(text("DELETE FROM transfer_events WHERE owner_user_id=:owner"), {"owner": str(owner)})
-            connection.execute(text("DELETE FROM documents WHERE document_id=:id"), {"id": document})
-        with engine.connect() as connection:
-            assert connection.scalar(text("SELECT count(*) FROM transfer_events WHERE owner_user_id=:owner"), {"owner": str(owner)}) == 0
-            assert connection.scalar(text("SELECT count(*) FROM documents WHERE document_id=:id"), {"id": document}) == 0
 
 
 @pytest.mark.parametrize("operation", ["create", "patch"])

@@ -45,8 +45,9 @@ export function TransferModal({ error = "", isLoading = false, isOpen, onClearHi
         );
       })}
 
+      <p className="transfer-state">Cada limpieza elimina hasta 1000 procesos terminados y conserva los activos.</p>
       <button className="transfer-clear" onClick={onClearHistory} type="button" disabled={!visibleTransfers.length}>
-        Limpiar historico de procesos
+        Limpiar procesos terminados
       </button>
     </section>
   );

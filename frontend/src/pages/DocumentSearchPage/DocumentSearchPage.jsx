@@ -9,6 +9,7 @@ import { IconButton } from "../../shared/components/IconButton/IconButton";
 import { TransferModal } from "../../shared/components/TransferModal/TransferModal";
 import { useConversations } from "../../features/conversations/hooks/useConversations";
 import { useDocumentLibrary } from "../../features/document-library/hooks/useDocumentLibrary";
+import { transferFailureUpdate } from "../../features/transfers/lib/failure-update";
 import {
   acceptAssignment,
   assignDocument,
@@ -255,11 +256,7 @@ export function DocumentSearchPage({ activeView = appRoutes.documents, onNavigat
       await library.refreshLibrary();
     } catch (err) {
       if (transfer) {
-        await transfers.patchTransfer(transfer?.transferId, {
-          status: "FAILED",
-          progress: transfer?.progress || 0,
-          metadata: { error: err.message },
-        });
+        await transfers.patchTransfer(transfer?.transferId, transferFailureUpdate(err));
       }
       setActionError(err.message);
     } finally {
@@ -312,12 +309,7 @@ export function DocumentSearchPage({ activeView = appRoutes.documents, onNavigat
         document_id: document.documentId,
       });
     } catch (requestError) {
-      await transfers.patchTransfer(transfer?.transferId, {
-        status: "FAILED",
-        progress: transfer?.progress || 0,
-        document_id: document.documentId,
-        metadata: { error: requestError.message },
-      });
+      await transfers.patchTransfer(transfer?.transferId, transferFailureUpdate(requestError));
       setActionError(requestError.message);
     }
   }

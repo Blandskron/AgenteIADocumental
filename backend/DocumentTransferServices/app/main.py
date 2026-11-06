@@ -11,7 +11,7 @@ from app.config.settings import get_settings
 from app.infrastructure.database.connection import Database
 from app.interfaces.api.router import api_router
 from app.interfaces.api.body_limit import RequestBodyLimit
-from app.shared.errors import AppError, NotFoundError, ValidationError
+from app.shared.errors import AppError, ConflictError, NotFoundError, ValidationError
 
 
 settings = get_settings()
@@ -68,6 +68,11 @@ async def not_found_handler(request: Request, exc: NotFoundError) -> JSONRespons
 @app.exception_handler(ValidationError)
 async def validation_handler(request: Request, exc: ValidationError) -> JSONResponse:
     return JSONResponse(status_code=400, content={"detail": str(exc)})
+
+
+@app.exception_handler(ConflictError)
+async def conflict_handler(request: Request, exc: ConflictError) -> JSONResponse:
+    return JSONResponse(status_code=409, content={"detail": str(exc)})
 
 
 @app.exception_handler(AppError)
