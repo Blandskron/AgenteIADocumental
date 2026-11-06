@@ -1,12 +1,15 @@
 from concurrent.futures import ThreadPoolExecutor
+from contextlib import contextmanager
 from threading import Event
 from time import monotonic, sleep
 
 import pytest
-from sqlalchemy import text
+from sqlalchemy import create_engine, text
+from sqlalchemy.engine import make_url
 from sqlalchemy.orm import Session
 
 from app.infrastructure.database.repositories.library_repository_pg import LibraryRepositoryPg
+from app.config.settings import get_settings
 from test_library_integrity import document, folder
 
 
@@ -27,13 +30,26 @@ def call(session, identifier, action, owner=42):
     return getattr(repository, method)(*(identifier if arg == "$doc" else arg for arg in args))
 
 
-def concurrent(engine, first, second, *, blocked=True):
+@contextmanager
+def application_session(engine, runtime=True):
+    selected = create_engine(make_url(get_settings().database_url).set(database=engine.url.database)) if runtime else engine
+    try:
+        with Session(selected) as session:
+            if runtime:
+                assert session.scalar(text("SELECT session_user")) == "document_library_runtime"
+            yield session
+    finally:
+        if runtime:
+            selected.dispose()
+
+
+def concurrent(engine, first, second, *, blocked=True, first_runtime=True, second_runtime=True):
     """Hold the first transaction at commit; prove the second really waits in PostgreSQL."""
     ready, release, started = Event(), Event(), Event()
     second_pid = []
 
     def run_first():
-        with Session(engine) as session:
+        with application_session(engine, first_runtime) as session:
             session.execute(text("SET statement_timeout='8s'"))
             commit = session.commit
 
@@ -46,7 +62,7 @@ def concurrent(engine, first, second, *, blocked=True):
             return first(session)
 
     def run_second():
-        with Session(engine) as session:
+        with application_session(engine, second_runtime) as session:
             session.execute(text("SET statement_timeout='8s'"))
             second_pid.append(session.scalar(text("SELECT pg_backend_pid()")))
             started.set()
@@ -96,7 +112,7 @@ def test_concurrent_retries_create_one_marker(library, action):
 @pytest.mark.parametrize("destination", ["b", None])
 def test_moves_replace_all_personal_links_in_serial_order(library, initial, destination):
     engine, identifier = library
-    with Session(engine) as session:
+    with application_session(engine) as session:
         assert call(session, identifier, ("add_document_to_folder", "foreign", "$doc"), owner=43)
         if initial:
             assert call(session, identifier, ("add_document_to_folder", "c", "$doc"))
@@ -116,7 +132,7 @@ def test_moves_replace_all_personal_links_in_serial_order(library, initial, dest
 ])
 def test_add_move_remove_follow_commit_order(library, first, second, expected):
     engine, identifier = library
-    with Session(engine) as session:
+    with application_session(engine) as session:
         call(session, identifier, ("add_document_to_folder", "a", "$doc"))
     assert concurrent(engine, lambda s: call(s, identifier, first), lambda s: call(s, identifier, second)) == (True, True)
     assert associations(engine, identifier) == expected
@@ -129,7 +145,7 @@ def test_add_move_remove_follow_commit_order(library, first, second, expected):
 ])
 def test_favorite_changes_follow_commit_order(library, first, second, remaining):
     engine, identifier = library
-    with Session(engine) as session:
+    with application_session(engine) as session:
         call(session, identifier, ("add_favorite", "$doc"))
     result = concurrent(engine, lambda s: call(s, identifier, (first, "$doc")), lambda s: call(s, identifier, (second, "$doc")))
     assert result == (True, second != "remove_favorite" or first != "remove_favorite")
@@ -161,9 +177,9 @@ def test_concurrent_deletion_has_no_dangling_links(library, target, delete_first
     def addition(session):
         return call(session, identifier, ("add_document_to_folder", "a", "$doc"))
     if delete_first:
-        assert concurrent(engine, deletion, addition) == (True, False)
+        assert concurrent(engine, deletion, addition, first_runtime=target != "document") == (True, False)
     else:
-        assert concurrent(engine, addition, deletion) == (True, True)
+        assert concurrent(engine, addition, deletion, second_runtime=target != "document") == (True, True)
     assert associations(engine, identifier) == []
     with engine.connect() as connection:
         assert connection.scalar(text("SELECT count(*) FROM documents WHERE document_id=:id"), {"id": identifier}) == (target == "folder")
@@ -171,7 +187,7 @@ def test_concurrent_deletion_has_no_dangling_links(library, target, delete_first
 
 def test_failed_move_rolls_back_and_releases_lock(library, monkeypatch):
     engine, identifier = library
-    with Session(engine) as session:
+    with application_session(engine) as session:
         repository = LibraryRepositoryPg(session, {"user_id": 42})
         assert repository.add_document_to_folder("a", identifier)
         original = repository._insert_folder_item
@@ -183,7 +199,7 @@ def test_failed_move_rolls_back_and_releases_lock(library, monkeypatch):
         with pytest.raises(RuntimeError, match="Synthetic failure"):
             repository.move_document_to_folder(identifier, "b")
         assert associations(engine, identifier) == ["a"]
-        with Session(engine) as independent:
+        with application_session(engine) as independent:
             independent.execute(text("SET lock_timeout='1s'"))
             assert call(independent, identifier, ("move_document_to_folder", "$doc", "c"))
         monkeypatch.setattr(repository, "_insert_folder_item", original)
@@ -193,12 +209,12 @@ def test_failed_move_rolls_back_and_releases_lock(library, monkeypatch):
 
 def test_rejected_move_keeps_previous_links_and_releases_lock(library):
     engine, identifier = library
-    with Session(engine) as session:
+    with application_session(engine) as session:
         repository = LibraryRepositoryPg(session, {"user_id": 42})
         assert repository.add_document_to_folder("a", identifier)
         assert not repository.move_document_to_folder(identifier, "foreign")
         assert associations(engine, identifier) == ["a"]
-        with Session(engine) as independent:
+        with application_session(engine) as independent:
             independent.execute(text("SET lock_timeout='1s'"))
             assert call(independent, identifier, ("move_document_to_folder", "$doc", "b"))
 
@@ -217,7 +233,7 @@ def test_ancestor_delete_and_move_preserve_consistent_order(library, delete_firs
     engine, identifier = library
     with engine.begin() as connection:
         folder(connection, "child", parent="a")
-    with Session(engine) as session:
+    with application_session(engine) as session:
         assert call(session, identifier, ("add_document_to_folder", "a", "$doc"))
         assert call(session, identifier, ("add_document_to_folder", "child", "$doc"))
 
@@ -245,14 +261,15 @@ def test_favorite_and_document_delete_are_consistent(library, delete_first):
     def addition(session):
         return call(session, identifier, ("add_favorite", "$doc"))
 
-    assert concurrent(engine, deletion if delete_first else addition, addition if delete_first else deletion) == (True, not delete_first)
+    assert concurrent(engine, deletion if delete_first else addition, addition if delete_first else deletion,
+                      first_runtime=not delete_first, second_runtime=delete_first) == (True, not delete_first)
     with engine.connect() as connection:
         assert connection.scalar(text("SELECT count(*) FROM document_favorites WHERE document_id=:id"), {"id": identifier}) == 0
 
 
 def test_commit_failure_restores_links_and_session(library, monkeypatch):
     engine, identifier = library
-    with Session(engine) as session:
+    with application_session(engine) as session:
         repository = LibraryRepositoryPg(session, {"user_id": 42})
         assert repository.add_document_to_folder("a", identifier)
         commit = session.commit

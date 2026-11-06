@@ -1,4 +1,5 @@
 import json
+from os import environ
 from secrets import token_bytes
 from uuid import uuid4
 
@@ -9,7 +10,6 @@ from sqlalchemy import create_engine, text
 from sqlalchemy.orm import Session
 
 from app.config.database import get_session
-from app.config.settings import get_settings
 from app.interfaces.api.v1.dependencies import get_library_use_case
 from app.main import app
 
@@ -22,7 +22,7 @@ def authorization(key, **claims):
 @pytest.fixture
 def records(configured_client, monkeypatch):
     client, _ = configured_client
-    engine = create_engine(get_settings().database_url)
+    engine = create_engine(environ["LIBRARY_TEST_DATABASE_URL"])
     tenant, foreign_tenant = uuid4().hex, uuid4().hex
     kinds = (
         "owned", "legacy_owner", "owner_conflict", "empty_owner", "tenant_conflict", "legacy_tenant",

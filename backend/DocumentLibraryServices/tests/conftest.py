@@ -59,4 +59,7 @@ def legacy_database():
 @pytest.fixture
 def migrated_database(legacy_database):
     migrate(legacy_database)
+    with legacy_database.begin() as connection:
+        execute_script(connection, SQL_ROOT / "library/permissions.sql")
+        execute_script(connection, SQL_ROOT / "library/verify_role.sql")
     return legacy_database

@@ -2,12 +2,12 @@
 
 Organiza documentos en carpetas personales, favoritos y una vista de documentos actualizados recientemente. Usa FastAPI, SQLAlchemy y el PostgreSQL compartido. El puerto local de Compose es `8006`.
 
-LIB-001 estableció el diagnóstico y el plan. LIB-002 incorporó configuración y pruebas; LIB-003 unifica permisos; LIB-004 refuerza integridad; LIB-005 serializa escrituras; LIB-006 limita entradas; LIB-007 pagina los listados y coordina sus consumidores web. Los privilegios de ejecución y el cierre siguen en LIB-008. El [tablero](../../ROADMAP.md#documentlibraryservices) es la fuente de tareas y [AGENTS.md](AGENTS.md) indica cómo intervenir el servicio.
+El servicio usa identidad JWT estricta, permisos documentales coherentes, integridad SQL, escrituras transaccionales y listados paginados. Ejecuta como usuario sin privilegios y con un rol PostgreSQL dedicado. El [tablero](../../ROADMAP.md#documentlibraryservices) es la fuente de tareas y [AGENTS.md](AGENTS.md) indica cómo intervenir el servicio.
 
 ## Recorrido y responsabilidades
 
 ```text
-DocumentSearchPage / ChatPage
+DocumentSearchPage
   → useDocumentLibrary → document-library.api.js
   → rutas → ManageLibrary → LibraryRepositoryPg → PostgreSQL
 ```
@@ -118,7 +118,7 @@ Los [bloqueos transaccionales de PostgreSQL](https://www.postgresql.org/docs/16/
 
 El protocolo es cooperativo: cualquier nuevo escritor directo de asociaciones debe respetar la misma clave y orden. Las claves foráneas siguen protegiendo la integridad SQL. No cambia la vigencia de claims del JWT ni convierte un marcador en permiso. Al desplegar LIB-005, actualiza Library y Google Drive juntos y evita mantener escritores antiguos en paralelo. No requiere migración adicional sobre LIB-004.
 
-LIB-008 debe resolver el privilegio requerido por `SELECT FOR KEY SHARE` mediante un mecanismo acotado, conservando los documentos sin permisos generales de modificación para el rol de Library. No basta con sustituir la conexión administrativa por un rol con solo `SELECT` y asumir que estas escrituras seguirán funcionando.
+El bloqueo documental se adquiere mediante `public.library_lock_document_reference(text)`, una función SECURITY DEFINER de un propietario sin login. El runtime conserva solo lectura sobre documentos: no recibe UPDATE para bloquear filas. La comprobación de permiso documental sigue en la aplicación después de adquirir la referencia.
 
 ## Consumidores que deben revisarse juntos
 
@@ -145,48 +145,7 @@ docker compose -f docker/docker-compose.yml exec -T postgres psql -U postgres -d
 
 La función es `SECURITY INVOKER` y no concede ejecución a `PUBLIC`. Los resultados son categorías y cantidades, sin nombres ni documentos. Si la migración falla, revisa los datos bajo control administrativo y decide su reparación; vuelve a ejecutar `database-schema` después. Para aplicar solo este archivo con `psql`, usa obligatoriamente `--single-transaction` y `ON_ERROR_STOP=1`.
 
-## Diagnóstico LIB-001
-
-Se revisaron todos los módulos del servicio, las doce operaciones, esquema, índices, cascadas, Compose, CI y los consumidores anteriores. Estos resultados corresponden a la base anterior a las correcciones.
-
-Las fuentes principales son el [validador JWT](app/config/security.py), el [repositorio](app/infrastructure/database/repositories/library_repository_pg.py), las [rutas](app/interfaces/api/v1/routes/library_routes.py), los [esquemas HTTP](app/interfaces/api/v1/schemas/library_schema.py), el [esquema SQL](../../scripts/database/schemas/001_documents.sql), los [índices](../../scripts/database/indexes/001_indexes.sql) y [Compose](../../docker/compose/documents.yml).
-
-| Área | Evidencia y efecto | Incremento |
-| --- | --- | --- |
-| Identidad | La base aceptaba identidades ambiguas y tokens sin vencimiento requerido. LIB-003 exige claims tipados, firma y token de acceso, sin fallbacks de identidad. | LIB-003 resuelto |
-| Revocación | LIB-003 excluye asignaciones canceladas o expiradas en lecturas, altas y conteos. Las regresiones cambian el estado entre peticiones. | LIB-003 resuelto |
-| Precedencia | LIB-003 prioriza columnas canónicas y limita el respaldo a valores nulos, igual que búsqueda y acceso. | LIB-003 resuelto |
-| Grupos | LIB-003 exige membresía en el tenant efectivo para concesiones por grupo en documentos con tenant. | LIB-003 resuelto |
-| Asociaciones incoherentes | LIB-003 bloquea lecturas ajenas; LIB-004 añade restricciones SQL de propietarios y coordina Google Drive con errores visibles. | LIB-004 resuelto |
-| Nombres y conflictos | LIB-004 traduce índices existentes a HTTP 409. LIB-006 valida nombre tras trim, IDs, JSON y tamaño HTTP, y evita reflejar entradas o SQL en errores. | LIB-004 / LIB-006 resueltos |
-| Concurrencia | LIB-005 usa altas idempotentes, retiradas SQL, serialización por usuario/documento y referencias protegidas frente a borrados. Pruebas independientes verifican esperas reales, orden y rollback. | LIB-005 resuelto |
-| Cotas y orden | LIB-007 pagina cuatro listados, aplica desempates y conserva conteos por lote. Adapta consumidores, descarta respuestas obsoletas y retira métricas ficticias y consultas por carpeta. | LIB-007 resuelto |
-| Configuración | La base importaba el entorno global, admitía CORS abierto y comprobaba solo vida del proceso. LIB-002 aplica configuración explícita, disponibilidad de dependencias, cierre con `finally` y opciones efectivas del pool, con pruebas. | LIB-002 resuelto |
-| Ejecución | Se conecta como `postgres`, ejecuta como UID 0 e instala pytest y Ruff. LIB-002 añadió `library-tests` y CI; el rol mínimo, la imagen y las dependencias siguen pendientes. | LIB-008 |
-| Mantenibilidad | Hay entidades, tipo vectorial, constantes de extracción y utilidades sin consumidores internos identificados. Retirarlos al cierre tras revisar imports. | LIB-008 |
-
-Las observaciones comprobadas con datos sintéticos se distinguen de los riesgos de concurrencia pendientes. Este diagnóstico no equivale a una auditoría exhaustiva ni valida explotación de los avisos de dependencias.
-
-## Decisiones para los siguientes incrementos
-
-1. Mantener carpetas y favoritos privados por usuario. Una carpeta es organización personal y nunca concede lectura. No agregar tenant a las carpetas sin una decisión de producto y migración explícita.
-2. Aplicar el contrato de lectura de DocumentSearchServices y DocumentAccessServices en listados, altas y conteos. Priorizar columnas canónicas, excluir asignaciones canceladas o expiradas y acotar grupos por membresía de tenant.
-3. Permitir retirar marcadores personales cuyo acceso documental se revocó sin devolver datos del documento. Tratar carpetas ajenas igual que inexistentes y conservar su privacidad incluso ante administradores documentales.
-4. Distinguir agregar de mover. Agregar admite varias carpetas propias; mover reemplaza las asociaciones personales por un destino o ninguno. Las pruebas concurrentes deben preservar esa semántica sin imponer unicidad global por documento.
-5. Limitar el borrado de carpetas a carpetas y asociaciones. Auditar relaciones inválidas, ciclos y nombres existentes antes de imponer restricciones; no corregir datos mediante borrados silenciosos. Incluir al escritor de Google Drive en la migración.
-6. Reutilizar convenciones de páginas y errores, con límites y desempate por ID. Adaptar juntos API, hook, ambas páginas y etiquetas. Los contadores deben representar datos reales o registros cargados; retirar métricas ficticias sin inventar tamaños de archivos.
-7. Introducir pruebas PostgreSQL y de contrato antes de cada corrección. Mantener README operativo y AGENTS breve, enlazando el tablero sin duplicar planes en archivos de modernización. Esta organización sigue los principios de diagnóstico, evidencia y contexto mantenible de la [guía agents-first compartida](https://blandskron.github.io/agents-first-repo-docs/).
-
-## Evidencia de la base
-
-El 5 de noviembre de 2026 se construyó la imagen actual sin cambiar su código, `sha256:0672086190a8cb31f892b28131de6d75b53f457342b212a5054bbb99974d7203`.
-
-- Una sonda temporal confirmó trece observaciones de identidad, permisos, conteos, nombres y conflictos sobre PostgreSQL. Usó claves temporales y datos sintéticos con transacción externa y savepoints; revirtió los registros al terminar. No abrió documentos ni llamó a servicios externos.
-- Un contenedor aislado, sin puertos publicados, respondió HTTP 200 en ambos healthchecks, HTTP 401 al listar carpetas sin token y `Access-Control-Allow-Origin: *` ante un origen externo. Confirmó UID 0 y fue retirado.
-- `ruff check --no-cache app` y `python -m pip check` aprobaron. No sustituyen pruebas de permisos ni auditoría de dependencias.
-- `pip-audit` 2.10.1 examinó un inventario congelado antes de instalar el auditor, con 33 paquetes. Reportó 58 entradas de aviso en seis paquetes, con posibles duplicaciones o aliases: `cryptography 46.0.6`, `pip 25.0.1`, `PyJWT 2.12.1`, `pytest 8.3.5`, `python-dotenv 1.1.0` y `starlette 0.46.2`. LIB-008 actualizará y volverá a auditar. No se escaneó específicamente el sistema operativo de esta imagen.
-
-## Arranque actual
+## Arranque y permisos
 
 Prepara `.env` según el [README principal](../../README.md). Desde la raíz ejecuta lo siguiente.
 
@@ -197,22 +156,34 @@ curl http://localhost:8006/api/v1/health
 curl http://localhost:8006/api/v1/health/db
 ```
 
-Compose pasa diez variables explícitas y monta únicamente la clave pública JWT en modo de solo lectura. No incorpora el entorno global al contenedor. PostgreSQL administrativo sigue pendiente de sustitución por el rol mínimo en LIB-008.
+Compose pasa once variables explícitas y monta únicamente la clave pública JWT en modo de solo lectura. No incorpora el entorno global al contenedor. `library-db-role` provisiona permisos después de `database-schema`; el servicio espera ese trabajo y Auth antes de arrancar. Cambia la contraseña local con `LIBRARY_DB_PASSWORD` en `.env`. Compose entrega `PGPASSWORD` por separado de la URL para admitir caracteres especiales sin interpolarlos en ella.
+
+| Rol | Permisos |
+| --- | --- |
+| `document_library_runtime` | Login sin superusuario, membresías, creación de bases/roles, replicación ni bypass de RLS. Lectura de columnas documentales usadas, cuatro columnas de asignaciones y dos de embeddings; SELECT/INSERT/DELETE de carpetas, asociaciones y favoritos; UPDATE únicamente de nombre, metadatos y fecha de carpeta. |
+| `document_library_reference_owner` | Sin login ni membresías. Solo SELECT y UPDATE de `documents.document_id`, necesarios para el bloqueo de referencia. Es propietario de una única función acotada; no se concede este rol al runtime. |
+
+`library_lock_document_reference(text)` ejecuta únicamente un `PERFORM ... FOR KEY SHARE` sobre `public.documents`, devuelve si existe la fila y conserva el bloqueo hasta terminar la transacción. Usa `SECURITY DEFINER`, `STRICT`, nombres calificados y `search_path=pg_catalog, pg_temp`; no admite SQL dinámico ni cambios documentales. Se revoca ejecución a `PUBLIC` y se concede solo al runtime. Estas medidas siguen las [precauciones de funciones SECURITY DEFINER de PostgreSQL](https://www.postgresql.org/docs/16/sql-createfunction.html#SQL-CREATEFUNCTION-SECURITY). El runtime no puede leer rutas, errores de procesamiento, texto de fragmentos, vectores, usuarios o tenants; tampoco modificar ni borrar documentos. La autorización por usuario sigue en el servicio, no es RLS ni una garantía frente a comprometer una credencial compartida del servicio.
+
+El [aprovisionamiento](../../scripts/database/library/provision_role.sql) usa la misma exclusión transaccional que los otros roles. La [verificación](../../scripts/database/library/verify_role.sql) comprueba atributos, membresías, permisos por columna, secuencias y propietario/search_path/ACL de la función. Repetirlo conserva datos; si encuentra privilegios sobrantes o un esquema incompatible, aborta y evita el arranque en lugar de aceptar la deriva. Aplica el bootstrap y el job antes de iniciar esta versión. No ejecutes estos scripts con la credencial de aplicación.
+
+La imagen ejecuta como UID/GID `10006:10006`, sin capacidades adicionales ni elevación de privilegios. No necesita almacenamiento documental ni modifica permisos de archivos al arrancar. Las etapas `test` y `audit` incluyen sus herramientas; la etapa final no instala pytest, Ruff, HTTPX ni pip-audit.
 
 CORS permite por defecto `http://localhost:3000` y `http://127.0.0.1:3000`. Configura `LIBRARY_CORS_ORIGINS` como arreglo JSON para otros orígenes. Los orígenes externos no reciben autorización CORS; la autenticación HTTP continúa siendo obligatoria.
 
 | Variable de Compose | Valor por defecto y efecto |
 | --- | --- |
 | `APP_ENV`, `LOG_LEVEL` | `local`, `INFO`. |
+| `LIBRARY_DB_PASSWORD` | Contraseña de desarrollo `blandskron-local-library`; se entrega a PostgreSQL y al runtime mediante `PGPASSWORD`. |
 | `LIBRARY_DB_POOL_MIN_SIZE` | 1, capacidad de conexiones retenidas del pool. |
 | `LIBRARY_DB_POOL_MAX_SIZE` | 10, máximo de conexiones simultáneas por proceso. |
 | `LIBRARY_DB_TIMEOUT_SECONDS` | 30 segundos, espera del pool y timeout de conexión de psycopg. |
 
 Los tamaños admiten 1 a 100 y el mínimo no puede superar al máximo. El timeout admite 1 a 300 segundos. El mínimo configura `pool_size`; el exceso permitido es máximo menos mínimo. Las conexiones se abren bajo demanda, sin preasignación, según el [contrato de QueuePool](https://docs.sqlalchemy.org/en/20/core/pooling.html). El timeout de conexión no limita la duración de una consulta SQL. En el proceso, estos parámetros se llaman `DB_POOL_MIN_SIZE`, `DB_POOL_MAX_SIZE` y `DB_TIMEOUT_SECONDS`.
 
-`health/db` comprueba una clave pública RSA válida y las columnas mapeadas de `documents`, `document_assignments`, `document_embeddings`, `document_folders`, `document_folder_items` y `document_favorites`, mediante consultas sin filas. Los errores de archivo, clave o PostgreSQL producen HTTP 503 con detalle genérico. `health` sigue disponible como comprobación de vida. El healthcheck de Compose usa `health/db` y lifespan libera el motor incluso si se interrumpe con una excepción.
+`health/db` comprueba una clave pública RSA válida y las columnas usadas de `documents`, `document_assignments`, `document_embeddings`, `document_folders`, `document_folder_items` y `document_favorites`, mediante consultas sin filas. También verifica explícitamente el permiso EXECUTE de la función de referencia y la consulta con NULL, sin bloquear documentos. La comprobación explícita evita que la optimización de una llamada STRICT con NULL oculte un permiso ausente. Los errores de archivo, clave, esquema o permisos producen HTTP 503 con detalle genérico. `health` sigue disponible como comprobación de vida. El healthcheck de Compose usa `health/db` y lifespan libera el motor incluso si se interrumpe con una excepción.
 
-Fuera de Compose, desde este directorio instala `requirements.txt` y configura `DATABASE_URL`, `AUTH_JWT_PUBLIC_KEY_PATH` y `AUTH_JWT_ALGORITHM`. Ejecuta `python -m uvicorn app.main:app --port 8006`. `CORS_ORIGINS` recibe un arreglo JSON. Settings solo lee el `.env` del directorio de trabajo y las variables del proceso; ya no busca `../../.env`. Las variables del proceso tienen prioridad. Configura el pool con sus nombres `DB_POOL_*` y `DB_TIMEOUT_SECONDS` fuera de Compose.
+Fuera de Compose, provisiona el esquema y el rol, instala `requirements.txt` y configura `DATABASE_URL` con `document_library_runtime`, `PGPASSWORD`, `AUTH_JWT_PUBLIC_KEY_PATH` y `AUTH_JWT_ALGORITHM`. Ejecuta `python -m uvicorn app.main:app --port 8006`. `CORS_ORIGINS` recibe un arreglo JSON. Settings solo lee el `.env` del directorio de trabajo y las variables del proceso, sin buscar `../../.env`; el proceso tiene prioridad. El valor por defecto de conexión también usa el rol de Library. Configura el pool con sus nombres `DB_POOL_*` y `DB_TIMEOUT_SECONDS` fuera de Compose.
 
 ## Pruebas
 
@@ -221,6 +192,7 @@ Con el servicio y PostgreSQL iniciados, ejecuta desde la raíz.
 ```sh
 docker compose -f docker/docker-compose.yml run --build --rm --no-deps library-tests
 docker compose -f docker/docker-compose.yml run --rm --no-deps library-tests ruff check --no-cache app tests
+docker compose -f docker/docker-compose.yml run --build --rm --no-deps library-audit
 ```
 
 La suite usa claves temporales y PostgreSQL real. Cubre configuración, CORS, autenticación de las trece rutas, disponibilidad, recuperación del pool y cierre del motor. Las regresiones de LIB-003 incluyen tipos de claims, firma y algoritmo, propietario, asignador, destinatario, administradores, grupos y metadatos contradictorios. Comparan los tres listados y los conteos, revocan asignaciones entre peticiones y comprueban altas denegadas, carpetas privadas, vínculos incoherentes y limpieza personal de marcadores revocados. Los registros sintéticos se revierten con una transacción externa y savepoints; las tablas compartidas no se alteran.
@@ -235,7 +207,22 @@ LIB-006 prueba fronteras de nombres, IDs, metadatos UTF-8 y profundidad; cuerpos
 
 LIB-007 prueba páginas completas, parciales y vacías, desempates de fechas, límites y offsets, jerarquía, privacidad, revocación y consulta de marcadores por lote. Cuenta consultas para tamaños distintos de página. Las pruebas web ejercitan el controlador real con promesas diferidas: respuestas fuera de orden, cierre y cambio de carpeta, cambio de cliente, remontaje, doble clic, errores, favoritos no cargados y `count=0`; no requieren un proveedor externo.
 
-CI arranca Library con su comprobación de disponibilidad y ejecuta `pip check`, las pruebas y Ruff. HTTPX está en la etapa Docker de pruebas. Las herramientas heredadas pytest y Ruff todavía forman parte de las dependencias de ejecución y se retirarán en LIB-008 junto con su actualización y auditoría.
+Las pruebas de rol usan un login real `document_library_runtime` para recorrer las trece operaciones y comprobar denegaciones de lecturas, escrituras, DDL y cambio al propietario de la función. Las operaciones de concurrencia también autentican como runtime, salvo los borrados documentales externos que simulan al servicio propietario de ese borrado. Las fixtures de permisos e integridad usan la conexión administrativa para preparar o alterar datos sintéticos. La auditoría verifica el inventario congelado antes de instalar el auditor. CI repite el job de rol, ejecuta su verificador, comprueba UID, ausencia de herramientas en runtime y `pip check`, y corre pruebas, Ruff y auditoría Python.
+
+La suite conserva un aviso de deprecación del TestClient de Starlette sobre HTTPX. Es una dependencia de pruebas; revisar su migración de transporte al actualizar las herramientas, sin añadir HTTPX al runtime.
+
+## Verificación de dependencias e imagen
+
+El 6 de noviembre de 2026, `pip-audit` 2.10.1 no reportó vulnerabilidades conocidas en el inventario Python instalado de ejecución. Se actualizaron FastAPI, Starlette, PyJWT, cryptography, python-dotenv y pip; las versiones están fijadas en `requirements.txt` y el Dockerfile. La auditoría congela también dependencias transitivas. Esto no equivale a una auditoría exhaustiva ni elimina la necesidad de volver a escanear al reconstruir.
+
+La construcción con `--pull` verificó `python:3.12-slim` con manifiesto base `sha256:4840d514c583a4d3d8cad3940e68dee6f0f6f3635c12fcd0a3d74c21a5b93a54`. Trivy 0.74.0 examinó el artefacto de ejecución `sha256:2e1da028c2d28bd64d5972bff28ada1e398fb0ada5363818d6a85ca4038e62b8`, Debian 13.7, con resultados que quedan en seguimiento:
+
+| Alcance | Resultado y seguimiento |
+| --- | --- |
+| Debian | 46 coincidencias altas por paquete, 10 CVE únicos, cero críticos, sin versiones corregidas indicadas. LIB-F01 exige reevaluar al actualizar la base. |
+| Copia vendorizada | CVE-2025-47273, setuptools 70.3.0, con versión corregida del paquete 78.1.1 indicada por Trivy. No hay distribución setuptools instalada según `importlib.metadata`; `pip/_vendor/vendor.txt` de pip 26.3 y el wheel de pip 25.0.1 incluido en ensurepip declaran esa copia. LIB-F02 exige revisar una actualización upstream que la resuelva; instalar setuptools aparte no sustituye esas copias. No se omite el aviso ni se modifica código vendorizado para ocultarlo. |
+
+Los diez CVE de Debian son `CVE-2025-69720`, `CVE-2026-9538`, `CVE-2026-16742`, `CVE-2026-54369`, `CVE-2026-76642`, `CVE-2026-76844`, `CVE-2026-78408`, `CVE-2026-78409`, `CVE-2026-78410` y `CVE-2026-119373`. El resultado de pip-audit y el inventario más amplio de la imagen son evidencias distintas; no se declara la imagen libre de vulnerabilidades. Revisar estos seguimientos antes de un despliegue público.
 
 ## Licencia
 
