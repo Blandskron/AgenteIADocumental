@@ -1,6 +1,6 @@
 from datetime import datetime
 from json import dumps
-from typing import Annotated, Any
+from typing import Annotated, Any, Generic, TypeVar
 
 from pydantic import AfterValidator, BaseModel, BeforeValidator, ConfigDict, Field, StringConstraints, field_validator, model_validator
 
@@ -16,6 +16,24 @@ def valid_text(value: str) -> str:
 
 
 Identifier = Annotated[str, StringConstraints(strict=True, min_length=1, max_length=128), AfterValidator(valid_text)]
+T = TypeVar("T")
+
+
+class Page(BaseModel, Generic[T]):
+    items: list[T]
+    limit: int
+    offset: int
+    has_more: bool
+
+
+class MarkerRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    document_ids: list[Identifier] = Field(min_length=1, max_length=100)
+
+
+class MarkerResponse(BaseModel):
+    document_id: str
+    is_favorite: bool
 
 
 def clean_name(value):
@@ -95,6 +113,7 @@ class DocumentResponse(BaseModel):
     status: str
     chunk_count: int = 0
     updated_at: datetime | None
+    is_favorite: bool = False
 
 
 class DocumentMoveRequest(BaseModel):

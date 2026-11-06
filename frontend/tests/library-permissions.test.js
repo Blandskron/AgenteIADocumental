@@ -4,9 +4,9 @@ import { listFolders } from "../src/features/document-library/api/document-libra
 
 for (const [count, expected] of [[0, 0], [2, 2], [undefined, 0]]) {
   test(`folder count ${count} does not inherit a historical metadata count`, async () => {
-    const folders = await listFolders(async () => [{
+    const page = await listFolders(async () => ({ items: [{
       folder_id: "synthetic", document_count: count, metadata: { document_count: 99 },
-    }]);
-    assert.equal(folders[0].documentCount, expected);
+    }], limit: 50, offset: 0, has_more: false }));
+    assert.equal(page.items[0].documentCount, expected);
   });
 }

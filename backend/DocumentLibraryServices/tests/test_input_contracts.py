@@ -163,7 +163,7 @@ def test_valid_boundaries_round_trip_and_error_does_not_poison_session(migrated_
         assert response.json()["metadata"] == metadata
         assert client.patch(f"/api/v1/folders/{folder_id}", json={"metadata": nested(15)}).status_code == 200
         assert client.patch(f"/api/v1/folders/{folder_id}", json={"name": " \t "}).status_code == 422
-        assert client.get("/api/v1/folders").json()[0]["name"] == "ñ" * 200
+        assert client.get("/api/v1/folders").json()["items"][0]["name"] == "ñ" * 200
         assert client.patch(f"/api/v1/folders/{folder_id}", json={"metadata": {}}).status_code == 200
         assert client.post("/api/v1/folders", json={"name": "ñ" * 200}).status_code == 409
         assert client.post("/api/v1/folders", json={"name": "child", "parent_folder_id": "missing"}).status_code == 404

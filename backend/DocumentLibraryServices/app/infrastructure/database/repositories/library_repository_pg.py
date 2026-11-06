@@ -25,7 +25,7 @@ class LibraryRepositoryPg:
         self._current_user = current_user or {}
         self._owner_user_id = user_id(self._current_user)
 
-    def list_folders(self, parent_folder_id: str | None = None) -> list[DocumentFolderModel]:
+    def list_folders(self, parent_folder_id: str | None = None, limit: int = 50, offset: int = 0) -> dict:
         if parent_folder_id is not None and self._folder(parent_folder_id) is None:
             raise NotFoundError("Folder not found.")
         visible_counts = self._apply_document_access_filter(
@@ -42,14 +42,15 @@ class LibraryRepositoryPg:
                 DocumentFolderModel.owner_user_id == self._owner_user_id,
                 DocumentFolderModel.parent_folder_id == parent_folder_id,
             )
-            .order_by(DocumentFolderModel.name.asc())
+            .order_by(DocumentFolderModel.name.asc(), DocumentFolderModel.folder_id.asc())
+            .limit(limit + 1).offset(offset)
             .all()
         )
         folders = []
-        for folder, document_count in rows:
+        for folder, document_count in rows[:limit]:
             folder.document_count = int(document_count or 0)
             folders.append(folder)
-        return folders
+        return {"items": folders, "limit": limit, "offset": offset, "has_more": len(rows) > limit}
 
     def create_folder(self, name: str, parent_folder_id: str | None = None, metadata: dict | None = None) -> DocumentFolderModel | None:
         if parent_folder_id is not None and self._folder(parent_folder_id) is None:
@@ -101,7 +102,7 @@ class LibraryRepositoryPg:
                 DocumentFolderModel.owner_user_id == self._owner_user_id,
             ).returning(DocumentFolderModel.folder_id)).scalar_one_or_none() is not None
 
-    def list_folder_documents(self, folder_id: str) -> list[DocumentModel]:
+    def list_folder_documents(self, folder_id: str, limit: int = 50, offset: int = 0) -> dict:
         if self._folder(folder_id) is None:
             raise NotFoundError("Folder not found.")
         documents = (
@@ -111,10 +112,11 @@ class LibraryRepositoryPg:
                 DocumentFolderItemModel.folder_id == folder_id,
                 DocumentFolderItemModel.owner_user_id == self._owner_user_id,
             )
-            .order_by(DocumentFolderItemModel.added_at.desc())
+            .order_by(DocumentFolderItemModel.added_at.desc(), DocumentModel.document_id.desc())
+            .limit(limit + 1).offset(offset)
             .all()
         )
-        return self._attach_chunk_counts(documents)
+        return self._document_page(documents, limit, offset)
 
     def add_document_to_folder(self, folder_id: str, document_id: str) -> bool:
         with self._write_transaction():
@@ -135,25 +137,39 @@ class LibraryRepositoryPg:
                 DocumentFolderItemModel.owner_user_id == self._owner_user_id,
             ).returning(DocumentFolderItemModel.document_id)).scalar_one_or_none() is not None
 
-    def list_recent(self, limit: int = 20) -> list[DocumentModel]:
+    def list_recent(self, limit: int = 50, offset: int = 0) -> dict:
         documents = (
             self._accessible_documents_query()
             .filter(DocumentModel.status == "PROCESSED")
-            .order_by(DocumentModel.updated_at.desc())
-            .limit(limit)
+            .order_by(DocumentModel.updated_at.desc(), DocumentModel.document_id.desc())
+            .limit(limit + 1).offset(offset)
             .all()
         )
-        return self._attach_chunk_counts(documents)
+        return self._document_page(documents, limit, offset)
 
-    def list_favorites(self) -> list[DocumentModel]:
+    def list_favorites(self, limit: int = 50, offset: int = 0) -> dict:
         documents = (
             self._accessible_documents_query()
             .join(DocumentFavoriteModel, DocumentFavoriteModel.document_id == DocumentModel.document_id)
             .filter(DocumentFavoriteModel.owner_user_id == self._owner_user_id)
-            .order_by(DocumentFavoriteModel.created_at.desc())
+            .order_by(DocumentFavoriteModel.created_at.desc(), DocumentModel.document_id.desc())
+            .limit(limit + 1).offset(offset)
             .all()
         )
-        return self._attach_chunk_counts(documents)
+        return self._document_page(documents, limit, offset)
+
+    def _document_page(self, rows, limit, offset):
+        return {"items": self._attach_chunk_counts(rows[:limit]), "limit": limit, "offset": offset, "has_more": len(rows) > limit}
+
+    def document_markers(self, document_ids: list[str]) -> list[dict]:
+        favorite = select(1).where(
+            DocumentFavoriteModel.document_id == DocumentModel.document_id,
+            DocumentFavoriteModel.owner_user_id == self._owner_user_id,
+        ).exists()
+        rows = self._apply_document_access_filter(self._session.query(DocumentModel.document_id, favorite.label("is_favorite"))).filter(
+            DocumentModel.document_id.in_(document_ids),
+        ).order_by(DocumentModel.document_id).all()
+        return [{"document_id": identifier, "is_favorite": marked} for identifier, marked in rows]
 
     def add_favorite(self, document_id: str) -> bool:
         with self._write_transaction():
@@ -251,8 +267,12 @@ class LibraryRepositoryPg:
             .all()
         )
         counts = {str(document_id): int(count or 0) for document_id, count in rows}
+        favorites = set(self._session.scalars(select(DocumentFavoriteModel.document_id).where(
+            DocumentFavoriteModel.document_id.in_(document_ids), DocumentFavoriteModel.owner_user_id == self._owner_user_id,
+        )))
         for document in documents:
             document.chunk_count = counts.get(str(document.document_id), 0)
+            document.is_favorite = document.document_id in favorites
         return documents
 
     def _accessible_documents_query(self):

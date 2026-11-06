@@ -5,8 +5,6 @@ import { Message } from "../../features/chat/ui/Message";
 
 export function ChatMessages({
   conversations = [],
-  favoriteDocuments = [],
-  folders = [],
   hasOlderMessages,
   historyError,
   historyLoading,
@@ -16,7 +14,6 @@ export function ChatMessages({
   onExportMessagePdf,
   onLoadOlderMessages,
   pdfExportState,
-  recentDocuments = [],
   syncError,
 }) {
   const isStarterState = !hasOlderMessages && (

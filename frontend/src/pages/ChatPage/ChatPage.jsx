@@ -8,7 +8,6 @@ import { TransferModal } from "../../shared/components/TransferModal/TransferMod
 import { useScrollToBottom } from "../../shared/hooks/useScrollToBottom";
 import { useChat } from "../../features/chat/hooks/useChat";
 import { useConversations } from "../../features/conversations/hooks/useConversations";
-import { useDocumentLibrary } from "../../features/document-library/hooks/useDocumentLibrary";
 import { createChatMessagePdf, downloadExport } from "../../features/document-export/api/document-export.api";
 import { useDocumentUpload } from "../../features/documents/hooks/useDocumentUpload";
 import { useTransfers } from "../../features/transfers/hooks/useTransfers";
@@ -23,7 +22,6 @@ export function ChatPage({ onNavigate }) {
     currentUser,
     documentClient,
     documentExportClient,
-    documentLibraryClient,
     documentTransferClient,
     logout,
     storageScope,
@@ -33,7 +31,6 @@ export function ChatPage({ onNavigate }) {
   const [pdfExportState, setPdfExportState] = useState({ messageKey: "", error: "", success: "" });
 
   const transfers = useTransfers(documentTransferClient);
-  const library = useDocumentLibrary(documentLibraryClient);
   const conversationsState = useConversations(storageScope, conversationClient);
   const {
     activeConversation,
@@ -170,8 +167,6 @@ export function ChatPage({ onNavigate }) {
 
         <ChatMessages
           conversations={conversations}
-          favoriteDocuments={library.favoriteDocuments}
-          folders={library.folders}
           messages={activeConversation?.messages || []}
           hasOlderMessages={Boolean(activeConversation?.historyBefore)}
           historyError={historyError}
@@ -182,7 +177,6 @@ export function ChatPage({ onNavigate }) {
           isBusy={chat.isBusy}
           syncError={syncError}
           messagesRef={messagesRef}
-          recentDocuments={library.recentDocuments}
         />
 
         <ChatComposer
