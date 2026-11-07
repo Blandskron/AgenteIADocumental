@@ -64,6 +64,10 @@ def main():
                 assert pair["user"]["is_superadmin"] is True
             status, own = request(profile, "/api/v1/profile", token=pair["access"])
             assert status == 200 and own["user_id"] == str(user.pk) and own["profile_id"] is None
+            assert own["version"] == 0
+            assert request(profile, "/api/v1/profile", token=pair["access"], body={"email": None}, method="PUT")[0] == 422
+            assert request(profile, "/api/v1/profile", token=pair["access"], body={"expected_version": 1, "email": None}, method="PUT")[0] == 409
+            assert request(profile, "/api/v1/profile", token=pair["access"])[1]["profile_id"] is None
             status, renewed = request(auth, "/api/users/token/refresh/", body={"refresh": pair["refresh"]})
             assert status == 200, "Synthetic token refresh failed"
             assert request(profile, "/api/v1/profile", token=renewed["access"])[0] == 200
@@ -85,7 +89,7 @@ def main():
         assert request(profile, "/api/v1/profile", token=pairs[1]["access"])[0] == 401
         User.objects.filter(pk=users[2].pk).delete()
         assert request(profile, "/api/v1/profile", token=pairs[2]["access"])[0] == 401
-        print("PROFILE-003 HTTP: login/refresh, own-only profiles, password revocation, inactive/deleted users OK")
+        print("Profile HTTP: login/refresh, own-only access, version preconditions and revocation OK")
     finally:
         if tenant:
             TenantMembership.objects.filter(tenant=tenant).delete()
@@ -95,7 +99,7 @@ def main():
         LoginAttemptBudget.objects.filter(key__in=account_keys).delete()
         assert not User.objects.filter(pk__in=identifiers).exists()
         assert not LoginAttemptBudget.objects.filter(key__in=account_keys).exists()
-        print("PROFILE-003 HTTP: synthetic identities, tenant and account budgets cleaned; no profile/files written")
+        print("Profile HTTP: synthetic identities, tenant and account budgets cleaned; no profile/files written")
 
 
 if __name__ == "__main__":

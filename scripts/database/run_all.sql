@@ -8,6 +8,8 @@ BEGIN;
 \ir schemas/001_documents.sql
 \ir schemas/002_conversations.sql
 \ir schemas/008_profiles.sql
+\ir profile/audit_profiles.sql
+\ir profile/versions.sql
 \ir schemas/009_exports.sql
 \ir schemas/010_google_drive_imports.sql
 \ir schemas/011_notifications_audit.sql

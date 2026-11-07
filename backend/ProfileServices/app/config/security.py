@@ -88,6 +88,7 @@ def require_authenticated_user(
                 SELECT 1 FROM public.auth_user
                 WHERE id = :identifier AND is_active IS TRUE
                   AND upper(md5(password)) = :fingerprint
+                FOR SHARE
             )
         """), {"identifier": payload["user_id"], "fingerprint": payload["hash_password"]})
     except SQLAlchemyError:

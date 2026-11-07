@@ -9,6 +9,9 @@ def test_openapi_documents_auth_and_multipart(client):
     response = client.get("/openapi.json")
     assert response.status_code == 200
     paths = response.json()["paths"]
+    request_schema = response.json()["components"]["schemas"]["ProfileUpdateRequest"]
+    assert "expected_version" in request_schema["required"]
+    assert request_schema["additionalProperties"] is False
     assert paths["/api/v1/profile"]["get"]["security"] == [{"HTTPBearer": []}]
     upload = paths["/api/v1/profile/upload"]["post"]
     assert upload["security"] == [{"HTTPBearer": []}]
@@ -45,19 +48,21 @@ def test_own_profile_roundtrip(client, token_headers, profile_id, db_session):
     headers = token_headers(groups=["synthetic"], permissions=["synthetic.read"])
     empty = client.get("/api/v1/profile", headers=headers)
     assert empty.status_code == 200 and empty.json()["profile_id"] is None
+    assert empty.headers["cache-control"] == "no-store"
     assert empty.json()["user_id"] == profile_id
     response = client.put("/api/v1/profile", headers=headers, json={
-        "email": "synthetic@example.invalid", "phone_number": "+56000000000",
+        "expected_version": 0,
+        "email": "synthetic@example.com", "phone_number": "+56000000000",
         "additional_info": {"bio": "synthetic"},
     })
     assert response.status_code == 200
     saved = response.json()
     assert saved["profile_id"] and saved["created_at"] and saved["updated_at"]
     assert saved["groups"] == ["synthetic"] and saved["permissions"] == ["synthetic.read"]
-    updated = client.put("/api/v1/profile", headers=headers, json={"phone_number": ""})
+    updated = client.put("/api/v1/profile", headers=headers, json={"phone_number": "", "expected_version": saved["version"]})
     assert updated.status_code == 200
     assert updated.json()["profile_id"] == saved["profile_id"]
-    assert updated.json()["phone_number"] == ""
+    assert updated.json()["phone_number"] is None
     assert updated.json()["email"] == saved["email"]
     assert client.get("/api/v1/profile", headers=headers).json() == updated.json()
 
