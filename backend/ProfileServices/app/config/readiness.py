@@ -11,6 +11,5 @@ def check_dependencies(settings: Settings, session: Session) -> None:
     session.scalar(select(UserProfileModel.profile_id, UserProfileModel.version, UserProfileModel.avatar_ready,
                           func.octet_length(UserProfileModel.avatar_data)).limit(1))
     session.execute(text("""
-        SELECT 1 FROM public.auth_user
-        WHERE FALSE AND id = 0 AND is_active IS TRUE AND upper(md5(password)) = ''
+        SELECT public.profile_identity_is_current(0, repeat('0',32))
     """))

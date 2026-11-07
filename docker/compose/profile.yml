@@ -1,4 +1,18 @@
 services:
+  profile-db-role:
+    image: pgvector/pgvector:pg16
+    environment:
+      PGPASSWORD: admin1234
+      PROFILE_DB_PASSWORD: ${PROFILE_DB_PASSWORD:-blandskron-local-profile}
+    volumes:
+      - ../../scripts/database/profile:/profile-db:ro
+    command: ["psql", "-h", "postgres", "-U", "postgres", "-d", "documents_db", "-v", "ON_ERROR_STOP=1", "-f", "/profile-db/provision_role.sql"]
+    depends_on:
+      database-schema:
+        condition: service_completed_successfully
+      auth-service:
+        condition: service_healthy
+
   profile-service:
     build:
       context: ../../backend/ProfileServices
@@ -9,8 +23,8 @@ services:
       APP_NAME: profile-service
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
       CORS_ORIGINS: '${PROFILE_CORS_ORIGINS:-["http://localhost:3000","http://127.0.0.1:3000"]}'
-      DATABASE_URL: postgresql+psycopg://postgres@postgres:5432/documents_db
-      PGPASSWORD: admin1234
+      DATABASE_URL: postgresql+psycopg://profile_runtime@postgres:5432/documents_db
+      PGPASSWORD: ${PROFILE_DB_PASSWORD:-blandskron-local-profile}
       DB_POOL_MIN_SIZE: ${PROFILE_DB_POOL_MIN_SIZE:-1}
       DB_POOL_MAX_SIZE: ${PROFILE_DB_POOL_MAX_SIZE:-10}
       DB_TIMEOUT_SECONDS: ${PROFILE_DB_TIMEOUT_SECONDS:-30}
@@ -39,7 +53,7 @@ services:
       timeout: 5s
       retries: 10
     depends_on:
-      database-schema:
+      profile-db-role:
         condition: service_completed_successfully
       auth-service:
         condition: service_healthy
@@ -51,12 +65,13 @@ services:
       target: test
     environment:
       PROFILE_TEST_DATABASE_URL: postgresql+psycopg://postgres@postgres:5432/documents_db
+      PROFILE_TEST_RUNTIME_PASSWORD: ${PROFILE_DB_PASSWORD:-blandskron-local-profile}
       PGPASSWORD: admin1234
     volumes:
       - ../../scripts/profile:/profile-checks:ro
       - ../../scripts/database/profile:/profile-db:ro
     depends_on:
-      database-schema:
+      profile-db-role:
         condition: service_completed_successfully
 
   profile-audit:
