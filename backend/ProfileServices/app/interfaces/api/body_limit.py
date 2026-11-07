@@ -4,6 +4,7 @@ from starlette.responses import JSONResponse
 
 
 MAX_PROFILE_BYTES = 65536
+MAX_AVATAR_REQUEST_BYTES = 5 * 1024 * 1024 + 65536
 
 
 class ProfileBodyLimit:
@@ -17,7 +18,10 @@ class ProfileBodyLimit:
         root = scope.get("root_path", "")
         if root and path.startswith(root + "/"):
             path = path[len(root):]
-        if scope["type"] != "http" or path != "/api/v1/profile" or scope["method"] != "PUT":
+        avatar = path == "/api/v1/profile/upload" and scope.get("method") == "POST"
+        profile = path == "/api/v1/profile" and scope.get("method") == "PUT"
+        clear = path == "/api/v1/profile/avatar" and scope.get("method") == "DELETE"
+        if scope["type"] != "http" or not (avatar or profile or clear):
             return await self.app(scope, receive, send)
         chunks, size = [], 0
         while True:
@@ -26,14 +30,14 @@ class ProfileBodyLimit:
                 return
             chunk = message.get("body", b"")
             size += len(chunk)
-            if size > MAX_PROFILE_BYTES:
-                return await JSONResponse(status_code=413, content={"detail": "Profile request exceeds 65536 bytes."})(scope, receive, send)
+            if size > (MAX_AVATAR_REQUEST_BYTES if avatar else MAX_PROFILE_BYTES):
+                return await JSONResponse(status_code=413, content={"detail": "Profile request exceeds allowed size."})(scope, receive, send)
             chunks.append(chunk)
             if not message.get("more_body", False):
                 break
         body = b"".join(chunks)
         try:
-            parsed = json.loads(body)
+            parsed = {} if avatar else json.loads(body)
             pending, nodes = [(parsed, 0)], 0
             while pending:
                 value, depth = pending.pop()

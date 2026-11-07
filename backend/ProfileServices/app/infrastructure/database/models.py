@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Any
 
-from sqlalchemy import BigInteger, DateTime, FetchedValue, Text, func, text
+from sqlalchemy import BigInteger, Boolean, DateTime, FetchedValue, LargeBinary, Text, func, text
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
@@ -16,6 +16,8 @@ class UserProfileModel(Base):
     profile_id: Mapped[str] = mapped_column(Text, primary_key=True, server_default=FetchedValue())
     user_id: Mapped[str] = mapped_column(Text, nullable=False, unique=True)
     version: Mapped[int] = mapped_column(BigInteger, nullable=False, server_default=text("1"))
+    avatar_ready: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default=text("FALSE"))
+    avatar_data: Mapped[bytes | None] = mapped_column(LargeBinary, deferred=True)
     email: Mapped[str | None] = mapped_column(Text)
     phone_number: Mapped[str | None] = mapped_column(Text)
     profile_picture_url: Mapped[str | None] = mapped_column(Text)

@@ -17,10 +17,21 @@ class ManageProfile:
         expected_version: int,
         changes: dict,
     ) -> UserProfile:
+        if "profile_picture_url" in changes:
+            changes = {**changes, "avatar_data": None, "avatar_ready": False, "profile_picture_url": None}
         model = self._repository.create_or_update(
             expected_version=expected_version, changes=changes,
         )
         return self._to_entity(model)
+
+    def replace_avatar(self, expected_version: int, content: bytes | None) -> UserProfile:
+        model = self._repository.create_or_update(expected_version, {
+            "avatar_data": content, "avatar_ready": content is not None, "profile_picture_url": None,
+        })
+        return self._to_entity(model)
+
+    def read_avatar(self, version: int | None = None) -> bytes | None:
+        return self._repository.read_avatar(version)
 
     def _to_entity(self, model) -> UserProfile:
         return UserProfile(
@@ -28,7 +39,7 @@ class ManageProfile:
             user_id=model.user_id,
             email=model.email,
             phone_number=model.phone_number,
-            profile_picture_url=model.profile_picture_url,
+            profile_picture_url=f"/api/v1/profile/avatar?version={model.version}" if model.avatar_ready else None,
             additional_info=model.additional_info,
             created_at=model.created_at,
             updated_at=model.updated_at,

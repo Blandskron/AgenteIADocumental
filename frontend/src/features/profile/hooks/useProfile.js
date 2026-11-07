@@ -1,8 +1,9 @@
 import { useState, useEffect, useRef } from "react";
-import { getProfile, updateProfile } from "../api/profile.api";
+import { getProfile, removeProfilePicture, updateProfile, uploadProfilePicture } from "../api/profile.api";
 
 export function useProfile(profileClient, onProfileUpdated) {
   const [profile, setProfile] = useState(null);
+  const [formProfile, setFormProfile] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
   const [isSaving, setIsSaving] = useState(false);
@@ -16,6 +17,7 @@ export function useProfile(profileClient, onProfileUpdated) {
     activeClient.current = profileClient;
     const currentGeneration = ++generation.current;
     setProfile(null);
+    setFormProfile(null);
     setIsSaving(false);
     setIsConflict(false);
     setSaveSuccess(false);
@@ -30,6 +32,7 @@ export function useProfile(profileClient, onProfileUpdated) {
       .then((data) => {
         if (isMounted && currentGeneration === generation.current) {
           setProfile(data);
+          setFormProfile(data);
           setIsLoading(false);
         }
       })
@@ -46,7 +49,7 @@ export function useProfile(profileClient, onProfileUpdated) {
     };
   }, [profileClient]);
 
-  async function save(updatedData) {
+  async function write(operation, refreshForm) {
     if (!profileClient || !profile || activeClient.current !== profileClient || saveInFlight.current) return false;
     saveInFlight.current = true;
 
@@ -55,15 +58,16 @@ export function useProfile(profileClient, onProfileUpdated) {
     setError(null);
 
     try {
-      const data = await updateProfile(profileClient, updatedData, profile?.version ?? 0);
+      const data = await operation(profileClient, profile.version);
       if (activeClient.current !== profileClient) return false;
       setProfile(data);
+      if (refreshForm) setFormProfile(data);
       setIsConflict(false);
-      setSaveSuccess(true);
+      setSaveSuccess(refreshForm);
       if (onProfileUpdated) {
         onProfileUpdated(data);
       }
-      return true;
+      return data;
     } catch (err) {
       if (activeClient.current !== profileClient) return false;
       setIsConflict(err.status === 409);
@@ -79,6 +83,10 @@ export function useProfile(profileClient, onProfileUpdated) {
     }
   }
 
+  function save(updatedData) { return write((client, version) => updateProfile(client, updatedData, version), true); }
+  function uploadAvatar(file) { return write((client, version) => uploadProfilePicture(client, file, version), false); }
+  function removeAvatar() { return write((client, version) => removeProfilePicture(client, version), false); }
+
   function clearSuccess() {
     setSaveSuccess(false);
   }
@@ -91,6 +99,7 @@ export function useProfile(profileClient, onProfileUpdated) {
       const data = await getProfile(profileClient);
       if (activeClient.current !== profileClient || currentGeneration !== generation.current) return;
       setProfile(data);
+      setFormProfile(data);
       setIsConflict(false);
       setError(null);
       setSaveSuccess(false);
@@ -104,6 +113,7 @@ export function useProfile(profileClient, onProfileUpdated) {
 
   return {
     profile,
+    formProfile,
     isLoading,
     error,
     isSaving,
@@ -112,5 +122,7 @@ export function useProfile(profileClient, onProfileUpdated) {
     clearSuccess,
     isConflict,
     reload,
+    uploadAvatar,
+    removeAvatar,
   };
 }

@@ -5,38 +5,15 @@ from time import monotonic, sleep
 
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import create_engine, text
+from sqlalchemy import text
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from conftest import insert_user
 from app.config.security import require_authenticated_user
 from app.infrastructure.database.repositories.profile_repository_pg import UserProfileRepositoryPg
 from app.main import create_app
 from app.shared.errors import ConflictError
 
-
-@pytest.fixture
-def committed_engine(settings, profile_id, encoded_password):
-    engine = create_engine(settings.database_url, hide_parameters=True)
-    created = False
-    try:
-        with Session(engine) as session:
-            insert_user(session, int(profile_id), encoded_password)
-            session.commit()
-            created = True
-        yield engine
-    finally:
-        try:
-            if created:
-                with engine.begin() as connection:
-                    connection.execute(text("DELETE FROM user_profiles WHERE user_id=:id"), {"id": profile_id})
-                    connection.execute(text("DELETE FROM auth_user WHERE id=:id"), {"id": int(profile_id)})
-                with engine.connect() as connection:
-                    assert connection.scalar(text("SELECT count(*) FROM user_profiles WHERE user_id=:id"), {"id": profile_id}) == 0
-                    assert connection.scalar(text("SELECT count(*) FROM auth_user WHERE id=:id"), {"id": int(profile_id)}) == 0
-        finally:
-            engine.dispose()
 
 
 def wait_for_lock(engine, pid):

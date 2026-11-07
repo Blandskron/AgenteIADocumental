@@ -125,11 +125,14 @@ jobs:
           profile_env = profile["environment"]
           assert set(profile_env) == {
               "APP_ENV", "APP_NAME", "LOG_LEVEL", "CORS_ORIGINS", "DATABASE_URL", "PGPASSWORD",
-              "AUTH_JWT_PUBLIC_KEY_PATH", "AUTH_JWT_ALGORITHM", "PROFILE_UPLOADS_DIR",
+              "AUTH_JWT_PUBLIC_KEY_PATH", "AUTH_JWT_ALGORITHM",
               "DB_POOL_MIN_SIZE", "DB_POOL_MAX_SIZE", "DB_TIMEOUT_SECONDS",
           }
           assert json.loads(profile_env["CORS_ORIGINS"]) == ["http://localhost:3000", "http://127.0.0.1:3000"]
           assert "health/db" in " ".join(profile["healthcheck"]["test"])
+          assert profile["read_only"] is True
+          assert len(profile["volumes"]) == 1 and profile["volumes"][0]["source"] == "auth_verification_keys"
+          assert profile["cap_drop"] == ["ALL"]
           assert transfer_env["DATABASE_URL"] == "postgresql+psycopg://document_transfer_runtime@postgres:5432/documents_db"
           assert transfer["depends_on"]["transfer-db-role"]["condition"] == "service_completed_successfully"
           assert transfer["cap_drop"] == ["ALL"]
@@ -285,14 +288,19 @@ jobs:
       - name: Probar configuración, disponibilidad y contrato base de ProfileServices
         run: |
           docker compose -f docker/docker-compose.yml exec -T profile-service python -m pip --no-cache-dir check
-          docker compose -f docker/docker-compose.yml exec -T profile-service python -c 'import importlib.util; assert all(importlib.util.find_spec(name) is None for name in ("pytest", "ruff", "httpx", "pip_audit"))'
+          docker compose -f docker/docker-compose.yml exec -T profile-service python -c 'import importlib.util, os; assert os.geteuid() == 10008; assert all(importlib.util.find_spec(name) is None for name in ("pytest", "ruff", "httpx", "pip_audit"))'
           docker compose -f docker/docker-compose.yml run --build --rm --no-deps profile-tests
           docker compose -f docker/docker-compose.yml run --rm --no-deps profile-tests ruff check --no-cache app tests /profile-checks
           docker compose -f docker/docker-compose.yml run --build --rm --no-deps profile-audit
           docker compose -f docker/docker-compose.yml restart profile-service
           docker compose -f docker/docker-compose.yml up -d --no-deps --wait profile-service
           docker compose -f docker/docker-compose.yml cp scripts/profile/verify_auth_contract.py auth-service:/tmp/profile-auth-contract.py
-          docker compose -f docker/docker-compose.yml exec -T auth-service python /tmp/profile-auth-contract.py
+          marker=$(python3 -c 'import uuid; print(uuid.uuid4().hex)')
+          cleanup_profile_probe() {
+            docker compose -f docker/docker-compose.yml exec -T postgres psql -U postgres -d documents_db -v ON_ERROR_STOP=1 -v probe_marker="$marker" < scripts/profile/cleanup_probe.sql
+          }
+          trap cleanup_profile_probe EXIT
+          docker compose -f docker/docker-compose.yml exec -T -e PROFILE_PROBE_MARKER="$marker" auth-service python /tmp/profile-auth-contract.py
       - name: Probar asociación de carpetas desde Google Drive sin OAuth
         run: |
           docker compose -f docker/docker-compose.yml run --build --rm --no-deps drive-tests

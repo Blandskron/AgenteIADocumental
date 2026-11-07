@@ -48,7 +48,7 @@ def test_omission_null_empty_and_metadata_replacement(client, token_headers, db_
     assert client.get("/api/v1/profile", headers=headers).json()["version"] == 0
     created = client.put("/api/v1/profile", headers=headers, json={
         "expected_version": 0, "email": " synthetic@EXAMPLE.COM ", "phone_number": "+56 123 456",
-        "profile_picture_url": "https://example.com/avatar.png", "additional_info": {"a": 1, "b": 2},
+        "profile_picture_url": None, "additional_info": {"a": 1, "b": 2},
     })
     assert created.status_code == 200
     assert created.json()["version"] == 1 and created.json()["email"] == "synthetic@example.com"
@@ -60,7 +60,7 @@ def test_omission_null_empty_and_metadata_replacement(client, token_headers, db_
     assert cleared.json()["profile_picture_url"] == created.json()["profile_picture_url"]
     assert cleared.json()["additional_info"] == {"a": 3} and cleared.json()["version"] == 2
     result = client.put("/api/v1/profile", headers=headers, json={
-        "expected_version": 2, "additional_info": None, "profile_picture_url": "",
+        "expected_version": 2, "additional_info": None, "profile_picture_url": None,
     })
     assert result.status_code == 200 and result.json()["version"] == 3
     assert result.json()["additional_info"] == {} and result.json()["profile_picture_url"] is None

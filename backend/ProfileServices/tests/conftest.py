@@ -29,7 +29,7 @@ def settings(tmp_path, signing_key):
     ))
     return Settings(
         database_url=os.environ["PROFILE_TEST_DATABASE_URL"],
-        auth_jwt_public_key_path=key_path, profile_uploads_dir=tmp_path / "avatars",
+        auth_jwt_public_key_path=key_path,
         db_pool_min_size=1, db_pool_max_size=2, db_timeout_seconds=1,
     )
 
@@ -104,3 +104,25 @@ def client(settings, db_session):
     with TestClient(app) as configured:
         yield configured
     assert app.state.database._engine is None
+
+@pytest.fixture
+def committed_engine(settings, profile_id, encoded_password):
+    engine = create_engine(settings.database_url, hide_parameters=True)
+    created = False
+    try:
+        with Session(engine) as session:
+            insert_user(session, int(profile_id), encoded_password)
+            session.commit()
+            created = True
+        yield engine
+    finally:
+        try:
+            if created:
+                with engine.begin() as connection:
+                    connection.execute(text("DELETE FROM user_profiles WHERE user_id=:id"), {"id": profile_id})
+                    connection.execute(text("DELETE FROM auth_user WHERE id=:id"), {"id": int(profile_id)})
+                with engine.connect() as connection:
+                    assert connection.scalar(text("SELECT count(*) FROM user_profiles WHERE user_id=:id"), {"id": profile_id}) == 0
+                    assert connection.scalar(text("SELECT count(*) FROM auth_user WHERE id=:id"), {"id": int(profile_id)}) == 0
+        finally:
+            engine.dispose()

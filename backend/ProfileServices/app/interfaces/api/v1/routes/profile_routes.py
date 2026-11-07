@@ -1,13 +1,16 @@
-import io
-import uuid
-from PIL import Image
-from fastapi import APIRouter, Depends, HTTPException, status, File, UploadFile, Request
+from threading import BoundedSemaphore
+
+
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
+from starlette.concurrency import run_in_threadpool
+from starlette.datastructures import UploadFile
+from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app.application.use_cases.manage_profile import ManageProfile
 from app.config.security import ProfileUser, require_authenticated_user
-from app.config.settings import Settings, get_settings
 from app.interfaces.api.v1.dependencies import get_profile_use_case
-from app.interfaces.api.v1.schemas.profile_schema import ProfileResponse, ProfileUpdateRequest, ProfileUploadResponse
+from app.interfaces.api.v1.schemas.profile_schema import AvatarDeleteRequest, ProfileResponse, ProfileUpdateRequest
+from app.domain.avatars import MAX_UPLOAD_BYTES, normalize_avatar
 
 
 router = APIRouter()
@@ -51,44 +54,76 @@ def update_own_profile(
     return _build_response(profile, current_user)
 
 
-@router.post("/profile/upload", response_model=ProfileUploadResponse)
-def upload_profile_picture(
+
+avatar_slots = BoundedSemaphore(2)
+
+
+@router.post("/profile/upload", response_model=ProfileResponse, openapi_extra={
+    "requestBody": {"required": True, "content": {"multipart/form-data": {"schema": {
+        "type": "object", "required": ["file", "expected_version"], "additionalProperties": False,
+        "properties": {"file": {"type": "string", "format": "binary"},
+                       "expected_version": {"type": "string", "pattern": "^(0|[1-9][0-9]{0,18})$"}},
+    }}}},
+})
+async def upload_profile_picture(
     request: Request,
-    file: UploadFile = File(...),
     current_user: ProfileUser = Depends(require_authenticated_user),
-    settings: Settings = Depends(get_settings),
+    use_case: ManageProfile = Depends(get_profile_use_case),
 ):
-    # 1. Leer el contenido del archivo
-    content = file.file.read()
-
-    # 2. Verificar que es una imagen válida usando Pillow
+    if not avatar_slots.acquire(blocking=False):
+        raise HTTPException(status_code=503, detail="Avatar processing is busy. Try again.")
     try:
-        img = Image.open(io.BytesIO(content))
-        img.verify()
-    except Exception:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="El archivo proporcionado no es una imagen válida.",
-        )
+        try:
+            form = await request.form(max_files=1, max_fields=1, max_part_size=64)
+        except OSError:
+            raise HTTPException(status_code=503, detail="Avatar processing is unavailable.") from None
+        except (StarletteHTTPException, ValueError):
+            raise HTTPException(status_code=400, detail="Invalid avatar form.") from None
+        try:
+            if len(form.multi_items()) != 2 or set(form) != {"file", "expected_version"}:
+                raise HTTPException(status_code=422, detail="File and expected_version are required.")
+            file, expected = form["file"], form["expected_version"]
+            if (not isinstance(file, UploadFile) or not file.filename or len(file.filename) > 256
+                    or type(expected) is not str or not expected.isascii() or not expected.isdecimal()
+                    or len(expected) > 19 or str(int(expected)) != expected or int(expected) > 2**63 - 2):
+                raise HTTPException(status_code=422, detail="Invalid avatar form values.")
+            try:
+                content = await file.read(MAX_UPLOAD_BYTES + 1)
+            except OSError:
+                raise HTTPException(status_code=503, detail="Avatar processing is unavailable.") from None
+            if len(content) > MAX_UPLOAD_BYTES:
+                raise HTTPException(status_code=413, detail="Avatar exceeds 5 MiB.")
+            try:
+                normalized = await run_in_threadpool(normalize_avatar, content)
+            except ValueError:
+                raise HTTPException(status_code=400, detail="Invalid avatar image.") from None
+            profile = await run_in_threadpool(use_case.replace_avatar, int(expected), normalized)
+            return _build_response(profile, current_user)
+        finally:
+            await form.close()
+    finally:
+        avatar_slots.release()
 
-    # 3. Obtener el formato de la imagen
-    img_format = img.format.lower() if img.format else "png"
-    if img_format == "jpeg":
-        img_format = "jpg"
 
-    # 4. Generar nombre de archivo único
-    filename = f"{uuid.uuid4().hex}.{img_format}"
+@router.get("/profile/avatar", response_class=Response, responses={200: {"content": {"image/jpeg": {}}}})
+def get_profile_avatar(
+    version: int | None = Query(default=None, ge=1, le=2**63 - 1),
+    current_user: ProfileUser = Depends(require_authenticated_user),
+    use_case: ManageProfile = Depends(get_profile_use_case),
+):
+    content = use_case.read_avatar(version)
+    if content is None:
+        raise HTTPException(status_code=404, detail="Avatar not found.")
+    return Response(content=content, media_type="image/jpeg", headers={
+        "Cache-Control": "private, no-store", "X-Content-Type-Options": "nosniff",
+        "Content-Disposition": 'inline; filename="avatar.jpg"',
+    })
 
-    # 5. Guardar en el directorio físico
-    file_path = settings.profile_uploads_dir / filename
-    try:
-        with file_path.open("wb") as f:
-            f.write(content)
-    except OSError:
-        raise HTTPException(status_code=503, detail="Profile storage is unavailable.") from None
 
-    # 6. Retornar URL dinámica
-    base_url = str(request.base_url).rstrip("/")
-    url = f"{base_url}/static/{filename}"
-    return ProfileUploadResponse(url=url)
-
+@router.delete("/profile/avatar", response_model=ProfileResponse)
+def delete_profile_avatar(
+    payload: AvatarDeleteRequest,
+    current_user: ProfileUser = Depends(require_authenticated_user),
+    use_case: ManageProfile = Depends(get_profile_use_case),
+):
+    return _build_response(use_case.replace_avatar(payload.expected_version, None), current_user)

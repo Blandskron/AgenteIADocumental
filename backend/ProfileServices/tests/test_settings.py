@@ -13,7 +13,7 @@ from app.config.settings import Settings
     ("database_url", "sqlite:///local.db"), ("database_url", "postgresql://user@host/db"),
     ("database_url", "postgresql+psycopg://user@host"),
     ("database_url", "synthetic-secret"),
-    ("auth_jwt_public_key_path", "relative.pem"), ("profile_uploads_dir", "relative"),
+    ("auth_jwt_public_key_path", "relative.pem"),
     ("cors_origins", ["*"]), ("cors_origins", ["https://*.example.invalid"]),
     ("cors_origins", ["https://user:pass@example.invalid"]),
     ("cors_origins", ["https://example.invalid/path"]),
@@ -41,7 +41,7 @@ def test_no_implicit_dotenv_or_database(tmp_path, monkeypatch):
     with pytest.raises(ValidationError) as caught:
         Settings()
     assert {error["loc"][0] for error in caught.value.errors()} >= {
-        "database_url", "auth_jwt_public_key_path", "profile_uploads_dir",
+        "database_url", "auth_jwt_public_key_path",
     }
     assert "synthetic-secret" not in str(caught.value)
 
@@ -59,5 +59,4 @@ def test_import_and_factory_have_no_filesystem_effect(settings):
     module = importlib.import_module("app.main")
     module = importlib.reload(module)
     app = module.create_app(settings)
-    assert not settings.profile_uploads_dir.exists()
     assert app.state.database._engine is None

@@ -23,6 +23,7 @@ RUN python -m pip install --no-cache-dir pip-audit==2.10.1
 CMD ["pip-audit", "--disable-pip", "--no-deps", "--cache-dir", "/tmp/pip-audit-cache", "-r", "/tmp/runtime-packages.txt"]
 
 FROM base AS runtime
+USER 10008:10008
 EXPOSE 8000
 
-CMD ["uvicorn", "app.main:create_app", "--factory", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["uvicorn", "app.main:create_app", "--factory", "--host", "0.0.0.0", "--port", "8000", "--limit-concurrency", "32"]

@@ -3,7 +3,6 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-from fastapi.staticfiles import StaticFiles
 from fastapi.exceptions import RequestValidationError
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 
@@ -28,7 +27,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             try:
                 database.open()
                 with database.session() as session:
-                    check_dependencies(settings, session, prepare=True)
+                    check_dependencies(settings, session)
             except Exception:
                 raise RuntimeError("Profile dependencies are unavailable.") from None
             yield
@@ -44,7 +43,6 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         allow_methods=["*"], allow_headers=["*"], expose_headers=["Content-Disposition"],
     )
     app.include_router(api_router)
-    app.mount("/static", StaticFiles(directory=settings.profile_uploads_dir, check_dir=False), name="static")
     app.add_exception_handler(NotFoundError, not_found_handler)
     app.add_exception_handler(ValidationError, validation_handler)
     app.add_exception_handler(AppError, app_error_handler)

@@ -10,6 +10,7 @@ BEGIN;
 \ir schemas/008_profiles.sql
 \ir profile/audit_profiles.sql
 \ir profile/versions.sql
+\ir profile/avatars.sql
 \ir schemas/009_exports.sql
 \ir schemas/010_google_drive_imports.sql
 \ir schemas/011_notifications_audit.sql

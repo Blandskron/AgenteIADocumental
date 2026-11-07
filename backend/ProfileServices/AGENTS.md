@@ -5,7 +5,7 @@ Lee [README.md](README.md) para el contrato actual y la evidencia, y [ROADMAP.md
 ## Límites del componente
 
 - Perfil/contacto/avatar pertenecen a este servicio; identidad, credenciales y membresías pertenecen a Auth. No escribir identidad de Auth desde el repositorio de perfiles.
-- La API y el repositorio solo permiten el perfil propio; ningún rol administrativo amplía el dueño. No reintroducir listados globales ni IDs de destino. `/static` sigue público hasta PROFILE-005 y debe migrarse junto al consumidor web.
+- La API y el repositorio solo permiten el perfil propio; ningún rol administrativo amplía el dueño. No reintroducir listados globales ni IDs de destino. `/static` está retirado. Avatar privado JPEG en PostgreSQL (máximo 1 MiB); lectura propia autenticada y consumidor blob con limpieza.
 - Conserva el contrato JWT de Auth y comprueba cuenta activa y huella de contraseña en cada petición; no devuelvas ni registres esa huella. La consulta solo debe devolver un booleano. El contrato HTTP real se prueba con `scripts/profile/verify_auth_contract.py`, además de los JWT sintéticos de la suite.
 - GET devuelve la versión y PUT exige `expected_version`: no introducir escrituras ciegas, reintentos automáticos de conflictos ni timestamps como sustituto de la versión. Conserva FOR SHARE de identidad hasta commit/cierre y prueba ambos órdenes frente a revocaciones. Cualquier cambio de campos debe respetar omisión/null/vaciado y los límites documentados.
 - Aplica cambios de esquema por `scripts/database/run_all.sql`; ejecuta el preflight agregado antes de migrar. Preserva las filas heredadas y prueba actualización/repetición en esquema anterior. Los tests entre conexiones usan datos sintéticos confirmados mediante commit con limpieza verificada; los demás pueden usar rollback.
@@ -15,7 +15,7 @@ Lee [README.md](README.md) para el contrato actual y la evidencia, y [ROADMAP.md
 
 ## Verificación
 
-Ejecuta suite PostgreSQL (`profile-tests`), Ruff, pip check, auditoría (`profile-audit`) y Compose como indica README. Agrega casos mantenidos de cada tarjeta a la suite y CI. No sustituir pruebas de concurrencia por una sola sesión o mocks. La suite exige `PROFILE_TEST_DATABASE_URL`, revierte escrituras y usa storage temporal; no apuntarla a una base de producción.
+Ejecuta suite PostgreSQL (`profile-tests`), Ruff, pip check, auditoría (`profile-audit`) y Compose como indica README. Agrega casos mantenidos de cada tarjeta a la suite y CI. No sustituir pruebas de concurrencia por una sola sesión o mocks. La suite exige `PROFILE_TEST_DATABASE_URL`, revierte escrituras y usa archivos temporales sintéticos para mantenimiento; no apuntarla a una base de producción.
 
 El entrypoint es `app.main:create_app --factory`. No leer `.env` desde Settings ni introducir efectos de disco/conexiones al importar. Conserva configuración explícita, CORS acotado, validación de clave y preparación/limpieza de recursos en lifespan. Un cambio en salud debe preservar respuestas sin detalles internos.
 

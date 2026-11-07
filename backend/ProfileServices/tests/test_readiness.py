@@ -5,7 +5,6 @@ from fastapi.testclient import TestClient
 from sqlalchemy import text
 
 from app.config.database import get_session
-from app.config.readiness import check_storage
 from app.infrastructure.database.connection import Database
 from app.main import create_app
 
@@ -15,8 +14,6 @@ def test_startup_health_and_shutdown(settings):
     with TestClient(app) as client:
         assert client.get("/api/v1/health").json() == {"status": "ok"}
         assert client.get("/api/v1/health/db").json() == {"status": "ok"}
-        assert settings.profile_uploads_dir.is_dir()
-        assert list(settings.profile_uploads_dir.iterdir()) == []
         with app.state.database.session() as session:
             assert session.scalar(text("SHOW statement_timeout")) == "1s"
             assert session.scalar(text("SELECT 1")) == 1
@@ -47,7 +44,6 @@ def test_invalid_key_fails_startup_without_details(settings, signing_key, kind):
             pass
     assert app.state.database._engine is None
     assert app.state.database._session_factory is None
-    assert not settings.profile_uploads_dir.exists()
 
 
 def test_database_unavailable_fails_startup(settings):
@@ -59,28 +55,7 @@ def test_database_unavailable_fails_startup(settings):
     assert app.state.database._engine is None
 
 
-def test_storage_is_file_fails_startup(settings):
-    settings.profile_uploads_dir.write_text("synthetic-secret")
-    app = create_app(settings)
-    with pytest.raises(RuntimeError, match="^Profile dependencies are unavailable.$"):
-        with TestClient(app):
-            pass
-    assert app.state.database._engine is None
-    assert settings.profile_uploads_dir.read_text() == "synthetic-secret"
-
-
-def test_storage_not_writable_fails_startup(settings, monkeypatch):
-    def denied(*args, **kwargs):
-        raise PermissionError("synthetic-secret-path")
-    monkeypatch.setattr("app.config.readiness.TemporaryFile", denied)
-    app = create_app(settings)
-    with pytest.raises(RuntimeError, match="^Profile dependencies are unavailable.$"):
-        with TestClient(app):
-            pass
-    assert app.state.database._engine is None
-
-
-@pytest.mark.parametrize("dependency", ["key", "storage", "database"])
+@pytest.mark.parametrize("dependency", ["key", "database"])
 def test_readiness_after_dependency_loss(settings, dependency):
     app = create_app(settings)
     unavailable = Database("postgresql+psycopg://user:synthetic-secret@127.0.0.1:1/db", timeout_seconds=1)
@@ -88,9 +63,6 @@ def test_readiness_after_dependency_loss(settings, dependency):
         with TestClient(app) as client:
             if dependency == "key":
                 settings.auth_jwt_public_key_path.write_bytes(b"synthetic-secret")
-            elif dependency == "storage":
-                settings.profile_uploads_dir.rmdir()
-                settings.profile_uploads_dir.write_text("synthetic-secret")
             else:
                 def failed_session():
                     with unavailable.session() as session:
@@ -102,15 +74,6 @@ def test_readiness_after_dependency_loss(settings, dependency):
             assert client.get("/api/v1/health").status_code == 200
     finally:
         unavailable.close()
-
-
-def test_storage_symlink_rejected(settings, tmp_path):
-    target = tmp_path / "elsewhere"
-    target.mkdir()
-    settings.profile_uploads_dir.symlink_to(target, target_is_directory=True)
-    with pytest.raises(RuntimeError, match="Profile storage is unavailable"):
-        check_storage(settings.profile_uploads_dir)
-    assert list(target.iterdir()) == []
 
 
 def test_pool_exhaustion_and_session_rollback(settings):

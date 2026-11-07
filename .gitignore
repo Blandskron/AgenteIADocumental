@@ -220,3 +220,6 @@ cython_debug/
 marimo/_static/
 marimo/_lsp/
 __marimo__/
+
+# Reviewed avatar manifests contain private owner mappings; keep outside Git.
+/reviewed-avatar-manifests/

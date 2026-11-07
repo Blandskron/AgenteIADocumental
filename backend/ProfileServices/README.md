@@ -1,22 +1,22 @@
 # ProfileServices
 
-Servicio FastAPI de perfil y avatar de Blandskron Documental, publicado localmente en `http://localhost:8015`. AuthServices administra identidad, credenciales y membresías; Profile guarda datos de contacto y presentación en `user_profiles` y archivos en `uploads/profile`.
+Servicio FastAPI de perfil y avatar de Blandskron Documental, publicado localmente en `http://localhost:8015`. AuthServices administra identidad, credenciales y membresías; Profile guarda contacto, presentación y avatar privado en `user_profiles` (PostgreSQL).
 
-**Estado:** PROFILE-001 a PROFILE-003 integrados en PR #59/#60/#61. PROFILE-004 acota escrituras y exige una versión para impedir sobrescrituras entre sesiones. El ciclo privado del avatar y la revisión web completa siguen en PROFILE-005/006; el rol DB acotado y usuario de contenedor en PROFILE-007. El [diagnóstico histórico](#diagnóstico-profile-001) describe la línea base, no las garantías actuales. El estado vive en el [tablero](../../ROADMAP.md#profileservices).
+**Estado:** PROFILE-001 a PROFILE-004 integrados (PR #59 a #62). PROFILE-005 entrega avatar privado transaccional y su consumidor web. La revisión web completa sigue en PROFILE-006; rol DB acotado y escaneo de imagen en PROFILE-007. Runtime ya usa UID/GID 10008 y no monta uploads. El [diagnóstico histórico](#diagnóstico-profile-001) describe la línea base, no las garantías actuales. El estado vive en el [tablero](../../ROADMAP.md#profileservices).
 
 ## Mapa para trabajar
 
 | Ubicación | Responsabilidad actual |
 | --- | --- |
-| `app/main.py` | Factory `create_app`, lifespan, CORS, excepciones y montaje público `/static` |
+| `app/main.py` | Factory `create_app`, lifespan, CORS y excepciones |
 | `app/config/` | Settings, JWT, logging y sesión por petición |
-| `app/interfaces/api/v1/` | Dos rutas de salud, tres operaciones propias, dependencias y esquemas |
+| `app/interfaces/api/v1/` | Salud, perfil propio, upload/lectura/borrado de avatar y límites HTTP |
 | `app/application/use_cases/manage_profile.py` | Perfil propio vacío cuando no existe y actualización |
 | `app/domain/entities.py` | Entidad de perfil |
 | `app/infrastructure/database/` | SQLAlchemy, sesiones y repositorio PostgreSQL |
 | [Esquema](../../scripts/database/schemas/008_profiles.sql) y [triggers](../../scripts/database/triggers/001_updated_at_triggers.sql) | PK generada, `user_id` único, metadata JSONB y `updated_at` |
 | [Versiones](../../scripts/database/profile/versions.sql) y [preflight](../../scripts/database/profile/audit_profiles.sql) | Migración aditiva/repetible y conteos de datos heredados sin exponer valores |
-| [Compose](../../docker/compose/profile.yml) | Puerto, clave pública de Auth y volumen de avatares |
+| [Compose](../../docker/compose/profile.yml) | Puerto, clave pública de Auth, runtime sin root y mantenimiento optativo |
 | [Cliente web](../../frontend/src/features/profile/api/profile.api.js), [hook](../../frontend/src/features/profile/hooks/useProfile.js) y [página](../../frontend/src/pages/ProfilePage/ProfilePage.jsx) | Consulta/actualización propia, upload y cambio de contraseña vía Auth |
 | [AuthProvider](../../frontend/src/app/providers/AuthProvider.jsx) y [Sidebar](../../frontend/src/widgets/Sidebar/Sidebar.jsx) | Perfil global y avatar |
 
@@ -27,13 +27,14 @@ Servicio FastAPI de perfil y avatar de Blandskron Documental, publicado localmen
 | Método | Ruta | Comportamiento |
 | --- | --- | --- |
 | GET | `/api/v1/health` | Público; devuelve `status: ok`, sin comprobar dependencias |
-| GET | `/api/v1/health/db` | Público; comprueba tablas de perfil/identidad, clave pública y escritura temporal en storage; 503 genérico si fallan |
+| GET | `/api/v1/health/db` | Público; comprueba esquema de perfil/identidad y clave pública; 503 genérico si fallan |
 | GET | `/api/v1/profile` | Perfil propio y versión; entidad vacía con versión 0 si no existe; consultar no inserta |
 | PUT | `/api/v1/profile` | Creación/actualización parcial condicionada por `expected_version` |
-| POST | `/api/v1/profile/upload` | JWT access; verifica imagen, guarda archivo y devuelve `{ "url": "..." }` |
-| GET | `/static/{filename}` | Archivo público, sin JWT ni comprobación de propiedad |
+| POST | `/api/v1/profile/upload` | Multipart `file` + `expected_version`; normaliza y asocia avatar; devuelve ProfileResponse y nueva versión |
+| GET | `/api/v1/profile/avatar?version=N` | JPEG propio; 404 si falta o cambió la versión. Sin parámetro devuelve el vigente |
+| DELETE | `/api/v1/profile/avatar` | JSON `expected_version`; retira los bytes propios e incrementa versión; devuelve ProfileResponse |
 
-Las tres operaciones requieren Bearer access RS256 y cuenta vigente. `user_id` debe ser un entero positivo dentro de int64 (no booleano, cadena ni decimal). Se exigen `exp`, `iat`, `jti`, `token_type` y `hash_password`; tiempos enteros válidos, `iat` no negativo y anterior a `exp`, `jti` no vacío de hasta 128 caracteres y tipo `access`. Un `sub` opcional debe ser la cadena decimal canónica del mismo ID; no hay fallback a `username`. Flags booleanos y listas de grupos/permisos/roles, si aparecen, deben tener tipos correctos. El contrato actual de Auth no emite issuer/audience; no se introducen valores inventados que rompan login.
+Las operaciones de perfil y avatar requieren Bearer access RS256 y cuenta vigente. `user_id` debe ser un entero positivo dentro de int64 (no booleano, cadena ni decimal). Se exigen `exp`, `iat`, `jti`, `token_type` y `hash_password`; tiempos enteros válidos, `iat` no negativo y anterior a `exp`, `jti` no vacío de hasta 128 caracteres y tipo `access`. Un `sub` opcional debe ser la cadena decimal canónica del mismo ID; no hay fallback a `username`. Flags booleanos y listas de grupos/permisos/roles, si aparecen, deben tener tipos correctos. El contrato actual de Auth no emite issuer/audience; no se introducen valores inventados que rompan login.
 
 Cada petición autenticada consulta si `public.auth_user` contiene ese ID activo y si `upper(md5(password))` coincide con `hash_password`, como `CHECK_REVOKE_TOKEN` de SimpleJWT en Auth. La expresión opera sobre la contraseña **ya codificada por Django** y reproduce su huella de revocación; no reemplaza el algoritmo de contraseña por MD5. La consulta devuelve solo un booleano, nunca la contraseña codificada. Una cuenta inexistente/inactiva/eliminada o contraseña cambiada devuelve 401 genérico con `WWW-Authenticate: Bearer`; un fallo de consulta devuelve 503 sin detalles internos.
 
@@ -50,12 +51,12 @@ PUT mantiene la actualización parcial, con `expected_version` obligatorio y al 
 | `expected_version` | Entero estricto entre 0 y 2⁶³−2; 0 solo crea si la fila no existe |
 | `email` | Email de contacto, hasta 254 caracteres, validado/normalizado por email-validator sin consultas de entregabilidad |
 | `phone_number` | Hasta 32 caracteres; dígitos y separadores `+ ()-.x#`, al menos tres dígitos; no certifica país o existencia del número |
-| `profile_picture_url` | Hasta 2048 caracteres; HTTP(S) sin credenciales/fragmento. Aún permite URL externa hasta PROFILE-005; el servidor no la descarga |
+| `profile_picture_url` | Solo `null` explícito para retirar la foto; omitir conserva. No acepta URL externa, ruta ni cadena vacía |
 | `additional_info` | Objeto JSON de hasta 16 KiB serializado UTF-8, profundidad 4 desde su raíz, 256 nodos totales, 64 claves por objeto y claves de 1–64 caracteres sin controles. Strings hasta 2048, sin NUL ni codificación inválida; números finitos |
 
-Los campos de presentación dentro de metadata deben ser cadenas: `full_name`, `location`, `position` y `department` hasta 120 caracteres; `bio` hasta 2000 y `preferred_language` hasta 16. Otros campos JSON pueden conservarse dentro de los límites. No se aceptan campos superiores desconocidos, incluyendo `user_id`, `version`, roles o permisos. El JSON completo de PUT está limitado a 65536 bytes reales, incluso sin Content-Length o por chunks; hasta 16 niveles y 2048 nodos antes de validar el esquema. Esto no impone todavía el límite multipart del avatar.
+Los campos de presentación dentro de metadata deben ser cadenas: `full_name`, `location`, `position` y `department` hasta 120 caracteres; `bio` hasta 2000 y `preferred_language` hasta 16. Otros campos JSON pueden conservarse dentro de los límites. No se aceptan campos superiores desconocidos, incluyendo `user_id`, `version`, roles o permisos. El JSON completo de PUT está limitado a 65536 bytes reales, incluso sin Content-Length o por chunks; hasta 16 niveles y 2048 nodos antes de validar el esquema. Multipart tiene un límite independiente de 5 MiB + 64 KiB de sobre HTTP.
 
-Omitir un campo conserva su valor. `null` borra email/teléfono/URL; `""` o espacios se normalizan a null. `additional_info: null` o `{}` vacían metadata, y un objeto enviado la reemplaza completa. Por ejemplo, tras leer versión 3:
+Omitir un campo conserva su valor. `null` borra email/teléfono/avatar; `""` o espacios se normalizan a null solo en email/teléfono. `additional_info: null` o `{}` vacían metadata, y un objeto enviado la reemplaza completa. Por ejemplo, tras leer versión 3:
 
 ```json
 {"expected_version":3,"phone_number":null,"additional_info":{"full_name":"Persona sintética"}}
@@ -69,7 +70,7 @@ La respuesta contiene `profile_id`, `user_id`, `version`, los cuatro campos edit
 
 La revocación aquí cubre cambio de contraseña y estado/existencia de cuenta. El logout de Auth invalida el refresh; un access ya emitido puede seguir válido hasta su expiración (10 minutos según Auth), salvo cambio de contraseña o cuenta. No se afirma revocación instantánea de access por logout.
 
-El upload exige la misma identidad vigente, genera un UUID y extensión según el formato detectado, sin reutilizar el nombre enviado. Verifica con `Image.verify()` y escribe los bytes originales. No asocia automáticamente la foto al perfil: la web recibe la URL y después guarda con PUT. `/static` continúa público hasta la transición coordinada de PROFILE-005: la privacidad del JSON de perfil no implica todavía privacidad del archivo. No hay inventario de propietario de archivo, reemplazo ni recolección de archivos abandonados.
+El upload exige la misma identidad vigente y versión que el perfil, normaliza el contenido a JPEG y lo asocia directamente en PostgreSQL. No reutiliza nombres enviados ni conserva los bytes originales. `/static` está retirado. El ciclo privado y el mantenimiento revisado se detallan abajo.
 
 ## Arranque y configuración actuales
 
@@ -89,17 +90,16 @@ Compose monta el directorio persistente `uploads/profile`. Las pruebas usan dire
 | `AUTH_JWT_PUBLIC_KEY_PATH` | Obligatoria y absoluta; Compose monta solo la clave pública en `/app/auth_keys/public.pem`; se exige RSA pública de al menos 2048 bits |
 | `AUTH_JWT_ALGORITHM` | Solo `RS256` |
 | `CORS_ORIGINS` | Lista JSON de orígenes HTTP(S) explícitos, sin comodines, rutas ni credenciales; default localhost/127.0.0.1:3000. `[]` deshabilita CORS |
-| `PROFILE_UPLOADS_DIR` | Obligatoria y absoluta; misma configuración para upload, static y salud. Compose usa `/app/uploads` |
 | `APP_ENV`, `APP_NAME`, `LOG_LEVEL` | Entorno, título y logging |
 | `DB_POOL_MIN_SIZE`, `DB_POOL_MAX_SIZE`, `DB_TIMEOUT_SECONDS` | Defaults 1/10/30; tamaños 1–100, min ≤ max, timeout 1–300 segundos. Pool retenido = min, overflow = max − min; no se preabren min conexiones |
 
 Settings no lee archivos `.env`. Compose permite ajustar `PROFILE_CORS_ORIGINS`, `PROFILE_DB_POOL_MIN_SIZE`, `PROFILE_DB_POOL_MAX_SIZE` y `PROFILE_DB_TIMEOUT_SECONDS` mediante interpolación explícita; no transmite claves de IA/OAuth. Los errores de validación ocultan los valores de entrada y el repr de Settings excluye la URL DB.
 
-El timeout se aplica a espera del pool, conexión y consultas PostgreSQL (`statement_timeout`). El engine usa pre-ping, oculta parámetros SQL, revierte sesiones con error y se libera aun si falla el arranque. La factory no crea archivos ni conexiones al importar; lifespan valida DB/tabla y clave, prepara storage y prueba escritura temporal que se elimina automáticamente. Una dependencia inválida aborta con un mensaje genérico. `/health` indica vida del proceso; `/health/db` vuelve a comprobar dependencias y es el healthcheck de Compose. La clave se relee para detectar pérdida/cambio posterior sin cache obsoleta.
+El timeout se aplica a espera del pool, conexión y consultas PostgreSQL (`statement_timeout`). El engine usa pre-ping, oculta parámetros SQL, revierte sesiones con error y se libera aun si falla el arranque. La factory no crea archivos ni conexiones al importar; lifespan valida DB/esquema y clave sin preparar almacenamiento de archivos. Una dependencia inválida aborta con un mensaje genérico. `/health` indica vida del proceso; `/health/db` vuelve a comprobar dependencias y es el healthcheck de Compose. La clave se relee para detectar pérdida/cambio posterior sin cache obsoleta.
 
-La imagen de ejecución sigue como root sobre `python:3.12-slim`; el rol y los permisos finales se entregan en PROFILE-007. El upload aún no tiene el límite/canonización/privacidad de PROFILE-005. Configurar un directorio no implica haber completado su confinamiento ante todas las carreras de archivos.
+La imagen usa UID/GID 10008 sobre `python:3.12-slim`, raíz de solo lectura, sin capabilities y no-new-privileges. Solo monta la clave pública de Auth en lectura; `/tmp` es tmpfs de 16 MiB sin ejecución. Compose limita memoria a 768 MiB, CPU a 2, procesos a 128 y Uvicorn a 32 conexiones concurrentes. Los permisos DB mínimos y escaneo de SO siguen en PROFILE-007.
 
-Para ejecución fuera de Docker, declara `DATABASE_URL`, `AUTH_JWT_PUBLIC_KEY_PATH` y `PROFILE_UPLOADS_DIR` (rutas absolutas), instala `requirements.txt` en un entorno virtual y desde este directorio ejecuta `uvicorn app.main:create_app --factory --port 8015`. La contraseña de DB puede suministrarse por `PGPASSWORD`. No cargar un `.env` global dentro de la aplicación.
+Para ejecución fuera de Docker, declara `DATABASE_URL` y `AUTH_JWT_PUBLIC_KEY_PATH` (ruta absoluta), instala `requirements.txt` en un entorno virtual y desde este directorio ejecuta `uvicorn app.main:create_app --factory --port 8015`. La contraseña de DB puede suministrarse por `PGPASSWORD`. No cargar un `.env` global dentro de la aplicación.
 
 ### Actualizar una instalación existente
 
@@ -132,7 +132,7 @@ docker compose -f docker/docker-compose.yml run --build --rm --no-deps profile-a
 docker compose -f docker/docker-compose.yml exec -T profile-service python -m pip check
 ```
 
-La suite exige `PROFILE_TEST_DATABASE_URL` explícita, provista por el servicio `profile-tests`. No crea/migra tablas ni usa uploads reales. Las escrituras HTTP quedan dentro de savepoints y una transacción exterior; al terminar se comprueba desde otra conexión que no persiste el usuario sintético. Las pruebas de pool y statement timeout usan conexiones PostgreSQL reales. Los fallos de escritura por permisos se inyectan para que el resultado no dependa de ejecutar la suite como root.
+La suite exige `PROFILE_TEST_DATABASE_URL` explícita, provista por el servicio `profile-tests`. No crea/migra tablas ni usa uploads reales. Las escrituras HTTP quedan dentro de savepoints y una transacción exterior; al terminar se comprueba desde otra conexión que no persiste el usuario sintético. Las pruebas de pool y statement timeout usan conexiones PostgreSQL reales. Las pruebas de mantenimiento usan archivos temporales sintéticos.
 
 El job `auth-db-roles` construye/arranca Profile, comprueba ausencia de herramientas de test/audit en runtime, ejecuta suite/Ruff/auditoría y verifica reinicio saludable. Después ejecuta el [contrato HTTP Auth–Profile](../../scripts/profile/verify_auth_contract.py) contra ambos servicios reales. El job Compose verifica la lista de variables explícitas. La concurrencia de escrituras, límites y privacidad de archivos permanecen en sus tarjetas.
 
@@ -149,15 +149,50 @@ docker compose -f docker/docker-compose.yml cp scripts/profile/verify_auth_contr
 docker compose -f docker/docker-compose.yml exec -T auth-service python /tmp/profile-auth-contract.py
 ```
 
-El script solo admite `AUTH_ENV=development`. Crea tres identidades y un tenant sintéticos, usa login y refresh HTTP reales, comprueba aislamiento de rutas incluso para tenant admin/superadmin y prueba revocación por contraseña, desactivación y eliminación. No imprime tokens ni contraseñas; no escribe perfiles ni avatares. El `finally` elimina y verifica sus identidades, tenant y presupuestos de login por cuenta; conserva el presupuesto compartido del origen para respetar la protección de Auth. Los tokens pendientes de sus usuarios se limpian por cascada de Django. No ejecutarlo en producción ni interrumpirlo durante la limpieza.
+El script solo admite `AUTH_ENV=development`. Crea tres identidades y un tenant sintéticos, usa login y refresh HTTP reales, comprueba aislamiento de rutas incluso para tenant admin/superadmin y prueba revocación por contraseña, desactivación y eliminación. No imprime tokens ni contraseñas; sin PROFILE_PROBE_MARKER no escribe perfiles ni avatares. El `finally` elimina y verifica sus identidades, tenant y presupuestos de login por cuenta; conserva el presupuesto compartido del origen para respetar la protección de Auth. Los tokens pendientes de sus usuarios se limpian por cascada de Django. No ejecutarlo en producción ni interrumpirlo durante la limpieza.
 
 Las regresiones PostgreSQL usan JWT sintéticos compatibles con Auth, usuarios efímeros y rollback; verifican también que no queden identidades ni perfiles propios de la prueba. Las consultas de identidad que fallen se cierran con 503, sin permitir la operación del perfil. Estos checks no sustituyen las pruebas de concurrencia ni de avatar de las tarjetas siguientes.
 
-PROFILE-004 añade pruebas con conexiones independientes y esperas de lock observadas en PostgreSQL, creación/update concurrentes y revalidación de cuenta tras revocaciones en ambos órdenes. Esos escenarios crean registros sintéticos confirmados mediante commit entre conexiones y los eliminan/verifican al terminar; no usan rollback como sustituto de visibilidad entre sesiones. Una tabla temporal con esquema anterior verifica preflight, conservación de valores y segunda ejecución de la migración. Se mantienen pendientes las pruebas de ciclo de avatar de PROFILE-005.
+PROFILE-004 añade pruebas con conexiones independientes y esperas de lock observadas en PostgreSQL, creación/update concurrentes y revalidación de cuenta tras revocaciones en ambos órdenes. Esos escenarios crean registros sintéticos confirmados mediante commit entre conexiones y los eliminan/verifican al terminar; no usan rollback como sustituto de visibilidad entre sesiones. Una tabla temporal con esquema anterior verifica preflight, conservación de valores y segunda ejecución de la migración. PROFILE-005 añade pruebas del ciclo privado de avatar.
 
 Evidencia local de PROFILE-003: **112 pruebas aprobadas**, Ruff sobre app/tests/script, pip check, Compose y enlaces aprobados; auditoría runtime sin avisos conocidos. El contrato HTTP real de arriba pasó con usuario normal, tenant admin y superadmin, login y refresh, cambio de contraseña, cuenta inactiva/eliminada y limpieza verificada. Se conservaron los datos existentes y se usó el volumen sintético de Profile; el estado de CI y la revisión se registran en el PR.
 
 Evidencia local de PROFILE-004 (7 de noviembre de 2026): **170 pruebas backend y 64 frontend aprobadas**, npm ci/test/build, Ruff, pip check y auditoría runtime sin avisos conocidos. Se validó la instalación local con volúmenes nuevos, el esquema anterior en tabla temporal y el contrato HTTP real con Auth (incluye versión 0, 422 sin versión y 409 sin escritura). Tras la limpieza, el preflight del entorno sintético informa cero IDs no canónicos, cero metadata no objeto y cero perfiles sin identidad. El directorio real de avatares no se montó. Persisten las cuatro alertas altas npm de WEB-001 y la advertencia TestClient httpx/httpx2; no se ha ejecutado aún la revisión integral de navegador ni el escaneo de SO de PROFILE-007. CI/revisión se registran en el PR.
+
+## Avatar privado y mantenimiento (PROFILE-005)
+
+`/static` se retira y devuelve 404. GET de perfil devuelve únicamente una referencia relativa propia `/api/v1/profile/avatar?version=N` o null; no refleja Host ni URLs heredadas. La misma referencia sirve los bytes del dueño autenticado, nunca identifica a otra persona. Todas las operaciones de perfil/avatar requieren JWT vigente. La imagen responde `image/jpeg`, `private, no-store`, `nosniff` y nombre fijo `avatar.jpg`. La página y Sidebar descargan mediante el cliente autorizado, aceptan solo la ruta propia y liberan el object URL al cambiar sesión, versión o desmontar; no usan HTML generado. Cambiar la foto guarda inmediatamente sin descartar los campos de contacto aún editados. La revisión integral de estados de sesión/formulario corresponde a PROFILE-006.
+
+Multipart admite exactamente un archivo y una versión decimal canónica; archivo máximo 5 MiB y sobre HTTP máximo 5 MiB + 64 KiB, contando bytes reales incluso sin Content-Length. El nombre/MIME enviados no determinan el contenido guardado. Se aceptan JPEG, PNG y WebP de un frame, máximo 12 millones de píxeles y 8192 por eje. Se aplica orientación EXIF, reducción a 1024 por eje y composición sobre blanco; un JPEG nuevo elimina metadata y bytes anexos, con máximo 1 MiB. Dos slots por proceso acotan parseo/normalización/escritura; saturación devuelve 503. Inválido devuelve 400/422, exceso 413 y conflicto de versión 409, sin reintento automático.
+
+Se elige `bytea` en PostgreSQL para estas imágenes pequeñas: bytes, asociación y versión se confirman/revierten juntos. No hay archivos nuevos huérfanos ante un commit fallido ni coordinación disco/DB. El reemplazo y borrado retiran los bytes anteriores en la misma transacción; GET libera el lock de identidad antes de enviar la respuesta. El coste es hasta 1 MiB por usuario más versiones físicas de PostgreSQL y backups; administrar VACUUM/retención y capacidad como parte de la DB. El borrado lógico no promete borrado seguro de backups. `avatar_data` se carga diferido para no incluirlo en GET JSON. El constraint exige consistencia entre bytes, indicador y tamaño.
+
+`run_all.sql` incluye [avatars.sql](../../scripts/database/profile/avatars.sql) después de versiones. Es aditivo/repetible: conserva las URLs anteriores y agrega `avatar_data=NULL`, `avatar_ready=FALSE`. No descarga URL externas ni deduce dueño por un nombre público antiguo. Las referencias heredadas se ocultan en API hasta revisión/importación o nueva carga del dueño; los archivos de origen se conservan. Actualizar esquema, servicio y web juntos según el procedimiento anterior. Un rollback posterior debe restaurar la revisión privada compatible y su backup; no volver a publicar `/static` ni la imagen anterior con datos personales.
+
+### Importar fuentes antiguas con revisión explícita
+
+La alternativa preferida es que cada dueño cargue otra vez su foto. Si se requiere preservar una fuente antigua, un operador debe verificar por separado su pertenencia: una URL pública previa **no prueba propiedad**. Mantén backup, revisa referencias compartidas, confirma ID Auth activo, versión y checksum. No ensayes sobre uploads reales. Las herramientas de mantenimiento no se ejecutan al arrancar la API y usan `PROFILE_MIGRATION_DATABASE_URL` separado del runtime.
+
+El servicio optativo `profile-avatar-tools` monta `uploads/profile` únicamente en lectura. Los comandos siguientes se ejecutan desde la raíz; requieren permisos de lectura para UID 10008 y un manifest absoluto revisado fuera del repositorio. No concedas escritura al origen. Monta solo el directorio de manifiestos necesario:
+
+```powershell
+docker compose -f docker/docker-compose.yml --profile maintenance run --build --rm --no-deps profile-avatar-tools
+# Solo conteos: avatares privados, referencias antiguas, fuentes compartidas y huérfanos.
+docker compose -f docker/docker-compose.yml --profile maintenance run --rm --no-deps -v "${PWD}/reviewed-avatar-manifests:/reviewed:ro" profile-avatar-tools python -m app.maintenance.avatars import --legacy-dir /legacy-avatars --manifest /reviewed/import.json
+# Revisar conteos antes de repetir con --apply; sin él no modifica datos.
+```
+
+Cada entrada de `import.json` contiene `user_id` entero, `expected_version` positiva, `source` (32 hex minúsculos + extensión jpg/jpeg/png/webp), `sha256` (64 hex) y `legacy_url` exacta actual. La ruta URL debe corresponder a `/static/{source}`, sin credenciales/query/fragmento; no se accede a su host. Máximo 100 dueños y fuentes distintos por lote, manifest 64 KiB. Se abren directorios por descriptores sin seguir enlaces de ningún componente; solo archivos regulares con un enlace y tamaño acotado, sin traversal, hardlinks ni FIFO. La lectura está vinculada al descriptor, no a comprobaciones de ruta seguidas de una reapertura. Checksum y normalización de todo el lote preceden a las escrituras. Cada actualización exige dueño activo, versión, URL exacta y ausencia de avatar privado; los no elegibles se omiten y se cuentan. Un fallo revierte las escrituras del lote. La herramienta nunca elimina fuentes.
+
+### Retirar bytes de perfiles sin identidad
+
+Inventaría primero, revisa backup y retención, y prepara `prune.json` con IDs/versiones de perfiles realmente huérfanos. Usa el mismo comando sustituyendo `import` por `prune` y el manifest correspondiente. Sin `--apply` solo cuenta; con él retira avatar/URL e incrementa versión, preservando contacto/metadata. No actúa sobre cuentas existentes, incluidas inactivas, ni versiones cambiadas. No ejecutarlo durante restauraciones administrativas de identidades. La integridad referencial general sigue en PLAT-001. Los archivos históricos requieren una decisión de retención independiente; no hay borrado masivo.
+
+### Sonda HTTP de avatar con Auth real
+
+Sin marcador, `verify_auth_contract.py` mantiene la sonda de lectura. Para probar también carga, reemplazo, lectura y borrado, CI genera un nonce `PROFILE_PROBE_MARKER` de 32 hex, lo pasa al contenedor Auth y ejecuta siempre [cleanup_probe.sql](../../scripts/profile/cleanup_probe.sql) en un `finally`/trap con `psql -v probe_marker=NONCE`. El SQL solo elimina perfiles sintéticos con ese marcador y sin usuario Auth, y falla si queda alguno. No reutilizar el marcador ni omitir esa limpieza. Las identidades se retiran primero en el finally del script. No se imprimen cuerpos personales ni tokens.
+
+La suite permanente cubre aislamiento incluso con roles administrativos, límites/códecs/metadata, conflictos entre conexiones, fallo de commit y recuperación tras reinicio, esquema repetido y constraint, confinamiento e importación dry-run/aplicada y retirada de huérfanos. Frontend prueba contrato multipart/DELETE, rechazo de URL externa, aborto de respuestas tardías y revocación de object URLs. La revisión completa de navegador y el escaneo de SO permanecen en PROFILE-006/007.
 
 ## Diagnóstico PROFILE-001
 

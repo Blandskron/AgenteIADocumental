@@ -1,5 +1,5 @@
 from sqlalchemy.orm import Session
-from sqlalchemy import update
+from sqlalchemy import select, update
 from sqlalchemy.dialects.postgresql import insert
 
 from app.infrastructure.database.models import UserProfileModel
@@ -17,6 +17,16 @@ class UserProfileRepositoryPg:
 
     def get_own(self) -> UserProfileModel | None:
         return self._session.query(UserProfileModel).filter(UserProfileModel.user_id == self._owner_id).first()
+
+    def read_avatar(self, version: int | None = None) -> bytes | None:
+        query = select(UserProfileModel.avatar_data).where(
+            UserProfileModel.user_id == self._owner_id, UserProfileModel.avatar_ready.is_(True),
+        )
+        if version is not None:
+            query = query.where(UserProfileModel.version == version)
+        content = self._session.scalar(query)
+        self._session.commit()  # Release the Auth share lock before sending image bytes.
+        return content
 
     def create_or_update(
         self,
