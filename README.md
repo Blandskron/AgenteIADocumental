@@ -11,6 +11,8 @@ Pregunta → búsqueda con permisos → contexto → Groq → respuesta y PDF
 
 Google Drive es una integración opcional que requiere configurar OAuth. Para la demo basta con un archivo de texto o PDF sintético.
 
+El perfil se guarda con control de versión: si otra sesión lo modificó, conserva tu formulario y ofrece recargar el perfil antes de guardar de nuevo. La actualización a esta versión requiere aplicar el esquema y reconstruir la web junto al servicio. [Actualizar Profile](backend/ProfileServices/README.md#actualizar-una-instalación-existente).
+
 Las vistas de asignaciones, gestión y notificaciones cargan 50 registros por página. Usa **Cargar más** para consultar los siguientes. Los contadores de estas vistas indican registros cargados.
 
 La biblioteca también carga por páginas de 50 las carpetas raíz, su contenido, favoritos y documentos actualizados recientemente. Usa **Cargar más** y **Actualizar biblioteca** para volver a las primeras páginas. Los contadores indican registros cargados; la cantidad de documentos de cada carpeta incluye todos los visibles. La web navega raíces y su contenido; la jerarquía completa está disponible en la API.

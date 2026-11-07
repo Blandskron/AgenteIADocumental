@@ -48,6 +48,7 @@ services:
       PGPASSWORD: admin1234
     volumes:
       - ../../scripts/profile:/profile-checks:ro
+      - ../../scripts/database/profile:/profile-db:ro
     depends_on:
       database-schema:
         condition: service_completed_successfully

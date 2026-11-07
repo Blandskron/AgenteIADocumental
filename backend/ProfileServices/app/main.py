@@ -4,13 +4,16 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
+from fastapi.exceptions import RequestValidationError
+from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 
 from app.config.logging import configure_logging
 from app.config.readiness import check_dependencies
 from app.config.settings import Settings, get_settings
 from app.infrastructure.database.connection import Database
 from app.interfaces.api.router import api_router
-from app.shared.errors import AppError, NotFoundError, ValidationError
+from app.interfaces.api.body_limit import ProfileBodyLimit
+from app.shared.errors import AppError, ConflictError, NotFoundError, ValidationError
 
 
 def create_app(settings: Settings | None = None) -> FastAPI:
@@ -35,6 +38,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app = FastAPI(title=settings.app_name, version="0.1.0", lifespan=lifespan)
     app.state.database = database
     app.dependency_overrides[get_settings] = lambda: settings
+    app.add_middleware(ProfileBodyLimit)
     app.add_middleware(
         CORSMiddleware, allow_origins=settings.cors_origins, allow_credentials=False,
         allow_methods=["*"], allow_headers=["*"], expose_headers=["Content-Disposition"],
@@ -44,6 +48,10 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.add_exception_handler(NotFoundError, not_found_handler)
     app.add_exception_handler(ValidationError, validation_handler)
     app.add_exception_handler(AppError, app_error_handler)
+    app.add_exception_handler(ConflictError, conflict_handler)
+    app.add_exception_handler(RequestValidationError, invalid_request_handler)
+    app.add_exception_handler(IntegrityError, integrity_error_handler)
+    app.add_exception_handler(SQLAlchemyError, database_error_handler)
     return app
 
 
@@ -56,4 +64,23 @@ async def validation_handler(request: Request, exc: ValidationError) -> JSONResp
 
 
 async def app_error_handler(request: Request, exc: AppError) -> JSONResponse:
-    return JSONResponse(status_code=500, content={"detail": str(exc)})
+    return JSONResponse(status_code=500, content={"detail": "Profile operation failed."})
+
+
+async def conflict_handler(request: Request, exc: ConflictError) -> JSONResponse:
+    return JSONResponse(status_code=409, content={"detail": "Profile changed. Reload it before saving again."})
+
+
+async def invalid_request_handler(request: Request, exc: RequestValidationError) -> JSONResponse:
+    allowed = {"body", "query", "path", "expected_version", "email", "phone_number", "profile_picture_url", "additional_info", "file"}
+    errors = [{"loc": [part if type(part) is int or part in allowed else "field" for part in error["loc"]],
+               "msg": "Invalid profile value.", "type": error["type"]} for error in exc.errors()]
+    return JSONResponse(status_code=422, content={"detail": errors})
+
+
+async def integrity_error_handler(request: Request, exc: IntegrityError) -> JSONResponse:
+    return JSONResponse(status_code=409, content={"detail": "Profile write conflicts with persisted data."})
+
+
+async def database_error_handler(request: Request, exc: SQLAlchemyError) -> JSONResponse:
+    return JSONResponse(status_code=503, content={"detail": "Profile persistence is unavailable."})

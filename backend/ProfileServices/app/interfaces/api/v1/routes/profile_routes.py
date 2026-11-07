@@ -25,6 +25,7 @@ def _build_response(profile, current_user: ProfileUser) -> ProfileResponse:
         permissions=current_user.permissions,
         created_at=profile.created_at,
         updated_at=profile.updated_at,
+        version=profile.version,
     )
 
 
@@ -44,10 +45,8 @@ def update_own_profile(
     use_case: ManageProfile = Depends(get_profile_use_case),
 ):
     profile = use_case.update_profile(
-        email=payload.email,
-        phone_number=payload.phone_number,
-        profile_picture_url=payload.profile_picture_url,
-        additional_info=payload.additional_info,
+        expected_version=payload.expected_version,
+        changes=payload.model_dump(exclude_unset=True, exclude={"expected_version"}),
     )
     return _build_response(profile, current_user)
 

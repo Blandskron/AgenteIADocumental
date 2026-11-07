@@ -2,7 +2,7 @@
 
 Servicio FastAPI de perfil y avatar de Blandskron Documental, publicado localmente en `http://localhost:8015`. AuthServices administra identidad, credenciales y membresías; Profile guarda datos de contacto y presentación en `user_profiles` y archivos en `uploads/profile`.
 
-**Estado:** PROFILE-001 y PROFILE-002 integrados en PR #59/#60. PROFILE-003 valida la identidad vigente y limita los datos del perfil a su dueño; retira las rutas globales y por ID. Los límites/consistencia de escritura y el ciclo privado del avatar siguen en PROFILE-004 a PROFILE-006; el rol DB acotado y usuario de contenedor en PROFILE-007. El [diagnóstico histórico](#diagnóstico-profile-001) describe la línea base, no las garantías actuales. El estado vive en el [tablero](../../ROADMAP.md#profileservices).
+**Estado:** PROFILE-001 a PROFILE-003 integrados en PR #59/#60/#61. PROFILE-004 acota escrituras y exige una versión para impedir sobrescrituras entre sesiones. El ciclo privado del avatar y la revisión web completa siguen en PROFILE-005/006; el rol DB acotado y usuario de contenedor en PROFILE-007. El [diagnóstico histórico](#diagnóstico-profile-001) describe la línea base, no las garantías actuales. El estado vive en el [tablero](../../ROADMAP.md#profileservices).
 
 ## Mapa para trabajar
 
@@ -15,6 +15,7 @@ Servicio FastAPI de perfil y avatar de Blandskron Documental, publicado localmen
 | `app/domain/entities.py` | Entidad de perfil |
 | `app/infrastructure/database/` | SQLAlchemy, sesiones y repositorio PostgreSQL |
 | [Esquema](../../scripts/database/schemas/008_profiles.sql) y [triggers](../../scripts/database/triggers/001_updated_at_triggers.sql) | PK generada, `user_id` único, metadata JSONB y `updated_at` |
+| [Versiones](../../scripts/database/profile/versions.sql) y [preflight](../../scripts/database/profile/audit_profiles.sql) | Migración aditiva/repetible y conteos de datos heredados sin exponer valores |
 | [Compose](../../docker/compose/profile.yml) | Puerto, clave pública de Auth y volumen de avatares |
 | [Cliente web](../../frontend/src/features/profile/api/profile.api.js), [hook](../../frontend/src/features/profile/hooks/useProfile.js) y [página](../../frontend/src/pages/ProfilePage/ProfilePage.jsx) | Consulta/actualización propia, upload y cambio de contraseña vía Auth |
 | [AuthProvider](../../frontend/src/app/providers/AuthProvider.jsx) y [Sidebar](../../frontend/src/widgets/Sidebar/Sidebar.jsx) | Perfil global y avatar |
@@ -27,8 +28,8 @@ Servicio FastAPI de perfil y avatar de Blandskron Documental, publicado localmen
 | --- | --- | --- |
 | GET | `/api/v1/health` | Público; devuelve `status: ok`, sin comprobar dependencias |
 | GET | `/api/v1/health/db` | Público; comprueba tablas de perfil/identidad, clave pública y escritura temporal en storage; 503 genérico si fallan |
-| GET | `/api/v1/profile` | Perfil propio o entidad vacía con ID y timestamps nulos; consultar no inserta |
-| PUT | `/api/v1/profile` | Crea o actualiza perfil propio |
+| GET | `/api/v1/profile` | Perfil propio y versión; entidad vacía con versión 0 si no existe; consultar no inserta |
+| PUT | `/api/v1/profile` | Creación/actualización parcial condicionada por `expected_version` |
 | POST | `/api/v1/profile/upload` | JWT access; verifica imagen, guarda archivo y devuelve `{ "url": "..." }` |
 | GET | `/static/{filename}` | Archivo público, sin JWT ni comprobación de propiedad |
 
@@ -36,13 +37,35 @@ Las tres operaciones requieren Bearer access RS256 y cuenta vigente. `user_id` d
 
 Cada petición autenticada consulta si `public.auth_user` contiene ese ID activo y si `upper(md5(password))` coincide con `hash_password`, como `CHECK_REVOKE_TOKEN` de SimpleJWT en Auth. La expresión opera sobre la contraseña **ya codificada por Django** y reproduce su huella de revocación; no reemplaza el algoritmo de contraseña por MD5. La consulta devuelve solo un booleano, nunca la contraseña codificada. Una cuenta inexistente/inactiva/eliminada o contraseña cambiada devuelve 401 genérico con `WWW-Authenticate: Bearer`; un fallo de consulta devuelve 503 sin detalles internos.
 
-El repositorio queda ligado al dueño autenticado al construirse: consultas y escrituras no reciben un ID de destino del cliente ni disponen de listado global. Ser superadmin, staff o administrador de tenant no amplía ese alcance. El chequeo de vigencia ocurre al autenticar la petición; no promete serializar una escritura frente a cambios simultáneos de Auth (consistencia/concurrencia en PROFILE-004 y PLAT-001).
+El repositorio queda ligado al dueño autenticado al construirse: consultas y escrituras no reciben un ID de destino del cliente ni disponen de listado global. Ser superadmin, staff o administrador de tenant no amplía ese alcance. La consulta de vigencia usa `FOR SHARE` sobre la fila de Auth hasta el commit/cierre de sesión: un cambio de contraseña, desactivación o eliminación concurrente espera la operación ya autorizada. Si ese cambio estaba en curso primero, la comprobación espera y reevalúa el estado antes de autorizar. Los timeouts cierran el acceso con 503. Las relaciones históricas y restricciones compartidas permanecen en PLAT-001; la función booleana y permisos mínimos de este lock se completan en PROFILE-007.
 
 **Transición de contrato:** se retiran `GET /api/v1/profiles`, `GET /api/v1/profiles/{user_id}` y `PUT /api/v1/profiles/{user_id}`. Devuelven 404 y no figuran en OpenAPI, incluso para el propio ID o administradores. La búsqueda de consumidores no encontró usos en la web; las integraciones externas deben usar `/api/v1/profile` con la sesión del dueño. Los tokens anteriores sin los claims requeridos se rechazan; renueva la sesión en Auth. No se migran ni borran perfiles históricos: registros asociados a username o IDs no canónicos requerirán inventario y reparación explícita en PROFILE-004.
 
-PUT admite `email`, `phone_number`, `profile_picture_url` y `additional_info`. Los tres primeros son cadenas libres; la metadata es un objeto JSON libre. Los campos desconocidos se ignoran. En un registro existente, omitir un campo o enviar `null` conserva el valor; una cadena vacía sí lo reemplaza. La metadata enviada sustituye el objeto completo. Es una actualización parcial pese al verbo PUT.
+### Escrituras, límites y conflictos
 
-La respuesta contiene `profile_id`, `user_id`, esos cuatro campos y `created_at`/`updated_at`. Añade `groups` y `permissions` del JWT validado para mostrar el contexto de la sesión; no son una nueva fuente de autorización ni se refrescan desde membresías en Profile. Cambios de permisos se reflejan al renovar el token en Auth. No se devuelven huella, contraseña, jti ni otros internos del token. Este email no actualiza `auth_user.email`, las credenciales ni los claims de Auth.
+PUT mantiene la actualización parcial, con `expected_version` obligatorio y al menos un campo editable. GET devuelve `version: 0` cuando aún no hay fila y una versión positiva en registros persistidos. Las respuestas funcionales usan Cache-Control: no-store para evitar versiones personales cacheadas. Envía esa versión en el siguiente guardado; la respuesta aprobada devuelve la nueva. La creación usa INSERT con conflicto controlado sobre `user_id`; una actualización modifica solo la fila del dueño con la versión esperada, incrementándola. Dos peticiones con la misma versión producen un éxito y un 409; no se reintenta una sobrescritura automáticamente.
+
+| Campo | Validación de entrada |
+| --- | --- |
+| `expected_version` | Entero estricto entre 0 y 2⁶³−2; 0 solo crea si la fila no existe |
+| `email` | Email de contacto, hasta 254 caracteres, validado/normalizado por email-validator sin consultas de entregabilidad |
+| `phone_number` | Hasta 32 caracteres; dígitos y separadores `+ ()-.x#`, al menos tres dígitos; no certifica país o existencia del número |
+| `profile_picture_url` | Hasta 2048 caracteres; HTTP(S) sin credenciales/fragmento. Aún permite URL externa hasta PROFILE-005; el servidor no la descarga |
+| `additional_info` | Objeto JSON de hasta 16 KiB serializado UTF-8, profundidad 4 desde su raíz, 256 nodos totales, 64 claves por objeto y claves de 1–64 caracteres sin controles. Strings hasta 2048, sin NUL ni codificación inválida; números finitos |
+
+Los campos de presentación dentro de metadata deben ser cadenas: `full_name`, `location`, `position` y `department` hasta 120 caracteres; `bio` hasta 2000 y `preferred_language` hasta 16. Otros campos JSON pueden conservarse dentro de los límites. No se aceptan campos superiores desconocidos, incluyendo `user_id`, `version`, roles o permisos. El JSON completo de PUT está limitado a 65536 bytes reales, incluso sin Content-Length o por chunks; hasta 16 niveles y 2048 nodos antes de validar el esquema. Esto no impone todavía el límite multipart del avatar.
+
+Omitir un campo conserva su valor. `null` borra email/teléfono/URL; `""` o espacios se normalizan a null. `additional_info: null` o `{}` vacían metadata, y un objeto enviado la reemplaza completa. Por ejemplo, tras leer versión 3:
+
+```json
+{"expected_version":3,"phone_number":null,"additional_info":{"full_name":"Persona sintética"}}
+```
+
+Un éxito devuelve versión 4 y conserva email/URL omitidos. La web envía la versión leída, conserva el formulario ante conflicto y permite **Descartar cambios y recargar perfil** mediante acción explícita. El cliente HTTP no reintenta un 409. La revisión completa de edición durante renovación de JWT, upload y estados de sesión sigue en PROFILE-006.
+
+Respuestas de error: 400 para JSON inválido o estructura general excesiva, 413 para cuerpo mayor al límite, 422 para campos/esquema inválidos, 409 para versión obsoleta o conflicto de integridad y 503 para persistencia no disponible. Las respuestas no reflejan valores, nombres de campos desconocidos, consultas, parámetros SQL ni contexto de validación. Los timeouts y fallos revierten la transacción; el trigger existente conserva `updated_at`, y la versión evita depender de su precisión como condición de concurrencia.
+
+La respuesta contiene `profile_id`, `user_id`, `version`, los cuatro campos editables y `created_at`/`updated_at`. Añade `groups` y `permissions` del JWT validado para mostrar el contexto de la sesión; no son una nueva fuente de autorización ni se refrescan desde membresías en Profile. Cambios de permisos se reflejan al renovar el token en Auth. No se devuelven huella, contraseña, jti ni otros internos del token. Este email no actualiza `auth_user.email`, las credenciales ni los claims de Auth.
 
 La revocación aquí cubre cambio de contraseña y estado/existencia de cuenta. El logout de Auth invalida el refresh; un access ya emitido puede seguir válido hasta su expiración (10 minutos según Auth), salvo cambio de contraseña o cuenta. No se afirma revocación instantánea de access por logout.
 
@@ -78,6 +101,26 @@ La imagen de ejecución sigue como root sobre `python:3.12-slim`; el rol y los p
 
 Para ejecución fuera de Docker, declara `DATABASE_URL`, `AUTH_JWT_PUBLIC_KEY_PATH` y `PROFILE_UPLOADS_DIR` (rutas absolutas), instala `requirements.txt` en un entorno virtual y desde este directorio ejecuta `uvicorn app.main:create_app --factory --port 8015`. La contraseña de DB puede suministrarse por `PGPASSWORD`. No cargar un `.env` global dentro de la aplicación.
 
+### Actualizar una instalación existente
+
+La aplicación y la web deben actualizarse juntas: los clientes anteriores que no envían `expected_version` reciben 422. En una instancia local existente, aplica el esquema antes de arrancar la imagen nueva; un job `database-schema` ya completado no vuelve a ejecutarse por cambiar un archivo montado:
+
+```powershell
+docker compose -f docker/docker-compose.yml stop profile-service
+docker compose -f docker/docker-compose.yml up -d --wait postgres
+docker compose -f docker/docker-compose.yml run --rm --no-deps database-schema
+docker compose -f docker/docker-compose.yml up -d --build --wait profile-service
+# Reconstruye/publica también el frontend de esta misma revisión.
+```
+
+`run_all.sql` es el punto de entrada: ejecuta el preflight antes de la migración y añade `version` con valor 1 a filas existentes, sin cambiar dueño ni campos editables. La migración y su constraint positivo son repetibles; una columna de versión incompatible o valores inválidos detienen el cambio con un error genérico que requiere reparación explícita. El preflight muestra solo conteos de IDs no canónicos, identidades sin correspondencia y metadata no objeto; no vuelca valores ni borra/reasigna filas. En una instalación nueva puede indicar que Auth aún no está migrado; vuelve a consultar el inventario tras inicializar Auth:
+
+```powershell
+Get-Content -Raw scripts/database/profile/audit_profiles.sql | docker compose -f docker/docker-compose.yml exec -T postgres psql -U postgres -d documents_db -v ON_ERROR_STOP=1
+```
+
+Los datos que no cumplan los contratos nuevos permanecen conservados y requieren reparación explícita; la integridad compartida de identidades queda en PLAT-001. No se agrega una FK que dependa de Auth antes de sus migraciones ni se convierte un username histórico en otro dueño.
+
 ## Pruebas y auditoría
 
 Desde la raíz, con PostgreSQL/esquema inicializados por Compose:
@@ -110,7 +153,11 @@ El script solo admite `AUTH_ENV=development`. Crea tres identidades y un tenant 
 
 Las regresiones PostgreSQL usan JWT sintéticos compatibles con Auth, usuarios efímeros y rollback; verifican también que no queden identidades ni perfiles propios de la prueba. Las consultas de identidad que fallen se cierran con 503, sin permitir la operación del perfil. Estos checks no sustituyen las pruebas de concurrencia ni de avatar de las tarjetas siguientes.
 
+PROFILE-004 añade pruebas con conexiones independientes y esperas de lock observadas en PostgreSQL, creación/update concurrentes y revalidación de cuenta tras revocaciones en ambos órdenes. Esos escenarios crean registros sintéticos confirmados mediante commit entre conexiones y los eliminan/verifican al terminar; no usan rollback como sustituto de visibilidad entre sesiones. Una tabla temporal con esquema anterior verifica preflight, conservación de valores y segunda ejecución de la migración. Se mantienen pendientes las pruebas de ciclo de avatar de PROFILE-005.
+
 Evidencia local de PROFILE-003: **112 pruebas aprobadas**, Ruff sobre app/tests/script, pip check, Compose y enlaces aprobados; auditoría runtime sin avisos conocidos. El contrato HTTP real de arriba pasó con usuario normal, tenant admin y superadmin, login y refresh, cambio de contraseña, cuenta inactiva/eliminada y limpieza verificada. Se conservaron los datos existentes y se usó el volumen sintético de Profile; el estado de CI y la revisión se registran en el PR.
+
+Evidencia local de PROFILE-004 (7 de noviembre de 2026): **170 pruebas backend y 64 frontend aprobadas**, npm ci/test/build, Ruff, pip check y auditoría runtime sin avisos conocidos. Se validó la instalación local con volúmenes nuevos, el esquema anterior en tabla temporal y el contrato HTTP real con Auth (incluye versión 0, 422 sin versión y 409 sin escritura). Tras la limpieza, el preflight del entorno sintético informa cero IDs no canónicos, cero metadata no objeto y cero perfiles sin identidad. El directorio real de avatares no se montó. Persisten las cuatro alertas altas npm de WEB-001 y la advertencia TestClient httpx/httpx2; no se ha ejecutado aún la revisión integral de navegador ni el escaneo de SO de PROFILE-007. CI/revisión se registran en el PR.
 
 ## Diagnóstico PROFILE-001
 

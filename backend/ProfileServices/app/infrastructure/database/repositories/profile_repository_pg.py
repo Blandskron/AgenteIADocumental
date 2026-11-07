@@ -1,6 +1,9 @@
 from sqlalchemy.orm import Session
+from sqlalchemy import update
+from sqlalchemy.dialects.postgresql import insert
 
 from app.infrastructure.database.models import UserProfileModel
+from app.shared.errors import ConflictError
 
 
 class UserProfileRepositoryPg:
@@ -17,31 +20,22 @@ class UserProfileRepositoryPg:
 
     def create_or_update(
         self,
-        email: str | None = None,
-        phone_number: str | None = None,
-        profile_picture_url: str | None = None,
-        additional_info: dict | None = None,
+        expected_version: int,
+        changes: dict,
     ) -> UserProfileModel:
-        profile = self.get_own()
-        if profile is None:
-            profile = UserProfileModel(
-                user_id=self._owner_id,
-                email=email,
-                phone_number=phone_number,
-                profile_picture_url=profile_picture_url,
-                additional_info=additional_info or {},
+        if "additional_info" in changes and changes["additional_info"] is None:
+            changes = {**changes, "additional_info": {}}
+        if expected_version == 0:
+            statement = insert(UserProfileModel).values(user_id=self._owner_id, **changes).on_conflict_do_nothing(
+                index_elements=[UserProfileModel.user_id],
             )
-            self._session.add(profile)
         else:
-            if email is not None:
-                profile.email = email
-            if phone_number is not None:
-                profile.phone_number = phone_number
-            if profile_picture_url is not None:
-                profile.profile_picture_url = profile_picture_url
-            if additional_info is not None:
-                profile.additional_info = additional_info
-
+            statement = update(UserProfileModel).where(
+                UserProfileModel.user_id == self._owner_id, UserProfileModel.version == expected_version,
+            ).values(**changes, version=UserProfileModel.version + 1)
+        profile = self._session.scalars(statement.returning(UserProfileModel),
+                                        execution_options={"populate_existing": True}).first()
+        if profile is None:
+            raise ConflictError("Profile changed. Reload it before saving again.")
         self._session.commit()
-        self._session.refresh(profile)
         return profile

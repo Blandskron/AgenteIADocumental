@@ -68,6 +68,8 @@ export function ProfilePage({ onNavigate }) {
     saveSuccess,
     save,
     clearSuccess,
+    isConflict,
+    reload,
   } = useProfile(profileClient, (updatedData) => {
     // Callback: update the global auth context profile state
     setGlobalProfile(updatedData);
@@ -76,17 +78,18 @@ export function ProfilePage({ onNavigate }) {
   // Populate local form fields when backend profile is loaded
   useEffect(() => {
     if (profile) {
-      setEmail(profile.email || currentUser?.email || "");
+      setEmail(profile.profile_id ? (profile.email ?? "") : (currentUser?.email || ""));
       setPhoneNumber(profile.phone_number || "");
       setProfilePictureUrl(profile.profile_picture_url || "");
       
       const extra = profile.additional_info || {};
-      setFullName(extra.full_name || currentUser?.displayName || "");
-      setLocation(extra.location || "");
-      setPosition(extra.position || "");
-      setDepartment(extra.department || "");
-      setPreferredLanguage(extra.preferred_language || "es");
-      setBio(extra.bio || "");
+      const textField = (name, fallback = "") => typeof extra[name] === "string" ? extra[name] : fallback;
+      setFullName(textField("full_name", currentUser?.displayName || ""));
+      setLocation(textField("location"));
+      setPosition(textField("position"));
+      setDepartment(textField("department"));
+      setPreferredLanguage(textField("preferred_language", "es"));
+      setBio(textField("bio"));
     }
   }, [profile, currentUser]);
 
@@ -291,10 +294,11 @@ export function ProfilePage({ onNavigate }) {
               </button>
             </div>
 
-            {isLoading ? (
+            {isLoading || !profile ? (
               <div className="profile-loader-box">
-                <Loader2 className="animate-spin" size={32} />
-                <p>Cargando información del perfil...</p>
+                {isLoading && <Loader2 className="animate-spin" size={32} />}
+                <p role={error ? "alert" : undefined}>{error || "Cargando información del perfil..."}</p>
+                {error && <button type="button" onClick={reload} disabled={!profileClient}>Volver a cargar perfil</button>}
               </div>
             ) : (
               <div className="profile-tab-content">
@@ -311,6 +315,11 @@ export function ProfilePage({ onNavigate }) {
                         <div className="alert-message alert-error">
                           <AlertCircle size={18} />
                           <span>{error}</span>
+                          {isConflict && (
+                            <button type="button" onClick={reload} disabled={isSaving}>
+                              Descartar cambios y recargar perfil
+                            </button>
+                          )}
                         </div>
                       )}
 
@@ -373,7 +382,7 @@ export function ProfilePage({ onNavigate }) {
                             <div className="input-with-icon">
                               <User size={16} className="input-icon" />
                               <input 
-                                id="fullName"
+                                id="fullName" maxLength={120}
                                 type="text" 
                                 className="profile-input" 
                                 value={fullName}
@@ -393,7 +402,7 @@ export function ProfilePage({ onNavigate }) {
                             <div className="input-with-icon">
                               <Mail size={16} className="input-icon" />
                               <input 
-                                id="email"
+                                id="email" maxLength={254}
                                 type="email" 
                                 className="profile-input" 
                                 value={email}
@@ -408,7 +417,7 @@ export function ProfilePage({ onNavigate }) {
                               <div className="input-with-icon">
                                 <Phone size={16} className="input-icon" />
                                 <input 
-                                  id="phone"
+                                  id="phone" maxLength={32}
                                   type="text" 
                                   className="profile-input" 
                                   value={phoneNumber}
@@ -427,7 +436,7 @@ export function ProfilePage({ onNavigate }) {
                               <div className="input-with-icon">
                                 <MapPin size={16} className="input-icon" />
                                 <input 
-                                  id="location"
+                                  id="location" maxLength={120}
                                   type="text" 
                                   className="profile-input" 
                                   value={location}
@@ -448,7 +457,7 @@ export function ProfilePage({ onNavigate }) {
                               <div className="input-with-icon">
                                 <Briefcase size={16} className="input-icon" />
                                 <input 
-                                  id="position"
+                                  id="position" maxLength={120}
                                   type="text" 
                                   className="profile-input" 
                                   value={position}
@@ -467,7 +476,7 @@ export function ProfilePage({ onNavigate }) {
                               <div className="input-with-icon">
                                 <Building size={16} className="input-icon" />
                                 <input 
-                                  id="department"
+                                  id="department" maxLength={120}
                                   type="text" 
                                   className="profile-input" 
                                   value={department}
@@ -487,7 +496,7 @@ export function ProfilePage({ onNavigate }) {
                             <div className="input-with-icon">
                               <ImageIcon size={16} className="input-icon" />
                               <input 
-                                id="avatar-url"
+                                id="avatar-url" maxLength={2048}
                                 type="url" 
                                 className="profile-input" 
                                 value={profilePictureUrl}
@@ -525,7 +534,7 @@ export function ProfilePage({ onNavigate }) {
                           <div className="profile-form-group">
                             <label htmlFor="bio">Biografía / Acerca de mí</label>
                             <textarea 
-                              id="bio"
+                              id="bio" maxLength={2000}
                               className="profile-textarea" 
                               value={bio}
                               onChange={(e) => {

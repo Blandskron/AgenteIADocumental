@@ -13,6 +13,7 @@ class UserProfile:
         profile_id: str | None = None,
         created_at: datetime | None = None,
         updated_at: datetime | None = None,
+        version: int = 0,
     ) -> None:
         self.profile_id = profile_id
         self.user_id = user_id
@@ -22,3 +23,4 @@ class UserProfile:
         self.additional_info = additional_info or {}
         self.created_at = created_at
         self.updated_at = updated_at
+        self.version = version

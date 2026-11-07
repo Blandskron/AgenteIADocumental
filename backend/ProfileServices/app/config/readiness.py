@@ -22,7 +22,7 @@ def check_storage(path: Path, *, prepare: bool = False) -> None:
 
 def check_dependencies(settings: Settings, session: Session, *, prepare: bool = False) -> None:
     read_public_key(settings.auth_jwt_public_key_path)
-    session.scalar(select(UserProfileModel.profile_id).limit(1))
+    session.scalar(select(UserProfileModel.profile_id, UserProfileModel.version).limit(1))
     session.execute(text("""
         SELECT 1 FROM public.auth_user
         WHERE FALSE AND id = 0 AND is_active IS TRUE AND upper(md5(password)) = ''

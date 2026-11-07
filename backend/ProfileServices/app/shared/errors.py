@@ -16,3 +16,7 @@ class ExternalServiceError(AppError):
 
 class DatabaseError(AppError):
     pass
+
+
+class ConflictError(AppError):
+    pass

@@ -99,14 +99,15 @@ def test_two_owners_cannot_cross_read_or_write(client, db_session, profile_id, o
         claims = {"tenant_memberships": [{"tenant_id": "synthetic", "role": "TENANT_ADMIN"}]}
     owner = token_headers(**claims)
     other = token_headers(user_id=int(other_id))
-    assert client.put("/api/v1/profile", headers=other, json={"email": "other@example.invalid"}).status_code == 200
-    assert client.put("/api/v1/profile", headers=owner, json={"email": "owner@example.invalid", "user_id": other_id}).status_code == 200
-    assert client.get("/api/v1/profile", headers=owner).json()["email"] == "owner@example.invalid"
-    assert client.get("/api/v1/profile", headers=other).json()["email"] == "other@example.invalid"
+    assert client.put("/api/v1/profile", headers=other, json={"expected_version": 0, "email": "other@example.com"}).status_code == 200
+    assert client.put("/api/v1/profile", headers=owner, json={"expected_version": 0, "email": "owner@example.com", "user_id": other_id}).status_code == 422
+    assert client.put("/api/v1/profile", headers=owner, json={"expected_version": 0, "email": "owner@example.com"}).status_code == 200
+    assert client.get("/api/v1/profile", headers=owner).json()["email"] == "owner@example.com"
+    assert client.get("/api/v1/profile", headers=other).json()["email"] == "other@example.com"
     for path in ("/api/v1/profiles", "/api/v1/profiles/" + other_id, "/api/v1/profiles/" + profile_id):
         assert client.get(path, headers=owner).status_code == 404
-        assert client.put(path, headers=owner, json={"email": "forbidden@example.invalid"}).status_code == 404
-    assert client.get("/api/v1/profile", headers=other).json()["email"] == "other@example.invalid"
+        assert client.put(path, headers=owner, json={"email": "forbidden@example.com"}).status_code == 404
+    assert client.get("/api/v1/profile", headers=other).json()["email"] == "other@example.com"
     # Profile must not update the identity source in Auth.
     assert db_session.scalar(text("SELECT email FROM auth_user WHERE id=:id"), {"id": int(profile_id)}) == ""
 

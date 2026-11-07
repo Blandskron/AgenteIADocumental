@@ -14,16 +14,11 @@ class ManageProfile:
 
     def update_profile(
         self,
-        email: str | None = None,
-        phone_number: str | None = None,
-        profile_picture_url: str | None = None,
-        additional_info: dict | None = None,
+        expected_version: int,
+        changes: dict,
     ) -> UserProfile:
         model = self._repository.create_or_update(
-            email=email,
-            phone_number=phone_number,
-            profile_picture_url=profile_picture_url,
-            additional_info=additional_info,
+            expected_version=expected_version, changes=changes,
         )
         return self._to_entity(model)
 
@@ -37,4 +32,5 @@ class ManageProfile:
             additional_info=model.additional_info,
             created_at=model.created_at,
             updated_at=model.updated_at,
+            version=model.version,
         )
