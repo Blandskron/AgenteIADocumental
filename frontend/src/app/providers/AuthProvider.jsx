@@ -1,13 +1,19 @@
-import { createContext, useContext, useEffect, useMemo, useState } from "react";
+import { createContext, useContext, useMemo, useRef } from "react";
 
 import { env } from "../config/env";
 import { createAuthorizedClient } from "../../shared/api/httpClient";
 import { useAuth } from "../../features/auth/hooks/useAuth";
+import { createProfileSessionClient } from "../../features/profile/api/session-client.js";
+import { useProfile } from "../../features/profile/hooks/useProfile.js";
 
 const AuthContext = createContext(null);
 
 export function AuthProvider({ children }) {
   const authState = useAuth();
+  const profileSessionKey = authState.auth?.access
+    ? JSON.stringify([authState.auth.sessionId, authState.currentUser?.id, authState.currentUser?.activeTenantId]) : null;
+  const session = useRef(null);
+  session.current = { ...authState, key: profileSessionKey };
 
   const chatClient = useMemo(
     () =>
@@ -108,57 +114,12 @@ export function AuthProvider({ children }) {
     [authState.auth?.access, authState.logout, authState.refreshAccessToken],
   );
 
-  const authClient = useMemo(
-    () =>
-      createAuthorizedClient({
-        baseUrl: env.authBaseUrl,
-        getAccessToken: () => authState.auth?.access,
-        refreshAccessToken: authState.refreshAccessToken,
-        onUnauthorized: authState.logout,
-      }),
-    [authState.auth?.access, authState.logout, authState.refreshAccessToken],
-  );
+  const authClient = useMemo(() => profileSessionKey
+    ? createProfileSessionClient(env.authBaseUrl, profileSessionKey, () => session.current) : null, [profileSessionKey]);
 
-  const profileClient = useMemo(
-    () =>
-      createAuthorizedClient({
-        baseUrl: env.profileBaseUrl,
-        getAccessToken: () => authState.auth?.access,
-        refreshAccessToken: authState.refreshAccessToken,
-        onUnauthorized: authState.logout,
-      }),
-    [authState.auth?.access, authState.logout, authState.refreshAccessToken],
-  );
-
-  const [profile, setProfile] = useState(null);
-  const [isProfileLoading, setIsProfileLoading] = useState(false);
-
-  useEffect(() => {
-    if (!authState.auth?.access) {
-      setProfile(null);
-      return;
-    }
-
-    let isMounted = true;
-    setIsProfileLoading(true);
-
-    profileClient("/api/v1/profile", { method: "GET" })
-      .then((data) => {
-        if (isMounted) {
-          setProfile(data);
-          setIsProfileLoading(false);
-        }
-      })
-      .catch(() => {
-        if (isMounted) {
-          setIsProfileLoading(false);
-        }
-      });
-
-    return () => {
-      isMounted = false;
-    };
-  }, [authState.auth?.access, profileClient]);
+  const profileClient = useMemo(() => profileSessionKey
+    ? createProfileSessionClient(env.profileBaseUrl, profileSessionKey, () => session.current) : null, [profileSessionKey]);
+  const { profile, acceptProfile: setProfile, isLoading: isProfileLoading } = useProfile(profileClient);
 
   const value = useMemo(
     () => ({
@@ -174,6 +135,7 @@ export function AuthProvider({ children }) {
       conversationClient,
       authClient,
       profileClient,
+      profileSessionKey,
       profile,
       setProfile,
       isProfileLoading,
@@ -191,7 +153,9 @@ export function AuthProvider({ children }) {
       conversationClient,
       authClient,
       profileClient,
+      profileSessionKey,
       profile,
+      setProfile,
       isProfileLoading,
     ],
   );

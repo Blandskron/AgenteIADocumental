@@ -105,9 +105,10 @@ export function listPermissions(apiClient) {
   );
 }
 
-export function changePassword(apiClient, oldPassword, newPassword) {
+export function changePassword(apiClient, oldPassword, newPassword, signal) {
   return apiClient("/api/users/change-password/", {
     method: "POST",
+    signal,
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       old_password: oldPassword,

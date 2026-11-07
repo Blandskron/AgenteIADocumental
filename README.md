@@ -11,7 +11,7 @@ Pregunta → búsqueda con permisos → contexto → Groq → respuesta y PDF
 
 Google Drive es una integración opcional que requiere configurar OAuth. Para la demo basta con un archivo de texto o PDF sintético.
 
-El perfil se guarda con control de versión: si otra sesión lo modificó, conserva tu formulario y ofrece recargar el perfil antes de guardar de nuevo. La actualización a esta versión requiere aplicar el esquema y reconstruir la web junto al servicio. [Actualizar Profile](backend/ProfileServices/README.md#actualizar-una-instalación-existente).
+El perfil se guarda con control de versión: si otra sesión lo modificó, conserva tu formulario y ofrece recargar el perfil antes de guardar de nuevo. Renovar la sesión o subir una foto conserva el borrador de contacto; cambiar de cuenta o tenant reinicia el editor. El correo de contacto se edita por separado de la identidad y los permisos se muestran para el tenant activo. La actualización requiere aplicar el esquema y reconstruir la web junto al servicio. [Actualizar Profile](backend/ProfileServices/README.md#actualizar-una-instalación-existente) y [pruebas web](backend/ProfileServices/README.md#sesión-y-edición-web-profile-006).
 
 Las vistas de asignaciones, gestión y notificaciones cargan 50 registros por página. Usa **Cargar más** para consultar los siguientes. Los contadores de estas vistas indican registros cargados.
 

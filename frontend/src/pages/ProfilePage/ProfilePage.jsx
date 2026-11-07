@@ -1,6 +1,5 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
-  ArrowLeft,
   Save,
   User,
   Mail,
@@ -15,9 +14,6 @@ import {
   MapPin,
   Briefcase,
   Building,
-  Info,
-  Check,
-  X,
   KeyRound
 } from "lucide-react";
 
@@ -28,15 +24,26 @@ import { Sidebar } from "../../widgets/Sidebar/Sidebar";
 import { useProfile } from "../../features/profile/hooks/useProfile";
 import { usePrivateAvatar } from "../../features/profile/hooks/usePrivateAvatar";
 import { changePassword } from "../../features/auth/api/user-management.api";
+import { ProfilePermissions } from "../../features/profile/components/ProfilePermissions";
 import "./ProfilePage.css";
 
-export function ProfilePage({ onNavigate }) {
+export function ProfilePage(props) {
+  const { profileSessionKey } = useAuthContext();
+  return <ProfileEditor key={profileSessionKey || "signed-out"} {...props} />;
+}
+
+function ProfileEditor({ onNavigate }) {
   const { currentUser, logout, profileClient, authClient, setProfile: setGlobalProfile } = useAuthContext();
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const passwordPending = useRef(false);
+  const passwordRequest = useRef(null);
+  const avatarInput = useRef(null);
+  const mounted = useRef(false);
+  useEffect(() => { mounted.current = true; return () => { mounted.current = false; passwordRequest.current?.abort(); }; }, []);
   const [activeTab, setActiveTab] = useState(() => {
     const requestedTab = sessionStorage.getItem("blandskron:profile-tab");
     sessionStorage.removeItem("blandskron:profile-tab");
-    return requestedTab || "personal";
+    return ["personal", "security", "permissions"].includes(requestedTab) ? requestedTab : "personal";
   }); // "personal" | "security" | "permissions"
 
   // Personal Info Form local state
@@ -81,7 +88,7 @@ export function ProfilePage({ onNavigate }) {
   useEffect(() => {
     if (formProfile) {
       const profile = formProfile;
-      setEmail(profile.profile_id ? (profile.email ?? "") : (currentUser?.email || ""));
+      setEmail(profile.email ?? "");
       setPhoneNumber(profile.phone_number || "");
 
       const extra = profile.additional_info || {};
@@ -93,7 +100,7 @@ export function ProfilePage({ onNavigate }) {
       setPreferredLanguage(textField("preferred_language", "es"));
       setBio(textField("bio"));
     }
-  }, [formProfile, currentUser]);
+  }, [formProfile]);
 
   // Compute initials for avatar preview fallback
   const initials = (fullName || currentUser?.displayName || currentUser?.username || "U")
@@ -110,6 +117,7 @@ export function ProfilePage({ onNavigate }) {
 
   async function handleFileUpload(e) {
     const file = e.target.files?.[0];
+    e.target.value = "";
     if (!file) return;
 
     if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) {
@@ -130,10 +138,9 @@ export function ProfilePage({ onNavigate }) {
 
       await uploadAvatar(file);
     } catch (err) {
-      console.error("Error al subir archivo:", err);
-      setUploadError(err.message || "Error al subir la imagen.");
+      if (mounted.current) setUploadError(err.message || "Error al subir la imagen.");
     } finally {
-      setUploadingFile(false);
+      if (mounted.current) setUploadingFile(false);
     }
   }
 
@@ -160,6 +167,7 @@ export function ProfilePage({ onNavigate }) {
 
   async function handlePasswordChange(e) {
     e.preventDefault();
+    if (passwordPending.current) return;
     setPasswordError("");
     setPasswordSuccess("");
 
@@ -179,66 +187,27 @@ export function ProfilePage({ onNavigate }) {
     }
 
     try {
+      passwordPending.current = true;
+      passwordRequest.current = new AbortController();
       setChangingPassword(true);
-      await changePassword(authClient, oldPassword, newPassword);
-      setPasswordSuccess("Contraseña actualizada exitosamente.");
+      await changePassword(authClient, oldPassword, newPassword, passwordRequest.current.signal);
+      if (!mounted.current) return;
+      setPasswordSuccess("Contraseña actualizada. Vuelve a iniciar sesión con la nueva contraseña.");
       setOldPassword("");
       setNewPassword("");
       setConfirmPassword("");
     } catch (err) {
-      console.error("Error al cambiar contraseña:", err);
-      setPasswordError(err.message || "No se pudo actualizar la contraseña. Verifica tu contraseña actual.");
+      if (mounted.current) setPasswordError(err.message || "No se pudo actualizar la contraseña. Verifica tu contraseña actual.");
     } finally {
-      setChangingPassword(false);
+      passwordPending.current = false;
+      passwordRequest.current = null;
+      if (mounted.current) setChangingPassword(false);
     }
   }
 
   function handleCancel() {
     onNavigate?.(appRoutes.chat);
   }
-
-  const permissionModules = [
-    {
-      id: "chat",
-      name: "Asistente y Chat IA",
-      description: "Consultas al bot inteligente, creación de prompts semánticos y bases de datos conversacionales.",
-      keywords: ["chat", "conversation", "ragchat"],
-    },
-    {
-      id: "documents",
-      name: "Gestión Documental",
-      description: "Carga masiva, procesamiento OCR, búsquedas vectoriales avanzadas y biblioteca central.",
-      keywords: ["document", "documentlibrary", "documentaccess", "document_library", "file"],
-    },
-    {
-      id: "users",
-      name: "Perfil y acceso",
-      description: "Datos de usuario, grupos de seguridad y permisos de acceso.",
-      keywords: ["user", "profile", "group", "permission"],
-    },
-  ];
-
-  const hasModulePermission = (keywords, action) => {
-    if (currentUser?.isSuperuser || currentUser?.isStaff || profile?.is_superuser) {
-      return true;
-    }
-
-    const perms = profile?.permissions || currentUser?.permissions || [];
-    if (perms.length === 0) return false;
-
-    let actionIdentifiers = [];
-    if (action === "view") actionIdentifiers = ["view", "read", "get"];
-    else if (action === "add") actionIdentifiers = ["add", "create", "post"];
-    else if (action === "change") actionIdentifiers = ["change", "edit", "update", "patch", "put"];
-    else if (action === "delete") actionIdentifiers = ["delete", "remove", "destroy"];
-
-    return perms.some((perm) => {
-      const lowerPerm = perm.toLowerCase();
-      const matchesKeyword = keywords.some((keyword) => lowerPerm.includes(keyword.toLowerCase()));
-      const matchesAction = actionIdentifiers.some((act) => lowerPerm.includes(act));
-      return matchesKeyword && matchesAction;
-    });
-  };
 
   return (
     <AppShell
@@ -263,10 +232,11 @@ export function ProfilePage({ onNavigate }) {
           </div>
           <div className="profile-layout-wrapper">
             {/* Tabs Navigation Bar */}
-            <div className="profile-tabs-nav">
+            <div className="profile-tabs-nav" role="group" aria-label="Secciones del perfil">
               <button
                 type="button"
                 className={`profile-tab-link ${activeTab === "personal" ? "active" : ""}`}
+                aria-pressed={activeTab === "personal"}
                 onClick={() => { setActiveTab("personal"); clearSuccess(); }}
               >
                 <User size={16} />
@@ -275,6 +245,7 @@ export function ProfilePage({ onNavigate }) {
               <button
                 type="button"
                 className={`profile-tab-link ${activeTab === "security" ? "active" : ""}`}
+                aria-pressed={activeTab === "security"}
                 onClick={() => { setActiveTab("security"); setPasswordError(""); setPasswordSuccess(""); }}
               >
                 <Lock size={16} />
@@ -283,6 +254,7 @@ export function ProfilePage({ onNavigate }) {
               <button
                 type="button"
                 className={`profile-tab-link ${activeTab === "permissions" ? "active" : ""}`}
+                aria-pressed={activeTab === "permissions"}
                 onClick={() => setActiveTab("permissions")}
               >
                 <Shield size={16} />
@@ -308,7 +280,7 @@ export function ProfilePage({ onNavigate }) {
                       </div>
 
                       {error && (
-                        <div className="alert-message alert-error">
+                        <div className="alert-message alert-error" role="alert">
                           <AlertCircle size={18} />
                           <span>{error}</span>
                           {isConflict && (
@@ -320,13 +292,13 @@ export function ProfilePage({ onNavigate }) {
                       )}
 
                       {saveSuccess && (
-                        <div className="alert-message alert-success">
+                        <div className="alert-message alert-success" role="status">
                           <CheckCircle2 size={18} />
                           <span>¡Perfil actualizado correctamente!</span>
                         </div>
                       )}
 
-                      <form onSubmit={handleSubmit} className="profile-form">
+                      <form onSubmit={handleSubmit} className="profile-form" aria-busy={isSaving}>
                         <div className="avatar-upload-block">
                           <div className="avatar-preview-outer">
                             {avatar.src ? (
@@ -344,7 +316,8 @@ export function ProfilePage({ onNavigate }) {
                             <h4>Foto de Perfil</h4>
                             <p>JPG, PNG o WebP sin animación; hasta 5 MiB. La foto se guarda al subirla y solo se muestra en tu sesión.</p>
                             <div className="avatar-upload-buttons">
-                              <label className="btn-file-upload">
+                              <button type="button" className="btn-file-upload" disabled={uploadingFile || isSaving}
+                                onClick={() => avatarInput.current?.click()}>
                                 {uploadingFile ? (
                                   <>
                                     <Loader2 className="animate-spin" size={14} />
@@ -356,14 +329,14 @@ export function ProfilePage({ onNavigate }) {
                                     Subir nueva imagen
                                   </>
                                 )}
-                                <input
+                              </button>
+                                <input ref={avatarInput} aria-label="Seleccionar foto de perfil"
                                   type="file"
                                   accept="image/jpeg,image/png,image/webp"
                                   style={{ display: "none" }}
                                   disabled={uploadingFile || isSaving}
                                   onChange={handleFileUpload}
                                 />
-                              </label>
                               <button type="button" onClick={removeAvatar} disabled={isSaving || uploadingFile || !profile?.profile_picture_url}>Quitar foto</button>
                               {(uploadError || avatar.error) && <span role="alert" className="upload-error-msg">{uploadError || avatar.error}</span>}
                             </div>
@@ -392,7 +365,7 @@ export function ProfilePage({ onNavigate }) {
                           </div>
 
                           <div className="profile-form-group">
-                            <label htmlFor="email">Correo Electrónico (No editable)</label>
+                            <label htmlFor="email">Correo de contacto</label>
                             <div className="input-with-icon">
                               <Mail size={16} className="input-icon" />
                               <input
@@ -400,9 +373,12 @@ export function ProfilePage({ onNavigate }) {
                                 type="email"
                                 className="profile-input"
                                 value={email}
-                                disabled
+                                onChange={(e) => { setEmail(e.target.value); clearSuccess(); }}
+                                disabled={isSaving}
+                                aria-describedby="contact-email-help"
                               />
                             </div>
+                            <p id="contact-email-help">No cambia tu usuario ni el correo de identidad: {currentUser?.email || "sin correo de identidad"}.</p>
                           </div>
 
                           <div className="profile-form-grid-2col">
@@ -565,16 +541,17 @@ export function ProfilePage({ onNavigate }) {
                       </div>
 
                       {passwordError && (
-                        <div className="alert-message alert-error">
+                        <div className="alert-message alert-error" role="alert">
                           <AlertCircle size={18} />
                           <span>{passwordError}</span>
                         </div>
                       )}
 
                       {passwordSuccess && (
-                        <div className="alert-message alert-success">
+                        <div className="alert-message alert-success" role="status">
                           <CheckCircle2 size={18} />
                           <span>{passwordSuccess}</span>
+                          <button type="button" onClick={logout}>Cerrar sesión para volver a ingresar</button>
                         </div>
                       )}
 
@@ -586,6 +563,7 @@ export function ProfilePage({ onNavigate }) {
                             <input
                               id="oldPassword"
                               type="password"
+                              autoComplete="current-password"
                               className="profile-input"
                               value={oldPassword}
                               onChange={(e) => setOldPassword(e.target.value)}
@@ -603,6 +581,7 @@ export function ProfilePage({ onNavigate }) {
                             <input
                               id="newPassword"
                               type="password"
+                              autoComplete="new-password"
                               className="profile-input"
                               value={newPassword}
                               onChange={(e) => setNewPassword(e.target.value)}
@@ -620,6 +599,7 @@ export function ProfilePage({ onNavigate }) {
                             <input
                               id="confirmPassword"
                               type="password"
+                              autoComplete="new-password"
                               className="profile-input"
                               value={confirmPassword}
                               onChange={(e) => setConfirmPassword(e.target.value)}
@@ -693,97 +673,7 @@ export function ProfilePage({ onNavigate }) {
 
                 {/* TAB 3: PERMISOS Y ACCESOS */}
                 {activeTab === "permissions" && (
-                  <div className="profile-tab-pane permissions-tab-pane">
-                    <div className="alert-message alert-info">
-                      <Info size={18} />
-                      <span>
-                        Los roles, grupos y permisos de acceso son de <strong>lectura exclusiva</strong>. Para solicitar modificaciones o accesos adicionales, ponte en contacto con el administrador de IT de tu organización.
-                      </span>
-                    </div>
-
-                    <div className="permissions-grid-container">
-                      {/* Groups Card */}
-                      <div className="profile-card groups-overview-card">
-                        <div className="profile-card-header">
-                          <h3>Grupos y Roles</h3>
-                          <p>Grupos organizacionales asignados a tu cuenta</p>
-                        </div>
-
-                        <div className="assigned-groups-tags">
-                          {profile?.groups && profile.groups.length > 0 ? (
-                            profile.groups.map((groupName, i) => (
-                              <span key={i} className="group-tag">
-                                {groupName}
-                              </span>
-                            ))
-                          ) : (
-                            <div className="empty-info-msg">
-                              No tienes grupos organizacionales específicos asignados.
-                            </div>
-                          )}
-                        </div>
-
-                        <div className="superuser-status-badge-container">
-                          {(currentUser?.isSuperuser || profile?.is_superuser) && (
-                            <div className="superuser-badge">
-                              <Shield size={16} />
-                              Superusuario del Sistema
-                            </div>
-                          )}
-                          {currentUser?.isStaff && (
-                            <div className="staff-badge">
-                              <Shield size={16} />
-                              Personal de Administración (Staff)
-                            </div>
-                          )}
-                        </div>
-                      </div>
-
-                      {/* Modular Matrix Card */}
-                      <div className="profile-card permissions-matrix-card">
-                        <div className="profile-card-header">
-                          <h3>Módulos del Sistema y Permisos</h3>
-                          <p>Verifica tu capacidad de lectura, escritura y borrado en cada módulo principal</p>
-                        </div>
-
-                        <div className="modules-permissions-list">
-                          {permissionModules.map((module) => {
-                            const readActive = hasModulePermission(module.keywords, "view");
-                            const createActive = hasModulePermission(module.keywords, "add");
-                            const editActive = hasModulePermission(module.keywords, "change");
-                            const deleteActive = hasModulePermission(module.keywords, "delete");
-
-                            return (
-                              <div key={module.id} className="module-permission-row">
-                                <div className="module-permission-info">
-                                  <h4>{module.name}</h4>
-                                  <p>{module.description}</p>
-                                </div>
-                                <div className="module-permission-chips">
-                                  <span className={`perm-chip ${readActive ? "active" : "inactive"}`}>
-                                    {readActive ? <Check size={12} /> : <X size={12} />}
-                                    Lectura
-                                  </span>
-                                  <span className={`perm-chip ${createActive ? "active" : "inactive"}`}>
-                                    {createActive ? <Check size={12} /> : <X size={12} />}
-                                    Creación
-                                  </span>
-                                  <span className={`perm-chip ${editActive ? "active" : "inactive"}`}>
-                                    {editActive ? <Check size={12} /> : <X size={12} />}
-                                    Edición
-                                  </span>
-                                  <span className={`perm-chip ${deleteActive ? "active" : "inactive"}`}>
-                                    {deleteActive ? <Check size={12} /> : <X size={12} />}
-                                    Eliminación
-                                  </span>
-                                </div>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
+                  <div className="profile-tab-pane permissions-tab-pane"><ProfilePermissions user={currentUser} /></div>
                 )}
               </div>
             )}
