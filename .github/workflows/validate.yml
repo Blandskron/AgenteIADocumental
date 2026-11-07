@@ -133,6 +133,9 @@ jobs:
           assert json.loads(profile_env["CORS_ORIGINS"]) == ["http://localhost:3000", "http://127.0.0.1:3000"]
           assert "health/db" in " ".join(profile["healthcheck"]["test"])
           assert profile["read_only"] is True
+          assert profile_env["DATABASE_URL"] == "postgresql+psycopg://profile_runtime@postgres:5432/documents_db"
+          assert profile["depends_on"]["profile-db-role"]["condition"] == "service_completed_successfully"
+          assert services["profile-db-role"]["depends_on"]["auth-service"]["condition"] == "service_healthy"
           assert len(profile["volumes"]) == 1 and profile["volumes"][0]["source"] == "auth_verification_keys"
           assert profile["cap_drop"] == ["ALL"]
           assert transfer_env["DATABASE_URL"] == "postgresql+psycopg://document_transfer_runtime@postgres:5432/documents_db"
@@ -289,8 +292,11 @@ jobs:
           docker compose -f docker/docker-compose.yml up -d --no-deps --wait document-transfer-service
       - name: Probar configuración, disponibilidad y contrato base de ProfileServices
         run: |
+          docker compose -f docker/docker-compose.yml run --rm --no-deps profile-db-role
+          docker compose -f docker/docker-compose.yml run --rm --no-deps profile-db-role
           docker compose -f docker/docker-compose.yml exec -T profile-service python -m pip --no-cache-dir check
           docker compose -f docker/docker-compose.yml exec -T profile-service python -c 'import importlib.util, os; assert os.geteuid() == 10008; assert all(importlib.util.find_spec(name) is None for name in ("pytest", "ruff", "httpx", "pip_audit"))'
+          docker compose -f docker/docker-compose.yml exec -T profile-service python -c 'import subprocess; version=subprocess.check_output(["dpkg-query","-W","-f=${Version}","zlib1g"],text=True); subprocess.check_call(["dpkg","--compare-versions",version,"ge","1:1.3.dfsg+really1.3.1-1+deb13u1"])'
           docker compose -f docker/docker-compose.yml run --build --rm --no-deps profile-tests
           docker compose -f docker/docker-compose.yml run --rm --no-deps profile-tests ruff check --no-cache app tests /profile-checks
           docker compose -f docker/docker-compose.yml run --build --rm --no-deps profile-audit
@@ -308,4 +314,4 @@ jobs:
           docker compose -f docker/docker-compose.yml run --build --rm --no-deps drive-tests
           docker compose -f docker/docker-compose.yml run --rm --no-deps drive-tests ruff check --no-cache app tests
       - if: failure()
-        run: docker compose -f docker/docker-compose.yml logs auth-db-roles auth-migrate auth-service conversation-db-role conversation-service rag-chat-db-role embedding-db-role search-db-role document-search-service access-db-role document-access-service library-db-role document-library-service transfer-db-role document-transfer-service profile-service
+        run: docker compose -f docker/docker-compose.yml logs auth-db-roles auth-migrate auth-service conversation-db-role conversation-service rag-chat-db-role embedding-db-role search-db-role document-search-service access-db-role document-access-service library-db-role document-library-service transfer-db-role document-transfer-service profile-db-role profile-service

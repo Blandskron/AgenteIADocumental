@@ -85,6 +85,7 @@ def test_auth_change_waits_for_inflight_profile_transaction(committed_engine, se
 
     engine = committed_engine
     with Session(engine, expire_on_commit=False) as session:
+        session.execute(text("SET LOCAL ROLE profile_runtime"))
         token = token_headers()["Authorization"].split(" ", 1)[1]
         principal = require_authenticated_user(HTTPAuthorizationCredentials(scheme="Bearer", credentials=token), settings, session)
         started, pid = Event(), []
@@ -139,6 +140,7 @@ def test_revocation_committed_while_authentication_waits_is_rechecked(committed_
         first.execute(text(query), {"id": int(profile_id)})
         def authenticate():
             with Session(engine) as session:
+                session.execute(text("SET LOCAL ROLE profile_runtime"))
                 pid.append(session.scalar(text("SELECT pg_backend_pid()")))
                 started.set()
                 with pytest.raises(HTTPException) as caught:

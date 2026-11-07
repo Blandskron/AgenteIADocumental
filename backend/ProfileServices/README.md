@@ -2,7 +2,7 @@
 
 Servicio FastAPI de perfil y avatar de Blandskron Documental, publicado localmente en `http://localhost:8015`. AuthServices administra identidad, credenciales y membresías; Profile guarda contacto, presentación y avatar privado en `user_profiles` (PostgreSQL).
 
-**Estado:** PROFILE-001 a PROFILE-004 integrados (PR #59 a #62). PROFILE-005 entrega avatar privado transaccional y su consumidor web. PROFILE-006 entrega edición estable durante refresh, aislamiento de sesiones y permisos efectivos con pruebas Chromium; rol DB acotado y escaneo de imagen siguen en PROFILE-007. Runtime ya usa UID/GID 10008 y no monta uploads. El [diagnóstico histórico](#diagnóstico-profile-001) describe la línea base, no las garantías actuales. El estado vive en el [tablero](../../ROADMAP.md#profileservices).
+**Estado:** PROFILE-001 a PROFILE-004 integrados (PR #59 a #62). PROFILE-005 entrega avatar privado transaccional y su consumidor web. PROFILE-006 entrega edición estable durante refresh, aislamiento de sesiones y permisos efectivos con pruebas Chromium; PROFILE-007 entrega rol DB acotado, helper de identidad y evidencia de imagen; el cierre sigue en PROFILE-008. Runtime ya usa UID/GID 10008 y no monta uploads. El [diagnóstico histórico](#diagnóstico-profile-001) describe la línea base, no las garantías actuales. El estado vive en el [tablero](../../ROADMAP.md#profileservices).
 
 ## Mapa para trabajar
 
@@ -38,7 +38,7 @@ Las operaciones de perfil y avatar requieren Bearer access RS256 y cuenta vigent
 
 Cada petición autenticada consulta si `public.auth_user` contiene ese ID activo y si `upper(md5(password))` coincide con `hash_password`, como `CHECK_REVOKE_TOKEN` de SimpleJWT en Auth. La expresión opera sobre la contraseña **ya codificada por Django** y reproduce su huella de revocación; no reemplaza el algoritmo de contraseña por MD5. La consulta devuelve solo un booleano, nunca la contraseña codificada. Una cuenta inexistente/inactiva/eliminada o contraseña cambiada devuelve 401 genérico con `WWW-Authenticate: Bearer`; un fallo de consulta devuelve 503 sin detalles internos.
 
-El repositorio queda ligado al dueño autenticado al construirse: consultas y escrituras no reciben un ID de destino del cliente ni disponen de listado global. Ser superadmin, staff o administrador de tenant no amplía ese alcance. La consulta de vigencia usa `FOR SHARE` sobre la fila de Auth hasta el commit/cierre de sesión: un cambio de contraseña, desactivación o eliminación concurrente espera la operación ya autorizada. Si ese cambio estaba en curso primero, la comprobación espera y reevalúa el estado antes de autorizar. Los timeouts cierran el acceso con 503. Las relaciones históricas y restricciones compartidas permanecen en PLAT-001; la función booleana y permisos mínimos de este lock se completan en PROFILE-007.
+El repositorio queda ligado al dueño autenticado al construirse: consultas y escrituras no reciben un ID de destino del cliente ni disponen de listado global. Ser superadmin, staff o administrador de tenant no amplía ese alcance. La consulta de vigencia usa `FOR SHARE` sobre la fila de Auth hasta el commit/cierre de sesión: un cambio de contraseña, desactivación o eliminación concurrente espera la operación ya autorizada. Si ese cambio estaba en curso primero, la comprobación espera y reevalúa el estado antes de autorizar. Los timeouts cierran el acceso con 503. Las relaciones históricas y restricciones compartidas permanecen en PLAT-001; la función booleana y los permisos mínimos de este lock se entregan en PROFILE-007.
 
 **Transición de contrato:** se retiran `GET /api/v1/profiles`, `GET /api/v1/profiles/{user_id}` y `PUT /api/v1/profiles/{user_id}`. Devuelven 404 y no figuran en OpenAPI, incluso para el propio ID o administradores. La búsqueda de consumidores no encontró usos en la web; las integraciones externas deben usar `/api/v1/profile` con la sesión del dueño. Los tokens anteriores sin los claims requeridos se rechazan; renueva la sesión en Auth. No se migran ni borran perfiles históricos: registros asociados a username o IDs no canónicos requerirán inventario y reparación explícita en PROFILE-004.
 
@@ -62,7 +62,7 @@ Omitir un campo conserva su valor. `null` borra email/teléfono/avatar; `""` o e
 {"expected_version":3,"phone_number":null,"additional_info":{"full_name":"Persona sintética"}}
 ```
 
-Un éxito devuelve versión 4 y conserva email/URL omitidos. La web envía la versión leída, conserva el formulario ante conflicto y permite **Descartar cambios y recargar perfil** mediante acción explícita. El cliente HTTP no reintenta un 409. La revisión completa de edición durante renovación de JWT, upload y estados de sesión sigue en PROFILE-006.
+Un éxito devuelve versión 4 y conserva email/URL omitidos. La web envía la versión leída, conserva el formulario ante conflicto y permite **Descartar cambios y recargar perfil** mediante acción explícita. El cliente HTTP no reintenta un 409. PROFILE-006 conserva edición durante renovación de JWT y upload, e invalida estados al cambiar sesión.
 
 Respuestas de error: 400 para JSON inválido o estructura general excesiva, 413 para cuerpo mayor al límite, 422 para campos/esquema inválidos, 409 para versión obsoleta o conflicto de integridad y 503 para persistencia no disponible. Las respuestas no reflejan valores, nombres de campos desconocidos, consultas, parámetros SQL ni contexto de validación. Los timeouts y fallos revierten la transacción; el trigger existente conserva `updated_at`, y la versión evita depender de su precisión como condición de concurrencia.
 
@@ -86,7 +86,7 @@ El runtime no monta `uploads/profile`; los avatares privados residen en PostgreS
 | Variable | Situación actual |
 | --- | --- |
 | `DATABASE_URL` | Obligatoria, driver `postgresql+psycopg`, host/usuario/base explícitos; sin default ni contraseña embebida en la aplicación |
-| `PGPASSWORD` | Compose declara la contraseña de desarrollo de la infraestructura local; no se inyecta el `.env` global. El rol sigue siendo `postgres` hasta PROFILE-007 |
+| `PGPASSWORD` | Compose usa PROFILE_DB_PASSWORD para profile_runtime; no se inyecta el `.env` global ni la credencial de bootstrap |
 | `AUTH_JWT_PUBLIC_KEY_PATH` | Obligatoria y absoluta; Compose monta solo la clave pública en `/app/auth_keys/public.pem`; se exige RSA pública de al menos 2048 bits |
 | `AUTH_JWT_ALGORITHM` | Solo `RS256` |
 | `CORS_ORIGINS` | Lista JSON de orígenes HTTP(S) explícitos, sin comodines, rutas ni credenciales; default localhost/127.0.0.1:3000. `[]` deshabilita CORS |
@@ -97,7 +97,7 @@ Settings no lee archivos `.env`. Compose permite ajustar `PROFILE_CORS_ORIGINS`,
 
 El timeout se aplica a espera del pool, conexión y consultas PostgreSQL (`statement_timeout`). El engine usa pre-ping, oculta parámetros SQL, revierte sesiones con error y se libera aun si falla el arranque. La factory no crea archivos ni conexiones al importar; lifespan valida DB/esquema y clave sin preparar almacenamiento de archivos. Una dependencia inválida aborta con un mensaje genérico. `/health` indica vida del proceso; `/health/db` vuelve a comprobar dependencias y es el healthcheck de Compose. La clave se relee para detectar pérdida/cambio posterior sin cache obsoleta.
 
-La imagen usa UID/GID 10008 sobre `python:3.12-slim`, raíz de solo lectura, sin capabilities y no-new-privileges. Solo monta la clave pública de Auth en lectura; `/tmp` es tmpfs de 16 MiB sin ejecución. Compose limita memoria a 768 MiB, CPU a 2, procesos a 128 y Uvicorn a 32 conexiones concurrentes. Los permisos DB mínimos y escaneo de SO siguen en PROFILE-007.
+La imagen usa UID/GID 10008 sobre `python:3.12-slim`, raíz de solo lectura, sin capabilities y no-new-privileges. Solo monta la clave pública de Auth en lectura; `/tmp` es tmpfs de 16 MiB sin ejecución. Compose limita memoria a 768 MiB, CPU a 2, procesos a 128 y Uvicorn a 32 conexiones concurrentes. PROFILE-007 aplica permisos DB mínimos y registra el escaneo del artefacto y sus avisos residuales.
 
 Para ejecución fuera de Docker, declara `DATABASE_URL` y `AUTH_JWT_PUBLIC_KEY_PATH` (ruta absoluta), instala `requirements.txt` en un entorno virtual y desde este directorio ejecuta `uvicorn app.main:create_app --factory --port 8015`. La contraseña de DB puede suministrarse por `PGPASSWORD`. No cargar un `.env` global dentro de la aplicación.
 
@@ -161,7 +161,7 @@ Evidencia local de PROFILE-004 (7 de noviembre de 2026): **170 pruebas backend y
 
 ## Avatar privado y mantenimiento (PROFILE-005)
 
-`/static` se retira y devuelve 404. GET de perfil devuelve únicamente una referencia relativa propia `/api/v1/profile/avatar?version=N` o null; no refleja Host ni URLs heredadas. La misma referencia sirve los bytes del dueño autenticado, nunca identifica a otra persona. Todas las operaciones de perfil/avatar requieren JWT vigente. La imagen responde `image/jpeg`, `private, no-store`, `nosniff` y nombre fijo `avatar.jpg`. La página y Sidebar descargan mediante el cliente autorizado, aceptan solo la ruta propia y liberan el object URL al cambiar sesión, versión o desmontar; no usan HTML generado. Cambiar la foto guarda inmediatamente sin descartar los campos de contacto aún editados. La revisión integral de estados de sesión/formulario corresponde a PROFILE-006.
+`/static` se retira y devuelve 404. GET de perfil devuelve únicamente una referencia relativa propia `/api/v1/profile/avatar?version=N` o null; no refleja Host ni URLs heredadas. La misma referencia sirve los bytes del dueño autenticado, nunca identifica a otra persona. Todas las operaciones de perfil/avatar requieren JWT vigente. La imagen responde `image/jpeg`, `private, no-store`, `nosniff` y nombre fijo `avatar.jpg`. La página y Sidebar descargan mediante el cliente autorizado, aceptan solo la ruta propia y liberan el object URL al cambiar sesión, versión o desmontar; no usan HTML generado. Cambiar la foto guarda inmediatamente sin descartar los campos de contacto aún editados. PROFILE-006 completa los estados de sesión/formulario.
 
 Multipart admite exactamente un archivo y una versión decimal canónica; archivo máximo 5 MiB y sobre HTTP máximo 5 MiB + 64 KiB, contando bytes reales incluso sin Content-Length. El nombre/MIME enviados no determinan el contenido guardado. Se aceptan JPEG, PNG y WebP de un frame, máximo 12 millones de píxeles y 8192 por eje. Se aplica orientación EXIF, reducción a 1024 por eje y composición sobre blanco; un JPEG nuevo elimina metadata y bytes anexos, con máximo 1 MiB. Dos slots por proceso acotan parseo/normalización/escritura; saturación devuelve 503. Inválido devuelve 400/422, exceso 413 y conflicto de versión 409, sin reintento automático.
 
@@ -192,7 +192,7 @@ Inventaría primero, revisa backup y retención, y prepara `prune.json` con IDs/
 
 Sin marcador, `verify_auth_contract.py` mantiene la sonda de lectura. Para probar también carga, reemplazo, lectura y borrado, CI genera un nonce `PROFILE_PROBE_MARKER` de 32 hex, lo pasa al contenedor Auth y ejecuta siempre [cleanup_probe.sql](../../scripts/profile/cleanup_probe.sql) en un `finally`/trap con `psql -v probe_marker=NONCE`. El SQL solo elimina perfiles sintéticos con ese marcador y sin usuario Auth, y falla si queda alguno. No reutilizar el marcador ni omitir esa limpieza. Las identidades se retiran primero en el finally del script. No se imprimen cuerpos personales ni tokens.
 
-La suite permanente cubre aislamiento incluso con roles administrativos, límites/códecs/metadata, conflictos entre conexiones, fallo de commit y recuperación tras reinicio, esquema repetido y constraint, confinamiento e importación dry-run/aplicada y retirada de huérfanos. Frontend prueba contrato multipart/DELETE, rechazo de URL externa, aborto de respuestas tardías y revocación de object URLs. La revisión completa de navegador y el escaneo de SO permanecen en PROFILE-006/007.
+La suite permanente cubre aislamiento incluso con roles administrativos, límites/códecs/metadata, conflictos entre conexiones, fallo de commit y recuperación tras reinicio, esquema repetido y constraint, confinamiento e importación dry-run/aplicada y retirada de huérfanos. Frontend prueba contrato multipart/DELETE, rechazo de URL externa, aborto de respuestas tardías y revocación de object URLs. PROFILE-006 incorpora pruebas Chromium; PROFILE-007 registra el escaneo de SO y sus seguimientos.
 
 ## Sesión y edición web (PROFILE-006)
 
@@ -212,7 +212,50 @@ npx playwright install chromium
 npm run test:browser
 ```
 
-CI instala Chromium con `npx playwright install --with-deps chromium`. La configuración inicia Vite exclusivamente en `127.0.0.1:4173`, con APIs interceptadas y datos sintéticos, sin IA/OAuth ni acceso a backend real. Las pruebas de lógica cubren respuestas antiguas, reinicio del controlador, refresh, sesión sustituida, conflictos y exclusión entre escrituras; Chromium verifica conservación del borrador durante refresh/upload, doble submit, recuperación explícita de conflictos, email independiente, límites locales y permisos/semántica accesible. No sustituyen la sonda real de Auth/PostgreSQL de PROFILE-005 ni una auditoría completa de accesibilidad o frontend (WEB-001). La revisión de permisos DB y artefacto sigue en PROFILE-007.
+CI instala Chromium con `npx playwright install --with-deps chromium`. La configuración inicia Vite exclusivamente en `127.0.0.1:4173`, con APIs interceptadas y datos sintéticos, sin IA/OAuth ni acceso a backend real. Las pruebas de lógica cubren respuestas antiguas, reinicio del controlador, refresh, sesión sustituida, conflictos y exclusión entre escrituras; Chromium verifica conservación del borrador durante refresh/upload, doble submit, recuperación explícita de conflictos, email independiente, límites locales y permisos/semántica accesible. No sustituyen la sonda real de Auth/PostgreSQL de PROFILE-005 ni una auditoría completa de accesibilidad o frontend (WEB-001). La evidencia de permisos DB y artefacto se detalla en PROFILE-007.
+
+## Rol PostgreSQL y operación (PROFILE-007)
+
+Compose usa `profile_runtime` y `PROFILE_DB_PASSWORD` (valor de desarrollo en `.env.example`). `profile-db-role` espera esquema y Auth saludable: la tabla de identidad debe existir antes de conceder columnas. El job administrativo monta solo los SQL de Profile; la API no recibe su credencial de bootstrap ni la de mantenimiento de avatares. En una instalación existente, tras aplicar el esquema y arrancar Auth, provisiona antes de iniciar la imagen nueva:
+
+```powershell
+docker compose -f docker/docker-compose.yml stop profile-service
+docker compose -f docker/docker-compose.yml run --rm --no-deps database-schema
+docker compose -f docker/docker-compose.yml up -d --wait auth-service
+docker compose -f docker/docker-compose.yml run --rm --no-deps profile-db-role
+docker compose -f docker/docker-compose.yml up -d --build --wait profile-service
+```
+
+Para rotar `PROFILE_DB_PASSWORD`, actualiza el entorno, detén Profile, repite el job y recrea el servicio con la misma configuración. No ejecutes pruebas/mantenimiento con datos personales ni reutilices el rol runtime para migrar. El mantenimiento revisado de avatares sigue usando su credencial administrativa independiente.
+
+| Principal | Permisos efectivos |
+| --- | --- |
+| `profile_runtime` | SELECT en `user_profiles`; INSERT de dueño/contacto/metadata/avatar; UPDATE de contacto/metadata/avatar/versión. Sin DELETE, cambio de dueño/PK/timestamps, acceso directo a Auth/documentos, secuencias ni CREATE en public |
+| `profile_identity_owner` | NOLOGIN; SELECT únicamente id/activo/contraseña codificada de Auth y UPDATE(id), requerido por PostgreSQL para `FOR SHARE`. Sin membresías que permitan asumirlo desde runtime; su única función no modifica Auth ni devuelve columnas de identidad |
+| `profile_identity_is_current(bigint,text)` | SECURITY DEFINER, VOLATILE, STRICT; devuelve solo booleano, compara la huella y conserva `FOR SHARE` hasta terminar la transacción del caller. Objetos públicos cualificados, search_path fijo `pg_catalog, pg_temp`, sin EXECUTE para PUBLIC; ejecución concedida al runtime |
+
+Ambos roles carecen de superusuario, creación de roles/bases, herencia, replicación y bypass RLS. El rol runtime es compartido por el servicio: la privacidad por dueño se aplica en JWT/repositorio, **no mediante RLS personal**. Las restricciones generales de identidad/tenants permanecen en PLAT-001. Readiness ejecuta la función con ID inexistente y verifica columnas de perfil y clave pública; no requiere leer contraseñas directamente.
+
+[provision_role.sql](../../scripts/database/profile/provision_role.sql) es transaccional y repetible, usa el bloqueo global de aprovisionamiento y ejecuta [verify_role.sql](../../scripts/database/profile/verify_role.sql). Este compara permisos efectivos por columna/operación, atributos, membresías, secuencias y ACL/configuración de la función; detecta también acceso inesperado a otros helpers privilegiados. Permisos excesivos detienen el job y requieren revisión explícita; no revoca permisos ajenos indiscriminadamente. La suite verifica denegaciones y deriva de grants con rollback, login real del runtime (incluido rechazo de SET ROLE), HTTP propio y concurrencia con revocación en ambos órdenes.
+
+### Evidencia del artefacto
+
+[IMAGE_AUDIT.json](docs/IMAGE_AUDIT.json) conserva IDs de Docker/escáner, SHA-256 del archivo exportado, base, inventario Python y hallazgos del 7 de noviembre de 2026. Se reconstruyeron las etapas con `--pull --no-cache`; tras encontrar corrección disponible, se añadió actualización de `zlib1g` desde Debian Security. La imagen final instala `1:1.3.dfsg+really1.3.1-1+deb13u1`; Trivy 0.76.2 ya no informa CVE-2026-76844 ni CVE-2026-85091, y CI exige esa versión mínima. El runtime sigue UID/GID 10008, readonly, sin uploads y sin pytest/Ruff/httpx/pip-audit. `pip check` y la auditoría del inventario Python instalado pasan sin avisos conocidos.
+
+El escaneo final de severidades HIGH/CRITICAL registra **47 coincidencias altas de Debian, correspondientes a 11 CVE distintos, cero críticos y ninguna versión corregida indicada para esos avisos del SO**. Se mantienen en PROFILE-F01/PLAT-002: reconstruir y reevaluar antes de despliegue público. No se declara la imagen libre de riesgos ni se validó explotación de cada coincidencia.
+
+Trivy registra además **CVE-2025-47273** en la declaración vendorizada `setuptools==70.3.0` de pip 26.3 e indica 78.1.1. No hay distribución setuptools instalada; sí existe la copia vendorizada de `pkg_resources`. PyPI reportaba pip 26.3 como última versión disponible. Instalar otra distribución setuptools no reemplaza esa copia. PROFILE-F02 conserva el seguimiento upstream y la reevaluación, sin supresión ni conclusión automática de falso positivo. Esta distinción explica por qué la auditoría de distribuciones instaladas y Trivy muestran resultados diferentes.
+
+Para repetir el escaneo sin montar el socket Docker (bash, desde la raíz):
+
+```sh
+docker build --pull --no-cache -t blandskron-profile-audit backend/ProfileServices
+audit_dir="$(mktemp -d)"
+docker save -o "$audit_dir/runtime.tar" blandskron-profile-audit
+docker run --rm -v "$audit_dir:/audit" -v blandskron-trivy-cache:/root/.cache/trivy aquasec/trivy:0.76.2 image --scanners vuln --severity HIGH,CRITICAL --format json --output /audit/trivy.json --input /audit/runtime.tar
+```
+
+Usa archivos temporales fuera de Git; los reportes dependen de la base de avisos y del artefacto del momento. La evidencia no es un escaneo de secretos ni una auditoría exhaustiva del código. Se validaron instalación aislada con volúmenes nuevos, actualización/reaprovisionamiento y reinicio sobre volumen existente, 217 pruebas PostgreSQL, Ruff, pip check/audit y contrato HTTP con JWT reales (tres roles, perfil/fotos/revocación y limpieza SQL de los tres perfiles). CI vuelve a comprobar arranque, repetición, permisos e imagen. El cierre documental/funcional final sigue en PROFILE-008.
 
 ## Diagnóstico PROFILE-001
 
