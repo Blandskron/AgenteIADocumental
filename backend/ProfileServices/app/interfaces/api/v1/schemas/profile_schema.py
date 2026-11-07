@@ -2,7 +2,7 @@ from datetime import datetime
 from typing import Any
 import re
 
-from pydantic import BaseModel, ConfigDict, EmailStr, Field, HttpUrl, TypeAdapter, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator, model_validator
 
 from app.domain.profile_limits import validate_metadata
 
@@ -27,10 +27,10 @@ class ProfileUpdateRequest(BaseModel):
     expected_version: int = Field(ge=0, le=2**63 - 2)
     email: EmailStr | None = Field(default=None, max_length=254)
     phone_number: str | None = Field(default=None, max_length=32)
-    profile_picture_url: str | None = Field(default=None, max_length=2048)
+    profile_picture_url: None = None
     additional_info: dict[str, Any] | None = None
 
-    @field_validator("email", "phone_number", "profile_picture_url", mode="before")
+    @field_validator("email", "phone_number", mode="before")
     @classmethod
     def normalize_contact(cls, value):
         if value is None:
@@ -47,18 +47,6 @@ class ProfileUpdateRequest(BaseModel):
             raise ValueError("Invalid phone format.")
         return value
 
-    @field_validator("profile_picture_url")
-    @classmethod
-    def validate_avatar_url(cls, value):
-        if value is not None:
-            url = TypeAdapter(HttpUrl).validate_python(value)
-            normalized = str(url)
-            if (url.username is not None or url.password is not None or url.fragment is not None
-                    or url.port == 0 or len(normalized) > 2048):
-                raise ValueError("Avatar URL exceeds allowed limits.")
-            return normalized
-        return value
-
     @field_validator("additional_info")
     @classmethod
     def bounded_metadata(cls, value):
@@ -71,6 +59,7 @@ class ProfileUpdateRequest(BaseModel):
         return self
 
 
-class ProfileUploadResponse(BaseModel):
-    url: str
+class AvatarDeleteRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid", strict=True, hide_input_in_errors=True)
+    expected_version: int = Field(ge=1, le=2**63 - 2)
 

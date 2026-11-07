@@ -24,7 +24,6 @@ class Settings(BaseSettings):
 
     auth_jwt_public_key_path: Path
     auth_jwt_algorithm: Literal["RS256"] = "RS256"
-    profile_uploads_dir: Path
 
     @field_validator("database_url")
     @classmethod
@@ -38,7 +37,7 @@ class Settings(BaseSettings):
             raise ValueError("DATABASE_URL must identify a PostgreSQL psycopg database.")
         return value
 
-    @field_validator("auth_jwt_public_key_path", "profile_uploads_dir")
+    @field_validator("auth_jwt_public_key_path")
     @classmethod
     def validate_absolute_path(cls, value):
         if not value.is_absolute():

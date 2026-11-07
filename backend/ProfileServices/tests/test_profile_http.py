@@ -1,8 +1,5 @@
-import io
-from urllib.parse import urlsplit
 
 import pytest
-from PIL import Image
 
 
 def test_openapi_documents_auth_and_multipart(client):
@@ -70,34 +67,3 @@ def test_own_profile_roundtrip(client, token_headers, profile_id, db_session):
 def test_other_profile_denied_for_ordinary_user(client, token_headers):
     assert client.get("/api/v1/profiles/unrelated", headers=token_headers()).status_code == 404
     assert client.put("/api/v1/profiles/unrelated", headers=token_headers(), json={}).status_code == 404
-
-
-def test_upload_uses_same_configured_storage_as_static(client, settings, token_headers, monkeypatch):
-    # Changing ambient environment after factory creation must not redirect upload writes.
-    monkeypatch.setenv("PROFILE_UPLOADS_DIR", "/tmp/profile002-must-not-be-created")
-    image = io.BytesIO()
-    Image.new("RGB", (2, 2), "white").save(image, format="PNG")
-    response = client.post("/api/v1/profile/upload", headers=token_headers(), files={
-        "file": ("../../synthetic.png", image.getvalue(), "image/png"),
-    })
-    assert response.status_code == 200
-    path = urlsplit(response.json()["url"]).path
-    assert path.startswith("/static/") and path.endswith(".png")
-    assert len(list(settings.profile_uploads_dir.iterdir())) == 1
-    assert client.get(path).content == image.getvalue()
-    # Public serving is baseline compatibility; privacy changes belong to PROFILE-005.
-
-
-def test_invalid_upload_and_storage_failure(client, settings, token_headers):
-    invalid = client.post("/api/v1/profile/upload", headers=token_headers(), files={
-        "file": ("synthetic.txt", b"not an image", "text/plain"),
-    })
-    assert invalid.status_code == 400
-    settings.profile_uploads_dir.rmdir()
-    image = io.BytesIO()
-    Image.new("RGB", (2, 2), "white").save(image, format="PNG")
-    failed = client.post("/api/v1/profile/upload", headers=token_headers(), files={
-        "file": ("synthetic.png", image.getvalue(), "image/png"),
-    })
-    assert failed.status_code == 503
-    assert failed.json() == {"detail": "Profile storage is unavailable."}

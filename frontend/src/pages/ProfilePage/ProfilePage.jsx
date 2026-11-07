@@ -1,15 +1,14 @@
 import { useState, useEffect } from "react";
-import { 
-  ArrowLeft, 
-  Save, 
-  User, 
-  Mail, 
-  Phone, 
-  Image as ImageIcon, 
-  Globe, 
-  Shield, 
-  Loader2, 
-  CheckCircle2, 
+import {
+  ArrowLeft,
+  Save,
+  User,
+  Mail,
+  Phone,
+  Globe,
+  Shield,
+  Loader2,
+  CheckCircle2,
   AlertCircle,
   UploadCloud,
   Lock,
@@ -27,7 +26,7 @@ import { appRoutes } from "../../app/router/routes";
 import { AppShell } from "../../shared/layouts/AppShell";
 import { Sidebar } from "../../widgets/Sidebar/Sidebar";
 import { useProfile } from "../../features/profile/hooks/useProfile";
-import { uploadProfilePicture } from "../../features/profile/api/profile.api";
+import { usePrivateAvatar } from "../../features/profile/hooks/usePrivateAvatar";
 import { changePassword } from "../../features/auth/api/user-management.api";
 import "./ProfilePage.css";
 
@@ -44,7 +43,6 @@ export function ProfilePage({ onNavigate }) {
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [phoneNumber, setPhoneNumber] = useState("");
-  const [profilePictureUrl, setProfilePictureUrl] = useState("");
   const [location, setLocation] = useState("");
   const [position, setPosition] = useState("");
   const [department, setDepartment] = useState("");
@@ -62,6 +60,9 @@ export function ProfilePage({ onNavigate }) {
   // Hook to connect with ProfileServices microservice
   const {
     profile,
+    formProfile,
+    uploadAvatar,
+    removeAvatar,
     isLoading,
     error,
     isSaving,
@@ -75,13 +76,14 @@ export function ProfilePage({ onNavigate }) {
     setGlobalProfile(updatedData);
   });
 
-  // Populate local form fields when backend profile is loaded
+  const avatar = usePrivateAvatar(profileClient, profile?.profile_picture_url);
+  // Avatar updates retain unsaved contact edits; only form snapshots repopulate fields.
   useEffect(() => {
-    if (profile) {
+    if (formProfile) {
+      const profile = formProfile;
       setEmail(profile.profile_id ? (profile.email ?? "") : (currentUser?.email || ""));
       setPhoneNumber(profile.phone_number || "");
-      setProfilePictureUrl(profile.profile_picture_url || "");
-      
+
       const extra = profile.additional_info || {};
       const textField = (name, fallback = "") => typeof extra[name] === "string" ? extra[name] : fallback;
       setFullName(textField("full_name", currentUser?.displayName || ""));
@@ -91,7 +93,7 @@ export function ProfilePage({ onNavigate }) {
       setPreferredLanguage(textField("preferred_language", "es"));
       setBio(textField("bio"));
     }
-  }, [profile, currentUser]);
+  }, [formProfile, currentUser]);
 
   // Compute initials for avatar preview fallback
   const initials = (fullName || currentUser?.displayName || currentUser?.username || "U")
@@ -110,7 +112,7 @@ export function ProfilePage({ onNavigate }) {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    if (!file.type.startsWith("image/")) {
+    if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) {
       setUploadError("Por favor selecciona un archivo de imagen válido.");
       return;
     }
@@ -126,12 +128,7 @@ export function ProfilePage({ onNavigate }) {
       setUploadError("");
       clearSuccess();
 
-      const response = await uploadProfilePicture(profileClient, file);
-      if (response && response.url) {
-        setProfilePictureUrl(response.url);
-      } else {
-        throw new Error("No se pudo obtener la URL de la imagen.");
-      }
+      await uploadAvatar(file);
     } catch (err) {
       console.error("Error al subir archivo:", err);
       setUploadError(err.message || "Error al subir la imagen.");
@@ -147,7 +144,6 @@ export function ProfilePage({ onNavigate }) {
     const payload = {
       email,
       phone_number: phoneNumber,
-      profile_picture_url: profilePictureUrl,
       additional_info: {
         ...profile?.additional_info,
         full_name: fullName,
@@ -268,7 +264,7 @@ export function ProfilePage({ onNavigate }) {
           <div className="profile-layout-wrapper">
             {/* Tabs Navigation Bar */}
             <div className="profile-tabs-nav">
-              <button 
+              <button
                 type="button"
                 className={`profile-tab-link ${activeTab === "personal" ? "active" : ""}`}
                 onClick={() => { setActiveTab("personal"); clearSuccess(); }}
@@ -276,7 +272,7 @@ export function ProfilePage({ onNavigate }) {
                 <User size={16} />
                 Información Personal
               </button>
-              <button 
+              <button
                 type="button"
                 className={`profile-tab-link ${activeTab === "security" ? "active" : ""}`}
                 onClick={() => { setActiveTab("security"); setPasswordError(""); setPasswordSuccess(""); }}
@@ -284,7 +280,7 @@ export function ProfilePage({ onNavigate }) {
                 <Lock size={16} />
                 Seguridad
               </button>
-              <button 
+              <button
                 type="button"
                 className={`profile-tab-link ${activeTab === "permissions" ? "active" : ""}`}
                 onClick={() => setActiveTab("permissions")}
@@ -333,15 +329,12 @@ export function ProfilePage({ onNavigate }) {
                       <form onSubmit={handleSubmit} className="profile-form">
                         <div className="avatar-upload-block">
                           <div className="avatar-preview-outer">
-                            {profilePictureUrl ? (
-                              <img 
-                                src={profilePictureUrl} 
-                                alt="Foto de perfil" 
+                            {avatar.src ? (
+                              <img
+                                src={avatar.src}
+                                alt="Foto de perfil"
                                 className="avatar-preview-img"
-                                onError={(e) => {
-                                  e.target.style.display = "none";
-                                  e.target.parentNode.innerHTML = `<span className="avatar-fallback-initials">${initials}</span>`;
-                                }}
+                                onError={avatar.onError}
                               />
                             ) : (
                               <span className="avatar-fallback-initials">{initials}</span>
@@ -349,7 +342,7 @@ export function ProfilePage({ onNavigate }) {
                           </div>
                           <div className="avatar-upload-actions">
                             <h4>Foto de Perfil</h4>
-                            <p>Formatos recomendados: JPG o PNG. Tamaño máximo: 5MB.</p>
+                            <p>JPG, PNG o WebP sin animación; hasta 5 MiB. La foto se guarda al subirla y solo se muestra en tu sesión.</p>
                             <div className="avatar-upload-buttons">
                               <label className="btn-file-upload">
                                 {uploadingFile ? (
@@ -363,15 +356,16 @@ export function ProfilePage({ onNavigate }) {
                                     Subir nueva imagen
                                   </>
                                 )}
-                                <input 
-                                  type="file" 
-                                  accept="image/*" 
-                                  style={{ display: "none" }} 
+                                <input
+                                  type="file"
+                                  accept="image/jpeg,image/png,image/webp"
+                                  style={{ display: "none" }}
                                   disabled={uploadingFile || isSaving}
                                   onChange={handleFileUpload}
                                 />
                               </label>
-                              {uploadError && <span className="upload-error-msg">{uploadError}</span>}
+                              <button type="button" onClick={removeAvatar} disabled={isSaving || uploadingFile || !profile?.profile_picture_url}>Quitar foto</button>
+                              {(uploadError || avatar.error) && <span role="alert" className="upload-error-msg">{uploadError || avatar.error}</span>}
                             </div>
                           </div>
                         </div>
@@ -381,10 +375,10 @@ export function ProfilePage({ onNavigate }) {
                             <label htmlFor="fullName">Nombre Completo</label>
                             <div className="input-with-icon">
                               <User size={16} className="input-icon" />
-                              <input 
+                              <input
                                 id="fullName" maxLength={120}
-                                type="text" 
-                                className="profile-input" 
+                                type="text"
+                                className="profile-input"
                                 value={fullName}
                                 onChange={(e) => {
                                   setFullName(e.target.value);
@@ -401,10 +395,10 @@ export function ProfilePage({ onNavigate }) {
                             <label htmlFor="email">Correo Electrónico (No editable)</label>
                             <div className="input-with-icon">
                               <Mail size={16} className="input-icon" />
-                              <input 
+                              <input
                                 id="email" maxLength={254}
-                                type="email" 
-                                className="profile-input" 
+                                type="email"
+                                className="profile-input"
                                 value={email}
                                 disabled
                               />
@@ -416,10 +410,10 @@ export function ProfilePage({ onNavigate }) {
                               <label htmlFor="phone">Número de Teléfono</label>
                               <div className="input-with-icon">
                                 <Phone size={16} className="input-icon" />
-                                <input 
+                                <input
                                   id="phone" maxLength={32}
-                                  type="text" 
-                                  className="profile-input" 
+                                  type="text"
+                                  className="profile-input"
                                   value={phoneNumber}
                                   onChange={(e) => {
                                     setPhoneNumber(e.target.value);
@@ -435,10 +429,10 @@ export function ProfilePage({ onNavigate }) {
                               <label htmlFor="location">Ubicación / Oficina</label>
                               <div className="input-with-icon">
                                 <MapPin size={16} className="input-icon" />
-                                <input 
+                                <input
                                   id="location" maxLength={120}
-                                  type="text" 
-                                  className="profile-input" 
+                                  type="text"
+                                  className="profile-input"
                                   value={location}
                                   onChange={(e) => {
                                     setLocation(e.target.value);
@@ -456,10 +450,10 @@ export function ProfilePage({ onNavigate }) {
                               <label htmlFor="position">Cargo / Puesto</label>
                               <div className="input-with-icon">
                                 <Briefcase size={16} className="input-icon" />
-                                <input 
+                                <input
                                   id="position" maxLength={120}
-                                  type="text" 
-                                  className="profile-input" 
+                                  type="text"
+                                  className="profile-input"
                                   value={position}
                                   onChange={(e) => {
                                     setPosition(e.target.value);
@@ -475,10 +469,10 @@ export function ProfilePage({ onNavigate }) {
                               <label htmlFor="department">Departamento / Área</label>
                               <div className="input-with-icon">
                                 <Building size={16} className="input-icon" />
-                                <input 
+                                <input
                                   id="department" maxLength={120}
-                                  type="text" 
-                                  className="profile-input" 
+                                  type="text"
+                                  className="profile-input"
                                   value={department}
                                   onChange={(e) => {
                                     setDepartment(e.target.value);
@@ -488,25 +482,6 @@ export function ProfilePage({ onNavigate }) {
                                   disabled={isSaving}
                                 />
                               </div>
-                            </div>
-                          </div>
-
-                          <div className="profile-form-group">
-                            <label htmlFor="avatar-url">URL de Imagen de Perfil (Opcional)</label>
-                            <div className="input-with-icon">
-                              <ImageIcon size={16} className="input-icon" />
-                              <input 
-                                id="avatar-url" maxLength={2048}
-                                type="url" 
-                                className="profile-input" 
-                                value={profilePictureUrl}
-                                onChange={(e) => {
-                                  setProfilePictureUrl(e.target.value);
-                                  clearSuccess();
-                                }}
-                                placeholder="https://ejemplo.com/mi-avatar.png"
-                                disabled={isSaving}
-                              />
                             </div>
                           </div>
 
@@ -533,9 +508,9 @@ export function ProfilePage({ onNavigate }) {
 
                           <div className="profile-form-group">
                             <label htmlFor="bio">Biografía / Acerca de mí</label>
-                            <textarea 
+                            <textarea
                               id="bio" maxLength={2000}
-                              className="profile-textarea" 
+                              className="profile-textarea"
                               value={bio}
                               onChange={(e) => {
                                 setBio(e.target.value);
@@ -548,16 +523,16 @@ export function ProfilePage({ onNavigate }) {
                         </div>
 
                         <div className="profile-form-actions">
-                          <button 
-                            type="button" 
-                            className="btn-flat-secondary" 
+                          <button
+                            type="button"
+                            className="btn-flat-secondary"
                             onClick={handleCancel}
                             disabled={isSaving}
                           >
                             Cancelar
                           </button>
-                          <button 
-                            type="submit" 
+                          <button
+                            type="submit"
                             className="btn-flat-primary"
                             disabled={isSaving}
                           >
@@ -608,10 +583,10 @@ export function ProfilePage({ onNavigate }) {
                           <label htmlFor="oldPassword">Contraseña Actual</label>
                           <div className="input-with-icon">
                             <KeyRound size={16} className="input-icon" />
-                            <input 
+                            <input
                               id="oldPassword"
-                              type="password" 
-                              className="profile-input" 
+                              type="password"
+                              className="profile-input"
                               value={oldPassword}
                               onChange={(e) => setOldPassword(e.target.value)}
                               placeholder="Escribe tu contraseña actual"
@@ -625,10 +600,10 @@ export function ProfilePage({ onNavigate }) {
                           <label htmlFor="newPassword">Nueva Contraseña</label>
                           <div className="input-with-icon">
                             <Lock size={16} className="input-icon" />
-                            <input 
+                            <input
                               id="newPassword"
-                              type="password" 
-                              className="profile-input" 
+                              type="password"
+                              className="profile-input"
                               value={newPassword}
                               onChange={(e) => setNewPassword(e.target.value)}
                               placeholder="Nueva contraseña (mínimo 8 caracteres)"
@@ -642,10 +617,10 @@ export function ProfilePage({ onNavigate }) {
                           <label htmlFor="confirmPassword">Confirmar Nueva Contraseña</label>
                           <div className="input-with-icon">
                             <Lock size={16} className="input-icon" />
-                            <input 
+                            <input
                               id="confirmPassword"
-                              type="password" 
-                              className="profile-input" 
+                              type="password"
+                              className="profile-input"
                               value={confirmPassword}
                               onChange={(e) => setConfirmPassword(e.target.value)}
                               placeholder="Reescribe tu nueva contraseña"
@@ -656,8 +631,8 @@ export function ProfilePage({ onNavigate }) {
                         </div>
 
                         <div className="profile-form-actions">
-                          <button 
-                            type="submit" 
+                          <button
+                            type="submit"
                             className="btn-flat-primary"
                             disabled={changingPassword}
                             style={{ width: "100%" }}
@@ -681,7 +656,7 @@ export function ProfilePage({ onNavigate }) {
                         <h3>Recomendaciones de Seguridad</h3>
                         <p>Sigue estos lineamientos para mantener tu información a salvo</p>
                       </div>
-                      
+
                       <ul className="security-guidelines-list">
                         <li>
                           <span className="dot"></span>

@@ -22,6 +22,7 @@ import { Brand } from "../../shared/components/Brand/Brand";
 import { IconButton } from "../../shared/components/IconButton/IconButton";
 import { useAuthContext } from "../../app/providers/AuthProvider";
 import { useTheme } from "../../app/providers/ThemeProvider";
+import { usePrivateAvatar } from "../../features/profile/hooks/usePrivateAvatar";
 
 export function Sidebar({
   activeConversation,
@@ -48,7 +49,8 @@ export function Sidebar({
     .join("")
     .toUpperCase();
 
-  const { profile } = useAuthContext();
+  const { profile, profileClient } = useAuthContext();
+  const avatar = usePrivateAvatar(profileClient, profile?.profile_picture_url);
   const roles = (user?.roles || profile?.roles || []).map((item) => String(item).toLowerCase());
   const groups = (user?.groups || profile?.groups || []).map((item) => String(item).toLowerCase());
   const isSuperuser = Boolean(user?.isSuperuser || user?.is_superuser || profile?.is_superuser);
@@ -85,16 +87,14 @@ export function Sidebar({
   }, [profileMenuOpen]);
 
   const renderAvatar = () => {
-    if (profile?.profile_picture_url) {
+    if (avatar.src) {
       return (
         <div className="account-avatar" style={{ padding: 0, overflow: "hidden" }}>
           <img
-            src={profile.profile_picture_url}
+            src={avatar.src}
             alt="Avatar"
             style={{ width: "100%", height: "100%", objectFit: "cover" }}
-            onError={(event) => {
-              event.currentTarget.style.display = "none";
-            }}
+            onError={avatar.onError}
           />
         </div>
       );

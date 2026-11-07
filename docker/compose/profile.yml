@@ -16,12 +16,18 @@ services:
       DB_TIMEOUT_SECONDS: ${PROFILE_DB_TIMEOUT_SECONDS:-30}
       AUTH_JWT_PUBLIC_KEY_PATH: /app/auth_keys/public.pem
       AUTH_JWT_ALGORITHM: RS256
-      PROFILE_UPLOADS_DIR: /app/uploads
     ports:
       - "127.0.0.1:8015:8000"
     volumes:
       - auth_verification_keys:/app/auth_keys:ro
-      - ../../uploads/profile:/app/uploads
+    read_only: true
+    mem_limit: 768m
+    cpus: 2.0
+    pids_limit: 128
+    cap_drop: ["ALL"]
+    security_opt: ["no-new-privileges:true"]
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,nodev,size=16777216,mode=1777
 
     healthcheck:
       test:
@@ -58,3 +64,18 @@ services:
     build:
       context: ../../backend/ProfileServices
       target: audit
+
+  profile-avatar-tools:
+    profiles: ["maintenance"]
+    build:
+      context: ../../backend/ProfileServices
+      target: runtime
+    environment:
+      PROFILE_MIGRATION_DATABASE_URL: postgresql+psycopg://postgres@postgres:5432/documents_db
+      PGPASSWORD: admin1234
+    volumes:
+      - ../../uploads/profile:/legacy-avatars:ro
+    read_only: true
+    cap_drop: ["ALL"]
+    security_opt: ["no-new-privileges:true"]
+    command: ["python", "-m", "app.maintenance.avatars", "inventory", "--legacy-dir", "/legacy-avatars"]
