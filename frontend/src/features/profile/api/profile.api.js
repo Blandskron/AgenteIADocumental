@@ -1,13 +1,15 @@
-export function getProfile(apiClient) {
+export function getProfile(apiClient, signal) {
   return apiClient("/api/v1/profile", {
     method: "GET",
     cache: "no-store",
+    signal,
   });
 }
 
-export function updateProfile(apiClient, payload, expectedVersion) {
+export function updateProfile(apiClient, payload, expectedVersion, signal) {
   return apiClient("/api/v1/profile", {
     method: "PUT",
+    signal,
     headers: {
       "Content-Type": "application/json",
     },
@@ -21,20 +23,21 @@ export function updateProfile(apiClient, payload, expectedVersion) {
   });
 }
 
-export function uploadProfilePicture(apiClient, file, expectedVersion) {
+export function uploadProfilePicture(apiClient, file, expectedVersion, signal) {
   const formData = new FormData();
   formData.append("file", file);
   formData.append("expected_version", String(expectedVersion));
 
   return apiClient("/api/v1/profile/upload", {
     method: "POST",
+    signal,
     body: formData,
   });
 }
 
-export function removeProfilePicture(apiClient, expectedVersion) {
+export function removeProfilePicture(apiClient, expectedVersion, signal) {
   return apiClient("/api/v1/profile/avatar", { method: "DELETE", headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ expected_version: expectedVersion }) });
+    body: JSON.stringify({ expected_version: expectedVersion }), signal });
 }
 
 export function getProfilePicture(apiClient, path, signal) {

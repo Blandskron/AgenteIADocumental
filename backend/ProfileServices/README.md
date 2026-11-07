@@ -2,7 +2,7 @@
 
 Servicio FastAPI de perfil y avatar de Blandskron Documental, publicado localmente en `http://localhost:8015`. AuthServices administra identidad, credenciales y membresías; Profile guarda contacto, presentación y avatar privado en `user_profiles` (PostgreSQL).
 
-**Estado:** PROFILE-001 a PROFILE-004 integrados (PR #59 a #62). PROFILE-005 entrega avatar privado transaccional y su consumidor web. La revisión web completa sigue en PROFILE-006; rol DB acotado y escaneo de imagen en PROFILE-007. Runtime ya usa UID/GID 10008 y no monta uploads. El [diagnóstico histórico](#diagnóstico-profile-001) describe la línea base, no las garantías actuales. El estado vive en el [tablero](../../ROADMAP.md#profileservices).
+**Estado:** PROFILE-001 a PROFILE-004 integrados (PR #59 a #62). PROFILE-005 entrega avatar privado transaccional y su consumidor web. PROFILE-006 entrega edición estable durante refresh, aislamiento de sesiones y permisos efectivos con pruebas Chromium; rol DB acotado y escaneo de imagen siguen en PROFILE-007. Runtime ya usa UID/GID 10008 y no monta uploads. El [diagnóstico histórico](#diagnóstico-profile-001) describe la línea base, no las garantías actuales. El estado vive en el [tablero](../../ROADMAP.md#profileservices).
 
 ## Mapa para trabajar
 
@@ -81,7 +81,7 @@ docker compose -f docker/docker-compose.yml config --quiet
 docker compose -f docker/docker-compose.yml up -d --build --wait profile-service
 ```
 
-Compose monta el directorio persistente `uploads/profile`. Las pruebas usan directorios temporales y rollback; la comprobación local de arranque de PROFILE-002 usó un volumen Docker sintético separado. No se necesita clave de IA/OAuth para Profile.
+El runtime no monta `uploads/profile`; los avatares privados residen en PostgreSQL. Solo la herramienta optativa de mantenimiento monta las fuentes antiguas en lectura. Las pruebas usan directorios sintéticos temporales y rollback; la comprobación histórica de PROFILE-002 usó un volumen Docker separado. No se necesita clave de IA/OAuth para Profile.
 
 | Variable | Situación actual |
 | --- | --- |
@@ -193,6 +193,26 @@ Inventaría primero, revisa backup y retención, y prepara `prune.json` con IDs/
 Sin marcador, `verify_auth_contract.py` mantiene la sonda de lectura. Para probar también carga, reemplazo, lectura y borrado, CI genera un nonce `PROFILE_PROBE_MARKER` de 32 hex, lo pasa al contenedor Auth y ejecuta siempre [cleanup_probe.sql](../../scripts/profile/cleanup_probe.sql) en un `finally`/trap con `psql -v probe_marker=NONCE`. El SQL solo elimina perfiles sintéticos con ese marcador y sin usuario Auth, y falla si queda alguno. No reutilizar el marcador ni omitir esa limpieza. Las identidades se retiran primero en el finally del script. No se imprimen cuerpos personales ni tokens.
 
 La suite permanente cubre aislamiento incluso con roles administrativos, límites/códecs/metadata, conflictos entre conexiones, fallo de commit y recuperación tras reinicio, esquema repetido y constraint, confinamiento e importación dry-run/aplicada y retirada de huérfanos. Frontend prueba contrato multipart/DELETE, rechazo de URL externa, aborto de respuestas tardías y revocación de object URLs. La revisión completa de navegador y el escaneo de SO permanecen en PROFILE-006/007.
+
+## Sesión y edición web (PROFILE-006)
+
+El cliente de perfil y el cliente Auth conservan su identidad durante la renovación del access token, consultan la credencial actual y comparten la renovación entre peticiones simultáneas de cada cliente. Un identificador local de sesión nuevo por login/carga inicial, junto al usuario y tenant activo, delimita el editor; no es una credencial ni una garantía de autorización del servidor. Logout, nueva cuenta o cambio de tenant invalida clientes anteriores y remonta el editor, sin conservar contactos, contraseñas ni foto de otra sesión. Respuestas de una sesión anterior se descartan incluso si devuelven 200; un 401 anterior no renueva ni cierra la cuenta nueva.
+
+El controlador del editor cancela GET/PUT/upload/DELETE al desmontar, invalida respuestas tardías y serializa carga/recarga/guardado/foto. Abortar una petición no deshace un commit ya realizado en el servidor: al volver a abrir se lee la versión vigente. No hay reintentos de conflictos. El formulario mantiene una instantánea separada del perfil confirmado: una foto cambia la versión usada por el próximo guardado sin reemplazar el borrador de contacto. Un fallo conserva ese borrador; solo guardar con éxito o **Descartar cambios y recargar perfil** reemplaza sus campos. Renovar JWT o actualizar `/me` no repuebla el formulario. El perfil global rechaza versiones anteriores, incluida una carga que termine después de un guardado.
+
+**Correo de contacto** es editable y distinto del correo de identidad de Auth, que se muestra como referencia. La vista de permisos enumera los códigos efectivos de Auth, el rol y grupos del tenant activo; no infiere permisos por palabras, staff o grupos globales, ni utiliza las listas históricas de Profile como autoridad. La autorización final pertenece al servicio correspondiente. Cambiar contraseña usa Auth, impide doble envío y limpia los campos al confirmar el cambio; tras éxito ofrece cerrar sesión y volver a ingresar, porque Auth revoca las credenciales anteriores. Los errores no se imprimen con cuerpos o contraseñas en consola.
+
+Desde `frontend`, ejecuta:
+
+```powershell
+npm ci
+npm test
+npm run build
+npx playwright install chromium
+npm run test:browser
+```
+
+CI instala Chromium con `npx playwright install --with-deps chromium`. La configuración inicia Vite exclusivamente en `127.0.0.1:4173`, con APIs interceptadas y datos sintéticos, sin IA/OAuth ni acceso a backend real. Las pruebas de lógica cubren respuestas antiguas, reinicio del controlador, refresh, sesión sustituida, conflictos y exclusión entre escrituras; Chromium verifica conservación del borrador durante refresh/upload, doble submit, recuperación explícita de conflictos, email independiente, límites locales y permisos/semántica accesible. No sustituyen la sonda real de Auth/PostgreSQL de PROFILE-005 ni una auditoría completa de accesibilidad o frontend (WEB-001). La revisión de permisos DB y artefacto sigue en PROFILE-007.
 
 ## Diagnóstico PROFILE-001
 

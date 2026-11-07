@@ -5,7 +5,10 @@ import { loadAuthSession, saveAuthSession, clearAuthSession } from "../../../ent
 import { loginRequest, logoutRequest, meRequest, refreshTokenRequest } from "../api/auth.api";
 
 export function useAuth() {
-  const [auth, setAuth] = useState(loadAuthSession);
+  const [auth, setAuth] = useState(() => {
+    const saved = loadAuthSession();
+    return saved?.access ? { ...saved, sessionId: crypto.randomUUID() } : null;
+  });
   const [loginError, setLoginError] = useState("");
   const [isAuthenticating, setIsAuthenticating] = useState(false);
 
@@ -34,6 +37,7 @@ export function useAuth() {
       const payload = await loginRequest(credentials);
       const user = normalizeAuthUser(payload, credentials.username);
       setAuth({
+        sessionId: crypto.randomUUID(),
         access: payload.access,
         refresh: payload.refresh,
         username: user.username,
