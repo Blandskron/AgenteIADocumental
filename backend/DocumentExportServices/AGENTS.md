@@ -1,6 +1,6 @@
 # Trabajar en DocumentExportServices
 
-Lee [README.md](README.md) y [ROADMAP.md](../../ROADMAP.md#documentexportservices), además de [AGENTS raíz](../../AGENTS.md). EXPORT-001 es diagnóstico: no presentar propuestas como garantías implementadas. Retoma la tarjeta en curso o elige una de Lista; entrega un incremento revisable por PR con su ID y evidencia.
+Lee [README.md](README.md) y [ROADMAP.md](../../ROADMAP.md#documentexportservices), además de [AGENTS raíz](../../AGENTS.md). La evidencia BASELINE es histórica: no confundirla con el contrato actual. Retoma la tarjeta en curso o elige una de Lista; entrega un incremento revisable por PR con su ID y evidencia.
 
 ## Límites del servicio
 
@@ -18,4 +18,4 @@ Lee [README.md](README.md) y [ROADMAP.md](../../ROADMAP.md#documentexportservice
 - Para renderer, genera casos español/Unicode, fuentes y tablas extensas/multipágina; verifica texto y render PNG con Poppler. No basta con que el archivo tenga bytes o comience por %PDF.
 - Para frontend, ejecuta npm ci/test/build y las pruebas de navegador aplicables. Para Compose, ejecuta config --quiet desde raíz. Para imagen, distingue dependencias instaladas, SO y vendorizados y registra artefacto/avisos.
 - Comprueba cursor/listado y controlador web como contrato conjunto: epoch, abort, sesión estable durante refresh, object URLs en finally y reintentos con misma clave de operación. Para imagen usa audit_image.py/inspect_runtime.py; no montar credenciales o documentos, ni instalar pip/test/audit en runtime para verificarlo. Registra digest e inventario y conserva EXPORT-F01 hasta reevaluación de despliegue.
-- Actualiza README/tablero con comandos, límites y pendientes reales; pasa a En revisión, cierra al integrar. Al cerrar EXPORT-008, sustituye el diagnóstico por operación final y conserva seguimientos transversales.
+- Actualiza README/tablero con comandos, límites y pendientes reales; pasa a En revisión, cierra al integrar. Conserva operación final, migradores y evidencia trazable; EXPORT-F01 y los seguimientos transversales continúan hasta su reevaluación explícita.

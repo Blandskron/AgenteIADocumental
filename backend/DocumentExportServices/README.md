@@ -2,7 +2,7 @@
 
 Exporta a PDF una instantánea de pregunta, respuesta y fuentes aportada por el cliente. La identidad y las referencias se validan; el contenido no se certifica ni se recupera desde documentos, historial o LLM. No hay descargas remotas desde el renderer.
 
-**Estado:** EXPORT-004/005 integrados; EXPORT-006/007 se entregan juntos: historial/coordinación web y operación con rol mínimo/imagen auditada. Resta EXPORT-008 para el cierre integral. [Tablero](../../ROADMAP.md#documentexportservices).
+**Estado:** implementación funcional completa; revisión final EXPORT-008 pendiente de integración. El alcance residual de imágenes se conserva en EXPORT-F01/PLAT-002 y el del frontend en WEB-001. [Tablero](../../ROADMAP.md#documentexportservices).
 
 ## Contrato actual
 
@@ -56,7 +56,7 @@ La descarga valida MIME, firma y máximo de 1 MiB antes de crear un object URL. 
 
 ## Persistencia, recuperación e idempotencia
 
-[bytea de PostgreSQL](https://www.postgresql.org/docs/16/datatype-binary.html) permite confirmar bytes y fila juntos. No se crean PDFs/temporales en el filesystem del servicio. Fallar o matar el renderer no deja recursos persistentes; fallar DB revierte la transacción. La descarga obtiene metadatos y bytes en una consulta con FOR SHARE, impidiendo que borrado/purga intercalen una fila perdida. Se comprueba tamaño/firma PDF y SHA-256 antes de devolver datos. La DB impone además correspondencia tamaño/checksum y máximo de 1 MiB. Los listados difieren la carga de bytes.
+[bytea de PostgreSQL](https://www.postgresql.org/docs/16/datatype-binary.html) permite confirmar bytes y fila juntos. No se crean PDFs/temporales en el filesystem del servicio. Fallar o matar el renderer no deja recursos persistentes; fallar DB revierte la transacción. La descarga bloquea la fila propia mediante el helper FOR SHARE y obtiene metadatos/bytes dentro de la misma transacción, impidiendo que borrado/purga intercalen una fila perdida. Se comprueba tamaño/firma PDF y SHA-256 antes de devolver datos. La DB impone además correspondencia tamaño/checksum y máximo de 1 MiB. Los listados difieren la carga de bytes.
 
 La cuota se serializa por dueño y la capacidad global se comprueba bajo advisory lock antes de insertar. No se descartan silenciosamente archivos ni exportaciones al alcanzar cuota: 409. Con fuentes pequeñas las muestras midieron 30.771–34.236 bytes y 1–4 páginas; [evidencia sintética](docs/PDF_QA.json). Los límites lógicos no equivalen a espacio físico reservado: monitorizar pg_total_relation_size, WAL, backups y crecimiento antes de despliegue público.
 
@@ -87,8 +87,11 @@ Desde la raíz, con servicios de DB ya disponibles:
 ```powershell
 docker compose -f docker/docker-compose.yml stop document-export-service
 docker compose -f docker/docker-compose.yml run --rm --no-deps database-schema
+docker compose -f docker/docker-compose.yml run --rm --no-deps export-db-role
 docker compose -f docker/docker-compose.yml up -d --build --wait document-export-service
 ```
+
+Reconstruir también el consumidor con `npm ci` y `npm run build` desde `frontend` y desplegar el resultado junto a Export. Si se usa otro distribuidor de la web, actualizar su artefacto antes de reabrir tráfico: el listado anterior devolvía un array y el actual devuelve una página. Repetir `database-schema` y `export-db-role` es la comprobación de actualización sobre un volumen ya creado; un esquema incompatible o privilegios inesperados debe detener el proceso.
 
 ### Migración revisada de PDFs heredados
 
@@ -131,15 +134,17 @@ Fuera de Compose, entorno aislado con requirements.txt + requirements-test.txt: 
 
 [scripts/export/render_samples.py](../../scripts/export/render_samples.py) genera tres fixtures sintéticos; renderizar cada página con Poppler y revisar extracción/texto/glifos y layout. La revisión local final cubrió las seis páginas con fuentes embebidas, entidades literales resueltas y tablas legibles; [PDF_QA.json](docs/PDF_QA.json) registra tamaños/hashes. PDFs/PNG temporales no se añaden al repo. Docker local disponible en EXPORT-006/007: 202 pruebas PostgreSQL/Linux, aprovisionamiento repetido, login real del rol, JWT reales para tres roles y reinicio aprobados, sin montar documentos personales. Frontend: npm ci/test/build; las cuatro alertas altas npm siguen en WEB-001. Dos deprecaciones de dependencias (TestClient/httpx y ReportLab/ast.NameConstant) permanecen en seguimiento.
 
-## Evidencia de EXPORT-001
+## Evidencia conservada
 
 El [BASELINE.json](docs/BASELINE.json) conserva el análisis histórico sobre 454fdcedd30f671cdf5dddfdf66be53a2c46f780: 33 módulos, sondas con repositorio sustituido sin PostgreSQL/Auth/lifespan, CORS abierto, JWT incompletos, ausencia de límites, archivos huérfanos/estados obsoletos y problemas de glifos/tablas. Encontró 46 avisos Python Windows en cinco paquetes; no fue escaneo de imagen ni explotación validada. EXPORT-002 sustituyó configuración/dependencias y aprobó 57 pruebas; EXPORT-003 aprobó 138 más recorrido Auth real (PR #69). Es evidencia anterior, no comportamiento esperado actual.
 
-## Decisiones y mejoras por incrementos
+El directorio `docs/` contiene solo evidencia JSON: BASELINE es histórico, PDF_QA registra la inspección visual y IMAGE_AUDIT identifica el artefacto analizado. Los scripts de mantenimiento y validación viven en `scripts/export/`; las pruebas, en `tests/`. El lector seguro de PDFs heredados se conserva porque lo usa el migrador. La opción de ruta antigua se mantiene únicamente por compatibilidad y para comprobar que el runtime no toca archivos; no habilita almacenamiento local. No hay una aplicación Python en `docs/` ni un plan de modernización separado que deba ejecutarse.
 
-- EXPORT-004/005: este paquete conjunto, límites/PDF y persistencia binaria con migración conservadora.
-- EXPORT-006/007: paquete actual; 202 pruebas PostgreSQL, 98 Node, seis Chromium, build, Ruff, Compose y auditorías ejecutados localmente; consultar checks del PR para CI.
-- EXPORT-008: instalación/actualización y cierre de extremo a extremo; después DRIVE-001. Solo se cierran tarjetas con evidencia cumplida, no por agruparlas.
+## Revisión final y alcance
+
+EXPORT-008 revisa las ocho operaciones HTTP, sus consumidores web, dependencias de identidad, esquema aditivo/índice, rol y herramientas de migración/retención. La recuperación ante caída del renderer/DB, replay, cuotas, checksum, concurrencia y archivos heredados se verifica en la suite PostgreSQL/Linux; el recorrido con JWT reales cubre usuario, administrador de tenant y superusuario, privacidad y revocación. Las pruebas Chromium cubren historial, foco, cancelación y reintento con renovación de sesión. La evidencia de integración se registra en el tablero y los checks del PR.
+
+Este cierre funcional no equivale a autorización de despliegue público ni al cierre del proyecto completo. Antes de publicar siguen pendientes la reevaluación de imágenes del conjunto, la revisión web y el recorrido integral DEMO-001. Google Drive se aborda a continuación y no es una dependencia de Export.
 
 ## Licencia
 
