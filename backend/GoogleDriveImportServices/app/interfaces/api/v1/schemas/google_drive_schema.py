@@ -1,19 +1,41 @@
 from datetime import datetime
-from typing import Any
+from typing import Any, Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class AuthUrlResponse(BaseModel):
     authorization_url: str
     state: str
+    redirect_uri: str
+
+
+class AuthUrlRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid", strict=True)
+    code_challenge: str = Field(pattern=r"^[A-Za-z0-9_-]{43}$")
+
+
+class DisconnectRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid", strict=True)
+    version: int = Field(ge=1)
 
 
 class GoogleDriveConnectRequest(BaseModel):
-    code: str = Field(min_length=1)
+    model_config = ConfigDict(extra="forbid", strict=True)
+    code: str = Field(min_length=1, max_length=4096, pattern=r"^[\x21-\x7e]+$")
+    state: str = Field(pattern=r"^[A-Za-z0-9_-]{43}$")
+    code_verifier: str = Field(pattern=r"^[A-Za-z0-9._~-]{43,128}$")
+    issuer: Literal["https://accounts.google.com"] | None = None
 
 
 class GoogleDriveConnectionResponse(BaseModel):
+    enabled: bool = False
+    grant_status: str = "DISCONNECTED"
+    version: int = 0
+    busy: bool = False
+    provider_account_id: str | None = None
+    oauth_client_id: str = ""
+    picker_app_id: str = ""
     connected: bool
     provider_account_email: str | None = None
     scopes: list[str] = Field(default_factory=list)

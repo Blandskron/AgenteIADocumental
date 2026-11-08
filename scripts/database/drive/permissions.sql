@@ -1,8 +1,11 @@
+GRANT SELECT, DELETE ON public.google_drive_oauth_attempts TO drive_runtime;
+GRANT INSERT (state_hash,owner_user_id,identity_binding,configuration_hash,code_challenge,connection_version,expires_at) ON public.google_drive_oauth_attempts TO drive_runtime;
+GRANT UPDATE (consumed_at) ON public.google_drive_oauth_attempts TO drive_runtime;
 GRANT USAGE ON SCHEMA public TO drive_runtime, drive_helper_owner;
 REVOKE CREATE ON SCHEMA public FROM drive_runtime, drive_helper_owner;
 GRANT SELECT ON public.google_drive_connections TO drive_runtime;
-GRANT INSERT (owner_user_id,provider_account_email,scopes,access_token_encrypted,refresh_token_encrypted,expires_at,metadata) ON public.google_drive_connections TO drive_runtime;
-GRANT UPDATE (provider_account_email,scopes,access_token_encrypted,refresh_token_encrypted,expires_at,metadata,updated_at) ON public.google_drive_connections TO drive_runtime;
+GRANT INSERT (owner_user_id,version,grant_status,provider_account_id,oauth_client_id,lease_token,lease_until,lease_kind,provider_account_email,scopes,access_token_encrypted,refresh_token_encrypted,expires_at,metadata) ON public.google_drive_connections TO drive_runtime;
+GRANT UPDATE (version,grant_status,provider_account_id,oauth_client_id,lease_token,lease_until,lease_kind,provider_account_email,scopes,access_token_encrypted,refresh_token_encrypted,expires_at,metadata,updated_at) ON public.google_drive_connections TO drive_runtime;
 GRANT SELECT ON public.google_drive_imports TO drive_runtime;
 GRANT INSERT (owner_user_id,status,total_files,processed_files,failed_files,metadata,error_message) ON public.google_drive_imports TO drive_runtime;
 GRANT UPDATE (processed_files,failed_files,status,error_message,updated_at) ON public.google_drive_imports TO drive_runtime;

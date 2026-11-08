@@ -32,11 +32,14 @@ function loadPickerLibraries() {
   return pickerLibraries;
 }
 
-export async function openGoogleDrivePicker({ appId, clientId, developerKey }) {
+export async function openGoogleDrivePicker({ appId, clientId, developerKey, connection }) {
   if (!appId || !clientId || !developerKey) {
     throw new Error("Falta configurar Google Picker.");
   }
 
+  if (!connection?.connected || connection.busy || connection.oauthClientId !== clientId || connection.pickerAppId !== appId || !connection.providerAccountId) {
+    throw new Error("Picker debe usar la aplicación y cuenta de la conexión activa de Drive.");
+  }
   await loadPickerLibraries();
   const { picker, accounts } = window.google;
   const token = await new Promise((resolve, reject) => {
@@ -48,6 +51,11 @@ export async function openGoogleDrivePicker({ appId, clientId, developerKey }) {
       error_callback: fail,
     }).requestAccessToken();
   });
+
+  const identity = await fetch("https://www.googleapis.com/drive/v3/about?fields=user(permissionId)", { headers: { Authorization: `Bearer ${token}` }, signal: AbortSignal.timeout(15000), cache: "no-store", credentials: "omit" });
+  if (!identity.ok || (await identity.json()).user?.permissionId !== connection.providerAccountId) {
+    throw new Error("Selecciona la misma cuenta Google que conectaste a la plataforma.");
+  }
 
   return new Promise((resolve) => {
     const view = new picker.DocsView(picker.ViewId.DOCS).setMode(picker.DocsViewMode.LIST);

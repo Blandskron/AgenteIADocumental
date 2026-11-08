@@ -104,6 +104,9 @@ def test_drive_writer_obeys_library_transaction_lock(committed_records):
 
 
 class ImportRepository:
+    def ensure_connection_current(self, version):
+        pass
+
     def check_identity(self):
         pass
 
@@ -117,7 +120,7 @@ class ImportRepository:
 
     def get_connection(self, owner):
         self.connection_reads += 1
-        return SimpleNamespace()
+        return SimpleNamespace(version=1,)
 
     def create_import(self, *args):
         return SimpleNamespace(import_id="synthetic-import")

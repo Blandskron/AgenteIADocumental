@@ -154,31 +154,36 @@ def test_enabled_callback_checks_current_identity_between_provider_calls(runtime
     from app.infrastructure.google.drive_client import GoogleDriveClient
     called=[]
 
-    def exchange(self, code):
+    def exchange(self, code, verifier):
         called.append("exchange")
         # A provider call must run without a lock on Auth; revocation can proceed here.
         if revoke:
             with engine.begin() as c:
                 c.execute(text("SET LOCAL lock_timeout='1s'"))
                 c.execute(text("UPDATE auth_user SET password='changed' WHERE id=:id"), {"id":identities["owner"]})
-        return {"access_token":"synthetic-access", "refresh_token":"synthetic-refresh", "expires_in":300}
+        return {"access_token":"synthetic-access", "refresh_token":"synthetic-refresh", "expires_in":300,"token_type":"Bearer"}
 
     def info(self, access):
         called.append("userinfo")
-        return {"email":"synthetic@example.invalid"}
+        return {"emailAddress":"synthetic@example.invalid","permissionId":"synthetic-subject"}
 
     monkeypatch.setattr(GoogleDriveClient,"exchange_code",exchange)
     monkeypatch.setattr(GoogleDriveClient,"get_userinfo",info)
     config=Settings(database_url=runtime_url,auth_jwt_public_key_path=signing_keys[1],google_drive_enabled=True,
                     google_oauth_client_id="synthetic",google_oauth_client_secret="synthetic-secret",google_token_encryption_key="a"*48)
     with TestClient(create_app(config)) as client:
-        response=client.post("/api/v1/google-drive/oauth/callback",json={"code":"synthetic"},headers=token())
+        import base64
+        import hashlib
+        verifier="v"*43
+        challenge=base64.urlsafe_b64encode(hashlib.sha256(verifier.encode()).digest()).decode().rstrip("=")
+        attempt=client.post("/api/v1/google-drive/auth-url",json={"code_challenge":challenge},headers=token()).json()
+        response=client.post("/api/v1/google-drive/oauth/callback",json={"code":"synthetic","state":attempt["state"],"code_verifier":verifier},headers=token())
         assert response.status_code == (401 if revoke else 200)
         assert called == (["exchange"] if revoke else ["exchange","userinfo"])
         assert "synthetic-access" not in response.text and "synthetic-refresh" not in response.text
     with engine.begin() as c:
         assert c.scalar(text("SELECT count(*) FROM google_drive_connections WHERE owner_user_id=:owner"),
-                        {"owner":str(identities["owner"])}) == (0 if revoke else 1)
+                        {"owner":str(identities["owner"])}) == 1
 
 
 def test_pool_timeout_rollback_and_statement_timeout(runtime_url):
@@ -249,13 +254,13 @@ def test_global_connection_requires_permission_in_each_active_tenant(client, tok
         c.execute(text("INSERT INTO tenant_memberships(tenant_id,user_id,role) VALUES(:t,:u,'TENANT_ADMIN')"),{"t":other_tenant,"u":str(identities["owner"])})
         c.execute(text("INSERT INTO google_drive_connections(owner_user_id,access_token_encrypted) VALUES(:u,'synthetic-ciphertext')"),{"u":str(identities["owner"])})
     try:
-        assert client.get("/api/v1/google-drive/connection",headers=token()).json()["connected"] is True
+        assert client.get("/api/v1/google-drive/connection",headers=token()).json()["grant_status"] == "LEGACY"
         assert client.get("/api/v1/google-drive/connection",headers=token(active_tenant_id=other_tenant)).status_code==403
         with engine.begin() as c:
             group=c.scalar(text("INSERT INTO tenant_groups(tenant_id,name) VALUES(:t,'synthetic-drive') RETURNING group_id"),{"t":other_tenant})
             c.execute(text("INSERT INTO tenant_group_permissions(group_id,permission_code) VALUES(:g,'use_google_drive')"),{"g":group})
             c.execute(text("INSERT INTO tenant_user_groups(tenant_id,user_id,group_id) VALUES(:t,:u,:g)"),{"t":other_tenant,"u":str(identities["owner"]),"g":group})
-        assert client.get("/api/v1/google-drive/connection",headers=token(active_tenant_id=other_tenant)).json()["connected"] is True
+        assert client.get("/api/v1/google-drive/connection",headers=token(active_tenant_id=other_tenant)).json()["grant_status"] == "LEGACY"
         assert client.get("/api/v1/google-drive/connection",headers=token(user_id=identities["other"])).json()["connected"] is False
     finally:
         with engine.begin() as c:

@@ -66,6 +66,7 @@ def identities(engine):
         with engine.begin() as c:
             c.execute(text("DELETE FROM google_drive_import_files WHERE import_id IN (SELECT import_id FROM google_drive_imports WHERE owner_user_id=ANY(:ids))"), {"ids": list(map(str,ids))})
             c.execute(text("DELETE FROM google_drive_imports WHERE owner_user_id=ANY(:ids)"), {"ids": list(map(str,ids))})
+            c.execute(text("DELETE FROM google_drive_oauth_attempts WHERE owner_user_id=ANY(:ids)"), {"ids": list(map(str,ids))})
             c.execute(text("DELETE FROM google_drive_connections WHERE owner_user_id=ANY(:ids)"), {"ids": list(map(str,ids))})
             c.execute(text("DELETE FROM tenants WHERE tenant_id=:t"), {"t": tenant})
             c.execute(text("DELETE FROM auth_user WHERE id=ANY(:ids)"), {"ids": ids})

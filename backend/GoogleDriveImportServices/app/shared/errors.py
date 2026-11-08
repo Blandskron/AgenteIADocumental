@@ -16,3 +16,11 @@ class GoogleDriveError(AppError):
 
 class ExternalServiceError(AppError):
     pass
+
+
+class DriveConflictError(AppError):
+    pass
+
+
+class ReauthorizationRequired(AppError):
+    pass

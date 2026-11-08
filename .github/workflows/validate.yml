@@ -361,7 +361,7 @@ jobs:
           path: ${{ runner.temp }}/export-image-audit/*.json
           if-no-files-found: ignore
           retention-days: 7
-      - name: Probar runtime, identidad y rol de Drive sin OAuth
+      - name: Probar runtime, identidad y OAuth simulado de Drive
         run: |
           docker compose -f docker/docker-compose.yml run --rm --no-deps drive-db-role
           docker compose -f docker/docker-compose.yml run --rm --no-deps drive-db-role

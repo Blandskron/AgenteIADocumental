@@ -1,6 +1,13 @@
 function normalizeConnection(payload = {}) {
   return {
     connected: Boolean(payload.connected),
+    enabled: Boolean(payload.enabled),
+    version: payload.version,
+    grantStatus: payload.grant_status,
+    busy: Boolean(payload.busy),
+    providerAccountId: payload.provider_account_id,
+    oauthClientId: payload.oauth_client_id,
+    pickerAppId: payload.picker_app_id,
     providerAccountEmail: payload.provider_account_email,
     scopes: payload.scopes || [],
     expiresAt: payload.expires_at,
@@ -41,17 +48,16 @@ function normalizeImportFile(payload = {}) {
   };
 }
 
-export function getGoogleDriveAuthUrl(apiClient, returnUrl = "") {
-  const query = returnUrl ? `?return_url=${encodeURIComponent(returnUrl)}` : "";
-  return apiClient(`/api/v1/google-drive/auth-url${query}`, { method: "GET" });
+export function getGoogleDriveAuthUrl(apiClient, codeChallenge) {
+  return apiClient("/api/v1/google-drive/auth-url", { method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({code_challenge: codeChallenge}) });
 }
 
-export function connectGoogleDrive(apiClient, code) {
-  return apiClient("/api/v1/google-drive/oauth/callback", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ code }),
-  }).then(normalizeConnection);
+export function connectGoogleDrive(apiClient, payload) {
+  return apiClient("/api/v1/google-drive/oauth/callback", {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(payload)}).then(normalizeConnection);
+}
+
+export function disconnectGoogleDrive(apiClient, version) {
+  return apiClient("/api/v1/google-drive/disconnect", {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({version})}).then(normalizeConnection);
 }
 
 export function getGoogleDriveConnection(apiClient) {

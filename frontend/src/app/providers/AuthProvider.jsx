@@ -84,16 +84,8 @@ export function AuthProvider({ children }) {
 
   const documentExportClient = useMemo(() => profileSessionKey
     ? createSessionClient(env.documentExportBaseUrl, profileSessionKey, () => session.current) : null, [profileSessionKey]);
-  const googleDriveImportClient = useMemo(
-    () =>
-      createAuthorizedClient({
-        baseUrl: env.googleDriveImportBaseUrl,
-        getAccessToken: () => authState.auth?.access,
-        refreshAccessToken: authState.refreshAccessToken,
-        onUnauthorized: authState.logout,
-      }),
-    [authState.auth?.access, authState.logout, authState.refreshAccessToken],
-  );
+  const googleDriveImportClient = useMemo(() => profileSessionKey
+    ? createSessionClient(env.googleDriveImportBaseUrl, profileSessionKey, () => session.current) : null, [profileSessionKey]);
 
   const conversationClient = useMemo(
     () =>

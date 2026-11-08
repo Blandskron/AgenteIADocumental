@@ -37,7 +37,7 @@ class GoogleDriveClient:
     def __init__(self, settings: Settings) -> None:
         self._settings = settings
 
-    def build_authorization_url(self, state: str, prompt: str = "consent") -> str:
+    def build_authorization_url(self, state: str, code_challenge: str) -> str:
         if not self._settings.google_oauth_client_id:
             raise ValidationError("Google OAuth client id is not configured.")
 
@@ -48,16 +48,18 @@ class GoogleDriveClient:
                 "response_type": "code",
                 "scope": " ".join(self._settings.google_oauth_scope_list),
                 "access_type": "offline",
-                "include_granted_scopes": "true",
-                "prompt": prompt,
+                "code_challenge": code_challenge,
+                "code_challenge_method": "S256",
+                "prompt": "consent select_account",
                 "state": state,
             },
         )
         return f"{self._settings.google_oauth_authorize_url}?{query}"
 
-    def exchange_code(self, code: str) -> dict:
+    def exchange_code(self, code: str, code_verifier: str) -> dict:
         payload = {
             "code": code,
+            "code_verifier": code_verifier,
             "client_id": self._settings.google_oauth_client_id,
             "client_secret": self._settings.google_oauth_client_secret,
             "redirect_uri": self._settings.google_oauth_redirect_uri,
@@ -76,10 +78,19 @@ class GoogleDriveClient:
 
     def get_userinfo(self, access_token: str) -> dict:
         with httpx.Client(timeout=self._settings.request_timeout_seconds) as client:
-            response = client.get("https://www.googleapis.com/oauth2/v3/userinfo", headers=self._auth_headers(access_token))
+            response = client.get("https://www.googleapis.com/drive/v3/about", params={"fields": "user(permissionId,emailAddress)"}, headers=self._auth_headers(access_token))
         if response.status_code >= 400:
-            return {}
-        return response.json()
+            raise GoogleDriveError("Google Drive identity lookup failed.")
+        return response.json().get("user", {})
+
+    def revoke(self, token: str):
+        with httpx.Client(timeout=self._settings.request_timeout_seconds) as client:
+            response = client.post("https://oauth2.googleapis.com/revoke", data={"token": token})
+        if response.status_code == 200:
+            return
+        if response.status_code == 400 and response.json().get("error") == "invalid_token":
+            return
+        raise GoogleDriveError("Google grant revocation is pending.")
 
     def download_file(self, access_token: str, file_id: str, export_mime_type: str | None = None) -> DownloadedDriveFile:
         metadata = self.get_file_metadata(access_token, file_id)

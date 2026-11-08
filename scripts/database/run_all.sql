@@ -14,6 +14,7 @@ BEGIN;
 \ir schemas/009_exports.sql
 \ir export/pdf_storage.sql
 \ir schemas/010_google_drive_imports.sql
+\ir drive/oauth_lifecycle.sql
 \ir schemas/011_notifications_audit.sql
 \ir schemas/012_document_deletions.sql
 \ir constraints/001_document_constraints.sql

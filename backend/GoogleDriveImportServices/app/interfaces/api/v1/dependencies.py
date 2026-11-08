@@ -20,6 +20,6 @@ def get_google_drive_use_case(request: Request, current_user: DriveUser = Depend
         repository=GoogleDriveRepository(request.app.state.database, current_user),
         google_client=GoogleDriveClient(settings),
         document_client=DocumentUploadClient(settings),
-        token_cipher=TokenCipher(settings.google_token_encryption_key) if settings.google_drive_enabled else None,
+        token_cipher=TokenCipher.from_settings(settings) if settings.google_drive_enabled else None,
         settings=settings,
     )

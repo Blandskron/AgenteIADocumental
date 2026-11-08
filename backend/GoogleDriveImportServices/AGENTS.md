@@ -2,7 +2,9 @@
 
 Lee [README.md](README.md), [ROADMAP](../../ROADMAP.md#googledriveimportservices) y [AGENTS raíz](../../AGENTS.md). DRIVE-001 es diagnóstico: sus propuestas no son garantías implementadas. Retoma En curso o elige Lista; conserva el ID y evidencia del incremento. Los paquetes propuestos no eliminan criterios de aceptación.
 
-DRIVE-002/003 establece el runtime factory y el rol drive_runtime. Conexión/historial siguen globales por usuario; el acceso exige permiso vigente de grupo del tenant activo o superusuario actual. No mantener transacciones/locks durante red. GOOGLE_DRIVE_ENABLED=false permite operar sin secretos Google; no reactivar OAuth como efecto de una migración ni declarar resueltos state, importaciones o web pendientes.
+DRIVE-002/003 establece el runtime factory y el rol drive_runtime. Conexión/historial siguen globales por usuario; el acceso exige permiso vigente de grupo del tenant activo o superusuario actual. No mantener transacciones/locks durante red. GOOGLE_DRIVE_ENABLED=false permite operar sin secretos Google; no reactivar OAuth como efecto de una migración ni declarar resueltas importaciones o coordinación web pendientes.
+
+DRIVE-004 introduce intentos PKCE/state consumidos antes del canje, envelope/keyring y lease/versión SQL para connect/refresh/revoke. Conserva los tombstones DISCONNECTED y REVOKE_PENDING: no sustituirlos por DELETE ni dar revocación por confirmada ante un timeout. Rotar solo con plan offline revisado y comparación de versión/hash; no convertir grants LEGACY en ACTIVE al recifrar. Los dos callbacks comparten oauth-flow/useDriveConnection y el cliente estable de sesión; el identificador local debe sobrevivir a la redirección Google, pero cambiar al iniciar otra sesión. Picker valida cliente/aplicación y permissionId con su token efímero, separado de los tokens guardados por el backend. Consulta el procedimiento actualizado del README antes de modificar estos contratos.
 
 ## Fronteras y contratos
 

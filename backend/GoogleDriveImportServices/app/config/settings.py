@@ -26,6 +26,11 @@ class Settings(BaseSettings):
     auth_jwt_public_key_path: Path
     auth_jwt_algorithm: Literal["RS256"] = "RS256"
 
+    google_token_key_id: str = Field(default="v1", pattern=r"^[A-Za-z0-9_-]{1,32}$")
+    google_token_previous_keys: dict[str,str] = Field(default_factory=dict, repr=False)
+    google_token_legacy_key_id: str | None = None
+    google_picker_app_id: str = Field(default="", max_length=128)
+
     google_drive_enabled: bool = False
     google_oauth_client_id: str = Field(default="", validation_alias=AliasChoices("GOOGLE_OAUTH_CLIENT_ID", "GOOGLE_CLIENT_ID"))
     google_oauth_client_secret: str = Field(default="", repr=False, validation_alias=AliasChoices("GOOGLE_OAUTH_CLIENT_SECRET", "GOOGLE_CLIENT_SECRET"))
@@ -83,6 +88,12 @@ class Settings(BaseSettings):
             if (not self.google_oauth_client_id or not self.google_oauth_client_secret
                     or len(key) < 32 or key.lower().startswith(("change", "local-", "example"))):
                 raise ValueError("Enabled Drive requires OAuth credentials and an independent encryption secret.")
+            redirect = urlsplit(self.google_oauth_redirect_uri)
+            origin = f"{redirect.scheme}://{redirect.netloc}"
+            if redirect.path not in {"/documents", "/applications/google-drive"} or origin not in self.cors_origins:
+                raise ValueError("OAuth callback must use a supported path on an allowed frontend origin.")
+            from app.infrastructure.google.token_cipher import TokenCipher
+            TokenCipher.from_settings(self)
         return self
 
     @field_validator("database_url")
