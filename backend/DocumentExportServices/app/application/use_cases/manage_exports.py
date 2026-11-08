@@ -19,6 +19,8 @@ class ManageExports:
         if not payload.answer.strip():
             raise ValidationError("La respuesta del chat es obligatoria para exportar.")
 
+        self._repository.validate_references(payload.conversation_id, payload.message_id)
+
         export_source_id = payload.message_id or payload.conversation_id
         filename = f"{self._slug(title)}_{uuid4().hex[:10]}.pdf"
         output_path = (self._storage_base_path / filename).resolve()

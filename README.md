@@ -13,6 +13,8 @@ Google Drive es una integración opcional que requiere configurar OAuth. Para la
 
 El perfil se guarda con control de versión: si otra sesión lo modificó, conserva tu formulario y ofrece recargar el perfil antes de guardar de nuevo. Renovar la sesión o subir una foto conserva el borrador de contacto; cambiar de cuenta o tenant reinicia el editor. El correo de contacto se edita por separado de la identidad y los permisos se muestran para el tenant activo. La actualización requiere aplicar el esquema y reconstruir la web junto al servicio. [Actualizar Profile](backend/ProfileServices/README.md#actualizar-una-instalación-existente) y [pruebas web](backend/ProfileServices/README.md#sesión-y-edición-web).
 
+Exportar guarda una instantánea enviada por el cliente. Si el mensaje todavía no está sincronizado, el PDF se crea sin asociarlo a ese mensaje; una conversación local tampoco se envía como referencia. Actualiza la web junto a Export para evitar referencias locales rechazadas. [Contrato de exportación](backend/DocumentExportServices/README.md#contrato-actual).
+
 Las vistas de asignaciones, gestión y notificaciones cargan 50 registros por página. Usa **Cargar más** para consultar los siguientes. Los contadores de estas vistas indican registros cargados.
 
 La biblioteca también carga por páginas de 50 las carpetas raíz, su contenido, favoritos y documentos actualizados recientemente. Usa **Cargar más** y **Actualizar biblioteca** para volver a las primeras páginas. Los contadores indican registros cargados; la cantidad de documentos de cada carpeta incluye todos los visibles. La web navega raíces y su contenido; la jerarquía completa está disponible en la API.
@@ -30,7 +32,7 @@ La ingesta admite archivos de hasta 20 MiB. El mismo límite aplica a las cargas
 - `backend/DocumentTransferServices`: historial de cargas/descargas.
 - `backend/ConversationServices`: historial del chat documental. Usa **Cargar mensajes anteriores** para consultar páginas más antiguas.
 - `backend/ProfileServices`: perfil y avatar.
-- `backend/DocumentExportServices`: exportación de respuestas a PDF, con configuración explícita y readiness DB/clave/storage. [Operación](backend/DocumentExportServices/README.md#ejecución-actual) y [mejoras por etapas](backend/DocumentExportServices/README.md#decisiones-y-mejoras-por-incrementos); modernización en curso.
+- `backend/DocumentExportServices`: exportación de respuestas a PDF, con identidad vigente, referencias propias y readiness DB/clave/storage. [Operación](backend/DocumentExportServices/README.md#ejecución-actual) y [mejoras por etapas](backend/DocumentExportServices/README.md#decisiones-y-mejoras-por-incrementos); modernización en curso.
 - `backend/GoogleDriveImportServices`: importacion desde Google Drive.
 - `frontend`: interfaz React simple para chat y documentos.
 

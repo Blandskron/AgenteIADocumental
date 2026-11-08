@@ -41,6 +41,8 @@ services:
     environment:
       EXPORT_TEST_DATABASE_URL: postgresql+psycopg://postgres@postgres:5432/documents_db
       PGPASSWORD: admin1234
+    volumes:
+      - ../../scripts/export:/export-checks:ro
     depends_on:
       database-schema:
         condition: service_completed_successfully

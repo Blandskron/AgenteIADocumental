@@ -1,10 +1,20 @@
 import pytest
+from unittest.mock import Mock
 from fastapi.testclient import TestClient
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 
 from app.interfaces.api.v1.dependencies import get_export_use_case
-from app.main import create_app
+from app.config.database import get_session
+from app.main import create_app as factory
 from app.shared.errors import ExportGenerationError, NotFoundError, ValidationError
+
+
+def create_app(settings):
+    app = factory(settings)
+    session = Mock()
+    session.scalar.return_value = True
+    app.dependency_overrides[get_session] = lambda: session
+    return app
 
 
 @pytest.mark.parametrize("origin", ["http://localhost:3000", "http://127.0.0.1:3000", "https://external.invalid"])

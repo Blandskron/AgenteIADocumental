@@ -1,17 +1,27 @@
+from dataclasses import dataclass
 from pathlib import Path
+import re
 
 import jwt
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from jwt import InvalidKeyError, InvalidTokenError
-from cryptography.exceptions import UnsupportedAlgorithm
 from cryptography.hazmat.primitives.serialization import load_pem_public_key
 from cryptography.hazmat.primitives.asymmetric.rsa import RSAPublicKey
+from cryptography.exceptions import UnsupportedAlgorithm
+from sqlalchemy import text
+from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.orm import Session
 
+from app.config.database import get_session
 from app.config.settings import Settings, get_settings
 
-
 bearer_scheme = HTTPBearer(auto_error=False)
+
+
+@dataclass(frozen=True)
+class ExportUser:
+    user_id: str
 
 
 def read_public_key(path: str | Path) -> str:
@@ -28,7 +38,8 @@ def read_public_key(path: str | Path) -> str:
 def require_authenticated_user(
     credentials: HTTPAuthorizationCredentials | None = Depends(bearer_scheme),
     settings: Settings = Depends(get_settings),
-) -> dict:
+    session: Session = Depends(get_session),
+) -> ExportUser:
     if credentials is None:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -41,25 +52,45 @@ def require_authenticated_user(
             credentials.credentials,
             read_public_key(settings.auth_jwt_public_key_path),
             algorithms=[settings.auth_jwt_algorithm],
-            options={"verify_aud": False},
+            options={"verify_aud": False, "require": ["exp", "iat", "jti", "user_id", "token_type", "hash_password"]},
         )
-    except (InvalidTokenError, InvalidKeyError, RuntimeError, TypeError, ValueError):
+        if (type(payload["user_id"]) is not int or not 0 < payload["user_id"] <= 2**63 - 1
+                or type(payload["exp"]) is not int or type(payload["iat"]) is not int
+                or not 0 <= payload["iat"] < payload["exp"]
+                or not isinstance(payload["jti"], str) or not 1 <= len(payload["jti"]) <= 128
+                or payload["token_type"] != "access"
+                or not isinstance(payload["hash_password"], str)
+                or re.fullmatch(r"[0-9A-F]{32}", payload["hash_password"]) is None):
+            raise InvalidTokenError()
+        identifier = str(payload["user_id"])
+        if "sub" in payload and (type(payload["sub"]) is not str or payload["sub"] != identifier):
+            raise InvalidTokenError()
+        for name in ("is_superuser", "is_superadmin", "is_staff"):
+            if name in payload and type(payload[name]) is not bool:
+                raise InvalidTokenError()
+        for name in ("groups", "grupos", "permissions", "permisos", "user_permissions", "roles"):
+            if name in payload and (type(payload[name]) is not list
+                                    or any(type(item) is not str for item in payload[name])):
+                raise InvalidTokenError()
+    except (InvalidTokenError, InvalidKeyError, RuntimeError, TypeError, ValueError, OverflowError):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid authentication token.",
             headers={"WWW-Authenticate": "Bearer"},
         ) from None
 
-    if payload.get("token_type") != "access":
+    try:
+        # Match SimpleJWT CHECK_REVOKE_TOKEN without returning encoded passwords to the app.
+        current = session.scalar(text("""
+            SELECT EXISTS (SELECT 1 FROM public.auth_user AS u WHERE u.id=:identifier AND u.is_active IS TRUE AND upper(md5(u.password))=:fingerprint FOR SHARE OF u)
+        """), {"identifier": payload["user_id"], "fingerprint": payload["hash_password"]})
+    except SQLAlchemyError:
+        raise HTTPException(status_code=503, detail="Export identity verification is unavailable.") from None
+    if not current:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Access token required.",
+            detail="Invalid authentication token.",
             headers={"WWW-Authenticate": "Bearer"},
         )
 
-    return payload
-
-
-def owner_user_id(user: dict) -> str:
-    return str(user.get("user_id") or user.get("sub") or user.get("username") or "unknown")
-
+    return ExportUser(identifier)

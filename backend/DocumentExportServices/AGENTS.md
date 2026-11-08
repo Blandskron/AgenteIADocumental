@@ -5,8 +5,8 @@ Lee [README.md](README.md) y [ROADMAP.md](../../ROADMAP.md#documentexportservice
 ## Límites del servicio
 
 - Export recibe una instantánea de pregunta/respuesta/fuentes; hoy no consulta mensajes, documentos ni LLM. No añadir fetch remoto/HTML activo ni prometer procedencia certificada sin un contrato nuevo.
-- La identidad pertenece a Auth. El fallback de dueño y la falta de revocación actuales están pendientes de EXPORT-003; no copiarlos como estándar. Ningún rol administrativo debe ampliar acceso a exports ajenos.
-- Revisa juntos request/DTO, ManageExports, repositorio, renderer, SQL y consumidores `features/document-export`, ChatPage, ChatMessages y AuthProvider. Las referencias opcionales deben respetar dueño/coherencia y no romper la exportación desde mensajes aún no sincronizados.
+- La identidad pertenece a Auth. Usa ExportUser canónico y la comprobación de cuenta activa/huella con lock; no reintroducir fallback ni liberar la transacción antes de validar/renderizar/persistir. Ningún rol administrativo debe ampliar acceso a exports ajenos.
+- Revisa juntos request/DTO, ManageExports, repositorio, renderer, SQL y consumidores `features/document-export`, ChatPage, ChatMessages y AuthProvider. Las referencias opcionales deben respetar ambos dueños y coherencia antes de renderizar, manteniendo locks. La web omite IDs locales de mensajes/conversaciones no sincronizados, sin reintentar referencias rechazadas como instantáneas sin vínculo.
 - PDF y fila son dos recursos en la línea base. No borrar fuentes/filas ni reubicar PDFs heredados indiscriminadamente; inventariar/revisar antes de cambiar storage. La decisión de EXPORT-005 depende de límites, capacidad y recuperación, no de copiar automáticamente Avatar.
 - Usa claves y PDFs sintéticos, directorio/volumen separado y configuración explícita. No montes `documents/exports` real para probar fallos ni vuelques `.env`, JWT, preguntas, respuestas o rutas personales a logs.
 - `docs/` conserva evidencia documental, no aplicaciones Python. Mantén pruebas/código en sus ubicaciones propias y conserva migraciones hasta tener un reemplazo probado.

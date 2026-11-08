@@ -28,13 +28,22 @@ function normalizeSource(source = {}) {
   };
 }
 
+export function exportReferences(conversationId, messageId) {
+  const persisted = (id) => typeof id === "string" && id.length > 0
+    && !id.startsWith("local-") && !id.startsWith("blandskron-");
+  const conversation = persisted(conversationId) ? conversationId : null;
+  return {
+    conversation_id: conversation,
+    message_id: conversation && persisted(messageId) ? messageId : null,
+  };
+}
+
 export async function createChatMessagePdf(apiClient, payload) {
   const response = await apiClient("/api/v1/exports/chat-message/pdf", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
-      conversation_id: payload.conversationId || null,
-      message_id: payload.messageId || null,
+      ...exportReferences(payload.conversationId, payload.messageId),
       title: payload.title || "Respuesta documental",
       question: payload.question || "",
       answer: payload.answer,
