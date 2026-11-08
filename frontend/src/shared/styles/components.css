@@ -3655,3 +3655,19 @@
   color: var(--aqua);
   border: 1px solid rgba(69, 230, 207, 0.2);
 }
+
+.export-history { width: min(680px, 90vw); max-height: 80vh; overflow: auto; border: 1px solid #ccd5e0; border-radius: 14px; padding: 24px; color: #17212f; background: #fff; }
+.export-history::backdrop { background: rgb(15 23 42 / 45%); }
+.export-history h2 { margin-top: 0; }
+.export-history ul { padding: 0; list-style: none; }
+.export-history li { padding: 14px 0; border-bottom: 1px solid #dce2ea; overflow-wrap: anywhere; }
+.export-history li span { display: block; color: #4b5563; font-size: .9rem; margin: 6px 0; }
+.export-history button, .export-history-trigger { padding: 8px 12px; margin: 4px; border: 1px solid #bac6d5; border-radius: 6px; cursor: pointer; background: #f3f6fa; color: #17212f; }
+.export-history button:disabled { opacity: .55; cursor: default; }
+.export-history button:focus-visible, .export-history-trigger:focus-visible { outline: 3px solid #2563eb; outline-offset: 2px; }
+.export-history [role="alert"] { color: #b91c1c; }
+.export-history-trigger { align-self: flex-end; }
+.export-history h2 { padding-right: 80px; margin-bottom: 22px; }
+.export-history > button[aria-label="Cerrar historial PDF"] { position: absolute; right: 18px; top: 16px; }
+.export-history p { line-height: 1.5; }
+.export-history-trigger { width: max-content; justify-self: end; margin: 8px 24px 4px; }

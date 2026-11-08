@@ -3,7 +3,7 @@ const iaIconUrl = "/blandskron.svg";
 
 import { SourceList } from "./SourceList";
 
-export function Message({ isExportingPdf = false, message, onExportPdf }) {
+export function Message({ isExportingPdf = false, exportDisabled = false, message, onExportPdf }) {
   const isAssistant = message.role === "assistant";
 
   return (
@@ -20,7 +20,7 @@ export function Message({ isExportingPdf = false, message, onExportPdf }) {
               className="message-export-button"
               type="button"
               onClick={onExportPdf}
-              disabled={isExportingPdf}
+              disabled={isExportingPdf || exportDisabled}
               title="Exportar respuesta como PDF"
             >
               {isExportingPdf ? <Loader2 size={15} /> : <FileDown size={15} />}

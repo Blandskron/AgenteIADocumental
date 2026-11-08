@@ -53,3 +53,19 @@ class ExportBodyLimits:
             await self.app(scope, buffered, send)
         finally:
             self.slots.release()
+
+
+class PrivateExportHeaders:
+    def __init__(self, app):
+        self.app = app
+
+    async def __call__(self, scope, receive, send):
+        async def private(message):
+            if message["type"] == "http.response.start":
+                headers = [(key, value) for key, value in message.get("headers", []) if key.lower() != b"cache-control"]
+                headers.extend([(b"cache-control", b"private, no-store"), (b"vary", b"Authorization")])
+                message = {**message, "headers": headers}
+            await send(message)
+        if scope["type"] == "http" and scope.get("path", "").startswith("/api/v1/exports"):
+            return await self.app(scope, receive, private)
+        return await self.app(scope, receive, send)

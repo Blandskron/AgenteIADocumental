@@ -82,7 +82,7 @@ def require_authenticated_user(
     try:
         # Match SimpleJWT CHECK_REVOKE_TOKEN without returning encoded passwords to the app.
         current = session.scalar(text("""
-            SELECT EXISTS (SELECT 1 FROM public.auth_user AS u WHERE u.id=:identifier AND u.is_active IS TRUE AND upper(md5(u.password))=:fingerprint FOR SHARE OF u)
+            SELECT public.export_identity_is_current(:identifier,:fingerprint)
         """), {"identifier": payload["user_id"], "fingerprint": payload["hash_password"]})
     except SQLAlchemyError:
         raise HTTPException(status_code=503, detail="Export identity verification is unavailable.") from None

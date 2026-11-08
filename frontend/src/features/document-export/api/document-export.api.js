@@ -1,4 +1,7 @@
 function normalizeExport(payload = {}) {
+  if (typeof payload.export_id !== "string" || !/^[A-Za-z0-9_-]{1,128}$/.test(payload.export_id)) {
+    throw new Error("El servicio devolvió un PDF sin identificador válido.");
+  }
   return {
     exportId: payload.export_id,
     sourceType: payload.source_type,
@@ -15,6 +18,8 @@ function normalizeExport(payload = {}) {
     downloadUrl: payload.download_url,
     createdAt: payload.created_at,
     updatedAt: payload.updated_at,
+    expiresAt: payload.expires_at,
+    sha256: payload.sha256,
   };
 }
 
@@ -46,10 +51,11 @@ export function exportReferences(conversationId, messageId) {
   };
 }
 
-export async function createChatMessagePdf(apiClient, payload) {
+export async function createChatMessagePdf(apiClient, payload, { signal, operationKey } = {}) {
   const response = await apiClient("/api/v1/exports/chat-message/pdf", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    signal,
+    headers: { "Content-Type": "application/json", ...(operationKey ? { "Idempotency-Key": operationKey } : {}) },
     body: JSON.stringify({
       ...exportReferences(payload.conversationId, payload.messageId),
       title: payload.title || "Respuesta documental",
@@ -63,9 +69,24 @@ export async function createChatMessagePdf(apiClient, payload) {
   return normalizeExport(response);
 }
 
-export function downloadExport(apiClient, exportId) {
-  return apiClient(`/api/v1/exports/${exportId}/download`, {
+export function downloadExport(apiClient, exportId, signal) {
+  return apiClient(`/api/v1/exports/${encodeURIComponent(exportId)}/download`, {
     method: "GET",
-    responseType: "blob",
+    responseType: "blob", signal, cache: "no-store",
   });
+}
+
+export async function listExports(apiClient, { before, signal } = {}) {
+  const query = new URLSearchParams({ limit: "20" });
+  if (before) query.set("before", before);
+  const data = await apiClient(`/api/v1/exports?${query}`, { method: "GET", signal, cache: "no-store" });
+  if (!data || !Array.isArray(data.items) || data.items.length > 20
+      || !(data.next_cursor === null || (typeof data.next_cursor === "string" && data.next_cursor.length > 0 && data.next_cursor.length <= 512))) {
+    throw new Error("El historial PDF devolvió un formato no válido.");
+  }
+  return { items: data.items.map(normalizeExport), nextCursor: data.next_cursor };
+}
+
+export function deleteExport(apiClient, exportId, signal) {
+  return apiClient(`/api/v1/exports/${encodeURIComponent(exportId)}`, { method: "DELETE", signal });
 }

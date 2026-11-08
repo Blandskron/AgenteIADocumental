@@ -6,7 +6,7 @@ from fastapi.responses import Response
 
 from app.application.use_cases.manage_exports import ManageExports, export_status
 from app.interfaces.api.v1.dependencies import get_export_use_case
-from app.interfaces.api.v1.schemas.export_schema import ChatPdfExportRequest, ExportResponse
+from app.interfaces.api.v1.schemas.export_schema import ChatPdfExportRequest, ExportPage, ExportResponse
 
 router = APIRouter()
 ExportId = Annotated[str, Path(min_length=1, max_length=128, pattern=r"^[A-Za-z0-9_-]+$")]
@@ -28,12 +28,15 @@ def create_chat_message_pdf(
     return _export_response(export)
 
 
-@router.get("/exports", response_model=list[ExportResponse])
+@router.get("/exports", response_model=ExportPage)
 def list_exports(
     source_type: str | None = Query(default=None, min_length=1, max_length=32, pattern=r"^[A-Za-z0-9_-]+$"),
+    limit: int = Query(default=20, ge=1, le=50),
+    before: str | None = Query(default=None, min_length=1, max_length=512),
     use_case: ManageExports = Depends(get_export_use_case),
 ):
-    return [_export_response(export) for export in use_case.list_exports(source_type)]
+    rows, cursor = use_case.list_exports(source_type, limit, before)
+    return ExportPage(items=[_export_response(export) for export in rows], next_cursor=cursor)
 
 
 @router.get("/exports/{export_id}", response_model=ExportResponse)

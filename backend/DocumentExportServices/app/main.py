@@ -7,7 +7,7 @@ from fastapi.responses import JSONResponse
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 
 from app.config.logging import configure_logging
-from app.config.body_limits import ExportBodyLimits
+from app.config.body_limits import ExportBodyLimits, PrivateExportHeaders
 from app.config.readiness import check_dependencies
 from app.config.settings import Settings, get_settings
 from app.infrastructure.database.connection import Database
@@ -37,6 +37,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app = FastAPI(title=settings.app_name, version="0.1.0", lifespan=lifespan)
     app.state.database = database
     app.add_middleware(ExportBodyLimits)
+    app.add_middleware(PrivateExportHeaders)
     app.dependency_overrides[get_settings] = lambda: settings
     app.add_middleware(CORSMiddleware, allow_origins=settings.cors_origins, allow_credentials=False,
                        allow_methods=["*"], allow_headers=["*"], expose_headers=["Content-Disposition"])
@@ -67,7 +68,7 @@ async def app_error_handler(request: Request, exc: AppError) -> JSONResponse:
 
 async def invalid_request_handler(request: Request, exc: RequestValidationError) -> JSONResponse:
     allowed = {"body", "query", "path", "export_id", "source_type", "conversation_id", "message_id",
-               "title", "question", "answer", "sources", "metadata", "header", "idempotency-key"}
+               "title", "question", "answer", "sources", "metadata", "header", "idempotency-key", "limit", "before"}
     messages = {"Unsupported text character.": "Text contains characters not supported by the PDF font.",
                 "Metadata exceeds structural limits.": "Metadata exceeds structural limits.",
                 "Metadata exceeds byte limit.": "Metadata exceeds byte limit."}

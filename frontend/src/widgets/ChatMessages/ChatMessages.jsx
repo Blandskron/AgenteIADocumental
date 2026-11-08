@@ -57,12 +57,13 @@ export function ChatMessages({
               message={message}
               onExportPdf={() => onExportMessagePdf?.(message, index)}
               isExportingPdf={pdfExportState?.messageKey === messageKey}
+              exportDisabled={Boolean(pdfExportState?.busyKey)}
             />
           );
         })}
 
       {!isStarterState && (pdfExportState?.error || pdfExportState?.success) && (
-        <div className={`message-export-status ${pdfExportState.error ? "error" : "success"}`}>
+        <div role={pdfExportState.error ? "alert" : "status"} className={`message-export-status ${pdfExportState.error ? "error" : "success"}`}>
           {pdfExportState.error || pdfExportState.success}
         </div>
       )}

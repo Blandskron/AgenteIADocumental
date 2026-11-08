@@ -60,7 +60,7 @@ def main():
                 assert "TENANT_ADMIN" in pair["user"]["roles"]
             if index == 2:
                 assert pair["user"]["is_superadmin"] is True
-            assert request(export, "/api/v1/exports", token=pair["access"]) == (200, [])
+            assert request(export, "/api/v1/exports", token=pair["access"]) == (200, {"items": [], "next_cursor": None})
             assert request(export, "/api/v1/exports", token=pair["refresh"])[0] == 401
             status, renewed = request(auth, "/api/users/token/refresh/", body={"refresh": pair["refresh"]})
             assert status == 200 and request(export, "/api/v1/exports", token=renewed["access"])[0] == 200
@@ -81,7 +81,7 @@ def main():
             assert request(export, created["download_url"], token=pair["access"])[0] == 200
         for index, pair in enumerate(pairs):
             own = request(export, "/api/v1/exports", token=pair["access"])
-            assert own[0] == 200 and [row["export_id"] for row in own[1]] == [saved[index]["export_id"]]
+            assert own[0] == 200 and [row["export_id"] for row in own[1]["items"]] == [saved[index]["export_id"]]
             other = (index + 1) % 3
             for suffix in ["", "/status", "/download"]:
                 assert request(export, "/api/v1/exports/" + saved[other]["export_id"] + suffix, token=pair["access"])[0] == 404

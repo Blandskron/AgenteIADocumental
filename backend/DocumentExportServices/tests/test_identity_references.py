@@ -64,7 +64,7 @@ def test_references_are_checked_before_rendering(client, db_session, references,
 def test_admin_claims_do_not_expand_owner_access(client, references, token_headers, other_id, claims, settings):
     other = client.post("/api/v1/exports/chat-message/pdf", headers=token_headers(user_id=int(other_id)), json={"answer": "other synthetic"}).json()
     headers = token_headers(**claims)
-    assert client.get("/api/v1/exports", headers=headers).json() == []
+    assert client.get("/api/v1/exports", headers=headers).json() == {"items": [], "next_cursor": None}
     for suffix in ["", "/status", "/download"]:
         assert client.get("/api/v1/exports/" + other["export_id"] + suffix, headers=headers).status_code == 404
     before = set(settings.export_storage_base_path.glob("*.pdf"))

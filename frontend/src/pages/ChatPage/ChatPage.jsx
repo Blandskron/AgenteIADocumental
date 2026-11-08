@@ -9,7 +9,8 @@ import { TransferWarning } from "../../shared/components/TransferModal/TransferW
 import { useScrollToBottom } from "../../shared/hooks/useScrollToBottom";
 import { useChat } from "../../features/chat/hooks/useChat";
 import { useConversations } from "../../features/conversations/hooks/useConversations";
-import { createChatMessagePdf, downloadExport } from "../../features/document-export/api/document-export.api";
+import { useExports } from "../../features/document-export/useExports.js";
+import { ExportHistory } from "../../features/document-export/ExportHistory.jsx";
 import { useDocumentUpload } from "../../features/documents/hooks/useDocumentUpload";
 import { useTransfers } from "../../features/transfers/hooks/useTransfers";
 import { ChatComposer } from "../../widgets/ChatComposer/ChatComposer";
@@ -29,7 +30,7 @@ export function ChatPage({ onNavigate }) {
   } = useAuthContext();
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [transfersOpen, setTransfersOpen] = useState(false);
-  const [pdfExportState, setPdfExportState] = useState({ messageKey: "", error: "", success: "" });
+  const [exportsOpen, setExportsOpen] = useState(false);
 
   const transfers = useTransfers(documentTransferClient);
   const conversationsState = useConversations(storageScope, conversationClient);
@@ -87,50 +88,21 @@ export function ChatPage({ onNavigate }) {
     logout();
   }
 
-  async function handleExportMessagePdf(message, index) {
-    if (!message?.content || message.role !== "assistant" || pdfExportState.messageKey || !activeConversation) return;
-
-    const messageKey = message.id || `local-${index}`;
-    const previousUserMessage = [...(activeConversation.messages || [])]
-      .slice(0, index)
-      .reverse()
-      .find((item) => item.role === "user");
-
-    setPdfExportState({ messageKey, error: "", success: "" });
-
-    try {
-      const exported = await createChatMessagePdf(documentExportClient, {
-        conversationId: activeConversation.id,
-        messageId: message.id,
-        title: activeConversation.title || "Respuesta documental",
-        question: previousUserMessage?.content || "",
-        answer: message.content,
-        sources: message.sources || [],
-        metadata: {
-          exported_from: "chat",
-          source_message_index: index,
-        },
-      });
-      const file = await downloadExport(documentExportClient, exported.exportId);
-      const url = URL.createObjectURL(file.blob);
-      const link = document.createElement("a");
-
-      link.href = url;
-      link.download = exported.filename || readFilename(file.contentDisposition) || "respuesta-documental.pdf";
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-      URL.revokeObjectURL(url);
-      setPdfExportState({ messageKey: "", error: "", success: "PDF generado correctamente." });
-    } catch (error) {
-      setPdfExportState({
-        messageKey: "",
-        error: error?.message || "No se pudo generar el PDF.",
-        success: "",
-      });
-    }
+  const pdfExports = useExports(documentExportClient, JSON.stringify([storageScope, activeConversation?.id]));
+  useEffect(() => { setExportsOpen(false); }, [pdfExports.controller]);
+  function closeExports() {
+    pdfExports.controller.cancelPending();
+    setExportsOpen(false);
   }
-
+  function handleExportMessagePdf(message, index) {
+    if (!message?.content || message.role !== "assistant" || !activeConversation) return;
+    const question = [...(activeConversation.messages || [])].slice(0, index).reverse().find((item) => item.role === "user");
+    return pdfExports.controller.exportMessage(message.id || `local-${index}`, {
+      conversationId: activeConversation.id, messageId: message.id,
+      title: activeConversation.title || "Respuesta documental", question: question?.content || "",
+      answer: message.content, sources: message.sources || [], metadata: { exported_from: "chat", source_message_index: index },
+    });
+  }
   return (
     <AppShell
       sidebarOpen={sidebarOpen}
@@ -151,7 +123,9 @@ export function ChatPage({ onNavigate }) {
         />
       }
     >
+      <ExportHistory isOpen={exportsOpen} onClose={closeExports} exports={pdfExports} />
       <main className={`chat blandskron-screen ${isStarterState ? "starter-state" : ""}`.trim()}>
+        <button type="button" className="export-history-trigger" onClick={() => { setExportsOpen(true); pdfExports.controller.refresh(); }}>Mis PDFs</button>
         <div className="chat-local-header">
           <h2>
             {activeConversation?.title || "Conversación"}
@@ -174,11 +148,12 @@ export function ChatPage({ onNavigate }) {
           historyLoading={historyLoading}
           onLoadOlderMessages={loadOlderMessages}
           onExportMessagePdf={handleExportMessagePdf}
-          pdfExportState={pdfExportState}
+          pdfExportState={pdfExports}
           isBusy={chat.isBusy}
           syncError={syncError}
           messagesRef={messagesRef}
         />
+        {pdfExports.busyKey && <button type="button" onClick={pdfExports.controller.cancelPending}>Cancelar PDF</button>}
 
         <ChatComposer
           fileInputRef={documentUpload.fileInputRef}
@@ -215,9 +190,4 @@ export function ChatPage({ onNavigate }) {
       </main>
     </AppShell>
   );
-}
-
-function readFilename(contentDisposition = "") {
-  const match = contentDisposition.match(/filename="?([^";]+)"?/i);
-  return match?.[1] || "";
 }
