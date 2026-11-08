@@ -71,6 +71,7 @@ El agregador `docker/docker-compose.yml` carga:
 - `compose/documents.yml`
 - `compose/collaboration.yml`
 - `compose/profile.yml`
+- `compose/export.yml`
 - `compose/frontend.yml`
 
 URLs principales:

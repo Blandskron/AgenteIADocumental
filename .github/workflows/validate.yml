@@ -123,6 +123,14 @@ jobs:
           }
           assert json.loads(transfer_env["CORS_ORIGINS"]) == ["http://localhost:3000", "http://127.0.0.1:3000"]
           assert "health/db" in " ".join(transfer["healthcheck"]["test"])
+          export = services["document-export-service"]
+          assert set(export["environment"]) == {
+              "APP_ENV", "APP_NAME", "LOG_LEVEL", "CORS_ORIGINS", "DATABASE_URL", "PGPASSWORD",
+              "AUTH_JWT_PUBLIC_KEY_PATH", "AUTH_JWT_ALGORITHM", "EXPORT_STORAGE_BASE_PATH",
+              "DB_POOL_MIN_SIZE", "DB_POOL_MAX_SIZE", "DB_TIMEOUT_SECONDS",
+          }
+          assert json.loads(export["environment"]["CORS_ORIGINS"]) == ["http://localhost:3000", "http://127.0.0.1:3000"]
+          assert "health/db" in " ".join(export["healthcheck"]["test"])
           profile = services["profile-service"]
           profile_env = profile["environment"]
           assert set(profile_env) == {
@@ -236,7 +244,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - run: cp .env.example .env
-      - run: docker compose -f docker/docker-compose.yml up -d --build --wait conversation-service document-search-service document-access-service document-library-service document-transfer-service profile-service
+      - run: docker compose -f docker/docker-compose.yml up -d --build --wait conversation-service document-search-service document-access-service document-library-service document-transfer-service profile-service document-export-service
       - run: docker compose -f docker/docker-compose.yml run --rm --no-deps rag-chat-db-role
       - run: docker compose -f docker/docker-compose.yml run --rm --no-deps embedding-db-role
       - run: docker compose -f docker/docker-compose.yml exec -T postgres psql -U postgres -d documents_db -v ON_ERROR_STOP=1 < scripts/database/auth/verify_roles.sql
@@ -309,9 +317,18 @@ jobs:
           }
           trap cleanup_profile_probe EXIT
           docker compose -f docker/docker-compose.yml exec -T -e PROFILE_PROBE_MARKER="$marker" auth-service python /tmp/profile-auth-contract.py
+      - name: Probar configuración, persistencia y disponibilidad de DocumentExportServices
+        run: |
+          docker compose -f docker/docker-compose.yml exec -T document-export-service python -m pip --no-cache-dir check
+          docker compose -f docker/docker-compose.yml exec -T document-export-service python -c 'import importlib.util; assert all(importlib.util.find_spec(name) is None for name in ("pytest", "ruff", "httpx", "pypdf", "pip_audit"))'
+          docker compose -f docker/docker-compose.yml run --build --rm --no-deps export-tests
+          docker compose -f docker/docker-compose.yml run --rm --no-deps export-tests ruff check --no-cache app tests
+          docker compose -f docker/docker-compose.yml run --build --rm --no-deps export-audit
+          docker compose -f docker/docker-compose.yml restart document-export-service
+          docker compose -f docker/docker-compose.yml up -d --no-deps --wait document-export-service
       - name: Probar asociación de carpetas desde Google Drive sin OAuth
         run: |
           docker compose -f docker/docker-compose.yml run --build --rm --no-deps drive-tests
           docker compose -f docker/docker-compose.yml run --rm --no-deps drive-tests ruff check --no-cache app tests
       - if: failure()
-        run: docker compose -f docker/docker-compose.yml logs auth-db-roles auth-migrate auth-service conversation-db-role conversation-service rag-chat-db-role embedding-db-role search-db-role document-search-service access-db-role document-access-service library-db-role document-library-service transfer-db-role document-transfer-service profile-db-role profile-service
+        run: docker compose -f docker/docker-compose.yml logs auth-db-roles auth-migrate auth-service conversation-db-role conversation-service rag-chat-db-role embedding-db-role search-db-role document-search-service access-db-role document-access-service library-db-role document-library-service transfer-db-role document-transfer-service profile-db-role profile-service document-export-service
