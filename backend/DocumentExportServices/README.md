@@ -2,7 +2,7 @@
 
 Convierte una instantánea de una respuesta de chat en PDF y conserva metadatos y archivo para su descarga por dueño. No consulta el LLM ni recupera documentos o mensajes: pregunta, respuesta y fuentes llegan desde el cliente.
 
-**Estado:** EXPORT-002 incorpora factory, configuración explícita, readiness y suite mantenida. El servicio sigue en modernización. El diagnóstico histórico EXPORT-001 corresponde a `454fdcedd30f671cdf5dddfdf66be53a2c46f780`; su inventario no describe el runtime actual. El [tablero](../../ROADMAP.md#documentexportservices) ordena EXPORT-002 a EXPORT-008; [BASELINE.json](docs/BASELINE.json) conserva la evidencia acotada.
+**Estado:** EXPORT-003 incorpora identidad vigente y referencias propias sobre la factory, configuración explícita y readiness de EXPORT-002. El servicio sigue en modernización. El diagnóstico histórico EXPORT-001 corresponde a `454fdcedd30f671cdf5dddfdf66be53a2c46f780`; su inventario no describe el runtime actual. El [tablero](../../ROADMAP.md#documentexportservices) ordena EXPORT-002 a EXPORT-008; [BASELINE.json](docs/BASELINE.json) conserva la evidencia acotada.
 
 ## Mapa del componente
 
@@ -32,11 +32,19 @@ Convierte una instantánea de una respuesta de chat en PDF y conserva metadatos 
 | GET | `/api/v1/exports/{export_id}/status` | Misma consulta/DTO; no comprueba existencia ni integridad del archivo |
 | GET | `/api/v1/exports/{export_id}/download` | FileResponse de la ruta persistida, después del filtro por dueño |
 
-Las rutas funcionales verifican firma JWT y `token_type=access`. No exigen presencia de exp/iat/jti/huella ni identidad canónica, y no consultan cuenta activa o revocación por contraseña. El dueño se obtiene mediante fallback `user_id -> sub -> username -> unknown`; el repositorio lo filtra en lectura/listado y lo fija al insertar. No hay bypass administrativo explícito en ese repositorio. Una firma válida sigue siendo necesaria: aceptar claims incompletos en la sonda no demuestra falsificación de firmas ni que Auth real emita esos tokens.
+Las rutas funcionales exigen RS256 y claims canónicos de Auth: user_id entero positivo de hasta 63 bits, exp/iat enteros coherentes, jti no vacío acotado, token_type=access y hash_password hexadecimal mayúsculo de 32 caracteres. Un sub opcional debe coincidir con el ID decimal canónico; se validan tipos de los claims opcionales de roles/permisos. No hay fallback a username, sub ni unknown. La cuenta debe existir, estar activa y conservar la huella de contraseña usada por SimpleJWT CHECK_REVOKE_TOKEN. Fallos de identidad devuelven 401; indisponibilidad SQL devuelve 503 genérico. Ningún rol amplía acceso a exports ajenos.
+
+La consulta de vigencia devuelve solo un booleano y mantiene FOR SHARE sobre la cuenta hasta commit o cierre de la transacción. Si la exportación obtiene primero el lock, puede confirmar antes del cambio de cuenta; si el cambio gana, se reevalúa la cuenta y se rechaza el token anterior. La aplicación no recibe contraseñas codificadas ni devuelve huellas en DTO. Hasta EXPORT-007 esta consulta es SQL directa bajo el rol de desarrollo; el rol mínimo y helper acotado siguen pendientes. Revocación por contraseña/cuenta no equivale a revocar individualmente todo access token por logout.
+
+La actualización conserva filas y PDFs. Las filas heredadas cuyo dueño sea username/unknown u otro valor no canónico ya no se autorizan por fallback. Antes de actualizar una instalación, ejecuta [audit_owners.sql](../../scripts/database/export/audit_owners.sql) con acceso administrativo: informa solo conteos, sin reparar ni asignar dueños. Los casos ambiguos requieren revisión explícita; no inferir propiedad por nombre de archivo ni eliminar datos. Las cuentas eliminadas tampoco autorizan acceso a sus filas conservadas. Inventario y conservación continúan en EXPORT-005/007.
 
 El request permite `conversation_id`, `message_id`, `title`, `question`, `answer`, `sources` y `metadata`. Solo `answer` tiene `min_length=1`; el caso de uso rechaza respuesta en blanco. No hay cotas máximas HTTP/campos/fuentes/metadata ni restricción de campos superiores desconocidos. `sources` son diccionarios libres. El DTO devuelve IDs, título, formato/estado, filename, MIME, tamaño, metadata, URL relativa y timestamps; no devuelve `storage_path` ni dueño.
 
-Los IDs de conversación/mensaje son referencias aportadas por el cliente. Las FK actuales comprueban existencia y usan SET NULL al borrar; no validan por sí solas dueño ni que ambos IDs correspondan entre sí. No se lee el contenido de otra conversación por recibir un ID: el problema observado por lectura es asociación/integridad, pendiente de pruebas reales PostgreSQL en EXPORT-003. Las fuentes impresas tampoco certifican origen documental o permisos vigentes. La sonda Node del adaptador confirmó POST/normalización/descarga blob y que conserva content/score pero descarta page y snippet, aunque estén en la entrada; EXPORT-004/006 deben acordar esos campos con sus consumidores.
+Las referencias son opcionales. Sin IDs se guarda una instantánea no asociada; una conversación indicada debe ser propia; un mensaje indicado debe ser propio y pertenecer a una conversación propia; cuando llegan ambos deben corresponder entre sí. Se comprueban dueño de mensaje y conversación incluso ante filas heredadas inconsistentes. Referencias inexistentes, ajenas, vacías o incoherentes reciben el mismo 404 antes de renderizar, sin nuevo archivo/fila. FOR SHARE mantiene estables las referencias hasta terminar la transacción. La FK conserva SET NULL al borrar posteriormente: no se modifica el PDF ya creado.
+
+La web reconoce los IDs locales local-* y blandskron-* de sus factories y envía null para referencias todavía no persistidas: conserva la conversación remota cuando solo el mensaje está pendiente; si la conversación es local, omite ambas. Puede exportar la instantánea aunque falle la sincronización, sin enviar una FK ficticia ni afirmar que el contenido proviene del historial. Los IDs remotos se conservan y un rechazo del servidor se muestra como error, sin reintentar quitando referencias ajenas. Hay que reconstruir la web y Export juntos para actualizar esta conducta.
+
+Pregunta, respuesta y fuentes siguen llegando del cliente; validar referencias no certifica esos contenidos ni consulta documentos/LLM. El adaptador aún descarta page/snippet y los límites/render siguen en EXPORT-004/006.
 
 ## Flujo de persistencia y operación
 
@@ -45,6 +53,16 @@ El caso de uso sanea el título a slug ASCII de hasta 56 caracteres y añade die
 La factory recibe Settings o variables de proceso, sin leer dotenv ni conectar/crear directorios al importar. DB y rutas absolutas de clave/storage son obligatorias. Lifespan comprueba clave pública RSA de al menos 2048 bits, consulta la tabla y prueba escritura temporal; prepara la base configurada y cierra el engine en finally incluso ante fallo. El pool aplica tamaño base, máximo total, espera de conexión y statement_timeout, con parámetros SQL ocultos. La clave se vuelve a leer para evitar caché obsoleto. Solo se rechaza el enlace directo en la base; confinamiento completo y ancestros siguen en EXPORT-005.
 
 Compose usa variables explícitas, CORS local acotado y healthcheck de readiness. Los errores AppError, SQL, integridad y validación HTTP devuelven mensajes saneados sin valores de entrada ni rutas internas. Esto no compensa archivos huérfanos ni estados obsoletos. El runtime aún ejecuta como root y Compose usa el rol postgres de desarrollo hasta EXPORT-007. No montar ni limpiar `documents/exports` para ensayar fallos.
+
+## Verificación de EXPORT-003
+
+La suite contiene 138 pruebas: 99 locales sin PostgreSQL aprobadas y 39 de integración, incluidas diez de concurrencia con conexiones reales, observación de espera de locks y ambos órdenes de revocación/cambio de referencia. Cubre claims ausentes/malformados, firma/algoritmo, cuenta inexistente/inactiva/eliminada y cambio de contraseña, dueño incluso con claims administrativos y referencias válidas/ajenas/incoherentes rechazadas antes de crear archivos. Los fixtures usan rollback con verificación de limpieza; las pruebas concurrentes confirman datos sintéticos y los eliminan explícitamente.
+
+CI ejecuta la suite completa y scripts/export/verify_auth_contract.py dentro de Auth: login/refresh reales para usuario, administrador de tenant y superadministrador; PDFs propios, rechazo de acceso/referencias ajenas y revocación. Un coordinador con marcador aleatorio limpia SQL, conversaciones y PDFs sintéticos. Se ejecuta exclusivamente en el checkout/base/storage sintéticos de CI, nunca sobre exports personales. El script de limpieza no es un reconciliador de producción ni resuelve EXPORT-005. Consulta los checks del PR para la evidencia de ejecución Linux/PostgreSQL; Docker local no disponible.
+
+Ruff y Compose config aprobados localmente. npm ci/test/build aprobados, con 84 pruebas, incluidas tres del contrato de referencias locales/remotas. Persisten las cuatro alertas altas npm registradas en WEB-001; no se cambiaron dependencias en EXPORT-003. Las deprecaciones TestClient/httpx y ReportLab siguen documentadas en EXPORT-002.
+
+Las decisiones de locks siguen [PostgreSQL 16: aislamiento](https://www.postgresql.org/docs/16/transaction-iso.html) y [locks de filas](https://www.postgresql.org/docs/16/explicit-locking.html); las pruebas comprueban la reevaluación después de esperar, sin asumir que una FK valide propiedad.
 
 ## Evidencia de EXPORT-002
 
@@ -124,11 +142,11 @@ El segundo comando monta los exports existentes; úsalo solo como operación aut
 
 ```powershell
 docker compose -f docker/docker-compose.yml run --build --rm --no-deps export-tests
-docker compose -f docker/docker-compose.yml run --rm --no-deps export-tests ruff check --no-cache app tests
+docker compose -f docker/docker-compose.yml run --rm --no-deps export-tests ruff check --no-cache app tests /export-checks
 docker compose -f docker/docker-compose.yml run --build --rm --no-deps export-audit
 ```
 
-Los targets de prueba no montan el almacenamiento operativo. Fuera de Compose instala requirements.txt y requirements-test.txt en un entorno aislado; `python -m pytest -q -p no:cacheprovider -m "not postgres" tests` ejecuta las 49 pruebas independientes de DB. La suite completa requiere `EXPORT_TEST_DATABASE_URL` explícita, credencial de proceso y esquema sintético; sin ella las pruebas PostgreSQL fallan, no se omiten silenciosamente. No usar una base personal/compartida. El audit target congela el runtime antes de instalar pip-audit y analiza ese inventario separado de las herramientas.
+Los targets de prueba no montan el almacenamiento operativo. Fuera de Compose instala requirements.txt y requirements-test.txt en un entorno aislado; `python -m pytest -q -p no:cacheprovider -m "not postgres" tests` ejecuta las 99 pruebas independientes de DB. La suite completa requiere `EXPORT_TEST_DATABASE_URL` explícita, credencial de proceso y esquema sintético; sin ella las pruebas PostgreSQL fallan, no se omiten silenciosamente. No usar una base personal/compartida. El audit target congela el runtime antes de instalar pip-audit y analiza ese inventario separado de las herramientas.
 
 ## Licencia
 

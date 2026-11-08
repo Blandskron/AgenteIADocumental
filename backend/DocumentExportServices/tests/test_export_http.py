@@ -15,14 +15,14 @@ def create(client, headers):
     return response.json()
 
 
-def test_postgres_export_download_and_owner_filter(client, token_headers, settings, db_session, owner):
+def test_postgres_export_download_and_owner_filter(client, token_headers, settings, db_session, owner, other_id):
     saved = create(client, token_headers())
     assert saved["status"] == "COMPLETED" and saved["format"] == "PDF"
     assert "storage_path" not in saved and "owner_user_id" not in saved
     assert saved["metadata"]["synthetic"] is True and saved["metadata"]["source_count"] == 1
     assert client.get("/api/v1/exports", headers=token_headers()).json()[0]["export_id"] == saved["export_id"]
     assert client.get("/api/v1/exports?source_type=unmatched", headers=token_headers()).json() == []
-    other = token_headers(user_id=int(owner) + 1)
+    other = token_headers(user_id=int(other_id))
     assert client.get("/api/v1/exports", headers=other).json() == []
     for suffix in ("", "/status", "/download"):
         assert client.get("/api/v1/exports/" + saved["export_id"] + suffix, headers=other).status_code == 404

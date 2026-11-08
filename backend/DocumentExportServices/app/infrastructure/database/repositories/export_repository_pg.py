@@ -1,15 +1,37 @@
 from __future__ import annotations
 
+from sqlalchemy import text
 from sqlalchemy.orm import Session
 
-from app.config.security import owner_user_id
+from app.config.security import ExportUser
+from app.shared.errors import NotFoundError
 from app.infrastructure.database.models import DocumentExportModel
 
 
 class ExportRepositoryPg:
-    def __init__(self, session: Session, current_user: dict) -> None:
+    def __init__(self, session: Session, current_user: ExportUser) -> None:
         self._session = session
-        self._owner_user_id = owner_user_id(current_user)
+        self._owner_user_id = current_user.user_id
+
+    def validate_references(self, conversation_id: str | None, message_id: str | None) -> None:
+        # Hold reference rows until the export transaction ends, before any rendering.
+        if conversation_id is not None:
+            own = self._session.scalar(text("""
+                SELECT conversation_id FROM public.conversations
+                WHERE conversation_id=:conversation AND owner_user_id=:owner FOR SHARE
+            """), {"conversation": conversation_id, "owner": self._owner_user_id})
+            if own is None:
+                raise NotFoundError("Export reference not found.")
+        if message_id is not None:
+            own = self._session.scalar(text("""
+                SELECT m.message_id FROM public.conversation_messages AS m
+                JOIN public.conversations AS c ON c.conversation_id=m.conversation_id
+                WHERE m.message_id=:message AND m.owner_user_id=:owner AND c.owner_user_id=:owner
+                  AND (CAST(:conversation AS TEXT) IS NULL OR m.conversation_id=:conversation)
+                FOR SHARE OF c,m
+            """), {"message": message_id, "owner": self._owner_user_id, "conversation": conversation_id})
+            if own is None:
+                raise NotFoundError("Export reference not found.")
 
     def create_export(
         self,
