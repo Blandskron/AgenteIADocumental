@@ -6,6 +6,13 @@ def test_openapi_documents_auth_and_multipart(client):
     response = client.get("/openapi.json")
     assert response.status_code == 200
     paths = response.json()["paths"]
+    assert set(paths) == {"/api/v1/health", "/api/v1/health/db", "/api/v1/profile",
+                          "/api/v1/profile/upload", "/api/v1/profile/avatar"}
+    for path, methods in {"/api/v1/profile": ("get", "put"), "/api/v1/profile/upload": ("post",),
+                          "/api/v1/profile/avatar": ("get", "delete")}.items():
+        assert set(paths[path]) == set(methods)
+        for method in methods:
+            assert paths[path][method]["security"] == [{"HTTPBearer": []}]
     request_schema = response.json()["components"]["schemas"]["ProfileUpdateRequest"]
     assert "expected_version" in request_schema["required"]
     assert request_schema["additionalProperties"] is False
@@ -13,6 +20,9 @@ def test_openapi_documents_auth_and_multipart(client):
     upload = paths["/api/v1/profile/upload"]["post"]
     assert upload["security"] == [{"HTTPBearer": []}]
     assert "multipart/form-data" in upload["requestBody"]["content"]
+    form = upload["requestBody"]["content"]["multipart/form-data"]["schema"]
+    assert set(form["required"]) == {"file", "expected_version"}
+    assert set(paths["/api/v1/profile/avatar"]["get"]["responses"]["200"]["content"]) == {"image/jpeg"}
     assert "security" not in paths["/api/v1/health/db"]["get"]
     assert not any(path.startswith("/api/v1/profiles") for path in paths)
 

@@ -1,6 +1,6 @@
 {
-  "card": "PROFILE-007",
-  "date_utc": "2026-11-07T18:44:59.173422514Z",
+  "card": "PROFILE-008",
+  "date_utc": "2026-11-07T19:09:32.948768805Z",
   "scanner": "Trivy 0.76.2",
   "scanner_image": "aquasec/trivy@sha256:8f6bb947dbc528902e11f2f5be52f7b519f6a39d5d148f41166f2040499768fb",
   "severity_filter": [
@@ -10,9 +10,9 @@
   "scanners": [
     "vuln"
   ],
-  "runtime_image_id": "sha256:cd80ed67bf1f07c11a6eccc679689f9f83bac1744ec4319f75ee6aedd8d01971",
-  "scanned_config_id": "sha256:a1b49afbdc8a9ec998caf37abad16ff52a3592049c3cde04f75b124cec44ac83",
-  "archive_sha256": "69efd9039c65e9d0c24238b2da275018e184b4c890bfce836b554191f444c090",
+  "runtime_image_id": "sha256:17949134b9a6df37b403633b1c77a4ba26836f674b565ee8c738398db5add110",
+  "scanned_config_id": "sha256:4dca477f447ee4ae00e94a8395e9d24c54688756bad718410599df9ec835f321",
+  "archive_sha256": "df45d25f5cf14f638c3f2699ee5d3de1547f4b47434ccbfe06577b39e9b3066d",
   "base_manifest": "python:3.12-slim@sha256:4840d514c583a4d3d8cad3940e68dee6f0f6f3635c12fcd0a3d74c21a5b93a54",
   "os": {
     "Family": "debian",
