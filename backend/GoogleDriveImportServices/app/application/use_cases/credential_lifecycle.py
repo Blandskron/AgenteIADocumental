@@ -57,7 +57,7 @@ class CredentialLifecycle:
                     status = "REAUTH_REQUIRED"
         return {"connected": status == "ACTIVE", "enabled": self._settings.google_drive_enabled,
                 "grant_status": status, "version": connection.version if connection else 0,
-                "busy": bool(connection and connection.lease_token and connection.lease_until > datetime.now(UTC)), 
+                "busy": bool(connection and connection.lease_token and connection.lease_until > datetime.now(UTC)),
                 "provider_account_email": connection.provider_account_email if connection else None,
                 "provider_account_id": connection.provider_account_id if connection else None,
                 "oauth_client_id": self._settings.google_oauth_client_id,
