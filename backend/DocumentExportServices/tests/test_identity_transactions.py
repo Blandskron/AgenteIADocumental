@@ -56,7 +56,7 @@ def test_export_first_holds_identity_until_commit(committed_engine, settings, to
             try:
                 assert started.wait(3)
                 wait_for_lock(engine, pid[0])
-                use_case = ManageExports(ExportRepositoryPg(session, principal), ChatPdfRenderer(), settings.export_storage_base_path)
+                use_case = ManageExports(ExportRepositoryPg(session, principal), ChatPdfRenderer())
                 saved = use_case.create_chat_pdf_export(ChatPdfExportRequest(answer="synthetic before revocation"))
                 assert saved.owner_user_id == owner
             finally:

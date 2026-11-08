@@ -1,77 +1,81 @@
-from __future__ import annotations
-
-from pathlib import Path
+from datetime import UTC, datetime, timedelta
+from hashlib import sha256
 from re import sub
 from uuid import uuid4
 
+from app.config.export_limits import MAX_PDF, RETENTION_DAYS
 from app.domain.entities import ChatPdfExport
-from app.shared.errors import NotFoundError, ValidationError
+from app.shared.errors import ExportConflictError, ExportExpiredError, ExportGenerationError, NotFoundError
+
+
+def export_status(export):
+    if export.pdf_sha256 is None:
+        return "MIGRATION_REQUIRED"
+    if export.expires_at is not None and export.expires_at <= datetime.now(UTC):
+        return "EXPIRED"
+    return export.status
 
 
 class ManageExports:
-    def __init__(self, repository, renderer, storage_base_path: str) -> None:
+    def __init__(self, repository, renderer):
         self._repository = repository
         self._renderer = renderer
-        self._storage_base_path = Path(storage_base_path)
 
-    def create_chat_pdf_export(self, payload):
-        title = (payload.title or "Respuesta documental").strip()
-        if not payload.answer.strip():
-            raise ValidationError("La respuesta del chat es obligatoria para exportar.")
-
+    def create_chat_pdf_export(self, payload, operation_key=None):
+        self._repository.lock_owner()
+        # Stable semantic ordering also for metadata keys.
+        import json
+        digest = sha256(json.dumps(payload.model_dump(), sort_keys=True, ensure_ascii=False, allow_nan=False).encode()).hexdigest()
+        previous = self._repository.operation(operation_key)
+        if previous is not None:
+            if previous.request_sha256 != digest or export_status(previous) != "COMPLETED":
+                raise ExportConflictError("Idempotency key conflicts with operation.")
+            return previous
         self._repository.validate_references(payload.conversation_id, payload.message_id)
-
-        export_source_id = payload.message_id or payload.conversation_id
-        filename = f"{self._slug(title)}_{uuid4().hex[:10]}.pdf"
-        output_path = (self._storage_base_path / filename).resolve()
-        safe_base = self._storage_base_path.resolve()
-        if safe_base not in output_path.parents and output_path != safe_base:
-            raise ValidationError("Ruta de exportacion invalida.")
-
-        chat_export = ChatPdfExport(
-            title=title,
-            question=payload.question,
-            answer=payload.answer,
-            sources=payload.sources,
-            conversation_id=payload.conversation_id,
-            message_id=payload.message_id,
-            metadata=payload.metadata,
-        )
-        self._renderer.render(chat_export, output_path)
-
+        sources = [source.model_dump() for source in payload.sources]
+        export = ChatPdfExport(title=payload.title, question=payload.question, answer=payload.answer,
+                               sources=sources, conversation_id=payload.conversation_id,
+                               message_id=payload.message_id, metadata=payload.metadata)
+        content = self._renderer.render(export)
+        if not content.startswith(b"%PDF-") or not 0 < len(content) <= MAX_PDF:
+            raise ExportGenerationError("Invalid generated PDF.")
+        self._repository.check_capacity(len(content))
         return self._repository.create_export(
-            source_type="chat_message",
-            source_id=export_source_id,
-            conversation_id=payload.conversation_id,
-            message_id=payload.message_id,
-            title=title,
-            filename=filename,
-            storage_path=str(output_path),
-            file_size_bytes=output_path.stat().st_size,
-            metadata={
-                **(payload.metadata or {}),
-                "question": payload.question,
-                "source_count": len(payload.sources or []),
-            },
+            source_type="chat_message", source_id=payload.message_id or payload.conversation_id,
+            conversation_id=payload.conversation_id, message_id=payload.message_id, title=payload.title,
+            filename=f"{self._slug(payload.title)}_{uuid4().hex[:10]}.pdf", file_size_bytes=len(content),
+            pdf_data=content, pdf_sha256=sha256(content).hexdigest(),
+            expires_at=datetime.now(UTC) + timedelta(days=RETENTION_DAYS), operation_key=operation_key,
+            request_sha256=digest, metadata_={**payload.metadata, "question": payload.question, "source_count": len(sources)},
         )
 
-    def get_export(self, export_id: str):
+    def get_export(self, export_id):
         export = self._repository.get_export(export_id)
         if export is None:
             raise NotFoundError("Export not found.")
         return export
 
-    def list_exports(self, source_type: str | None = None):
+    def list_exports(self, source_type=None):
         return self._repository.list_exports(source_type)
 
-    def download_path(self, export_id: str) -> Path:
-        export = self.get_export(export_id)
-        path = Path(export.storage_path)
-        if not path.exists():
-            raise NotFoundError("Export file not found.")
-        return path
+    def download(self, export_id):
+        export = self._repository.get_export_for_download(export_id)
+        if export is None:
+            raise NotFoundError("Export not found.")
+        status = export_status(export)
+        if status == "MIGRATION_REQUIRED":
+            raise ExportConflictError("Legacy PDF requires reviewed migration.")
+        if status == "EXPIRED":
+            raise ExportExpiredError("PDF retention expired.")
+        content = export.pdf_data
+        if (not content or len(content) != export.file_size_bytes or len(content) > MAX_PDF
+                or not content.startswith(b"%PDF-") or sha256(content).hexdigest() != export.pdf_sha256):
+            raise ExportGenerationError("Stored PDF integrity check failed.")
+        return export, content
 
-    def _slug(self, value: str) -> str:
-        normalized = sub(r"[^a-zA-Z0-9]+", "-", value.strip().lower()).strip("-")
-        return normalized[:56] or "export"
+    def delete_export(self, export_id):
+        self._repository.delete_export(export_id)
 
+    @staticmethod
+    def _slug(value):
+        return sub(r"[^a-zA-Z0-9]+", "-", value.lower()).strip("-")[:56] or "export"

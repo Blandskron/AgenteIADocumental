@@ -19,12 +19,20 @@ function normalizeExport(payload = {}) {
 }
 
 function normalizeSource(source = {}) {
+  const score = Number(source.score ?? 0);
+  const pageValue = source.page ?? source.pageNumber ?? source.page_number;
+  const page = pageValue == null ? null : Number(pageValue);
+  if (!Number.isFinite(score) || (page !== null && (!Number.isInteger(page) || page < 1))) {
+    throw new Error("La fuente contiene una página o puntuación no válida.");
+  }
   return {
     document_id: source.documentId || source.document_id || "",
     chunk_id: source.chunkId || source.chunk_id || "",
     filename: source.filename || "",
     content: source.content || "",
-    score: Number(source.score || 0),
+    score,
+    page,
+    snippet: source.snippet || "",
   };
 }
 

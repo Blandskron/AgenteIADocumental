@@ -1,0 +1,27 @@
+{
+  "date": "2026-11-08",
+  "scope": "Synthetic local PDF QA; Windows Python 3.12.14, ReportLab 4.2.5, Poppler; not image audit.",
+  "visual_review": "All six pages reviewed: no clipping, overlap, missing glyphs, literal escaped entities or unnecessary initial table page break.",
+  "renderer_sha256": "21eb7ef30dd2f78f16796175f26919d5495c933458b619f349b49f41d364a877",
+  "samples": [
+    {
+      "sample": "long-table.pdf",
+      "bytes": 34236,
+      "pages": 4,
+      "sha256": "664b6fcf4fccf354b95908eec8b3bbe71737d90e1b045847cfb564dbfb8a302a"
+    },
+    {
+      "sample": "spanish.pdf",
+      "bytes": 30771,
+      "pages": 1,
+      "sha256": "b57968498d389856e14e70b5eb443c9991ac15dc0b77b6e48e76ff1e36d0c3c9"
+    },
+    {
+      "sample": "unicode.pdf",
+      "bytes": 34230,
+      "pages": 1,
+      "sha256": "f6ea855d5976bb5b41148806bf2f817befca0883f317073d0bfb35cff4874b4f"
+    }
+  ],
+  "source_hash_normalization": "UTF-8 LF"
+}

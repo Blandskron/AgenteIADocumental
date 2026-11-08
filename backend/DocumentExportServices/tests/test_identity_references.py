@@ -20,7 +20,7 @@ def test_revoked_identity_cannot_read_or_create(client, db_session, owner, token
     for path in ["/api/v1/exports", "/api/v1/exports/missing", "/api/v1/exports/missing/status", "/api/v1/exports/missing/download"]:
         assert client.get(path, headers=headers).status_code == 401
     assert client.post("/api/v1/exports/chat-message/pdf", headers=headers, json={"answer": "synthetic"}).status_code == 401
-    assert list(settings.export_storage_base_path.iterdir()) == []
+    assert list(settings.export_storage_base_path.glob("*.pdf")) == []
     assert db_session.scalar(text("SELECT count(*) FROM document_exports WHERE owner_user_id=:id"), {"id": owner}) == 0
 
 
@@ -41,21 +41,22 @@ def references(db_session, owner, other_id):
     (None, None, 200), ("own", None, 200), (None, "message", 200), ("own", "message", 200),
     ("other", None, 404), (None, "other_message", 404), ("own", "other_message", 404),
     ("own", "second_message", 404), ("other", "message", 404), ("own", "inconsistent", 404),
-    ("missing", None, 404), (None, "missing", 404), ("", None, 404), (None, "", 404),
+    ("missing", None, 404), (None, "missing", 404), ("", None, 422), (None, "", 422),
 ])
 def test_references_are_checked_before_rendering(client, db_session, references, token_headers, settings, owner, conversation, message, status):
     payload = {"answer": "Client snapshot, not canonical content",
                "conversation_id": references.get(conversation, conversation), "message_id": references.get(message, message)}
-    before = set(settings.export_storage_base_path.iterdir())
+    before = set(settings.export_storage_base_path.glob("*.pdf"))
     response = client.post("/api/v1/exports/chat-message/pdf", headers=token_headers(), json=payload)
     assert response.status_code == status
     if status == 200:
         saved = response.json()
         assert saved["conversation_id"] == payload["conversation_id"] and saved["message_id"] == payload["message_id"]
-        assert len(set(settings.export_storage_base_path.iterdir()) - before) == 1
+        assert set(settings.export_storage_base_path.glob("*.pdf")) == before
     else:
-        assert response.json() == {"detail": "Export not found."}
-        assert set(settings.export_storage_base_path.iterdir()) == before
+        if status == 404:
+            assert response.json() == {"detail": "Export not found."}
+        assert set(settings.export_storage_base_path.glob("*.pdf")) == before
         assert db_session.scalar(text("SELECT count(*) FROM document_exports WHERE owner_user_id=:id"), {"id": owner}) == 0
 
 
@@ -66,6 +67,6 @@ def test_admin_claims_do_not_expand_owner_access(client, references, token_heade
     assert client.get("/api/v1/exports", headers=headers).json() == []
     for suffix in ["", "/status", "/download"]:
         assert client.get("/api/v1/exports/" + other["export_id"] + suffix, headers=headers).status_code == 404
-    before = set(settings.export_storage_base_path.iterdir())
+    before = set(settings.export_storage_base_path.glob("*.pdf"))
     assert client.post("/api/v1/exports/chat-message/pdf", headers=headers, json={"answer": "synthetic", "conversation_id": references["other"]}).status_code == 404
-    assert set(settings.export_storage_base_path.iterdir()) == before
+    assert set(settings.export_storage_base_path.glob("*.pdf")) == before

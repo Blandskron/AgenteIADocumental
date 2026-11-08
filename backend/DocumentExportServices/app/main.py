@@ -7,11 +7,12 @@ from fastapi.responses import JSONResponse
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 
 from app.config.logging import configure_logging
+from app.config.body_limits import ExportBodyLimits
 from app.config.readiness import check_dependencies
 from app.config.settings import Settings, get_settings
 from app.infrastructure.database.connection import Database
 from app.interfaces.api.router import api_router
-from app.shared.errors import AppError, NotFoundError, ValidationError
+from app.shared.errors import AppError, ExportConflictError, ExportExpiredError, ExportLimitError, NotFoundError, ValidationError
 
 
 def create_app(settings: Settings | None = None) -> FastAPI:
@@ -35,6 +36,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     app = FastAPI(title=settings.app_name, version="0.1.0", lifespan=lifespan)
     app.state.database = database
+    app.add_middleware(ExportBodyLimits)
     app.dependency_overrides[get_settings] = lambda: settings
     app.add_middleware(CORSMiddleware, allow_origins=settings.cors_origins, allow_credentials=False,
                        allow_methods=["*"], allow_headers=["*"], expose_headers=["Content-Disposition"])
@@ -45,6 +47,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.add_exception_handler(RequestValidationError, invalid_request_handler)
     app.add_exception_handler(IntegrityError, integrity_handler)
     app.add_exception_handler(SQLAlchemyError, database_handler)
+    app.add_exception_handler(ExportConflictError, conflict_handler)
+    app.add_exception_handler(ExportExpiredError, expired_handler)
+    app.add_exception_handler(ExportLimitError, limit_handler)
     return app
 
 
@@ -62,9 +67,13 @@ async def app_error_handler(request: Request, exc: AppError) -> JSONResponse:
 
 async def invalid_request_handler(request: Request, exc: RequestValidationError) -> JSONResponse:
     allowed = {"body", "query", "path", "export_id", "source_type", "conversation_id", "message_id",
-               "title", "question", "answer", "sources", "metadata"}
+               "title", "question", "answer", "sources", "metadata", "header", "idempotency-key"}
+    messages = {"Unsupported text character.": "Text contains characters not supported by the PDF font.",
+                "Metadata exceeds structural limits.": "Metadata exceeds structural limits.",
+                "Metadata exceeds byte limit.": "Metadata exceeds byte limit."}
     errors = [{"loc": [part if type(part) is int or part in allowed else "field" for part in error["loc"]],
-               "msg": "Invalid export value.", "type": error["type"]} for error in exc.errors()]
+               "msg": messages.get(str(error.get("ctx", {}).get("error", "")), "Invalid export value."),
+               "type": error["type"]} for error in exc.errors()]
     return JSONResponse(status_code=422, content={"detail": errors})
 
 
@@ -74,3 +83,15 @@ async def integrity_handler(request: Request, exc: IntegrityError) -> JSONRespon
 
 async def database_handler(request: Request, exc: SQLAlchemyError) -> JSONResponse:
     return JSONResponse(status_code=503, content={"detail": "Export persistence is unavailable."})
+
+
+async def conflict_handler(request: Request, exc: ExportConflictError) -> JSONResponse:
+    return JSONResponse(status_code=409, content={"detail": "Export conflicts with quota, migration or operation state."})
+
+
+async def expired_handler(request: Request, exc: ExportExpiredError) -> JSONResponse:
+    return JSONResponse(status_code=410, content={"detail": "Export retention expired."})
+
+
+async def limit_handler(request: Request, exc: ExportLimitError) -> JSONResponse:
+    return JSONResponse(status_code=413, content={"detail": "Export exceeds PDF page, size or generation time limits. Reduce text or sources."})
