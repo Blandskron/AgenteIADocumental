@@ -2,7 +2,7 @@
 
 Exporta a PDF una instantánea de pregunta, respuesta y fuentes aportada por el cliente. La identidad y las referencias se validan; el contenido no se certifica ni se recupera desde documentos, historial o LLM. No hay descargas remotas desde el renderer.
 
-**Estado:** implementación funcional completa; revisión final EXPORT-008 pendiente de integración. El alcance residual de imágenes se conserva en EXPORT-F01/PLAT-002 y el del frontend en WEB-001. [Tablero](../../ROADMAP.md#documentexportservices).
+**Estado:** cierre funcional EXPORT-008 integrado en el PR #72, con seis checks aprobados. El alcance residual de imágenes se conserva en EXPORT-F01/PLAT-002 y el del frontend en WEB-001. [Tablero](../../ROADMAP.md#documentexportservices).
 
 ## Contrato actual
 
