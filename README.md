@@ -30,7 +30,7 @@ La ingesta admite archivos de hasta 20 MiB. El mismo límite aplica a las cargas
 - `backend/DocumentTransferServices`: historial de cargas/descargas.
 - `backend/ConversationServices`: historial del chat documental. Usa **Cargar mensajes anteriores** para consultar páginas más antiguas.
 - `backend/ProfileServices`: perfil y avatar.
-- `backend/DocumentExportServices`: exportación de respuestas a PDF. [Análisis y mejoras por etapas](backend/DocumentExportServices/README.md#decisiones-y-mejoras-por-incrementos); modernización en curso.
+- `backend/DocumentExportServices`: exportación de respuestas a PDF, con configuración explícita y readiness DB/clave/storage. [Operación](backend/DocumentExportServices/README.md#ejecución-actual) y [mejoras por etapas](backend/DocumentExportServices/README.md#decisiones-y-mejoras-por-incrementos); modernización en curso.
 - `backend/GoogleDriveImportServices`: importacion desde Google Drive.
 - `frontend`: interfaz React simple para chat y documentos.
 
