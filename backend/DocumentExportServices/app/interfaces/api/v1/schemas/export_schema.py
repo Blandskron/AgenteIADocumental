@@ -111,3 +111,8 @@ class ExportResponse(BaseModel):
     updated_at: datetime | None
     expires_at: datetime | None = None
     sha256: str | None = None
+
+
+class ExportPage(BaseModel):
+    items: list[ExportResponse]
+    next_cursor: str | None

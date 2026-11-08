@@ -7,15 +7,13 @@ from sqlalchemy import text
 
 def main():
     sys.path.insert(0, "/app")
-    from app.config.settings import get_settings
     from app.infrastructure.database.connection import Database
 
     marker = os.environ.get("EXPORT_PROBE_MARKER", "")
-    settings = get_settings()
-    if settings.app_env != "local" or re.fullmatch(r"[0-9a-f]{32}", marker) is None:
+    if os.environ.get("EXPORT_PROBE_ALLOW_CLEANUP") != "synthetic-ci" or re.fullmatch(r"[0-9a-f]{32}", marker) is None:
         raise RuntimeError("Explicit local synthetic marker is required.")
     title = "EXPORT003-" + marker
-    database = Database(settings.database_url)
+    database = Database(os.environ["EXPORT_TEST_DATABASE_URL"])
     try:
         with database.session() as session:
             assert session.scalar(text("SELECT count(*) FROM auth_user WHERE username LIKE :name"), {"name": "export003-" + marker + "-%"}) == 0

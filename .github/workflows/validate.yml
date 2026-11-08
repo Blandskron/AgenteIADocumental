@@ -131,6 +131,10 @@ jobs:
           }
           assert json.loads(export["environment"]["CORS_ORIGINS"]) == ["http://localhost:3000", "http://127.0.0.1:3000"]
           assert "health/db" in " ".join(export["healthcheck"]["test"])
+          assert export["environment"]["DATABASE_URL"] == "postgresql+psycopg://export_runtime@postgres:5432/documents_db"
+          assert export["depends_on"]["export-db-role"]["condition"] == "service_completed_successfully"
+          assert export["read_only"] is True and export["cap_drop"] == ["ALL"]
+          assert "no-new-privileges:true" in export["security_opt"]
           assert all(volume.get("target") != "/app/exports" for volume in export.get("volumes", []))
           profile = services["profile-service"]
           profile_env = profile["environment"]
@@ -321,24 +325,37 @@ jobs:
       - name: Probar configuración, persistencia y disponibilidad de DocumentExportServices
         run: |
           docker compose -f docker/docker-compose.yml exec -T postgres psql -U postgres -d documents_db -v ON_ERROR_STOP=1 < scripts/database/export/audit_owners.sql
-          docker compose -f docker/docker-compose.yml exec -T document-export-service python -m pip --no-cache-dir check
-          docker compose -f docker/docker-compose.yml exec -T document-export-service python -c 'import importlib.util; assert all(importlib.util.find_spec(name) is None for name in ("pytest", "ruff", "httpx", "pypdf", "pip_audit"))'
+          docker compose -f docker/docker-compose.yml run --rm --no-deps export-db-role
+          docker compose -f docker/docker-compose.yml run --rm --no-deps export-db-role
+          docker compose -f docker/docker-compose.yml exec -T postgres psql -U postgres -d documents_db -v ON_ERROR_STOP=1 < scripts/database/export/verify_role.sql
+          docker compose -f docker/docker-compose.yml exec -T document-export-service python -c 'import importlib.util, os; assert os.geteuid() == 10009; assert all(importlib.util.find_spec(name) is None for name in ("pytest", "ruff", "httpx", "pypdf", "pip_audit", "pip"))'
           docker compose -f docker/docker-compose.yml run --build --rm --no-deps export-tests
           docker compose -f docker/docker-compose.yml run --rm --no-deps export-tests ruff check --no-cache app tests /export-checks
           docker compose -f docker/docker-compose.yml run --build --rm --no-deps export-audit
           docker compose -f docker/docker-compose.yml restart document-export-service
           docker compose -f docker/docker-compose.yml up -d --no-deps --wait document-export-service
           docker compose -f docker/docker-compose.yml cp scripts/export/verify_auth_contract.py auth-service:/tmp/export-auth-contract.py
-          docker compose -f docker/docker-compose.yml cp scripts/export/cleanup_probe.py document-export-service:/tmp/export-cleanup.py
           marker=$(python3 -c 'import uuid; print(uuid.uuid4().hex)')
           cleanup_export_probe() {
-            docker compose -f docker/docker-compose.yml exec -T -e EXPORT_PROBE_MARKER="$marker" document-export-service python /tmp/export-cleanup.py
+            docker compose -f docker/docker-compose.yml run --rm --no-deps -T -e EXPORT_PROBE_MARKER="$marker" -e EXPORT_PROBE_ALLOW_CLEANUP=synthetic-ci export-tests python /export-checks/cleanup_probe.py
           }
           trap cleanup_export_probe EXIT
           docker compose -f docker/docker-compose.yml exec -T -e EXPORT_PROBE_MARKER="$marker" auth-service python /tmp/export-auth-contract.py
+      - name: Auditar imagen y grafo runtime de DocumentExportServices
+        run: |
+          image=$(docker compose -f docker/docker-compose.yml images -q document-export-service)
+          python3 scripts/export/audit_image.py --image "$image" --out "$RUNNER_TEMP/export-image-audit"
+          docker compose -f docker/docker-compose.yml run --rm --no-deps -T export-audit python /export-checks/verify_runtime_dependencies.py < "$RUNNER_TEMP/export-image-audit/runtime.json"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: export-image-audit
+          path: ${{ runner.temp }}/export-image-audit/*.json
+          if-no-files-found: ignore
+          retention-days: 7
       - name: Probar asociación de carpetas desde Google Drive sin OAuth
         run: |
           docker compose -f docker/docker-compose.yml run --build --rm --no-deps drive-tests
           docker compose -f docker/docker-compose.yml run --rm --no-deps drive-tests ruff check --no-cache app tests
       - if: failure()
-        run: docker compose -f docker/docker-compose.yml logs auth-db-roles auth-migrate auth-service conversation-db-role conversation-service rag-chat-db-role embedding-db-role search-db-role document-search-service access-db-role document-access-service library-db-role document-library-service transfer-db-role document-transfer-service profile-db-role profile-service document-export-service
+        run: docker compose -f docker/docker-compose.yml logs auth-db-roles auth-migrate auth-service conversation-db-role conversation-service rag-chat-db-role embedding-db-role search-db-role document-search-service access-db-role document-access-service library-db-role document-library-service transfer-db-role document-transfer-service profile-db-role profile-service export-db-role document-export-service

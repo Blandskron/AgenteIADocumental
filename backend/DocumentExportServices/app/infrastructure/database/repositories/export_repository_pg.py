@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from sqlalchemy import text
+from sqlalchemy import text, tuple_
 from sqlalchemy.orm import Session, undefer
 
 from app.config.security import ExportUser
@@ -14,25 +14,9 @@ class ExportRepositoryPg:
         self._owner_user_id = current_user.user_id
 
     def validate_references(self, conversation_id: str | None, message_id: str | None) -> None:
-        # Hold reference rows until the export transaction ends, before any rendering.
-        if conversation_id is not None:
-            own = self._session.scalar(text("""
-                SELECT conversation_id FROM public.conversations
-                WHERE conversation_id=:conversation AND owner_user_id=:owner FOR SHARE
-            """), {"conversation": conversation_id, "owner": self._owner_user_id})
-            if own is None:
-                raise NotFoundError("Export reference not found.")
-        if message_id is not None:
-            own = self._session.scalar(text("""
-                SELECT m.message_id FROM public.conversation_messages AS m
-                JOIN public.conversations AS c ON c.conversation_id=m.conversation_id
-                WHERE m.message_id=:message AND m.owner_user_id=:owner AND c.owner_user_id=:owner
-                  AND (CAST(:conversation AS TEXT) IS NULL OR m.conversation_id=:conversation)
-                FOR SHARE OF c,m
-            """), {"message": message_id, "owner": self._owner_user_id, "conversation": conversation_id})
-            if own is None:
-                raise NotFoundError("Export reference not found.")
-
+        if not self._session.scalar(text("SELECT public.export_references_are_owned(:owner,:conversation,:message)"),
+                                    {"owner": self._owner_user_id, "conversation": conversation_id, "message": message_id}):
+            raise NotFoundError("Export reference not found.")
     def lock_owner(self):
         self._session.execute(text("SELECT pg_advisory_xact_lock(hashtextextended('blandskron.export:' || :owner,0))"), {"owner": self._owner_user_id})
 
@@ -58,7 +42,8 @@ class ExportRepositoryPg:
                                      mime_type="application/pdf", storage_path="", **values)
         self._session.add(export)
         self._session.commit()
-        self._session.refresh(export)
+        self._session.refresh(export, attribute_names=[prop.key for prop in DocumentExportModel.__mapper__.column_attrs
+                                                      if prop.key not in ("storage_path", "error_message", "pdf_data")])
         return export
 
     def delete_export(self, export_id):
@@ -80,13 +65,20 @@ class ExportRepositoryPg:
         )
 
     def get_export_for_download(self, export_id):
+        if not self._session.scalar(text("SELECT public.export_lock_owned(:id,:owner)"), {"id": export_id, "owner": self._owner_user_id}):
+            return None
         return (self._session.query(DocumentExportModel).options(undefer(DocumentExportModel.pdf_data))
                 .filter(DocumentExportModel.export_id == export_id, DocumentExportModel.owner_user_id == self._owner_user_id)
-                .with_for_update(read=True).first())
+                .first())
 
-    def list_exports(self, source_type: str | None = None) -> list[DocumentExportModel]:
+    def list_exports(self, source_type=None, limit=20, before=None):
+        from app.config.export_cursor import decode_cursor, encode_cursor
         statement = self._session.query(DocumentExportModel).filter(DocumentExportModel.owner_user_id == self._owner_user_id)
         if source_type:
             statement = statement.filter(DocumentExportModel.source_type == source_type)
-        return statement.order_by(DocumentExportModel.created_at.desc()).all()
-
+        if before:
+            created, identifier = decode_cursor(before, self._owner_user_id, source_type)
+            statement = statement.filter(tuple_(DocumentExportModel.created_at, DocumentExportModel.export_id) < tuple_(created, identifier))
+        rows = statement.order_by(DocumentExportModel.created_at.desc(), DocumentExportModel.export_id.desc()).limit(limit + 1).all()
+        next_cursor = encode_cursor(rows[limit-1], self._owner_user_id, source_type) if len(rows) > limit else None
+        return rows[:limit], next_cursor

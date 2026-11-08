@@ -65,7 +65,7 @@ def test_missing_auth_rejected(settings):
 def test_public_key_is_not_cached(settings, token_headers):
     app = create_app(settings)
     class Exports:
-        def list_exports(self, source_type): return []
+        def list_exports(self, *args): return [], None
     app.dependency_overrides[get_export_use_case] = lambda: Exports()
     client = TestClient(app)
     assert client.get("/api/v1/exports", headers=token_headers()).status_code == 200

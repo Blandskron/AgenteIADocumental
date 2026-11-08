@@ -1,0 +1,1030 @@
+{
+  "card": "EXPORT-007",
+  "date_utc": "2026-11-08T17:28:25.911540+00:00",
+  "scanner": "Trivy 0.76.2",
+  "scanner_image": "aquasec/trivy@sha256:8f6bb947dbc528902e11f2f5be52f7b519f6a39d5d148f41166f2040499768fb",
+  "severity_filter": [
+    "HIGH",
+    "CRITICAL"
+  ],
+  "runtime_image_id": "sha256:fc31cbada31176a959541aa78c8032c7b8610a8644c8e19fc3ceba40267cf307",
+  "archive_sha256": "17d698e550d64bd4a31710ab69dc921f2b61f3b65303ba5bc92631ea04d47e25",
+  "scanned_config_id": "sha256:893d113aa21af25a4fda8ba6269c69789fb4c260cbbcf6186631dd7bb6cf417c",
+  "base": "FROM python:3.12-slim@sha256:5e2bdb1b0d542d5039cffb8181c65930093949194a65c365dfb1b0fe13a4fa5b AS base",
+  "os": {
+    "Family": "debian",
+    "Name": "13.7"
+  },
+  "runtime": {
+    "uid": 10009,
+    "python": "3.12.16",
+    "packages": {
+      "PyJWT": "2.15.1",
+      "PyYAML": "6.0.3",
+      "SQLAlchemy": "2.0.40",
+      "annotated-doc": "0.0.5",
+      "annotated-types": "0.8.0",
+      "anyio": "4.16.0",
+      "cffi": "2.1.1",
+      "chardet": "7.7.0",
+      "click": "8.5.1",
+      "cryptography": "50.0.2",
+      "fastapi": "0.162.0",
+      "greenlet": "3.5.6",
+      "h11": "0.16.0",
+      "httptools": "0.9.0",
+      "idna": "3.20",
+      "opentelemetry-api": "1.45.2",
+      "pillow": "13.0.0",
+      "psycopg": "3.2.9",
+      "psycopg-binary": "3.2.9",
+      "pycparser": "3.12",
+      "pydantic": "2.11.4",
+      "pydantic-settings": "2.9.1",
+      "pydantic_core": "2.33.2",
+      "python-dotenv": "1.2.4",
+      "reportlab": "4.2.5",
+      "starlette": "1.10.0",
+      "typing-inspection": "0.4.5",
+      "typing_extensions": "4.16.0",
+      "uvicorn": "0.34.2",
+      "uvloop": "0.23.0",
+      "watchfiles": "1.3.0",
+      "websockets": "17.4"
+    },
+    "requirements": {
+      "h11": [],
+      "cffi": [
+        "pycparser; implementation_name != \"PyPy\""
+      ],
+      "starlette": [
+        "anyio<5,>=4.0.0",
+        "typing-extensions>=4.10.0; python_version < '3.13'",
+        "httpx2>=2.0.0; extra == 'full'",
+        "httpx<0.29.0,>=0.27.0; extra == 'full'",
+        "itsdangerous; extra == 'full'",
+        "jinja2; extra == 'full'",
+        "opentelemetry-api; extra == 'full'",
+        "python-multipart>=0.0.18; extra == 'full'",
+        "pyyaml; extra == 'full'"
+      ],
+      "click": [],
+      "psycopg": [
+        "backports.zoneinfo>=0.2.0; python_version < \"3.9\"",
+        "typing-extensions>=4.6; python_version < \"3.13\"",
+        "tzdata; sys_platform == \"win32\"",
+        "psycopg-c==3.2.9; implementation_name != \"pypy\" and extra == \"c\"",
+        "psycopg-binary==3.2.9; implementation_name != \"pypy\" and extra == \"binary\"",
+        "psycopg-pool; extra == \"pool\"",
+        "anyio>=4.0; extra == \"test\"",
+        "mypy>=1.14; extra == \"test\"",
+        "pproxy>=2.7; extra == \"test\"",
+        "pytest>=6.2.5; extra == \"test\"",
+        "pytest-cov>=3.0; extra == \"test\"",
+        "pytest-randomly>=3.5; extra == \"test\"",
+        "ast-comments>=1.1.2; extra == \"dev\"",
+        "black>=24.1.0; extra == \"dev\"",
+        "codespell>=2.2; extra == \"dev\"",
+        "dnspython>=2.1; extra == \"dev\"",
+        "flake8>=4.0; extra == \"dev\"",
+        "isort[colors]>=6.0; extra == \"dev\"",
+        "isort-psycopg; extra == \"dev\"",
+        "mypy>=1.14; extra == \"dev\"",
+        "pre-commit>=4.0.1; extra == \"dev\"",
+        "types-setuptools>=57.4; extra == \"dev\"",
+        "types-shapely>=2.0; extra == \"dev\"",
+        "wheel>=0.37; extra == \"dev\"",
+        "Sphinx>=5.0; extra == \"docs\"",
+        "furo==2022.6.21; extra == \"docs\"",
+        "sphinx-autobuild>=2021.3.14; extra == \"docs\"",
+        "sphinx-autodoc-typehints>=1.12; extra == \"docs\""
+      ],
+      "pydantic_core": [
+        "typing-extensions>=4.6.0,!=4.7.0"
+      ],
+      "python-dotenv": [
+        "click>=5.0; extra == \"cli\""
+      ],
+      "httptools": [],
+      "pillow": [
+        "furo; extra == \"docs\"",
+        "olefile; extra == \"docs\"",
+        "sphinx>=8.2; extra == \"docs\"",
+        "sphinx-autobuild; extra == \"docs\"",
+        "sphinx-copybutton; extra == \"docs\"",
+        "sphinx-inline-tabs; extra == \"docs\"",
+        "sphinxext-opengraph; extra == \"docs\"",
+        "olefile; extra == \"fpx\"",
+        "olefile; extra == \"mic\"",
+        "arro3-compute; extra == \"test-arrow\"",
+        "arro3-core; extra == \"test-arrow\"",
+        "nanoarrow; extra == \"test-arrow\"",
+        "pyarrow; extra == \"test-arrow\"",
+        "coverage>=7.4.2; extra == \"tests\"",
+        "defusedxml; extra == \"tests\"",
+        "markdown2; extra == \"tests\"",
+        "olefile; extra == \"tests\"",
+        "packaging; extra == \"tests\"",
+        "psutil; (sys_platform == \"linux\" or sys_platform == \"darwin\") and extra == \"tests\"",
+        "pytest; extra == \"tests\"",
+        "pytest-cov; extra == \"tests\"",
+        "pytest-timeout; extra == \"tests\"",
+        "pytest-xdist; extra == \"tests\"",
+        "setuptools; extra == \"tests\"",
+        "trove-classifiers>=2024.10.12; extra == \"tests\"",
+        "defusedxml; extra == \"xmp\""
+      ],
+      "fastapi": [
+        "starlette>=0.46.0",
+        "pydantic>=2.9.0",
+        "typing-extensions>=4.8.0",
+        "typing-inspection>=0.4.2",
+        "annotated-doc>=0.0.2",
+        "opentelemetry-api>=1.44.0",
+        "opentelemetry-sdk>=1.44.0; extra == \"opentelemetry\"",
+        "opentelemetry-exporter-otlp-proto-http>=1.44.0; extra == \"opentelemetry\"",
+        "opentelemetry-sdk>=1.44.0; extra == \"standard\"",
+        "opentelemetry-exporter-otlp-proto-http>=1.44.0; extra == \"standard\"",
+        "fastapi-cli[standard]>=0.0.32; extra == \"standard\"",
+        "fastar>=0.9.0; extra == \"standard\"",
+        "httpx<1.0.0,>=0.23.0; extra == \"standard\"",
+        "httpx2>=2.0.0; extra == \"standard\"",
+        "jinja2>=3.1.5; extra == \"standard\"",
+        "python-multipart>=0.0.18; extra == \"standard\"",
+        "email-validator>=2.0.0; extra == \"standard\"",
+        "uvicorn[standard]>=0.12.0; extra == \"standard\"",
+        "pydantic-settings>=2.0.0; extra == \"standard\"",
+        "pydantic-extra-types>=2.0.0; extra == \"standard\"",
+        "opentelemetry-sdk>=1.44.0; extra == \"standard-no-fastapi-cloud-cli\"",
+        "opentelemetry-exporter-otlp-proto-http>=1.44.0; extra == \"standard-no-fastapi-cloud-cli\"",
+        "fastapi-cli[standard-no-fastapi-cloud-cli]>=0.0.32; extra == \"standard-no-fastapi-cloud-cli\"",
+        "httpx<1.0.0,>=0.23.0; extra == \"standard-no-fastapi-cloud-cli\"",
+        "httpx2>=2.0.0; extra == \"standard-no-fastapi-cloud-cli\"",
+        "jinja2>=3.1.5; extra == \"standard-no-fastapi-cloud-cli\"",
+        "python-multipart>=0.0.18; extra == \"standard-no-fastapi-cloud-cli\"",
+        "email-validator>=2.0.0; extra == \"standard-no-fastapi-cloud-cli\"",
+        "uvicorn[standard]>=0.12.0; extra == \"standard-no-fastapi-cloud-cli\"",
+        "pydantic-settings>=2.0.0; extra == \"standard-no-fastapi-cloud-cli\"",
+        "pydantic-extra-types>=2.0.0; extra == \"standard-no-fastapi-cloud-cli\"",
+        "opentelemetry-sdk>=1.44.0; extra == \"all\"",
+        "opentelemetry-exporter-otlp-proto-http>=1.44.0; extra == \"all\"",
+        "fastapi-cli[standard]>=0.0.32; extra == \"all\"",
+        "httpx<1.0.0,>=0.23.0; extra == \"all\"",
+        "httpx2>=2.0.0; extra == \"all\"",
+        "jinja2>=3.1.5; extra == \"all\"",
+        "python-multipart>=0.0.18; extra == \"all\"",
+        "itsdangerous>=1.1.0; extra == \"all\"",
+        "pyyaml>=5.3.1; extra == \"all\"",
+        "email-validator>=2.0.0; extra == \"all\"",
+        "uvicorn[standard]>=0.12.0; extra == \"all\"",
+        "pydantic-settings>=2.0.0; extra == \"all\"",
+        "pydantic-extra-types>=2.0.0; extra == \"all\""
+      ],
+      "idna": [
+        "ruff >= 0.16.0 ; extra == \"all\"",
+        "mypy >= 1.11.2 ; extra == \"all\"",
+        "ty >= 0.0.37 ; extra == \"all\"",
+        "pytest >= 8.3.2 ; extra == \"all\"",
+        "hypothesis >= 6.141.1 ; extra == \"all\"",
+        "coverage >= 7.10.0 ; extra == \"all\""
+      ],
+      "PyJWT": [
+        "typing_extensions>=4.0; python_version < \"3.11\"",
+        "cryptography>=3.4.0; extra == \"crypto\""
+      ],
+      "pydantic": [
+        "annotated-types>=0.6.0",
+        "pydantic-core==2.33.2",
+        "typing-extensions>=4.12.2",
+        "typing-inspection>=0.4.0",
+        "email-validator>=2.0.0; extra == 'email'",
+        "tzdata; (python_version >= '3.9' and platform_system == 'Windows') and extra == 'timezone'"
+      ],
+      "chardet": [],
+      "typing-inspection": [
+        "typing-extensions>=4.15.0"
+      ],
+      "watchfiles": [
+        "anyio>=3.0.0"
+      ],
+      "annotated-doc": [],
+      "psycopg-binary": [],
+      "uvicorn": [
+        "click>=7.0",
+        "h11>=0.8",
+        "typing-extensions>=4.0; python_version < '3.11'",
+        "colorama>=0.4; (sys_platform == 'win32') and extra == 'standard'",
+        "httptools>=0.6.3; extra == 'standard'",
+        "python-dotenv>=0.13; extra == 'standard'",
+        "pyyaml>=5.1; extra == 'standard'",
+        "uvloop!=0.15.0,!=0.15.1,>=0.14.0; (sys_platform != 'win32' and (sys_platform != 'cygwin' and platform_python_implementation != 'PyPy')) and extra == 'standard'",
+        "watchfiles>=0.13; extra == 'standard'",
+        "websockets>=10.4; extra == 'standard'"
+      ],
+      "uvloop": [
+        "aiohttp>=3.10.5; extra == \"test\"",
+        "flake8~=6.1; extra == \"test\"",
+        "psutil; extra == \"test\"",
+        "pycodestyle~=2.11.0; extra == \"test\"",
+        "pyOpenSSL~=25.3.0; python_version < \"3.9\" and extra == \"test\"",
+        "pyOpenSSL~=26.4.0; python_version >= \"3.9\" and extra == \"test\"",
+        "mypy>=0.800; extra == \"test\"",
+        "packaging>=20; extra == \"dev\"",
+        "setuptools>=60; extra == \"dev\"",
+        "Cython~=3.1; extra == \"dev\"",
+        "Sphinx~=4.1.2; extra == \"docs\"",
+        "sphinxcontrib-asyncio~=0.3.0; extra == \"docs\"",
+        "sphinx_rtd_theme~=0.5.2; extra == \"docs\""
+      ],
+      "reportlab": [
+        "pillow>=9.0.0",
+        "chardet",
+        "rl-accel<1.1,>=0.9.0; extra == \"accel\"",
+        "rlPyCairo<1,>=0.2.0; extra == \"pycairo\"",
+        "freetype-py<2.4,>=2.3.0; extra == \"pycairo\"",
+        "rl-renderPM<4.1,>=4.0.3; extra == \"renderpm\""
+      ],
+      "opentelemetry-api": [
+        "typing-extensions>=4.5.0"
+      ],
+      "SQLAlchemy": [
+        "importlib-metadata; python_version < \"3.8\"",
+        "greenlet>=1; python_version < \"3.14\" and (platform_machine == \"aarch64\" or (platform_machine == \"ppc64le\" or (platform_machine == \"x86_64\" or (platform_machine == \"amd64\" or (platform_machine == \"AMD64\" or (platform_machine == \"win32\" or platform_machine == \"WIN32\"))))))",
+        "typing-extensions>=4.6.0",
+        "greenlet>=1; extra == \"asyncio\"",
+        "mypy>=0.910; extra == \"mypy\"",
+        "pyodbc; extra == \"mssql\"",
+        "pymssql; extra == \"mssql-pymssql\"",
+        "pyodbc; extra == \"mssql-pyodbc\"",
+        "mysqlclient>=1.4.0; extra == \"mysql\"",
+        "mysql-connector-python; extra == \"mysql-connector\"",
+        "mariadb!=1.1.10,!=1.1.2,!=1.1.5,>=1.0.1; extra == \"mariadb-connector\"",
+        "cx_oracle>=8; extra == \"oracle\"",
+        "oracledb>=1.0.1; extra == \"oracle-oracledb\"",
+        "psycopg2>=2.7; extra == \"postgresql\"",
+        "pg8000>=1.29.1; extra == \"postgresql-pg8000\"",
+        "greenlet>=1; extra == \"postgresql-asyncpg\"",
+        "asyncpg; extra == \"postgresql-asyncpg\"",
+        "psycopg2-binary; extra == \"postgresql-psycopg2binary\"",
+        "psycopg2cffi; extra == \"postgresql-psycopg2cffi\"",
+        "psycopg>=3.0.7; extra == \"postgresql-psycopg\"",
+        "psycopg[binary]>=3.0.7; extra == \"postgresql-psycopgbinary\"",
+        "pymysql; extra == \"pymysql\"",
+        "greenlet>=1; extra == \"aiomysql\"",
+        "aiomysql>=0.2.0; extra == \"aiomysql\"",
+        "greenlet>=1; extra == \"aioodbc\"",
+        "aioodbc; extra == \"aioodbc\"",
+        "greenlet>=1; extra == \"asyncmy\"",
+        "asyncmy!=0.2.4,!=0.2.6,>=0.2.3; extra == \"asyncmy\"",
+        "greenlet>=1; extra == \"aiosqlite\"",
+        "aiosqlite; extra == \"aiosqlite\"",
+        "typing_extensions!=3.10.0.1; extra == \"aiosqlite\"",
+        "sqlcipher3_binary; extra == \"sqlcipher\""
+      ],
+      "greenlet": [
+        "Sphinx; extra == \"docs\"",
+        "furo; extra == \"docs\"",
+        "objgraph; extra == \"test\"",
+        "psutil; extra == \"test\"",
+        "setuptools; extra == \"test\""
+      ],
+      "typing_extensions": [],
+      "PyYAML": [],
+      "cryptography": [
+        "cffi>=2.0.0 ; platform_python_implementation != 'PyPy'",
+        "typing-extensions>=4.13.2 ; python_full_version < '3.11'",
+        "bcrypt>=3.1.5 ; extra == 'ssh'"
+      ],
+      "annotated-types": [],
+      "pycparser": [],
+      "websockets": [],
+      "anyio": [
+        "exceptiongroup>=1.0.2; python_version < \"3.11\"",
+        "idna>=2.8",
+        "typing_extensions>=4.16.0; python_version < \"3.15\"",
+        "trio>=0.32.0; extra == \"trio\""
+      ],
+      "pydantic-settings": [
+        "pydantic>=2.7.0",
+        "python-dotenv>=0.21.0",
+        "typing-inspection>=0.4.0",
+        "boto3-stubs[secretsmanager]; extra == 'aws-secrets-manager'",
+        "boto3>=1.35.0; extra == 'aws-secrets-manager'",
+        "azure-identity>=1.16.0; extra == 'azure-key-vault'",
+        "azure-keyvault-secrets>=4.8.0; extra == 'azure-key-vault'",
+        "google-cloud-secret-manager>=2.23.1; extra == 'gcp-secret-manager'",
+        "tomli>=2.0.1; extra == 'toml'",
+        "pyyaml>=6.0.1; extra == 'yaml'"
+      ]
+    },
+    "pip_vendor_setuptools": [],
+    "pip_vendor_pkg_resources_present": false,
+    "os_packages": [
+      "adduser\t3.152",
+      "apt\t3.0.4",
+      "base-files\t13.8+deb13u7",
+      "base-passwd\t3.6.7",
+      "bash\t5.2.37-2+b10",
+      "bsdutils\t1:2.41.5-0+deb13u1",
+      "ca-certificates\t20250419+deb13u1",
+      "coreutils\t9.7-3",
+      "dash\t0.5.12-12",
+      "debconf\t1.5.91",
+      "debian-archive-keyring\t2025.1",
+      "debianutils\t5.23.2",
+      "diffutils\t1:3.10-4",
+      "dpkg\t1.22.22",
+      "findutils\t4.10.0-3",
+      "gcc-14-base:amd64\t14.2.0-19",
+      "grep\t3.11-4",
+      "gzip\t1.13-1+deb13u1",
+      "hostname\t3.25",
+      "init-system-helpers\t1.69~deb13u1",
+      "libacl1:amd64\t2.3.2-2+b1",
+      "libapt-pkg7.0:amd64\t3.0.4",
+      "libattr1:amd64\t1:2.5.2-3",
+      "libaudit-common\t1:4.0.2-2+deb13u1",
+      "libaudit1:amd64\t1:4.0.2-2+deb13u1",
+      "libblkid1:amd64\t2.41.5-0+deb13u1",
+      "libbsd0:amd64\t0.12.2-2",
+      "libbz2-1.0:amd64\t1.0.8-6",
+      "libc-bin\t2.41-12+deb13u4",
+      "libc6:amd64\t2.41-12+deb13u4",
+      "libcap-ng0:amd64\t0.8.5-4+b1",
+      "libcap2:amd64\t1:2.75-10+deb13u1+b3",
+      "libcrypt1:amd64\t1:4.4.38-1",
+      "libdb5.3t64:amd64\t5.3.28+dfsg2-9",
+      "libdebconfclient0:amd64\t0.280",
+      "libffi8:amd64\t3.4.8-2",
+      "libgcc-s1:amd64\t14.2.0-19",
+      "libgdbm6t64:amd64\t1.24-2",
+      "libgmp10:amd64\t2:6.3.0+dfsg-3",
+      "libhogweed6t64:amd64\t3.10.1-1",
+      "liblastlog2-2:amd64\t2.41.5-0+deb13u1",
+      "liblz4-1:amd64\t1.10.0-4",
+      "liblzma5:amd64\t5.8.1-1+deb13u2",
+      "libmd0:amd64\t1.1.0-2+b1",
+      "libmount1:amd64\t2.41.5-0+deb13u1",
+      "libncursesw6:amd64\t6.5+20250216-2",
+      "libnettle8t64:amd64\t3.10.1-1",
+      "libpam-modules:amd64\t1.7.0-5",
+      "libpam-modules-bin\t1.7.0-5",
+      "libpam-runtime\t1.7.0-5",
+      "libpam0g:amd64\t1.7.0-5",
+      "libpcre2-8-0:amd64\t10.46-1~deb13u3",
+      "libreadline8t64:amd64\t8.2-6",
+      "libseccomp2:amd64\t2.6.0-2",
+      "libselinux1:amd64\t3.8.1-1",
+      "libsemanage-common\t3.8.1-1",
+      "libsemanage2:amd64\t3.8.1-1",
+      "libsepol2:amd64\t3.8.1-1",
+      "libsmartcols1:amd64\t2.41.5-0+deb13u1",
+      "libsqlite3-0:amd64\t3.46.1-7+deb13u2",
+      "libssl3t64:amd64\t3.5.7-1~deb13u3",
+      "libstdc++6:amd64\t14.2.0-19",
+      "libsystemd0:amd64\t257.13-1~deb13u1",
+      "libtinfo6:amd64\t6.5+20250216-2",
+      "libudev1:amd64\t257.13-1~deb13u1",
+      "libuuid1:amd64\t2.41.5-0+deb13u1",
+      "libxxhash0:amd64\t0.8.3-2",
+      "libzstd1:amd64\t1.5.7+dfsg-1",
+      "login\t1:4.16.0-2+really2.41.5-0+deb13u1",
+      "login.defs\t1:4.17.4-2",
+      "mawk\t1.3.4.20250131-1",
+      "mount\t2.41.5-0+deb13u1",
+      "ncurses-base\t6.5+20250216-2",
+      "ncurses-bin\t6.5+20250216-2",
+      "netbase\t6.5",
+      "openssl\t3.5.7-1~deb13u3",
+      "openssl-provider-legacy\t3.5.7-1~deb13u3",
+      "passwd\t1:4.17.4-2",
+      "perl-base\t5.40.1-6+deb13u1",
+      "readline-common\t8.2-6",
+      "sed\t4.9-2+deb13u1",
+      "sqv\t1.3.0-3+b2",
+      "sysvinit-utils\t3.14-4",
+      "tar\t1.35+dfsg-3.1",
+      "tzdata\t2026f-0+deb13u1",
+      "util-linux\t2.41.5-0+deb13u1",
+      "zlib1g:amd64\t1:1.3.dfsg+really1.3.1-1+deb13u1"
+    ]
+  },
+  "source_hash_normalization": "UTF-8 LF for text, raw bytes for binaries",
+  "build_inputs": [
+    {
+      "path": "backend/DocumentExportServices/app/__init__.py",
+      "sha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b"
+    },
+    {
+      "path": "backend/DocumentExportServices/app/application/__init__.py",
+      "sha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b"
+    },
+    {
+      "path": "backend/DocumentExportServices/app/application/ports/__init__.py",
+      "sha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b"
+    },
+    {
+      "path": "backend/DocumentExportServices/app/application/use_cases/__init__.py",
+      "sha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b"
+    },
+    {
+      "path": "backend/DocumentExportServices/app/application/use_cases/manage_exports.py",
+      "sha256": "fffd9dba6f1b02bbca9b27ee43d2fbf57d1548058ea0c3056a00932a8605d522"
+    },
+    {
+      "path": "backend/DocumentExportServices/app/config/__init__.py",
+      "sha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b"
+    },
+    {
+      "path": "backend/DocumentExportServices/app/config/body_limits.py",
+      "sha256": "fd11ae838b2c3feb8ebe46cda4e021aaebfd8f5988d9e733a67f7a067422eb0d"
+    },
+    {
+      "path": "backend/DocumentExportServices/app/config/database.py",
+      "sha256": "6aa2fbdb7e5e7173e4980ad5e0a5fae94c2df405a5f19ea788da2a17bf37e527"
+    },
+    {
+      "path": "backend/DocumentExportServices/app/config/export_cursor.py",
+      "sha256": "d26039b00e4c3cd72cc46611944e5d515d989bd72bca3de9d7aec1c0acfb4a37"
+    },
+    {
+      "path": "backend/DocumentExportServices/app/config/export_limits.py",
+      "sha256": "9fd3aaeb80062777029e5618eedc56b23f3885403023c2d471e72e53f1653343"
+    },
+    {
+      "path": "backend/DocumentExportServices/app/config/logging.py",
+      "sha256": "97df2df5ed360d7fc855b46325a89d1ff9b8c7efc4dd530e4bc0d9bf8f16687b"
+    },
+    {
+      "path": "backend/DocumentExportServices/app/config/readiness.py",
+      "sha256": "5a70739988be908ff8d2c0f2d135347c2d62ff3597212147659a81a4f2791955"
+    },
+    {
+      "path": "backend/DocumentExportServices/app/config/security.py",
+      "sha256": "0b782380f561cb983a093d3e2b108fe7e4c188723ceb6f136a0d837dd9fe6d4c"
+    },
+    {
+      "path": "backend/DocumentExportServices/app/config/settings.py",
+      "sha256": "7c3e3fbe095428a7508112667edaf60dc5a0a81bcb70d841d2f6ee18a1124521"
+    },
+    {
+      "path": "backend/DocumentExportServices/app/domain/__init__.py",
+      "sha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b"
+    },
+    {
+      "path": "backend/DocumentExportServices/app/domain/entities.py",
+      "sha256": "e022f5ae1d2fa4faa743713f96d7b106875d496c580ded884ea09ccf35d0697b"
+    },
+    {
+      "path": "backend/DocumentExportServices/app/infrastructure/__init__.py",
+      "sha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b"
+    },
+    {
+      "path": "backend/DocumentExportServices/app/infrastructure/database/__init__.py",
+      "sha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b"
+    },
+    {
+      "path": "backend/DocumentExportServices/app/infrastructure/database/connection.py",
+      "sha256": "67a82906aece8b18b587d0e6b7ebb8872fa3cd5ef41157622de737f96603992c"
+    },
+    {
+      "path": "backend/DocumentExportServices/app/infrastructure/database/models.py",
+      "sha256": "d895a44b8a2eb51dcfefdc768f9ac573c3176b74731108f347984eb6cbb9ef5c"
+    },
+    {
+      "path": "backend/DocumentExportServices/app/infrastructure/database/repositories/__init__.py",
+      "sha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b"
+    },
+    {
+      "path": "backend/DocumentExportServices/app/infrastructure/database/repositories/export_repository_pg.py",
+      "sha256": "e6ab1a73c5af25d934fcbe4fd7663394163131858a3116f4853608bba1791e12"
+    },
+    {
+      "path": "backend/DocumentExportServices/app/infrastructure/pdf/__init__.py",
+      "sha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b"
+    },
+    {
+      "path": "backend/DocumentExportServices/app/infrastructure/pdf/chat_pdf_renderer.py",
+      "sha256": "2a80339eca2637d5520865969fa6acf8367744f39756449994c308c3c3ddb6d6"
+    },
+    {
+      "path": "backend/DocumentExportServices/app/infrastructure/pdf/fonts/LICENSE.txt",
+      "sha256": "0dab92d0544f7b233403f14b84a663bdbfa746982eda629e7f4f9ffe1b036feb"
+    },
+    {
+      "path": "backend/DocumentExportServices/app/infrastructure/pdf/fonts/NotoSans-Bold.ttf",
+      "sha256": "c976e4b1b99edc88775377fcc21692ca4bfa46b6d6ca6522bfda505b28ff9d6a"
+    },
+    {
+      "path": "backend/DocumentExportServices/app/infrastructure/pdf/fonts/NotoSans-Regular.ttf",
+      "sha256": "b85c38ecea8a7cfb39c24e395a4007474fa5a4fc864f6ee33309eb4948d232d5"
+    },
+    {
+      "path": "backend/DocumentExportServices/app/infrastructure/pdf/fonts/README.md",
+      "sha256": "3613924b8aca4d8997a42dbe8deff7997114535ce1579cc61ad48817376df80a"
+    },
+    {
+      "path": "backend/DocumentExportServices/app/infrastructure/pdf/isolated_renderer.py",
+      "sha256": "8216c173008614e4c23bbc075813c3aac1afbeec030f60e83746b59ed7610f88"
+    },
+    {
+      "path": "backend/DocumentExportServices/app/infrastructure/pdf/legacy.py",
+      "sha256": "eeec7fdd731e8176197888765f215e4c13144bafe7b3a1f8b8ae5c9263e72360"
+    },
+    {
+      "path": "backend/DocumentExportServices/app/infrastructure/pdf/worker.py",
+      "sha256": "0548340c102f72f7823d32f43c4500620fc03418b3c61a6661888c77d12fcbec"
+    },
+    {
+      "path": "backend/DocumentExportServices/app/interfaces/__init__.py",
+      "sha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b"
+    },
+    {
+      "path": "backend/DocumentExportServices/app/interfaces/api/__init__.py",
+      "sha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b"
+    },
+    {
+      "path": "backend/DocumentExportServices/app/interfaces/api/router.py",
+      "sha256": "1f903812bc30bb8369e953c90a0026e57ded24802b6916456108cbd557e05ef2"
+    },
+    {
+      "path": "backend/DocumentExportServices/app/interfaces/api/v1/__init__.py",
+      "sha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b"
+    },
+    {
+      "path": "backend/DocumentExportServices/app/interfaces/api/v1/dependencies.py",
+      "sha256": "9fe64a5fa3b2f05f716335104b606b2668102678aa6782022e954ba11d4b3640"
+    },
+    {
+      "path": "backend/DocumentExportServices/app/interfaces/api/v1/routes/__init__.py",
+      "sha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b"
+    },
+    {
+      "path": "backend/DocumentExportServices/app/interfaces/api/v1/routes/export_routes.py",
+      "sha256": "af4a18da60d72065251074922057396c78df0b26acad0fdbbc2a327ebe771550"
+    },
+    {
+      "path": "backend/DocumentExportServices/app/interfaces/api/v1/routes/health_routes.py",
+      "sha256": "d093b689821c58cf1f3602dd01cd0b7bf8eaf0d521a814d628cbd0aa2a8df9f6"
+    },
+    {
+      "path": "backend/DocumentExportServices/app/interfaces/api/v1/schemas/__init__.py",
+      "sha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b"
+    },
+    {
+      "path": "backend/DocumentExportServices/app/interfaces/api/v1/schemas/export_schema.py",
+      "sha256": "7ea6aa1a77ec97539d4d796224fd94019b179cf77d37a4551f0a05bd434786b8"
+    },
+    {
+      "path": "backend/DocumentExportServices/app/main.py",
+      "sha256": "dc794b3a7315277ffd9d87be12b20d3a901da313aeaef628bea32863238f57cb"
+    },
+    {
+      "path": "backend/DocumentExportServices/app/shared/__init__.py",
+      "sha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b"
+    },
+    {
+      "path": "backend/DocumentExportServices/app/shared/errors.py",
+      "sha256": "9a71b3a005918f4da7aa726e968f516cf241b0495ebe595a2e8ce7e48942c6c9"
+    },
+    {
+      "path": "backend/DocumentExportServices/Dockerfile",
+      "sha256": "467d5e9bf763bf057ba7f32e57d74a5636ab5fff16a188cac67a81fd0a3a706b"
+    },
+    {
+      "path": "backend/DocumentExportServices/requirements.txt",
+      "sha256": "d0dfb17233e44a716d6a7f629a11191ff07f5399917d4e67f13e44744aca66f0"
+    }
+  ],
+  "build_inputs_sha256": "c5c43a6e21b16fb2ef09997bac92139778cc4f57fe6711194fa8349228fd86e2",
+  "findings": [
+    {
+      "id": "CVE-2026-76642",
+      "package": "bsdutils",
+      "installed": "1:2.41.5-0+deb13u1",
+      "fixed": null,
+      "severity": "HIGH",
+      "target": "/audit/runtime-image.tar (debian 13.7)",
+      "disposition": "EXPORT-F01: OS has no fixed version indicated; rebuild/rescan before public deployment."
+    },
+    {
+      "id": "CVE-2026-78408",
+      "package": "bsdutils",
+      "installed": "1:2.41.5-0+deb13u1",
+      "fixed": null,
+      "severity": "HIGH",
+      "target": "/audit/runtime-image.tar (debian 13.7)",
+      "disposition": "EXPORT-F01: OS has no fixed version indicated; rebuild/rescan before public deployment."
+    },
+    {
+      "id": "CVE-2026-78409",
+      "package": "bsdutils",
+      "installed": "1:2.41.5-0+deb13u1",
+      "fixed": null,
+      "severity": "HIGH",
+      "target": "/audit/runtime-image.tar (debian 13.7)",
+      "disposition": "EXPORT-F01: OS has no fixed version indicated; rebuild/rescan before public deployment."
+    },
+    {
+      "id": "CVE-2026-78410",
+      "package": "bsdutils",
+      "installed": "1:2.41.5-0+deb13u1",
+      "fixed": null,
+      "severity": "HIGH",
+      "target": "/audit/runtime-image.tar (debian 13.7)",
+      "disposition": "EXPORT-F01: OS has no fixed version indicated; rebuild/rescan before public deployment."
+    },
+    {
+      "id": "CVE-2026-54369",
+      "package": "libacl1",
+      "installed": "2.3.2-2+b1",
+      "fixed": null,
+      "severity": "HIGH",
+      "target": "/audit/runtime-image.tar (debian 13.7)",
+      "disposition": "EXPORT-F01: OS has no fixed version indicated; rebuild/rescan before public deployment."
+    },
+    {
+      "id": "CVE-2026-76642",
+      "package": "libblkid1",
+      "installed": "2.41.5-0+deb13u1",
+      "fixed": null,
+      "severity": "HIGH",
+      "target": "/audit/runtime-image.tar (debian 13.7)",
+      "disposition": "EXPORT-F01: OS has no fixed version indicated; rebuild/rescan before public deployment."
+    },
+    {
+      "id": "CVE-2026-78408",
+      "package": "libblkid1",
+      "installed": "2.41.5-0+deb13u1",
+      "fixed": null,
+      "severity": "HIGH",
+      "target": "/audit/runtime-image.tar (debian 13.7)",
+      "disposition": "EXPORT-F01: OS has no fixed version indicated; rebuild/rescan before public deployment."
+    },
+    {
+      "id": "CVE-2026-78409",
+      "package": "libblkid1",
+      "installed": "2.41.5-0+deb13u1",
+      "fixed": null,
+      "severity": "HIGH",
+      "target": "/audit/runtime-image.tar (debian 13.7)",
+      "disposition": "EXPORT-F01: OS has no fixed version indicated; rebuild/rescan before public deployment."
+    },
+    {
+      "id": "CVE-2026-78410",
+      "package": "libblkid1",
+      "installed": "2.41.5-0+deb13u1",
+      "fixed": null,
+      "severity": "HIGH",
+      "target": "/audit/runtime-image.tar (debian 13.7)",
+      "disposition": "EXPORT-F01: OS has no fixed version indicated; rebuild/rescan before public deployment."
+    },
+    {
+      "id": "CVE-2026-76642",
+      "package": "liblastlog2-2",
+      "installed": "2.41.5-0+deb13u1",
+      "fixed": null,
+      "severity": "HIGH",
+      "target": "/audit/runtime-image.tar (debian 13.7)",
+      "disposition": "EXPORT-F01: OS has no fixed version indicated; rebuild/rescan before public deployment."
+    },
+    {
+      "id": "CVE-2026-78408",
+      "package": "liblastlog2-2",
+      "installed": "2.41.5-0+deb13u1",
+      "fixed": null,
+      "severity": "HIGH",
+      "target": "/audit/runtime-image.tar (debian 13.7)",
+      "disposition": "EXPORT-F01: OS has no fixed version indicated; rebuild/rescan before public deployment."
+    },
+    {
+      "id": "CVE-2026-78409",
+      "package": "liblastlog2-2",
+      "installed": "2.41.5-0+deb13u1",
+      "fixed": null,
+      "severity": "HIGH",
+      "target": "/audit/runtime-image.tar (debian 13.7)",
+      "disposition": "EXPORT-F01: OS has no fixed version indicated; rebuild/rescan before public deployment."
+    },
+    {
+      "id": "CVE-2026-78410",
+      "package": "liblastlog2-2",
+      "installed": "2.41.5-0+deb13u1",
+      "fixed": null,
+      "severity": "HIGH",
+      "target": "/audit/runtime-image.tar (debian 13.7)",
+      "disposition": "EXPORT-F01: OS has no fixed version indicated; rebuild/rescan before public deployment."
+    },
+    {
+      "id": "CVE-2026-76642",
+      "package": "libmount1",
+      "installed": "2.41.5-0+deb13u1",
+      "fixed": null,
+      "severity": "HIGH",
+      "target": "/audit/runtime-image.tar (debian 13.7)",
+      "disposition": "EXPORT-F01: OS has no fixed version indicated; rebuild/rescan before public deployment."
+    },
+    {
+      "id": "CVE-2026-78408",
+      "package": "libmount1",
+      "installed": "2.41.5-0+deb13u1",
+      "fixed": null,
+      "severity": "HIGH",
+      "target": "/audit/runtime-image.tar (debian 13.7)",
+      "disposition": "EXPORT-F01: OS has no fixed version indicated; rebuild/rescan before public deployment."
+    },
+    {
+      "id": "CVE-2026-78409",
+      "package": "libmount1",
+      "installed": "2.41.5-0+deb13u1",
+      "fixed": null,
+      "severity": "HIGH",
+      "target": "/audit/runtime-image.tar (debian 13.7)",
+      "disposition": "EXPORT-F01: OS has no fixed version indicated; rebuild/rescan before public deployment."
+    },
+    {
+      "id": "CVE-2026-78410",
+      "package": "libmount1",
+      "installed": "2.41.5-0+deb13u1",
+      "fixed": null,
+      "severity": "HIGH",
+      "target": "/audit/runtime-image.tar (debian 13.7)",
+      "disposition": "EXPORT-F01: OS has no fixed version indicated; rebuild/rescan before public deployment."
+    },
+    {
+      "id": "CVE-2025-69720",
+      "package": "libncursesw6",
+      "installed": "6.5+20250216-2",
+      "fixed": null,
+      "severity": "HIGH",
+      "target": "/audit/runtime-image.tar (debian 13.7)",
+      "disposition": "EXPORT-F01: OS has no fixed version indicated; rebuild/rescan before public deployment."
+    },
+    {
+      "id": "CVE-2026-76642",
+      "package": "libsmartcols1",
+      "installed": "2.41.5-0+deb13u1",
+      "fixed": null,
+      "severity": "HIGH",
+      "target": "/audit/runtime-image.tar (debian 13.7)",
+      "disposition": "EXPORT-F01: OS has no fixed version indicated; rebuild/rescan before public deployment."
+    },
+    {
+      "id": "CVE-2026-78408",
+      "package": "libsmartcols1",
+      "installed": "2.41.5-0+deb13u1",
+      "fixed": null,
+      "severity": "HIGH",
+      "target": "/audit/runtime-image.tar (debian 13.7)",
+      "disposition": "EXPORT-F01: OS has no fixed version indicated; rebuild/rescan before public deployment."
+    },
+    {
+      "id": "CVE-2026-78409",
+      "package": "libsmartcols1",
+      "installed": "2.41.5-0+deb13u1",
+      "fixed": null,
+      "severity": "HIGH",
+      "target": "/audit/runtime-image.tar (debian 13.7)",
+      "disposition": "EXPORT-F01: OS has no fixed version indicated; rebuild/rescan before public deployment."
+    },
+    {
+      "id": "CVE-2026-78410",
+      "package": "libsmartcols1",
+      "installed": "2.41.5-0+deb13u1",
+      "fixed": null,
+      "severity": "HIGH",
+      "target": "/audit/runtime-image.tar (debian 13.7)",
+      "disposition": "EXPORT-F01: OS has no fixed version indicated; rebuild/rescan before public deployment."
+    },
+    {
+      "id": "CVE-2026-119373",
+      "package": "libsqlite3-0",
+      "installed": "3.46.1-7+deb13u2",
+      "fixed": null,
+      "severity": "HIGH",
+      "target": "/audit/runtime-image.tar (debian 13.7)",
+      "disposition": "EXPORT-F01: OS has no fixed version indicated; rebuild/rescan before public deployment."
+    },
+    {
+      "id": "CVE-2026-119374",
+      "package": "libsqlite3-0",
+      "installed": "3.46.1-7+deb13u2",
+      "fixed": null,
+      "severity": "HIGH",
+      "target": "/audit/runtime-image.tar (debian 13.7)",
+      "disposition": "EXPORT-F01: OS has no fixed version indicated; rebuild/rescan before public deployment."
+    },
+    {
+      "id": "CVE-2026-119379",
+      "package": "libsqlite3-0",
+      "installed": "3.46.1-7+deb13u2",
+      "fixed": null,
+      "severity": "HIGH",
+      "target": "/audit/runtime-image.tar (debian 13.7)",
+      "disposition": "EXPORT-F01: OS has no fixed version indicated; rebuild/rescan before public deployment."
+    },
+    {
+      "id": "CVE-2026-16742",
+      "package": "libsystemd0",
+      "installed": "257.13-1~deb13u1",
+      "fixed": null,
+      "severity": "HIGH",
+      "target": "/audit/runtime-image.tar (debian 13.7)",
+      "disposition": "EXPORT-F01: OS has no fixed version indicated; rebuild/rescan before public deployment."
+    },
+    {
+      "id": "CVE-2025-69720",
+      "package": "libtinfo6",
+      "installed": "6.5+20250216-2",
+      "fixed": null,
+      "severity": "HIGH",
+      "target": "/audit/runtime-image.tar (debian 13.7)",
+      "disposition": "EXPORT-F01: OS has no fixed version indicated; rebuild/rescan before public deployment."
+    },
+    {
+      "id": "CVE-2026-16742",
+      "package": "libudev1",
+      "installed": "257.13-1~deb13u1",
+      "fixed": null,
+      "severity": "HIGH",
+      "target": "/audit/runtime-image.tar (debian 13.7)",
+      "disposition": "EXPORT-F01: OS has no fixed version indicated; rebuild/rescan before public deployment."
+    },
+    {
+      "id": "CVE-2026-76642",
+      "package": "libuuid1",
+      "installed": "2.41.5-0+deb13u1",
+      "fixed": null,
+      "severity": "HIGH",
+      "target": "/audit/runtime-image.tar (debian 13.7)",
+      "disposition": "EXPORT-F01: OS has no fixed version indicated; rebuild/rescan before public deployment."
+    },
+    {
+      "id": "CVE-2026-78408",
+      "package": "libuuid1",
+      "installed": "2.41.5-0+deb13u1",
+      "fixed": null,
+      "severity": "HIGH",
+      "target": "/audit/runtime-image.tar (debian 13.7)",
+      "disposition": "EXPORT-F01: OS has no fixed version indicated; rebuild/rescan before public deployment."
+    },
+    {
+      "id": "CVE-2026-78409",
+      "package": "libuuid1",
+      "installed": "2.41.5-0+deb13u1",
+      "fixed": null,
+      "severity": "HIGH",
+      "target": "/audit/runtime-image.tar (debian 13.7)",
+      "disposition": "EXPORT-F01: OS has no fixed version indicated; rebuild/rescan before public deployment."
+    },
+    {
+      "id": "CVE-2026-78410",
+      "package": "libuuid1",
+      "installed": "2.41.5-0+deb13u1",
+      "fixed": null,
+      "severity": "HIGH",
+      "target": "/audit/runtime-image.tar (debian 13.7)",
+      "disposition": "EXPORT-F01: OS has no fixed version indicated; rebuild/rescan before public deployment."
+    },
+    {
+      "id": "CVE-2026-76642",
+      "package": "login",
+      "installed": "1:4.16.0-2+really2.41.5-0+deb13u1",
+      "fixed": null,
+      "severity": "HIGH",
+      "target": "/audit/runtime-image.tar (debian 13.7)",
+      "disposition": "EXPORT-F01: OS has no fixed version indicated; rebuild/rescan before public deployment."
+    },
+    {
+      "id": "CVE-2026-78408",
+      "package": "login",
+      "installed": "1:4.16.0-2+really2.41.5-0+deb13u1",
+      "fixed": null,
+      "severity": "HIGH",
+      "target": "/audit/runtime-image.tar (debian 13.7)",
+      "disposition": "EXPORT-F01: OS has no fixed version indicated; rebuild/rescan before public deployment."
+    },
+    {
+      "id": "CVE-2026-78409",
+      "package": "login",
+      "installed": "1:4.16.0-2+really2.41.5-0+deb13u1",
+      "fixed": null,
+      "severity": "HIGH",
+      "target": "/audit/runtime-image.tar (debian 13.7)",
+      "disposition": "EXPORT-F01: OS has no fixed version indicated; rebuild/rescan before public deployment."
+    },
+    {
+      "id": "CVE-2026-78410",
+      "package": "login",
+      "installed": "1:4.16.0-2+really2.41.5-0+deb13u1",
+      "fixed": null,
+      "severity": "HIGH",
+      "target": "/audit/runtime-image.tar (debian 13.7)",
+      "disposition": "EXPORT-F01: OS has no fixed version indicated; rebuild/rescan before public deployment."
+    },
+    {
+      "id": "CVE-2026-76642",
+      "package": "mount",
+      "installed": "2.41.5-0+deb13u1",
+      "fixed": null,
+      "severity": "HIGH",
+      "target": "/audit/runtime-image.tar (debian 13.7)",
+      "disposition": "EXPORT-F01: OS has no fixed version indicated; rebuild/rescan before public deployment."
+    },
+    {
+      "id": "CVE-2026-78408",
+      "package": "mount",
+      "installed": "2.41.5-0+deb13u1",
+      "fixed": null,
+      "severity": "HIGH",
+      "target": "/audit/runtime-image.tar (debian 13.7)",
+      "disposition": "EXPORT-F01: OS has no fixed version indicated; rebuild/rescan before public deployment."
+    },
+    {
+      "id": "CVE-2026-78409",
+      "package": "mount",
+      "installed": "2.41.5-0+deb13u1",
+      "fixed": null,
+      "severity": "HIGH",
+      "target": "/audit/runtime-image.tar (debian 13.7)",
+      "disposition": "EXPORT-F01: OS has no fixed version indicated; rebuild/rescan before public deployment."
+    },
+    {
+      "id": "CVE-2026-78410",
+      "package": "mount",
+      "installed": "2.41.5-0+deb13u1",
+      "fixed": null,
+      "severity": "HIGH",
+      "target": "/audit/runtime-image.tar (debian 13.7)",
+      "disposition": "EXPORT-F01: OS has no fixed version indicated; rebuild/rescan before public deployment."
+    },
+    {
+      "id": "CVE-2025-69720",
+      "package": "ncurses-base",
+      "installed": "6.5+20250216-2",
+      "fixed": null,
+      "severity": "HIGH",
+      "target": "/audit/runtime-image.tar (debian 13.7)",
+      "disposition": "EXPORT-F01: OS has no fixed version indicated; rebuild/rescan before public deployment."
+    },
+    {
+      "id": "CVE-2025-69720",
+      "package": "ncurses-bin",
+      "installed": "6.5+20250216-2",
+      "fixed": null,
+      "severity": "HIGH",
+      "target": "/audit/runtime-image.tar (debian 13.7)",
+      "disposition": "EXPORT-F01: OS has no fixed version indicated; rebuild/rescan before public deployment."
+    },
+    {
+      "id": "CVE-2026-9538",
+      "package": "perl-base",
+      "installed": "5.40.1-6+deb13u1",
+      "fixed": null,
+      "severity": "HIGH",
+      "target": "/audit/runtime-image.tar (debian 13.7)",
+      "disposition": "EXPORT-F01: OS has no fixed version indicated; rebuild/rescan before public deployment."
+    },
+    {
+      "id": "CVE-2026-76642",
+      "package": "util-linux",
+      "installed": "2.41.5-0+deb13u1",
+      "fixed": null,
+      "severity": "HIGH",
+      "target": "/audit/runtime-image.tar (debian 13.7)",
+      "disposition": "EXPORT-F01: OS has no fixed version indicated; rebuild/rescan before public deployment."
+    },
+    {
+      "id": "CVE-2026-78408",
+      "package": "util-linux",
+      "installed": "2.41.5-0+deb13u1",
+      "fixed": null,
+      "severity": "HIGH",
+      "target": "/audit/runtime-image.tar (debian 13.7)",
+      "disposition": "EXPORT-F01: OS has no fixed version indicated; rebuild/rescan before public deployment."
+    },
+    {
+      "id": "CVE-2026-78409",
+      "package": "util-linux",
+      "installed": "2.41.5-0+deb13u1",
+      "fixed": null,
+      "severity": "HIGH",
+      "target": "/audit/runtime-image.tar (debian 13.7)",
+      "disposition": "EXPORT-F01: OS has no fixed version indicated; rebuild/rescan before public deployment."
+    },
+    {
+      "id": "CVE-2026-78410",
+      "package": "util-linux",
+      "installed": "2.41.5-0+deb13u1",
+      "fixed": null,
+      "severity": "HIGH",
+      "target": "/audit/runtime-image.tar (debian 13.7)",
+      "disposition": "EXPORT-F01: OS has no fixed version indicated; rebuild/rescan before public deployment."
+    }
+  ],
+  "counts": {
+    "matches": 47,
+    "unique_ids": 11,
+    "critical": 0
+  }
+}

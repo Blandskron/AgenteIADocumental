@@ -1,6 +1,7 @@
 import { createContext, useContext, useMemo, useRef } from "react";
 
 import { env } from "../config/env";
+import { createSessionClient } from "../../shared/api/session-client.js";
 import { createAuthorizedClient } from "../../shared/api/httpClient";
 import { useAuth } from "../../features/auth/hooks/useAuth";
 import { createProfileSessionClient } from "../../features/profile/api/session-client.js";
@@ -81,17 +82,8 @@ export function AuthProvider({ children }) {
     [authState.auth?.access, authState.logout, authState.refreshAccessToken],
   );
 
-  const documentExportClient = useMemo(
-    () =>
-      createAuthorizedClient({
-        baseUrl: env.documentExportBaseUrl,
-        getAccessToken: () => authState.auth?.access,
-        refreshAccessToken: authState.refreshAccessToken,
-        onUnauthorized: authState.logout,
-      }),
-    [authState.auth?.access, authState.logout, authState.refreshAccessToken],
-  );
-
+  const documentExportClient = useMemo(() => profileSessionKey
+    ? createSessionClient(env.documentExportBaseUrl, profileSessionKey, () => session.current) : null, [profileSessionKey]);
   const googleDriveImportClient = useMemo(
     () =>
       createAuthorizedClient({

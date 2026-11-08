@@ -55,8 +55,8 @@ class ManageExports:
             raise NotFoundError("Export not found.")
         return export
 
-    def list_exports(self, source_type=None):
-        return self._repository.list_exports(source_type)
+    def list_exports(self, source_type=None, limit=20, before=None):
+        return self._repository.list_exports(source_type, limit, before)
 
     def download(self, export_id):
         export = self._repository.get_export_for_download(export_id)

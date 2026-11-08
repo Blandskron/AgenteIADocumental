@@ -26,3 +26,5 @@ DO $$ BEGIN
     END IF;
 END $$;
 CREATE UNIQUE INDEX IF NOT EXISTS idx_exports_owner_operation ON document_exports(owner_user_id,operation_key) WHERE operation_key IS NOT NULL;
+
+CREATE INDEX IF NOT EXISTS idx_exports_owner_cursor ON document_exports(owner_user_id,created_at DESC,export_id DESC);

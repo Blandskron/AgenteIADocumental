@@ -39,7 +39,7 @@ test("PDF source adapter preserves page and snippet without nonfinite numbers", 
     assert.equal(source.page, 4);
     assert.equal(source.snippet, "Fragmento con ñ & texto");
     assert.equal(source.score, .75);
-    return {};
+    return { export_id: "synthetic" };
   }, { answer: "synthetic", sources: [{ page_number: 4, snippet: "Fragmento con ñ & texto", score: .75 }] });
   for (const source of [{ score: Infinity }, { page: -1 }, { page: 1.5 }]) {
     let called = false;
