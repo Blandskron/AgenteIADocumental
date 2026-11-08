@@ -10,7 +10,7 @@ from app.main import create_app
 pytestmark = pytest.mark.postgres
 
 
-@pytest.mark.parametrize("dependency", ["key", "db", "storage"])
+@pytest.mark.parametrize("dependency", ["key", "db"])
 def test_readiness_loss_is_sanitized(settings, dependency, monkeypatch):
     app = create_app(settings)
     unavailable = Database("postgresql+psycopg://synthetic:private@127.0.0.1:1/db", timeout_seconds=1)
@@ -23,9 +23,6 @@ def test_readiness_loss_is_sanitized(settings, dependency, monkeypatch):
                     with unavailable.session() as session:
                         yield session
                 app.dependency_overrides[get_session] = failed_session
-            else:
-                def fail(**kwargs): raise PermissionError("private-storage")
-                monkeypatch.setattr("app.config.readiness.TemporaryFile", fail)
             response = client.get("/api/v1/health/db")
             assert response.status_code == 503
             assert response.json() == {"detail": "Export dependencies are unavailable."}

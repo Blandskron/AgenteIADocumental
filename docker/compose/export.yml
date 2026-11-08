@@ -11,7 +11,6 @@ services:
       CORS_ORIGINS: '${EXPORT_CORS_ORIGINS:-["http://localhost:3000","http://127.0.0.1:3000"]}'
       DATABASE_URL: postgresql+psycopg://postgres@postgres:5432/documents_db
       PGPASSWORD: admin1234
-      EXPORT_STORAGE_BASE_PATH: /app/exports
       AUTH_JWT_PUBLIC_KEY_PATH: /app/auth_keys/public.pem
       AUTH_JWT_ALGORITHM: RS256
       DB_POOL_MIN_SIZE: ${EXPORT_DB_POOL_MIN_SIZE:-1}
@@ -20,7 +19,6 @@ services:
     ports:
       - "127.0.0.1:8016:8000"
     volumes:
-      - ../../documents/exports:/app/exports
       - auth_verification_keys:/app/auth_keys:ro
     healthcheck:
       test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/v1/health/db', timeout=3)\""]
@@ -43,6 +41,7 @@ services:
       PGPASSWORD: admin1234
     volumes:
       - ../../scripts/export:/export-checks:ro
+      - ../../scripts/database/export:/export-db:ro
     depends_on:
       database-schema:
         condition: service_completed_successfully

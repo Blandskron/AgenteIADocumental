@@ -42,7 +42,7 @@ def test_no_implicit_dotenv_or_database(tmp_path, monkeypatch):
     with pytest.raises(ValidationError) as caught:
         Settings()
     assert {error["loc"][0] for error in caught.value.errors()} >= {
-        "database_url", "auth_jwt_public_key_path", "export_storage_base_path",
+        "database_url", "auth_jwt_public_key_path",
     }
     assert "synthetic-secret" not in str(caught.value)
 

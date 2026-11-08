@@ -13,7 +13,7 @@ Google Drive es una integración opcional que requiere configurar OAuth. Para la
 
 El perfil se guarda con control de versión: si otra sesión lo modificó, conserva tu formulario y ofrece recargar el perfil antes de guardar de nuevo. Renovar la sesión o subir una foto conserva el borrador de contacto; cambiar de cuenta o tenant reinicia el editor. El correo de contacto se edita por separado de la identidad y los permisos se muestran para el tenant activo. La actualización requiere aplicar el esquema y reconstruir la web junto al servicio. [Actualizar Profile](backend/ProfileServices/README.md#actualizar-una-instalación-existente) y [pruebas web](backend/ProfileServices/README.md#sesión-y-edición-web).
 
-Exportar guarda una instantánea enviada por el cliente. Si el mensaje todavía no está sincronizado, el PDF se crea sin asociarlo a ese mensaje; una conversación local tampoco se envía como referencia. Actualiza la web junto a Export para evitar referencias locales rechazadas. [Contrato de exportación](backend/DocumentExportServices/README.md#contrato-actual).
+Exportar guarda una instantánea enviada por el cliente en PDF de hasta 20 páginas/1 MiB, con Unicode latino/griego/cirílico y persistencia transaccional. La actualización requiere aplicar el esquema nuevo y reconstruir Export/web; los PDFs heredados requieren una migración revisada que conserva los archivos originales. [Actualizar Export](backend/DocumentExportServices/README.md#actualizar-una-instalación-existente). Si el mensaje todavía no está sincronizado, el PDF se crea sin asociarlo a ese mensaje; una conversación local tampoco se envía como referencia. Actualiza la web junto a Export para evitar referencias locales rechazadas. [Contrato de exportación](backend/DocumentExportServices/README.md#contrato-actual).
 
 Las vistas de asignaciones, gestión y notificaciones cargan 50 registros por página. Usa **Cargar más** para consultar los siguientes. Los contadores de estas vistas indican registros cargados.
 
@@ -32,7 +32,7 @@ La ingesta admite archivos de hasta 20 MiB. El mismo límite aplica a las cargas
 - `backend/DocumentTransferServices`: historial de cargas/descargas.
 - `backend/ConversationServices`: historial del chat documental. Usa **Cargar mensajes anteriores** para consultar páginas más antiguas.
 - `backend/ProfileServices`: perfil y avatar.
-- `backend/DocumentExportServices`: exportación de respuestas a PDF, con identidad vigente, referencias propias y readiness DB/clave/storage. [Operación](backend/DocumentExportServices/README.md#ejecución-actual) y [mejoras por etapas](backend/DocumentExportServices/README.md#decisiones-y-mejoras-por-incrementos); modernización en curso.
+- `backend/DocumentExportServices`: exportación de respuestas a PDF, con identidad vigente, referencias propias y readiness DB/clave. [Operación](backend/DocumentExportServices/README.md#ejecución-actual) y [mejoras por etapas](backend/DocumentExportServices/README.md#decisiones-y-mejoras-por-incrementos); modernización en curso.
 - `backend/GoogleDriveImportServices`: importacion desde Google Drive.
 - `frontend`: interfaz React simple para chat y documentos.
 

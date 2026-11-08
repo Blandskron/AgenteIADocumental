@@ -27,22 +27,13 @@ def test_key_rejected_without_internal_values(settings, signing_key, kind):
     assert not settings.export_storage_base_path.exists()
 
 
-def test_storage_prepare_probe_is_clean_and_checks_actual_io(settings, monkeypatch):
-    check_dependencies(settings, Mock(), prepare=True)
-    assert list(settings.export_storage_base_path.iterdir()) == []
-    def unavailable(**kwargs):
-        raise PermissionError("synthetic-private-detail")
-    monkeypatch.setattr("app.config.readiness.TemporaryFile", unavailable)
-    with pytest.raises(PermissionError):
-        check_dependencies(settings, Mock())
-    assert list(settings.export_storage_base_path.iterdir()) == []
-
-
-def test_storage_file_is_rejected(settings):
-    settings.export_storage_base_path.write_text("synthetic")
-    with pytest.raises(RuntimeError, match="storage is unavailable"):
-        check_dependencies(settings, Mock())
-
+def test_readiness_does_not_touch_legacy_storage(settings):
+    session = Mock()
+    check_dependencies(settings, session, prepare=True)
+    session.scalar.assert_called_once()
+    assert not settings.export_storage_base_path.exists()
+    settings.export_storage_base_path.write_text("synthetic legacy obstruction")
+    check_dependencies(settings, session)
 
 def test_lifespan_failure_always_closes_and_masks(settings, monkeypatch):
     def fail(*args, **kwargs):

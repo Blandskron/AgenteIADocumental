@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from sqlalchemy import text
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, undefer
 
 from app.config.security import ExportUser
 from app.shared.errors import NotFoundError
@@ -33,38 +33,41 @@ class ExportRepositoryPg:
             if own is None:
                 raise NotFoundError("Export reference not found.")
 
-    def create_export(
-        self,
-        *,
-        source_type: str,
-        source_id: str | None,
-        conversation_id: str | None,
-        message_id: str | None,
-        title: str,
-        filename: str,
-        storage_path: str,
-        file_size_bytes: int,
-        metadata: dict,
-    ) -> DocumentExportModel:
-        export = DocumentExportModel(
-            owner_user_id=self._owner_user_id,
-            source_type=source_type,
-            source_id=source_id,
-            conversation_id=conversation_id,
-            message_id=message_id,
-            title=title,
-            format="PDF",
-            status="COMPLETED",
-            filename=filename,
-            storage_path=storage_path,
-            mime_type="application/pdf",
-            file_size_bytes=file_size_bytes,
-            metadata_=metadata,
-        )
+    def lock_owner(self):
+        self._session.execute(text("SELECT pg_advisory_xact_lock(hashtextextended('blandskron.export:' || :owner,0))"), {"owner": self._owner_user_id})
+
+    def operation(self, key):
+        if key is None:
+            return None
+        return self._session.query(DocumentExportModel).filter_by(owner_user_id=self._owner_user_id, operation_key=key).first()
+
+    def check_capacity(self, size):
+        from app.config.export_limits import GLOBAL_BYTES, OWNER_BYTES, OWNER_COUNT
+        from app.shared.errors import ExportConflictError
+        self._session.execute(text("SELECT pg_advisory_xact_lock(hashtextextended('blandskron.export.capacity',0))"))
+        row = self._session.execute(text("""
+            SELECT count(*) FILTER (WHERE owner_user_id=:owner),
+                   coalesce(sum(greatest(file_size_bytes,0)) FILTER (WHERE owner_user_id=:owner),0),
+                   coalesce(sum(octet_length(pdf_data)),0) FROM document_exports
+        """), {"owner": self._owner_user_id}).one()
+        if row[0] >= OWNER_COUNT or row[1] + size > OWNER_BYTES or row[2] + size > GLOBAL_BYTES:
+            raise ExportConflictError("Export quota reached.")
+
+    def create_export(self, **values):
+        export = DocumentExportModel(owner_user_id=self._owner_user_id, format="PDF", status="COMPLETED",
+                                     mime_type="application/pdf", storage_path="", **values)
         self._session.add(export)
         self._session.commit()
         self._session.refresh(export)
         return export
+
+    def delete_export(self, export_id):
+        self.lock_owner()
+        export = self.get_export(export_id)
+        if export is None:
+            raise NotFoundError("Export not found.")
+        self._session.delete(export)
+        self._session.commit()
 
     def get_export(self, export_id: str) -> DocumentExportModel | None:
         return (
@@ -75,6 +78,11 @@ class ExportRepositoryPg:
             )
             .first()
         )
+
+    def get_export_for_download(self, export_id):
+        return (self._session.query(DocumentExportModel).options(undefer(DocumentExportModel.pdf_data))
+                .filter(DocumentExportModel.export_id == export_id, DocumentExportModel.owner_user_id == self._owner_user_id)
+                .with_for_update(read=True).first())
 
     def list_exports(self, source_type: str | None = None) -> list[DocumentExportModel]:
         statement = self._session.query(DocumentExportModel).filter(DocumentExportModel.owner_user_id == self._owner_user_id)

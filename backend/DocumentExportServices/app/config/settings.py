@@ -22,7 +22,8 @@ class Settings(BaseSettings):
     db_pool_max_size: int = Field(default=10, ge=1, le=100)
     db_timeout_seconds: int = Field(default=30, ge=1, le=300)
 
-    export_storage_base_path: Path
+    # Compatibility with older process configuration; runtime never reads this directory.
+    export_storage_base_path: Path | None = None
 
     auth_jwt_public_key_path: Path
     auth_jwt_algorithm: Literal["RS256"] = "RS256"
@@ -42,7 +43,7 @@ class Settings(BaseSettings):
     @field_validator("auth_jwt_public_key_path", "export_storage_base_path")
     @classmethod
     def validate_absolute_path(cls, value):
-        if not value.is_absolute():
+        if value is not None and not value.is_absolute():
             raise ValueError("An absolute path is required.")
         return value
 

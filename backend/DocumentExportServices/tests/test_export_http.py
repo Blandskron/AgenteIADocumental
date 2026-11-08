@@ -1,3 +1,4 @@
+from io import BytesIO
 import pytest
 from pypdf import PdfReader
 from sqlalchemy import text
@@ -29,10 +30,9 @@ def test_postgres_export_download_and_owner_filter(client, token_headers, settin
     downloaded = client.get(saved["download_url"], headers=token_headers())
     assert downloaded.status_code == 200 and downloaded.headers["content-type"] == "application/pdf"
     assert downloaded.content.startswith(b"%PDF-")
-    record = db_session.execute(text("SELECT storage_path,owner_user_id FROM document_exports WHERE export_id=:id"), {"id": saved["export_id"]}).one()
+    record = db_session.execute(text("SELECT pdf_data,owner_user_id FROM document_exports WHERE export_id=:id"), {"id": saved["export_id"]}).one()
     assert record.owner_user_id == owner
-    assert str(settings.export_storage_base_path) in record.storage_path
-    assert "97 dias" in PdfReader(record.storage_path).pages[0].extract_text()
+    assert "97 dias" in PdfReader(BytesIO(record.pdf_data)).pages[0].extract_text()
     assert client.get("/api/v1/exports/" + saved["export_id"] + "/status", headers=token_headers()).json()["status"] == "COMPLETED"
 
 
@@ -41,14 +41,14 @@ def test_health_and_openapi_contract(client):
     assert client.get("/api/v1/health/db").json() == {"status": "ok"}
     paths = client.get("/openapi.json").json()["paths"]
     assert len(paths) == 7
+    assert "delete" in paths["/api/v1/exports/{export_id}"]
     assert paths["/api/v1/exports/chat-message/pdf"]["post"]["security"] == [{"HTTPBearer": []}]
     assert "security" not in paths["/api/v1/health/db"]["get"]
 
 
-def test_write_failure_does_not_return_storage_details(client, token_headers, settings):
-    settings.export_storage_base_path.rmdir()
+def test_legacy_storage_obstruction_does_not_affect_database_pdf(client, token_headers, settings):
     settings.export_storage_base_path.write_text("synthetic")
     response = client.post("/api/v1/exports/chat-message/pdf", headers=token_headers(), json={"answer": "synthetic"})
-    assert response.status_code == 500
-    assert response.json() == {"detail": "Export operation failed."}
-    assert "synthetic" not in response.text
+    assert response.status_code == 200
+    assert client.get(response.json()["download_url"], headers=token_headers()).status_code == 200
+    assert settings.export_storage_base_path.read_text() == "synthetic"

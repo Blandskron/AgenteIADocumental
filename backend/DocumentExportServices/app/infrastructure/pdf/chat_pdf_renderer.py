@@ -1,142 +1,100 @@
-from __future__ import annotations
-
+import json
 from datetime import UTC, datetime
+from html import escape
+from io import BytesIO
 from pathlib import Path
-from textwrap import wrap
-from typing import Any
+from threading import Lock
 
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import A4
-from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
+from reportlab.lib.styles import ParagraphStyle
 from reportlab.lib.units import mm
-from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
+from reportlab.pdfbase import pdfmetrics
+from reportlab.pdfbase.ttfonts import TTFont
+from reportlab.platypus import CondPageBreak, Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
 
-from app.domain.entities import ChatPdfExport
-from app.shared.errors import ExportGenerationError
+from app.config.export_limits import MAX_PAGES, MAX_PDF
+from app.shared.errors import ExportGenerationError, ExportLimitError, ValidationError
+
+FONT_LOCK = Lock()
+
+
+def register_fonts():
+    with FONT_LOCK:
+        if "NotoSans" not in pdfmetrics.getRegisteredFontNames():
+            base = Path(__file__).parent / "fonts"
+            for name, file in [("NotoSans", "NotoSans-Regular.ttf"), ("NotoSansBold", "NotoSans-Bold.ttf")]:
+                pdfmetrics.registerFont(TTFont(name, str(base / file)))
+
+
+class BoundedBuffer(BytesIO):
+    def write(self, value):
+        if self.tell() + len(value) > MAX_PDF:
+            raise ExportLimitError("PDF exceeds output limit.")
+        return super().write(value)
 
 
 class ChatPdfRenderer:
-    def render(self, export: ChatPdfExport, output_path: Path) -> None:
+    def render(self, export) -> bytes:
+        register_fonts()
+        output = BoundedBuffer()
+        def page(canvas, doc):
+            if doc.page > MAX_PAGES:
+                raise ExportLimitError("PDF exceeds page limit.")
+            canvas.saveState()
+            canvas.setFont("NotoSans", 8)
+            canvas.setFillColor(colors.HexColor("#667085"))
+            canvas.drawString(18 * mm, 12 * mm, "Blandskron Documental")
+            canvas.drawRightString(A4[0] - 18 * mm, 12 * mm, str(doc.page))
+            canvas.restoreState()
         try:
-            output_path.parent.mkdir(parents=True, exist_ok=True)
-            doc = SimpleDocTemplate(
-                str(output_path),
-                pagesize=A4,
-                leftMargin=18 * mm,
-                rightMargin=18 * mm,
-                topMargin=18 * mm,
-                bottomMargin=18 * mm,
-                title=export.title,
-                author="Blandskron Documental",
-            )
-            doc.build(self._story(export))
-        except Exception as exc:
-            raise ExportGenerationError(f"No se pudo generar el PDF: {exc}") from exc
+            doc = SimpleDocTemplate(output, pagesize=A4, leftMargin=18*mm, rightMargin=18*mm,
+                                    topMargin=18*mm, bottomMargin=20*mm, title=export.title, author="Blandskron Documental")
+            doc.build(self._story(export), onFirstPage=page, onLaterPages=page)
+            return output.getvalue()
+        except ValidationError:
+            raise
+        except Exception:
+            raise ExportGenerationError("PDF generation failed.") from None
 
-    def _story(self, export: ChatPdfExport) -> list:
-        styles = getSampleStyleSheet()
-        title_style = ParagraphStyle(
-            "BlandskronTitle",
-            parent=styles["Title"],
-            fontName="Helvetica-Bold",
-            fontSize=18,
-            leading=22,
-            textColor=colors.HexColor("#111827"),
-            spaceAfter=10,
-        )
-        section_style = ParagraphStyle(
-            "BlandskronSection",
-            parent=styles["Heading2"],
-            fontName="Helvetica-Bold",
-            fontSize=12,
-            leading=15,
-            textColor=colors.HexColor("#1f2937"),
-            spaceBefore=10,
-            spaceAfter=6,
-        )
-        body_style = ParagraphStyle(
-            "BlandskronBody",
-            parent=styles["BodyText"],
-            fontName="Helvetica",
-            fontSize=10,
-            leading=14,
-            textColor=colors.HexColor("#374151"),
-        )
-        muted_style = ParagraphStyle(
-            "BlandskronMuted",
-            parent=styles["BodyText"],
-            fontName="Helvetica",
-            fontSize=8,
-            leading=11,
-            textColor=colors.HexColor("#6b7280"),
-        )
-
-        story = [
-            Paragraph(self._escape(export.title), title_style),
-            Paragraph(f"Exportado por Blandskron Documental el {datetime.now(UTC).strftime('%Y-%m-%d %H:%M UTC')}", muted_style),
-            Spacer(1, 8),
-            Paragraph("Pregunta", section_style),
-            Paragraph(self._paragraph_text(export.question), body_style),
-            Paragraph("Respuesta", section_style),
-            Paragraph(self._paragraph_text(export.answer), body_style),
-        ]
-
+    def _story(self, export):
+        title = ParagraphStyle("title", fontName="NotoSansBold", fontSize=18, leading=23, spaceAfter=10)
+        heading = ParagraphStyle("heading", fontName="NotoSansBold", fontSize=11, leading=15,
+                                 spaceBefore=12, spaceAfter=6, keepWithNext=True)
+        body = ParagraphStyle("body", fontName="NotoSans", fontSize=10, leading=14, spaceAfter=6,
+                              splitLongWords=True, allowWidows=0, allowOrphans=0)
+        small = ParagraphStyle("small", parent=body, fontSize=8, leading=11)
+        table_heading = ParagraphStyle("table-heading", parent=heading, keepWithNext=False)
+        table_header = ParagraphStyle("table-header", parent=small, fontName="NotoSansBold")
+        def paragraph(text, style=body):
+            return Paragraph(escape(str(text)).replace("\n", "<br/>"), style)
+        story = [paragraph(export.title, title), paragraph(datetime.now(UTC).strftime("%Y-%m-%d %H:%M UTC"), small),
+                 paragraph("Pregunta", heading), paragraph(export.question or "Sin pregunta."),
+                 paragraph("Respuesta", heading)]
+        # Plain text (including literal Markdown), with bounded paragraphs; no user markup is parsed.
+        for line in export.answer.split("\n"):
+            story.append(paragraph(line or " "))
         if export.sources:
-            story.extend([Paragraph("Fuentes", section_style), self._sources_table(export.sources)])
-
+            rows = [[paragraph(name, table_header) for name in ["Documento", "Página", "Fragmento"]]]
+            def cell(value):
+                return paragraph(" ".join(str(value).split()), small)
+            for source in export.sources:
+                rows.append([cell(source.get("filename") or source.get("document_id") or "Documento"),
+                             cell(source.get("page") or source.get("page_number") or ""),
+                             cell(source.get("snippet") or source.get("content") or source.get("chunk") or "")])
+            widths = [45*mm, 15*mm, 114*mm]
+            table = Table(rows, colWidths=widths, repeatRows=1, splitByRow=1)
+            style = TableStyle([("BACKGROUND", (0,0), (-1,0), colors.HexColor("#eef2f6")),
+                                       ("GRID", (0,0), (-1,-1), .25, colors.HexColor("#cbd5e1")),
+                                       ("VALIGN", (0,0), (-1,-1), "TOP"),
+                                       ("LEFTPADDING", (0,0), (-1,-1), 6), ("RIGHTPADDING", (0,0), (-1,-1), 6),
+                                       ("TOPPADDING", (0,0), (-1,-1), 5), ("BOTTOMPADDING", (0,0), (-1,-1), 5)])
+            table.setStyle(style)
+            first_rows = Table(rows[:2], colWidths=widths)
+            first_rows.setStyle(style)
+            required_height = first_rows.wrap(174*mm, 10000)[1] + 40
+            story.extend([CondPageBreak(required_height), paragraph("Fuentes aportadas por el cliente", table_heading), table])
         if export.metadata:
-            story.extend([Paragraph("Metadatos", section_style), Paragraph(self._metadata_text(export.metadata), muted_style)])
-
+            story.extend([paragraph("Metadatos", heading), paragraph(json.dumps(export.metadata, ensure_ascii=False, sort_keys=True), small)])
+        story.append(Spacer(1, 4))
         return story
-
-    def _sources_table(self, sources: list[dict[str, Any]]) -> Table:
-        rows = [["Documento", "Pagina", "Fragmento"]]
-        for source in sources:
-            rows.append(
-                [
-                    self._clip(source.get("filename") or source.get("document_id") or "Documento"),
-                    str(source.get("page") or source.get("page_number") or ""),
-                    self._clip(source.get("snippet") or source.get("content") or source.get("chunk") or "", 90),
-                ]
-            )
-        table = Table(rows, colWidths=[54 * mm, 20 * mm, 84 * mm])
-        table.setStyle(
-            TableStyle(
-                [
-                    ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#f3f4f6")),
-                    ("TEXTCOLOR", (0, 0), (-1, 0), colors.HexColor("#111827")),
-                    ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
-                    ("FONTSIZE", (0, 0), (-1, -1), 8),
-                    ("GRID", (0, 0), (-1, -1), 0.25, colors.HexColor("#d1d5db")),
-                    ("VALIGN", (0, 0), (-1, -1), "TOP"),
-                    ("LEFTPADDING", (0, 0), (-1, -1), 6),
-                    ("RIGHTPADDING", (0, 0), (-1, -1), 6),
-                    ("TOPPADDING", (0, 0), (-1, -1), 5),
-                    ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
-                ]
-            )
-        )
-        return table
-
-    def _paragraph_text(self, value: str) -> str:
-        text = self._escape(value or "")
-        return "<br/>".join(text.splitlines()) or "Sin contenido."
-
-    def _metadata_text(self, metadata: dict[str, Any]) -> str:
-        lines = [f"{self._escape(str(key))}: {self._escape(str(value))}" for key, value in metadata.items()]
-        return "<br/>".join(lines)
-
-    def _clip(self, value: Any, length: int = 56) -> str:
-        text = str(value or "").replace("\n", " ").strip()
-        if len(text) <= length:
-            return self._escape(text)
-        return self._escape(" ".join(wrap(text, length)[0:1]) + "...")
-
-    def _escape(self, value: str) -> str:
-        return (
-            str(value or "")
-            .replace("&", "&amp;")
-            .replace("<", "&lt;")
-            .replace(">", "&gt;")
-        )
-

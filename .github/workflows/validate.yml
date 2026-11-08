@@ -126,11 +126,12 @@ jobs:
           export = services["document-export-service"]
           assert set(export["environment"]) == {
               "APP_ENV", "APP_NAME", "LOG_LEVEL", "CORS_ORIGINS", "DATABASE_URL", "PGPASSWORD",
-              "AUTH_JWT_PUBLIC_KEY_PATH", "AUTH_JWT_ALGORITHM", "EXPORT_STORAGE_BASE_PATH",
+              "AUTH_JWT_PUBLIC_KEY_PATH", "AUTH_JWT_ALGORITHM",
               "DB_POOL_MIN_SIZE", "DB_POOL_MAX_SIZE", "DB_TIMEOUT_SECONDS",
           }
           assert json.loads(export["environment"]["CORS_ORIGINS"]) == ["http://localhost:3000", "http://127.0.0.1:3000"]
           assert "health/db" in " ".join(export["healthcheck"]["test"])
+          assert all(volume.get("target") != "/app/exports" for volume in export.get("volumes", []))
           profile = services["profile-service"]
           profile_env = profile["environment"]
           assert set(profile_env) == {

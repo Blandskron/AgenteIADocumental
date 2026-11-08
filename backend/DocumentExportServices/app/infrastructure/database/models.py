@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Any
 
-from sqlalchemy import DateTime, FetchedValue, Integer, Text, func
+from sqlalchemy import DateTime, FetchedValue, Integer, LargeBinary, Text, func
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
@@ -24,6 +24,11 @@ class DocumentExportModel(Base):
     status: Mapped[str] = mapped_column(Text, nullable=False, default="COMPLETED")
     filename: Mapped[str] = mapped_column(Text, nullable=False)
     storage_path: Mapped[str] = mapped_column(Text, nullable=False)
+    pdf_data: Mapped[bytes | None] = mapped_column(LargeBinary, deferred=True)
+    pdf_sha256: Mapped[str | None] = mapped_column(Text)
+    expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    operation_key: Mapped[str | None] = mapped_column(Text)
+    request_sha256: Mapped[str | None] = mapped_column(Text)
     mime_type: Mapped[str] = mapped_column(Text, nullable=False, default="application/pdf")
     file_size_bytes: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     metadata_: Mapped[dict[str, Any]] = mapped_column("metadata", JSONB, nullable=False, default=dict)
