@@ -1,3 +1,4 @@
+import os
 from concurrent.futures import ThreadPoolExecutor
 from threading import Event
 from time import monotonic, sleep
@@ -8,7 +9,7 @@ import pytest
 from sqlalchemy import text
 
 from app.application.use_cases.manage_google_drive_imports import ManageGoogleDriveImports
-from app.config.settings import get_settings
+from app.config.security import DriveUser
 from app.infrastructure.database.connection import Database
 from app.infrastructure.database.repositories.google_drive_repository_pg import GoogleDriveRepository
 from app.interfaces.api.v1.schemas.google_drive_schema import GoogleDriveFileRequest, GoogleDriveImportRequest
@@ -16,8 +17,10 @@ from app.shared.errors import NotFoundError
 
 
 @pytest.fixture
-def committed_records():
-    database = Database(get_settings().database_url)
+def committed_records(monkeypatch):
+    # This historical suite isolates the folder protocol; identity is covered separately.
+    monkeypatch.setattr('app.infrastructure.database.repositories.google_drive_repository_pg.check_identity', lambda *args: None)
+    database = Database(os.environ['DRIVE_TEST_DATABASE_URL'])
     folder_id, foreign_id, document_id = uuid4().hex, uuid4().hex, uuid4().hex
     try:
         with database.session() as session:
@@ -36,26 +39,29 @@ def committed_records():
         database.close()
 
 
+@pytest.mark.postgres
 def test_repository_checks_owner_and_keeps_retries_idempotent(committed_records):
     database, folder_id, foreign_id, document_id = committed_records
-    repository = GoogleDriveRepository(database)
+    repository = GoogleDriveRepository(database, DriveUser('42', '0' * 32))
     assert repository.owns_folder(folder_id, "42")
     assert not repository.owns_folder(foreign_id, "42")
     for _ in range(2):
         repository.associate_document_with_folder(folder_id, document_id, "42")
     for unavailable in (foreign_id, uuid4().hex):
-        with pytest.raises(NotFoundError, match="Folder not found"):
+        with pytest.raises(NotFoundError, match="Document or folder is no longer available"):
             repository.associate_document_with_folder(unavailable, document_id, "42")
     with database.session() as session:
         assert session.scalar(text("SELECT count(*) FROM document_folder_items WHERE document_id=:id"), {"id": document_id}) == 1
 
 
+@pytest.mark.postgres
 def test_repository_reports_missing_document_without_sql_details(committed_records):
     database, folder_id, _, _ = committed_records
     with pytest.raises(NotFoundError, match="Document or folder is no longer available"):
-        GoogleDriveRepository(database).associate_document_with_folder(folder_id, uuid4().hex, "42")
+        GoogleDriveRepository(database, DriveUser('42', '0' * 32)).associate_document_with_folder(folder_id, uuid4().hex, "42")
 
 
+@pytest.mark.postgres
 def test_drive_writer_obeys_library_transaction_lock(committed_records):
     database, folder_id, _, document_id = committed_records
     started = Event()
@@ -66,13 +72,13 @@ def test_drive_writer_obeys_library_transaction_lock(committed_records):
         from sqlalchemy import event
 
         def capture(connection, cursor, statement, parameters, context, executemany):
-            if "pg_advisory_xact_lock" in statement:
+            if "drive_associate_document" in statement:
                 pid.append(connection.connection.driver_connection.info.backend_pid)
                 started.set()
 
         event.listen(database._engine, "before_cursor_execute", capture)
         try:
-            GoogleDriveRepository(database).associate_document_with_folder(folder_id, document_id, "42")
+            GoogleDriveRepository(database, DriveUser('42', '0' * 32)).associate_document_with_folder(folder_id, document_id, "42")
         finally:
             event.remove(database._engine, "before_cursor_execute", capture)
 
@@ -98,6 +104,9 @@ def test_drive_writer_obeys_library_transaction_lock(committed_records):
 
 
 class ImportRepository:
+    def check_identity(self):
+        pass
+
     def __init__(self, owned=True, association_error=None):
         self.owned, self.association_error = owned, association_error
         self.files, self.associations = [], []
