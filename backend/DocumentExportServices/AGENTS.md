@@ -14,7 +14,7 @@ Lee [README.md](README.md) y [ROADMAP.md](../../ROADMAP.md#documentexportservice
 ## Verificación y evidencia
 
 - La línea base se midió en Windows con Python 3.12.14, repositorio sustituido y sin lifespan/PostgreSQL/Auth real. No llamar integración a esas sondas ni extrapolar su auditoría a Linux; consulta [BASELINE.json](docs/BASELINE.json).
-- EXPORT-002 debe añadir suite mantenida PostgreSQL y separar runtime/test/audit. Agrega pruebas de cada corrección sin conservar expectativas de comportamiento inseguro como garantía. Concurrencia se prueba entre conexiones reales con limpieza verificada.
+- Usa export-tests y export-audit según README. La suite completa exige EXPORT_TEST_DATABASE_URL explícita y esquema sintético; para pruebas sin DB usa el marcador not postgres. Agrega pruebas de cada corrección sin conservar expectativas de comportamiento inseguro como garantía. Concurrencia se prueba entre conexiones reales con limpieza verificada.
 - Para renderer, genera casos español/Unicode, fuentes y tablas extensas/multipágina; verifica texto y render PNG con Poppler. No basta con que el archivo tenga bytes o comience por %PDF.
 - Para frontend, ejecuta npm ci/test/build y las pruebas de navegador aplicables. Para Compose, ejecuta config --quiet desde raíz. Para imagen, distingue dependencias instaladas, SO y vendorizados y registra artefacto/avisos.
 - Actualiza README/tablero con comandos, límites y pendientes reales; pasa a En revisión, cierra al integrar. Al cerrar EXPORT-008, sustituye el diagnóstico por operación final y conserva seguimientos transversales.

@@ -2,30 +2,30 @@
 
 Convierte una instantánea de una respuesta de chat en PDF y conserva metadatos y archivo para su descarga por dueño. No consulta el LLM ni recupera documentos o mensajes: pregunta, respuesta y fuentes llegan desde el cliente.
 
-**Estado:** EXPORT-001 es diagnóstico y planificación sobre `454fdcedd30f671cdf5dddfdf66be53a2c46f780`. Este incremento no modifica contratos, código de producción, esquema ni archivos existentes. El servicio todavía no está modernizado. El [tablero](../../ROADMAP.md#documentexportservices) ordena EXPORT-002 a EXPORT-008; [BASELINE.json](docs/BASELINE.json) conserva la evidencia acotada.
+**Estado:** EXPORT-002 incorpora factory, configuración explícita, readiness y suite mantenida. El servicio sigue en modernización. El diagnóstico histórico EXPORT-001 corresponde a `454fdcedd30f671cdf5dddfdf66be53a2c46f780`; su inventario no describe el runtime actual. El [tablero](../../ROADMAP.md#documentexportservices) ordena EXPORT-002 a EXPORT-008; [BASELINE.json](docs/BASELINE.json) conserva la evidencia acotada.
 
 ## Mapa del componente
 
 | Ubicación | Responsabilidad actual |
 | --- | --- |
-| `app/main.py`, `app/config/` | Instancia global, lifespan, configuración, CORS y JWT |
+| `app/main.py`, `app/config/` | Factory, lifespan, configuración, CORS, readiness y JWT |
 | `app/interfaces/api/v1/` | Siete rutas, esquemas y dependencias |
 | `app/application/use_cases/manage_exports.py` | Nombre/ruta, renderizado, persistencia y descarga |
 | `app/infrastructure/pdf/chat_pdf_renderer.py` | ReportLab/Platypus, texto, tabla y metadata |
 | `app/infrastructure/database/` | SQLAlchemy y repositorio filtrado por dueño |
 | [Esquema](../../scripts/database/schemas/009_exports.sql), [índices](../../scripts/database/indexes/001_indexes.sql), [triggers](../../scripts/database/triggers/001_updated_at_triggers.sql) | `document_exports`, referencias e índices |
-| [Compose](../../docker/compose/documents.yml) | Puerto 8016, montaje de archivos y clave pública de Auth |
+| [Compose](../../docker/compose/export.yml) | Puerto 8016, montaje de archivos y clave pública de Auth |
 | [Cliente web](../../frontend/src/features/document-export/api/document-export.api.js), [ChatPage](../../frontend/src/pages/ChatPage/ChatPage.jsx) | POST, descarga blob, enlace temporal y estado de exportación |
 | [Sonda integral](../../scripts/smoke_documental.ps1) | Creación y descarga de un PDF sintético dentro del recorrido documental |
 
-No hay suite propia ni AGENTS anterior en este servicio. `pytest` y Ruff se instalan actualmente en la imagen de ejecución. `docs/` contiene evidencia documental; los PDFs y claves de diagnóstico permanecen temporales fuera de Git.
+`tests/` contiene la suite mantenida y AGENTS las reglas del componente. Runtime, test y audit usan etapas separadas; pytest, Ruff, httpx, pypdf y pip-audit quedan fuera del runtime. `docs/` contiene evidencia documental; los PDFs y claves de diagnóstico permanecen temporales fuera de Git.
 
 ## Contrato actual
 
 | Método | Ruta | Comportamiento |
 | --- | --- | --- |
 | GET | `/api/v1/health` | Público; liveness sin comprobar DB/clave/storage |
-| GET | `/api/v1/health/db` | Público; consulta un ID de `document_exports`, sin sanear fallos como 503 |
+| GET | `/api/v1/health/db` | Público; comprueba DB, clave RSA y escritura temporal en storage; 503 genérico ante fallo |
 | POST | `/api/v1/exports/chat-message/pdf` | Renderiza de forma síncrona, guarda metadatos y devuelve ExportResponse (200) |
 | GET | `/api/v1/exports` | Array completo del dueño, filtro `source_type` opcional, sin paginación |
 | GET | `/api/v1/exports/{export_id}` | Metadatos propios o 404 |
@@ -42,9 +42,15 @@ Los IDs de conversación/mensaje son referencias aportadas por el cliente. Las F
 
 El caso de uso sanea el título a slug ASCII de hasta 56 caracteres y añade diez hex de UUID. Resuelve y comprueba la ruta de creación respecto de la base. El renderer crea directorios y escribe directamente el PDF final; **después** el repositorio inserta, hace commit y refresh. No hay archivo temporal/exclusivo, compensación ante fallo de DB, protocolo de recuperación, cuotas ni retención. Solo se persiste COMPLETED en esta ruta; `error_message` no registra esos fallos. La descarga comprueba que la ruta persistida existe, sin volver a confinarla ni rechazar enlaces/archivos especiales. Una ruta alterada en DB no equivale a traversal controlado directamente por `export_id`.
 
-Settings lee `.env` y `../../.env`, tiene defaults DB de desarrollo y rutas relativas. La instancia/configuración y el objeto Database se construyen al importar; la conexión se abre perezosamente, no se afirma conexión física durante el import. Las variables de pool/timeout declaradas no se aplican en Database; tampoco se ocultan parámetros SQL en la configuración del engine. La clave pública se cachea por ruta sin invalidación y no se valida al arrancar. Lifespan no comprueba DB/clave/storage ni libera recursos en un finally si falla el cuerpo. Los errores AppError reflejan `str(exc)`; el renderer añade el texto de la excepción subyacente.
+La factory recibe Settings o variables de proceso, sin leer dotenv ni conectar/crear directorios al importar. DB y rutas absolutas de clave/storage son obligatorias. Lifespan comprueba clave pública RSA de al menos 2048 bits, consulta la tabla y prueba escritura temporal; prepara la base configurada y cierra el engine en finally incluso ante fallo. El pool aplica tamaño base, máximo total, espera de conexión y statement_timeout, con parámetros SQL ocultos. La clave se vuelve a leer para evitar caché obsoleto. Solo se rechaza el enlace directo en la base; confinamiento completo y ancestros siguen en EXPORT-005.
 
-Compose inyecta el `.env` global, CORS `*`, credencial postgres de desarrollo, clave pública de Auth y `documents/exports` en escritura. El healthcheck consulta solo liveness. El Dockerfile no establece USER ni separa runtime/test/audit. El directorio actual puede contener PDFs heredados: no se debe montar ni limpiar para ensayar fallos. El análisis no inspeccionó archivos personales.
+Compose usa variables explícitas, CORS local acotado y healthcheck de readiness. Los errores AppError, SQL, integridad y validación HTTP devuelven mensajes saneados sin valores de entrada ni rutas internas. Esto no compensa archivos huérfanos ni estados obsoletos. El runtime aún ejecuta como root y Compose usa el rol postgres de desarrollo hasta EXPORT-007. No montar ni limpiar `documents/exports` para ensayar fallos.
+
+## Evidencia de EXPORT-002
+
+49 pruebas locales sin PostgreSQL cubren configuración, import/factory, CORS, errores, claves, lifecycle y reemplazo de clave. Ocho pruebas adicionales PostgreSQL cubren creación/descarga, aislamiento por dueño, OpenAPI, fallos de escritura, pérdida de dependencias, pool/rollback y statement_timeout real. Usan claves efímeras, almacenamiento temporal, rollback y comprobación de ausencia de filas del dueño sintético. Los JWT se firman en pruebas; no se emiten por Auth real. Identidad vigente y referencias continúan en EXPORT-003.
+
+Ruff y Compose config aprobados localmente. pip-audit 2.10.1 no encuentra avisos en los 33 paquetes del runtime resuelto para Windows, sin supresiones; los 46 avisos de la base histórica ya no describen este inventario. Esto no audita imagen Linux, SO ni vendorizados: EXPORT-007 y PLAT-002 mantienen ese alcance. El motor Docker local no estuvo disponible. El [run 42439873878](https://github.com/Blandskron/AgenteIADocumental/actions/runs/42439873878), commit dc1b712, aprobó seis checks: el job auth-db-roles confirmó 57 pruebas con PostgreSQL, Ruff, pip check, auditoría Python Linux sin avisos ni supresiones, herramientas ausentes en runtime, arranque y reinicio saludable. La suite emitió dos deprecaciones de dependencias (TestClient/httpx y ReportLab/ast.NameConstant), sin fallos. La auditoría Python Linux tampoco cubre SO ni vendorizados.
 
 ## Evidencia de EXPORT-001
 
@@ -78,7 +84,7 @@ La auditoría con pip-audit 2.10.1 del inventario resuelto para Windows encontr�
 
 Un aviso de PyJWT no indica fix en la base consultada. Son avisos del escáner, no 46 CVE únicos ni explotación validada. El inventario incluye herramientas hoy instaladas por requirements; excluye SO Linux, pip/base y copias vendorizadas de la imagen Docker. No se atribuye a esa imagen este conteo. Las versiones corregidas por aviso y el inventario se conservan en [BASELINE.json](docs/BASELINE.json); EXPORT-002 debe resolver el conjunto compatible y documentar cualquier residual.
 
-Para repetir la investigación, usa un directorio temporal vacío, dependencias exactas de requirements y clave efímera. Antes de importar `app.main`, fija `Settings.model_config['env_file']=None` y configuración sintética explícita; sustituye `get_export_use_case` solo en la sonda sin lifespan. Reproduce los payloads descritos, inyecta el fallo de persistencia con repositorio de prueba y altera únicamente una ruta sintética. Audita un freeze de las dependencias del servicio separado de las herramientas de diagnóstico; renderiza muestras con `pdftoppm -png`. No apuntes las sondas a datos existentes ni guardes expectativas inseguras como pruebas permanentes: la suite mantenida se crea en EXPORT-002 y debe exigir los contratos corregidos por cada tarjeta.
+Esta sección conserva resultados anteriores a EXPORT-002, incluidos errores de configuración ya corregidos. Para nuevos ensayos usa configuración sintética explícita, almacenamiento temporal y clave efímera. No reproducir comportamientos inseguros como garantías de la suite actual.
 
 ## Decisiones y mejoras por incrementos
 
@@ -99,18 +105,30 @@ Las referencias de conversación/mensaje se validarán antes de asociar metadato
 - [ReportLab: Tables](https://docs.reportlab.com/reportlab/userguide/ch7_tables/): celdas con Paragraph/Flowables permiten componer contenido con wrapping; se debe verificar la versión elegida con pruebas.
 - [PostgreSQL 16: constraints](https://www.postgresql.org/docs/16/ddl-constraints.html): una FK simple no expresa por sí sola la relación de dueño/coherencia propuesta para estos metadatos.
 
-Las conclusiones combinan lectura, sondas sintéticas y documentación primaria. No constituyen un escaneo exhaustivo de seguridad ni validación de cada advisory. Quedan pendientes arranque/salud reales, aislamiento PostgreSQL, JWT reales y concurrencia entre conexiones en EXPORT-002/003; no se declara cerrado Export por haber terminado el análisis.
+Las conclusiones combinan lectura, sondas sintéticas y documentación primaria. No constituyen un escaneo exhaustivo de seguridad ni validación de cada advisory. El análisis histórico no validó arranque/salud reales, aislamiento PostgreSQL, JWT reales ni concurrencia entre conexiones; EXPORT-002 incorpora la suite PostgreSQL y EXPORT-003 completa Auth vigente y concurrencia; no se declara cerrado Export por haber terminado el análisis.
 
 ## Ejecución actual
 
-Antes de modernizar, el entrypoint sigue siendo `uvicorn app.main:app --port 8016` desde este directorio, con configuración explícita para un entorno de desarrollo. El import todavía puede leer dotenv; no usar el `.env` personal para ensayar. Con Compose, desde la raíz:
+El entrypoint es `uvicorn app.main:create_app --factory --port 8016` desde este directorio; ya no existe `app.main:app`. El proceso requiere `DATABASE_URL` (postgresql+psycopg), `AUTH_JWT_PUBLIC_KEY_PATH` y `EXPORT_STORAGE_BASE_PATH` absolutos. `PGPASSWORD` permite separar la contraseña de la URL. La base debe contener el esquema documental antes del arranque; el servicio no migra tablas ni lee dotenv.
+
+`CORS_ORIGINS` es un array JSON de orígenes HTTP(S) explícitos sin rutas/credenciales/comodines; por defecto localhost y 127.0.0.1:3000, `[]` deshabilita acceso cruzado. `AUTH_JWT_ALGORITHM` solo admite RS256. `DB_POOL_MIN_SIZE`/`MAX_SIZE` son 1/10 (1..100, mínimo <= máximo); `DB_TIMEOUT_SECONDS` es 30 (1..300), aplicado a conexión, espera de pool y sentencias. `LOG_LEVEL` admite DEBUG/INFO/WARNING/ERROR/CRITICAL. Compose permite ajustar orígenes y pool mediante `EXPORT_CORS_ORIGINS`, `EXPORT_DB_POOL_MIN_SIZE`, `EXPORT_DB_POOL_MAX_SIZE` y `EXPORT_DB_TIMEOUT_SECONDS`; no inyecta el env_file global.
+
+Desde la raíz:
 
 ```powershell
 docker compose -f docker/docker-compose.yml config --quiet
 docker compose -f docker/docker-compose.yml up -d --build --wait document-export-service
 ```
 
-El segundo comando arranca el servicio y monta los exports existentes; no se ejecutó durante EXPORT-001. Las pruebas de modernización deberán usar un volumen/directorio sintético separado.
+El segundo comando monta los exports existentes; úsalo solo como operación autorizada de esa instalación. CI arranca desde checkout vacío y comprueba reinicio saludable. Para probar, aprovisiona el esquema en una base sintética y ejecuta:
+
+```powershell
+docker compose -f docker/docker-compose.yml run --build --rm --no-deps export-tests
+docker compose -f docker/docker-compose.yml run --rm --no-deps export-tests ruff check --no-cache app tests
+docker compose -f docker/docker-compose.yml run --build --rm --no-deps export-audit
+```
+
+Los targets de prueba no montan el almacenamiento operativo. Fuera de Compose instala requirements.txt y requirements-test.txt en un entorno aislado; `python -m pytest -q -p no:cacheprovider -m "not postgres" tests` ejecuta las 49 pruebas independientes de DB. La suite completa requiere `EXPORT_TEST_DATABASE_URL` explícita, credencial de proceso y esquema sintético; sin ella las pruebas PostgreSQL fallan, no se omiten silenciosamente. No usar una base personal/compartida. El audit target congela el runtime antes de instalar pip-audit y analiza ese inventario separado de las herramientas.
 
 ## Licencia
 
