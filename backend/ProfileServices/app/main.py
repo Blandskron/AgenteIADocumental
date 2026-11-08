@@ -12,7 +12,7 @@ from app.config.settings import Settings, get_settings
 from app.infrastructure.database.connection import Database
 from app.interfaces.api.router import api_router
 from app.interfaces.api.body_limit import ProfileBodyLimit
-from app.shared.errors import AppError, ConflictError, NotFoundError, ValidationError
+from app.shared.errors import AppError, ConflictError
 
 
 def create_app(settings: Settings | None = None) -> FastAPI:
@@ -43,22 +43,12 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         allow_methods=["*"], allow_headers=["*"], expose_headers=["Content-Disposition"],
     )
     app.include_router(api_router)
-    app.add_exception_handler(NotFoundError, not_found_handler)
-    app.add_exception_handler(ValidationError, validation_handler)
     app.add_exception_handler(AppError, app_error_handler)
     app.add_exception_handler(ConflictError, conflict_handler)
     app.add_exception_handler(RequestValidationError, invalid_request_handler)
     app.add_exception_handler(IntegrityError, integrity_error_handler)
     app.add_exception_handler(SQLAlchemyError, database_error_handler)
     return app
-
-
-async def not_found_handler(request: Request, exc: NotFoundError) -> JSONResponse:
-    return JSONResponse(status_code=404, content={"detail": str(exc)})
-
-
-async def validation_handler(request: Request, exc: ValidationError) -> JSONResponse:
-    return JSONResponse(status_code=400, content={"detail": str(exc)})
 
 
 async def app_error_handler(request: Request, exc: AppError) -> JSONResponse:

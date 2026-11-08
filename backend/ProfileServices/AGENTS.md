@@ -1,6 +1,6 @@
 # Trabajar en ProfileServices
 
-Lee [README.md](README.md) para el contrato actual y la evidencia, y [ROADMAP.md](../../ROADMAP.md#profileservices) para elegir la tarjeta. Las instrucciones de [AGENTS raíz](../../AGENTS.md) también aplican. PROFILE-001 es análisis; no confundir decisiones propuestas con garantías implementadas.
+Lee [README.md](README.md) para contrato, operación, mantenimiento y pruebas, y [ROADMAP.md](../../ROADMAP.md#profileservices) para cambios autorizados y seguimientos. Las instrucciones de [AGENTS raíz](../../AGENTS.md) también aplican. El cierre funcional no elimina los avisos de imagen ni los seguimientos compartidos.
 
 ## Límites del componente
 
@@ -22,4 +22,4 @@ El entrypoint es `app.main:create_app --factory`. No leer `.env` desde Settings 
 
 Si cambias frontend, ejecuta `npm ci`, `npm test`, `npm run build` y `npm run test:browser` desde `frontend` (instala Chromium con `npx playwright install chromium`). Conserva la identidad del cliente durante refresh y el límite por sesión/usuario/tenant; el borrador no debe depender del objeto de usuario renovado. Prueba cambios de sesión, respuestas tardías y carreras de escrituras en el controlador; nunca derives permisos por staff o coincidencias de nombres. Las pruebas de navegador interceptan APIs sintéticas, no sustituyen el contrato HTTP real. Si cambias Compose, ejecuta su validación desde la raíz. Registra comandos realmente ejecutados, resultados y pendientes en la tarjeta; no presentes sondas temporales como pruebas permanentes.
 
-Mantén README como entrada humana y este archivo como guía breve. El tablero es la fuente del estado del trabajo. Al cerrar PROFILE-008, reemplaza el diagnóstico histórico por operación final y conserva seguimientos pendientes con evidencia.
+Mantén README como entrada humana y este archivo como guía breve. `app/`, `tests/` y `scripts/profile/` contienen código; `docs/` conserva únicamente evidencia documental. Mantén el README operativo, sin diagnósticos obsoletos, y conserva el inventario/auditoría con el artefacto al que corresponde. No elimines migraciones, preflight, mantenimiento revisado ni pruebas permanentes por haber cerrado la modernización. El tablero es la fuente del estado y de PROFILE-F01/F02, PLAT-001/002 y WEB-001.

@@ -2,7 +2,7 @@
 
 Servicio FastAPI de perfil y avatar de Blandskron Documental, publicado localmente en `http://localhost:8015`. AuthServices administra identidad, credenciales y membresías; Profile guarda contacto, presentación y avatar privado en `user_profiles` (PostgreSQL).
 
-**Estado:** PROFILE-001 a PROFILE-004 integrados (PR #59 a #62). PROFILE-005 entrega avatar privado transaccional y su consumidor web. PROFILE-006 entrega edición estable durante refresh, aislamiento de sesiones y permisos efectivos con pruebas Chromium; PROFILE-007 entrega rol DB acotado, helper de identidad y evidencia de imagen; el cierre sigue en PROFILE-008. Runtime ya usa UID/GID 10008 y no monta uploads. El [diagnóstico histórico](#diagnóstico-profile-001) describe la línea base, no las garantías actuales. El estado vive en el [tablero](../../ROADMAP.md#profileservices).
+**Estado:** alcance funcional completo, con cierre PROFILE-008 en revisión hasta integrar el PR. Perfil propio versionado, avatar privado en PostgreSQL, cliente web aislado por sesión y rol mínimo con revocación de Auth. Persisten los seguimientos explícitos de imagen PROFILE-F01/F02, integridad compartida PLAT-001 y frontend WEB-001; el proyecto completo todavía no está terminado. El [tablero](../../ROADMAP.md#profileservices) registra la integración y el trabajo siguiente.
 
 ## Mapa para trabajar
 
@@ -20,7 +20,7 @@ Servicio FastAPI de perfil y avatar de Blandskron Documental, publicado localmen
 | [Cliente web](../../frontend/src/features/profile/api/profile.api.js), [hook](../../frontend/src/features/profile/hooks/useProfile.js) y [página](../../frontend/src/pages/ProfilePage/ProfilePage.jsx) | Consulta/actualización propia, upload y cambio de contraseña vía Auth |
 | [AuthProvider](../../frontend/src/app/providers/AuthProvider.jsx) y [Sidebar](../../frontend/src/widgets/Sidebar/Sidebar.jsx) | Perfil global y avatar |
 
-`tests/` contiene la suite permanente y CI la ejecuta sobre PostgreSQL. Las etapas Docker `runtime`, `test` y `audit` separan las herramientas del servicio; el inventario auditado se captura antes de instalar pip-audit. No hay aplicación Django ni código Python dentro de una carpeta documental que sea necesario trasladar.
+`tests/` contiene la suite permanente y CI la ejecuta sobre PostgreSQL. Las etapas Docker `runtime`, `test` y `audit` separan las herramientas del servicio; el inventario auditado se captura antes de instalar pip-audit.
 
 ## Contrato actual
 
@@ -40,7 +40,7 @@ Cada petición autenticada consulta si `public.auth_user` contiene ese ID activo
 
 El repositorio queda ligado al dueño autenticado al construirse: consultas y escrituras no reciben un ID de destino del cliente ni disponen de listado global. Ser superadmin, staff o administrador de tenant no amplía ese alcance. La consulta de vigencia usa `FOR SHARE` sobre la fila de Auth hasta el commit/cierre de sesión: un cambio de contraseña, desactivación o eliminación concurrente espera la operación ya autorizada. Si ese cambio estaba en curso primero, la comprobación espera y reevalúa el estado antes de autorizar. Los timeouts cierran el acceso con 503. Las relaciones históricas y restricciones compartidas permanecen en PLAT-001; la función booleana y los permisos mínimos de este lock se entregan en PROFILE-007.
 
-**Transición de contrato:** se retiran `GET /api/v1/profiles`, `GET /api/v1/profiles/{user_id}` y `PUT /api/v1/profiles/{user_id}`. Devuelven 404 y no figuran en OpenAPI, incluso para el propio ID o administradores. La búsqueda de consumidores no encontró usos en la web; las integraciones externas deben usar `/api/v1/profile` con la sesión del dueño. Los tokens anteriores sin los claims requeridos se rechazan; renueva la sesión en Auth. No se migran ni borran perfiles históricos: registros asociados a username o IDs no canónicos requerirán inventario y reparación explícita en PROFILE-004.
+**Transición de contrato:** se retiran `GET /api/v1/profiles`, `GET /api/v1/profiles/{user_id}` y `PUT /api/v1/profiles/{user_id}`. Devuelven 404 y no figuran en OpenAPI, incluso para el propio ID o administradores. La búsqueda de consumidores no encontró usos en la web; las integraciones externas deben usar `/api/v1/profile` con la sesión del dueño. Los tokens anteriores sin los claims requeridos se rechazan; renueva la sesión en Auth. No se reasignan ni eliminan automáticamente perfiles heredados: registros asociados a username o IDs no canónicos requieren inventario y reparación explícita según el preflight, sin reasignarlos automáticamente.
 
 ### Escrituras, límites y conflictos
 
@@ -81,7 +81,7 @@ docker compose -f docker/docker-compose.yml config --quiet
 docker compose -f docker/docker-compose.yml up -d --build --wait profile-service
 ```
 
-El runtime no monta `uploads/profile`; los avatares privados residen en PostgreSQL. Solo la herramienta optativa de mantenimiento monta las fuentes antiguas en lectura. Las pruebas usan directorios sintéticos temporales y rollback; la comprobación histórica de PROFILE-002 usó un volumen Docker separado. No se necesita clave de IA/OAuth para Profile.
+El runtime no monta `uploads/profile`; los avatares privados residen en PostgreSQL. Solo la herramienta optativa de mantenimiento monta las fuentes antiguas en lectura. Las pruebas usan directorios sintéticos temporales y rollback; el directorio real de uploads no se necesita para el runtime. No se necesita clave de IA/OAuth para Profile.
 
 | Variable | Situación actual |
 | --- | --- |
@@ -134,11 +134,7 @@ docker compose -f docker/docker-compose.yml exec -T profile-service python -m pi
 
 La suite exige `PROFILE_TEST_DATABASE_URL` explícita, provista por el servicio `profile-tests`. No crea/migra tablas ni usa uploads reales. Las escrituras HTTP quedan dentro de savepoints y una transacción exterior; al terminar se comprueba desde otra conexión que no persiste el usuario sintético. Las pruebas de pool y statement timeout usan conexiones PostgreSQL reales. Las pruebas de mantenimiento usan archivos temporales sintéticos.
 
-El job `auth-db-roles` construye/arranca Profile, comprueba ausencia de herramientas de test/audit en runtime, ejecuta suite/Ruff/auditoría y verifica reinicio saludable. Después ejecuta el [contrato HTTP Auth–Profile](../../scripts/profile/verify_auth_contract.py) contra ambos servicios reales. El job Compose verifica la lista de variables explícitas. La concurrencia de escrituras, límites y privacidad de archivos permanecen en sus tarjetas.
-
-PROFILE-002 actualiza FastAPI/Starlette, PyJWT, cryptography, python-dotenv, Pillow y python-multipart, conservando el resto del conjunto compatible. La auditoría consulta el inventario de runtime antes de instalar herramientas; no confundir ese resultado con un escaneo de SO o de copias vendorizadas (PROFILE-007). TestClient emite una advertencia sobre la futura migración de httpx a httpx2, limitada a la etapa de pruebas.
-
-Evidencia local de PROFILE-002 (6 de noviembre de 2026): **52 pruebas aprobadas**, Ruff y pip check aprobados; `profile-audit` sin avisos conocidos, sin supresiones. Se construyeron las tres etapas con proyecto `library008-release`, se comprobó la lista de variables/CORS/montaje de clave/healthcheck y se validó arranque y reinicio contra PostgreSQL existente y clave pública real de Auth, con volumen sintético separado. Runtime no contiene pytest/Ruff/httpx/pip-audit. No se usaron avatares reales ni se ejecutó OAuth, IA, navegador o un flujo de login con JWT real en esta tarjeta. CI verifica además el arranque sobre su instalación nueva; el estado de su ejecución se registra en el PR.
+El job `auth-db-roles` construye/arranca Profile, comprueba ausencia de herramientas de test/audit en runtime, ejecuta suite/Ruff/auditoría y verifica reinicio saludable. Después ejecuta el [contrato HTTP Auth–Profile](../../scripts/profile/verify_auth_contract.py) contra ambos servicios reales. El job Compose verifica la lista de variables explícitas. La suite cubre concurrencia entre conexiones, límites, identidad vigente, privacidad y recuperación de avatar.
 
 ### Comprobar tokens reales de Auth
 
@@ -151,15 +147,9 @@ docker compose -f docker/docker-compose.yml exec -T auth-service python /tmp/pro
 
 El script solo admite `AUTH_ENV=development`. Crea tres identidades y un tenant sintéticos, usa login y refresh HTTP reales, comprueba aislamiento de rutas incluso para tenant admin/superadmin y prueba revocación por contraseña, desactivación y eliminación. No imprime tokens ni contraseñas; sin PROFILE_PROBE_MARKER no escribe perfiles ni avatares. El `finally` elimina y verifica sus identidades, tenant y presupuestos de login por cuenta; conserva el presupuesto compartido del origen para respetar la protección de Auth. Los tokens pendientes de sus usuarios se limpian por cascada de Django. No ejecutarlo en producción ni interrumpirlo durante la limpieza.
 
-Las regresiones PostgreSQL usan JWT sintéticos compatibles con Auth, usuarios efímeros y rollback; verifican también que no queden identidades ni perfiles propios de la prueba. Las consultas de identidad que fallen se cierran con 503, sin permitir la operación del perfil. Estos checks no sustituyen las pruebas de concurrencia ni de avatar de las tarjetas siguientes.
+Las regresiones PostgreSQL usan JWT sintéticos compatibles con Auth, usuarios efímeros y rollback; verifican también que no queden identidades ni perfiles propios de la prueba. Las consultas de identidad que fallen se cierran con 503, sin permitir la operación del perfil. La suite complementa la sonda con concurrencia entre conexiones, fallos de commit y recreación de la aplicación sobre datos confirmados.
 
-PROFILE-004 añade pruebas con conexiones independientes y esperas de lock observadas en PostgreSQL, creación/update concurrentes y revalidación de cuenta tras revocaciones en ambos órdenes. Esos escenarios crean registros sintéticos confirmados mediante commit entre conexiones y los eliminan/verifican al terminar; no usan rollback como sustituto de visibilidad entre sesiones. Una tabla temporal con esquema anterior verifica preflight, conservación de valores y segunda ejecución de la migración. PROFILE-005 añade pruebas del ciclo privado de avatar.
-
-Evidencia local de PROFILE-003: **112 pruebas aprobadas**, Ruff sobre app/tests/script, pip check, Compose y enlaces aprobados; auditoría runtime sin avisos conocidos. El contrato HTTP real de arriba pasó con usuario normal, tenant admin y superadmin, login y refresh, cambio de contraseña, cuenta inactiva/eliminada y limpieza verificada. Se conservaron los datos existentes y se usó el volumen sintético de Profile; el estado de CI y la revisión se registran en el PR.
-
-Evidencia local de PROFILE-004 (7 de noviembre de 2026): **170 pruebas backend y 64 frontend aprobadas**, npm ci/test/build, Ruff, pip check y auditoría runtime sin avisos conocidos. Se validó la instalación local con volúmenes nuevos, el esquema anterior en tabla temporal y el contrato HTTP real con Auth (incluye versión 0, 422 sin versión y 409 sin escritura). Tras la limpieza, el preflight del entorno sintético informa cero IDs no canónicos, cero metadata no objeto y cero perfiles sin identidad. El directorio real de avatares no se montó. Persisten las cuatro alertas altas npm de WEB-001 y la advertencia TestClient httpx/httpx2; no se ha ejecutado aún la revisión integral de navegador ni el escaneo de SO de PROFILE-007. CI/revisión se registran en el PR.
-
-## Avatar privado y mantenimiento (PROFILE-005)
+## Avatar privado y mantenimiento
 
 `/static` se retira y devuelve 404. GET de perfil devuelve únicamente una referencia relativa propia `/api/v1/profile/avatar?version=N` o null; no refleja Host ni URLs heredadas. La misma referencia sirve los bytes del dueño autenticado, nunca identifica a otra persona. Todas las operaciones de perfil/avatar requieren JWT vigente. La imagen responde `image/jpeg`, `private, no-store`, `nosniff` y nombre fijo `avatar.jpg`. La página y Sidebar descargan mediante el cliente autorizado, aceptan solo la ruta propia y liberan el object URL al cambiar sesión, versión o desmontar; no usan HTML generado. Cambiar la foto guarda inmediatamente sin descartar los campos de contacto aún editados. PROFILE-006 completa los estados de sesión/formulario.
 
@@ -190,11 +180,26 @@ Inventaría primero, revisa backup y retención, y prepara `prune.json` con IDs/
 
 ### Sonda HTTP de avatar con Auth real
 
-Sin marcador, `verify_auth_contract.py` mantiene la sonda de lectura. Para probar también carga, reemplazo, lectura y borrado, CI genera un nonce `PROFILE_PROBE_MARKER` de 32 hex, lo pasa al contenedor Auth y ejecuta siempre [cleanup_probe.sql](../../scripts/profile/cleanup_probe.sql) en un `finally`/trap con `psql -v probe_marker=NONCE`. El SQL solo elimina perfiles sintéticos con ese marcador y sin usuario Auth, y falla si queda alguno. No reutilizar el marcador ni omitir esa limpieza. Las identidades se retiran primero en el finally del script. No se imprimen cuerpos personales ni tokens.
+Para probar también carga/reemplazo/borrado, usa un nonce nuevo y limpieza SQL en finally. Ejemplo PowerShell desde la raíz (sobre un entorno de desarrollo sintético con Auth y Profile saludables):
+
+```powershell
+docker compose -f docker/docker-compose.yml cp scripts/profile/verify_auth_contract.py auth-service:/tmp/profile-auth-contract.py
+if ($LASTEXITCODE -ne 0) { throw "No se pudo preparar la sonda" }
+$profileProbeMarker = [guid]::NewGuid().ToString("N")
+try {
+  docker compose -f docker/docker-compose.yml exec -T -e "PROFILE_PROBE_MARKER=$profileProbeMarker" auth-service python /tmp/profile-auth-contract.py
+  if ($LASTEXITCODE -ne 0) { throw "Falló la sonda HTTP" }
+} finally {
+  Get-Content -Raw scripts/profile/cleanup_probe.sql | docker compose -f docker/docker-compose.yml exec -T postgres psql -U postgres -d documents_db -v ON_ERROR_STOP=1 -v "probe_marker=$profileProbeMarker"
+  if ($LASTEXITCODE -ne 0) { throw "Limpieza sintética incompleta; revisar antes de repetir" }
+}
+```
+
+Sin marcador, el script mantiene la sonda de lectura. CI usa la misma coordinación mediante un trap de bash. El SQL solo retira perfiles marcados cuyo usuario Auth ya no existe y falla si queda alguno; el finally del script elimina primero identidades, tenant y presupuestos por cuenta. No reutilizar el marcador ni omitir la limpieza; no se imprimen cuerpos personales ni tokens.
 
 La suite permanente cubre aislamiento incluso con roles administrativos, límites/códecs/metadata, conflictos entre conexiones, fallo de commit y recuperación tras reinicio, esquema repetido y constraint, confinamiento e importación dry-run/aplicada y retirada de huérfanos. Frontend prueba contrato multipart/DELETE, rechazo de URL externa, aborto de respuestas tardías y revocación de object URLs. PROFILE-006 incorpora pruebas Chromium; PROFILE-007 registra el escaneo de SO y sus seguimientos.
 
-## Sesión y edición web (PROFILE-006)
+## Sesión y edición web
 
 El cliente de perfil y el cliente Auth conservan su identidad durante la renovación del access token, consultan la credencial actual y comparten la renovación entre peticiones simultáneas de cada cliente. Un identificador local de sesión nuevo por login/carga inicial, junto al usuario y tenant activo, delimita el editor; no es una credencial ni una garantía de autorización del servidor. Logout, nueva cuenta o cambio de tenant invalida clientes anteriores y remonta el editor, sin conservar contactos, contraseñas ni foto de otra sesión. Respuestas de una sesión anterior se descartan incluso si devuelven 200; un 401 anterior no renueva ni cierra la cuenta nueva.
 
@@ -212,9 +217,9 @@ npx playwright install chromium
 npm run test:browser
 ```
 
-CI instala Chromium con `npx playwright install --with-deps chromium`. La configuración inicia Vite exclusivamente en `127.0.0.1:4173`, con APIs interceptadas y datos sintéticos, sin IA/OAuth ni acceso a backend real. Las pruebas de lógica cubren respuestas antiguas, reinicio del controlador, refresh, sesión sustituida, conflictos y exclusión entre escrituras; Chromium verifica conservación del borrador durante refresh/upload, doble submit, recuperación explícita de conflictos, email independiente, límites locales y permisos/semántica accesible. No sustituyen la sonda real de Auth/PostgreSQL de PROFILE-005 ni una auditoría completa de accesibilidad o frontend (WEB-001). La evidencia de permisos DB y artefacto se detalla en PROFILE-007.
+CI instala Chromium con `npx playwright install --with-deps chromium`. La configuración inicia Vite exclusivamente en `127.0.0.1:4173`, con APIs interceptadas y datos sintéticos, sin IA/OAuth ni acceso a backend real. Las pruebas de lógica cubren respuestas antiguas, reinicio del controlador, refresh, sesión sustituida, conflictos y exclusión entre escrituras; Chromium verifica conservación del borrador durante refresh/upload, doble submit, recuperación explícita de conflictos, email independiente, límites locales y permisos/semántica accesible. No sustituyen la sonda real de Auth/PostgreSQL de PROFILE-005 ni una auditoría completa de accesibilidad o frontend (WEB-001). La evidencia de permisos DB y artefacto se detalla en [operación](#rol-postgresql-y-operación).
 
-## Rol PostgreSQL y operación (PROFILE-007)
+## Rol PostgreSQL y operación
 
 Compose usa `profile_runtime` y `PROFILE_DB_PASSWORD` (valor de desarrollo en `.env.example`). `profile-db-role` espera esquema y Auth saludable: la tabla de identidad debe existir antes de conceder columnas. El job administrativo monta solo los SQL de Profile; la API no recibe su credencial de bootstrap ni la de mantenimiento de avatares. En una instalación existente, tras aplicar el esquema y arrancar Auth, provisiona antes de iniciar la imagen nueva:
 
@@ -255,73 +260,21 @@ docker save -o "$audit_dir/runtime.tar" blandskron-profile-audit
 docker run --rm -v "$audit_dir:/audit" -v blandskron-trivy-cache:/root/.cache/trivy aquasec/trivy:0.76.2 image --scanners vuln --severity HIGH,CRITICAL --format json --output /audit/trivy.json --input /audit/runtime.tar
 ```
 
-Usa archivos temporales fuera de Git; los reportes dependen de la base de avisos y del artefacto del momento. La evidencia no es un escaneo de secretos ni una auditoría exhaustiva del código. Se validaron instalación aislada con volúmenes nuevos, actualización/reaprovisionamiento y reinicio sobre volumen existente, 217 pruebas PostgreSQL, Ruff, pip check/audit y contrato HTTP con JWT reales (tres roles, perfil/fotos/revocación y limpieza SQL de los tres perfiles). CI vuelve a comprobar arranque, repetición, permisos e imagen. El cierre documental/funcional final sigue en PROFILE-008.
+Usa archivos temporales fuera de Git; los reportes dependen de la base de avisos y del artefacto del momento. La evidencia no es un escaneo de secretos ni una auditoría exhaustiva del código. CI vuelve a comprobar arranque, repetición, permisos e imagen.
 
-## Diagnóstico PROFILE-001
+## Cierre del servicio
 
-**Evidencia histórica del 6 de noviembre de 2026, commit `1776a6f`.** Las observaciones de configuración/dependencias/salud siguientes corresponden a esa versión anterior a PROFILE-002 y se conservan para trazar el trabajo pendiente.
+PROFILE-008 revisa rutas, consumidores web, esquema, privilegios, mantenimiento y archivos. Se retiraron cuatro excepciones sin consumidores (`NotFoundError`, `ValidationError`, `ExternalServiceError`, `DatabaseError`) y dos manejadores HTTP inalcanzables. Se conservan `AppError`/`ConflictError`, los contratos probados, migraciones, preflight, herramientas de mantenimiento y evidencia. El diagnóstico histórico y las decisiones propuestas se sustituyeron por esta operación final; su trazabilidad permanece en Git y el tablero. `docs/` solo conserva evidencia documental; el código está en `app/`, `tests/` y `scripts/`.
 
-Se revisaron todos los módulos del servicio, Dockerfile, dependencias, esquema y trigger compartidos, Compose, identidad/membresías de Auth y consumidores web. La inspección se complementó con sondas TestClient sobre la imagen construida, usando PostgreSQL real del entorno local, clave RSA y usuarios sintéticos. Las escrituras se encerraron en una transacción externa con savepoints y se verificó desde otra conexión que el rollback no dejó perfiles sintéticos. Los archivos se crearon exclusivamente en `/tmp` del contenedor eliminado al terminar. No se utilizaron claves de proveedores, datos personales ni el volumen real de avatares.
+Validación de cierre del 7 de noviembre de 2026:
 
-### Observaciones reproducidas
+- **217 pruebas PostgreSQL**, Ruff, pip check/audit y Compose aprobados. OpenAPI verifica exactamente cinco rutas, métodos propios autenticados, multipart y JPEG privado. Las pruebas incluyen conflictos entre conexiones, revocación en ambos órdenes con rol mínimo, rollback de commit y recuperación del avatar al recrear la aplicación sobre datos confirmados.
+- **81 pruebas frontend y tres escenarios Chromium**, con npm ci/test/build aprobados. Las APIs interceptadas del navegador verifican borrador durante refresh/upload, doble submit, conflicto/recarga, correo independiente, límites, permisos y selector de foto por teclado.
+- **36 módulos importados** sin ejecutar el arranque. Instalación aislada con volúmenes nuevos; sonda HTTP con JWT reales para tres usuarios/roles, fotos distintas por dueño, reemplazo/borrado, revocación y limpieza SQL de los tres perfiles sintéticos. Reaprovisionamiento y reinicio saludable sobre el mismo volumen.
+- Auditoría actualizada al artefacto final en [IMAGE_AUDIT.json](docs/IMAGE_AUDIT.json), sin cambio de los avisos residuales. Se preservan fuentes y filas heredadas; no se montaron uploads personales ni se ejecutaron IA/OAuth reales.
 
-| Caso sintético | Resultado en la línea base | Incremento |
-| --- | --- | --- |
-| Petición sin JWT / token refresh | 401 / 401 | Conservar en PROFILE-003 |
-| Access firmado sin `exp`; `exp: null` | 200; 500 respectivamente | PROFILE-003 |
-| `user_id` y `sub` distintos; identidad solo `username` | Ambos aceptados, 200 | PROFILE-003 |
-| Identidad sin usuario en Auth | GET devuelve perfil vacío, 200; PUT permite crear | PROFILE-003/004 |
-| Usuario ordinario consulta otro perfil | 403 | Conservar en PROFILE-003 |
-| Tenant admin consulta/modifica un perfil sin relación de tenant | GET y PUT 200 | PROFILE-003 |
-| Flag firmado `is_superadmin: "false"` | Se considera verdadero y permite listado, 200 | PROFILE-003 |
-| Listado con `limit=1` y dos perfiles sintéticos | Ignora parámetro y devuelve al menos dos | PROFILE-003 |
-| Email inválido, teléfono de 10.000 caracteres y URL `javascript:synthetic` | PUT 200; campo desconocido ignorado | PROFILE-004 |
-| `email: null` y objeto parcial de metadata | Email conservado; objeto anterior reemplazado | PROFILE-004 |
-| Archivo que no es imagen | 400 | Conservar en PROFILE-005 |
-| PNG de 2×2 con bytes sintéticos anexos que supera 5 MiB | Upload 200; nombre generado `.png`; bytes originales conservados | PROFILE-005 |
-| Descargar ese archivo sin JWT | 200 | PROFILE-005/006 |
-| Header Host sintético en upload | Determina el origen de la URL devuelta | PROFILE-002/005 |
-| Salud DB y petición con Origin externo | 200 y `Access-Control-Allow-Origin: *` | PROFILE-002 |
+El cierre funcional se confirma al integrar el PR de PROFILE-008. Permanecen PROFILE-F01/F02 (imagen), PLAT-001 (integridad compartida), PLAT-002 (reevaluación del conjunto) y WEB-001 (frontend general, incluidas cuatro alertas npm). Estos seguimientos no se cierran por finalizar Profile. El siguiente microservicio es DocumentExportServices mediante EXPORT-001; la entrega global sigue pendiente.
 
-Los JWT malformados de estas sondas están **firmados por la clave sintética confiada en el contenedor**. No demuestran falsificación de firmas ni que Auth emita esos claims; demuestran falta de validación defensiva en Profile. El escenario admin no comprobó una matriz completa de tenants activos/revocados; la autorización actual no consulta esas relaciones.
+## Licencia
 
-### Riesgos identificados por lectura, todavía sin prueba específica
-
-- La creación usa SELECT y luego INSERT sin resolver carreras sobre `user_id` único. Dos primeras escrituras simultáneas pueden competir; las actualizaciones y la metadata no tienen control de versión. Hace falta prueba con sesiones separadas.
-- No hay FK de perfil a Auth ni comprobación de usuario activo. La eliminación de identidad puede dejar perfiles y archivos; se necesita inventario previo y política compatible con los demás escritores.
-- El upload hace `file.file.read()` completo; no impone límite propio de bytes, dimensiones, frames o formatos ni recodifica. El spooling de multipart no limita esa lectura final. No se ensayó agotamiento de memoria, bomba de descompresión o carga de gran escala.
-- Storage y perfil tienen dos escrituras independientes: subir sin guardar deja archivos y reemplazar no elimina la foto anterior. No existe recuperación ante fallo de disco, compensación o carrera de reemplazos.
-- La web limita a 5 MiB, admite `image/*` y URLs externas libres. `<img>` consulta esas URLs directamente; la ruta privada necesitará blob autenticado y limpieza de object URLs. No se comprobó SSRF de servidor ni se afirma que exista.
-- AuthProvider conserva el perfil anterior mientras carga una sesión nueva; el GET tiene guardia de desmontaje, pero save/upload no invalidan resultados tardíos por identidad. La página puede repoblar campos al cambiar `currentUser` y usa `innerHTML` como fallback de imagen. Requiere pruebas de sesión, renovación, edición y error; no se afirma una explotación XSS demostrada.
-- La matriz visual de permisos deduce acciones por coincidencias de texto y concede todas a `isStaff`. No representa necesariamente los permisos efectivos del tenant activo ni concede permisos en el backend; debe alinearse con los contratos vigentes.
-- Excepciones de aplicación reflejan `str(exc)`; errores SQL no están traducidos. Revisar respuestas y logs sin guardar cuerpos ni datos personales. El trigger ya mantiene `updated_at`; no duplicarlo con otra fuente de tiempo sin necesidad.
-
-### Evidencia de herramientas y límites
-
-Comandos ejecutados desde la raíz (proyecto local para no interferir con otras instalaciones):
-
-```powershell
-docker compose -f docker/docker-compose.yml -p library008-release build profile-service
-docker run --rm --network none library008-release-profile-service python -m pip check
-docker run --rm --network none library008-release-profile-service ruff check --no-cache app
-docker run --rm --network none library008-release-profile-service python -c 'import os; print(os.geteuid())'
-docker compose -f docker/docker-compose.yml config --quiet
-```
-
-Build, pip check, Ruff y Compose aprobados; UID observado: **0**. Imagen local: `sha256:f987b0ee524a46832e503bbba47ade6fe3c12703d3eb51675dd1b36eaeb30e37` (manifest list); config `sha256:9dca9055c706ba857d6d16d84636861de4ad32f9626dbcca4f043413a2e7e1c9`. La etiqueta y sus transitivas pueden cambiar al reconstruir; esos identificadores describen esta ejecución.
-
-Las sondas utilizaron `httpx==0.28.1` instalado solo en un contenedor descartable y un script temporal retirado tras documentar resultados. Son evidencia exploratoria, **no una suite permanente ni un gate aprobado de Profile**. PROFILE-002/003/005 incorporarán casos mantenidos y regresiones. No se arrancó el stack completo, no se probó navegador, JWT real de Auth, concurrencia ni restauración de datos en esta tarjeta.
-
-Para auditar se congelaron primero los paquetes de la imagen con `pip freeze > /tmp/baseline.txt`; después se instaló `pip-audit==2.9.0` solo en ese contenedor y se ejecutó `pip-audit --disable-pip --no-deps -r /tmp/baseline.txt`. Reportó **92 avisos en siete paquetes**: cryptography 46.0.6, Pillow 11.2.1, PyJWT 2.12.1, pytest 8.3.5, python-dotenv 1.1.0, python-multipart 0.0.20 y Starlette 0.46.2. Incluye IDs PYSEC/GHSA potencialmente relacionados: no es un conteo de CVE únicos ni prueba de explotación. La mayoría indica versiones corregidas; PYSEC-2026-4146 no muestra corrección. Actualizar el conjunto compatible y reevaluar sin supresiones arbitrarias en PROFILE-002; pytest debe salir de runtime. El SO y copias vendorizadas se escanearán en PROFILE-007. Los seguimientos de imágenes anteriores continúan abiertos en PLAT-002.
-
-## Decisiones propuestas para implementar por incrementos
-
-1. Mantener este servicio pequeño y separado de Auth: contacto/presentación aquí; contraseña, identidad, roles y membresías en Auth. No agregar frameworks, capas ni storage remoto sin una necesidad demostrada.
-2. Hacer privado el perfil por dueño, incluso frente a administradores de documentos. La web no consume listado ni perfiles ajenos; retirar esa superficie con una transición explícita. Un directorio empresarial necesitaría una política y respuesta mínima propias, no acceso al perfil personal completo.
-3. Validar identidad y vigencia contra Auth sin copiar su modelo de autorización. Definir campos, límites y actualización parcial antes de migrar; conservar datos históricos mediante inventario y reparación explícita.
-4. Avatar local asociado al dueño, lectura autenticada y recodificación. Propuesta inicial: hasta 5 MiB para coincidir con la UI; concretar formato, píxeles, dimensiones y frames en PROFILE-005 mediante pruebas. Una operación debe dejar referencia y archivo consistentes o recuperar/limpiar el fallo; inventariar URLs anteriores antes de retirar `/static`. La adaptación mínima del consumidor se entrega junto al cambio de acceso, sin dejar un incremento con avatares rotos; PROFILE-006 completa estados, carreras y experiencia web.
-5. Pruebas PostgreSQL y contratos HTTP en CI, consumidor web probado con cambios de sesión, rol DB mínimo e imagen sin root. Cerrar después de validar instalación nueva, actualización y artefacto final con seguimientos visibles.
-
-El orden y los criterios están en [PROFILE-002 a PROFILE-008](../../ROADMAP.md#profileservices). PROFILE-002 incorpora la base de configuración/dependencias/pruebas; este análisis no cierra Profile.
-
-Referencias consultadas: [Agents First Framework](https://github.com/Blandskron/agents-first-repo-docs) para contexto verificable y documentación sin duplicación; [FastAPI UploadFile](https://fastapi.tiangolo.com/tutorial/request-files/#uploadfile) para spooling y lectura; [Pillow Image.verify](https://pillow.readthedocs.io/en/stable/reference/Image.html#PIL.Image.Image.verify) para diferenciar verificación de decodificación. Las decisiones se basan en este código y sus sondas, no en una certificación del framework.
+Aplican los términos del [LICENSE del repositorio](../../LICENSE).
