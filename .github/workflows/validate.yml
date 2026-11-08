@@ -136,6 +136,14 @@ jobs:
           assert export["read_only"] is True and export["cap_drop"] == ["ALL"]
           assert "no-new-privileges:true" in export["security_opt"]
           assert all(volume.get("target") != "/app/exports" for volume in export.get("volumes", []))
+          drive = services["google-drive-import-service"]
+          assert drive["environment"]["DATABASE_URL"] == "postgresql+psycopg://drive_runtime@postgres:5432/documents_db"
+          assert drive["environment"]["GOOGLE_DRIVE_ENABLED"] == "false"
+          assert json.loads(drive["environment"]["CORS_ORIGINS"]) == ["http://localhost:3000", "http://127.0.0.1:3000"]
+          assert drive["depends_on"]["drive-db-role"]["condition"] == "service_completed_successfully"
+          assert "health/db" in " ".join(drive["healthcheck"]["test"])
+          assert "GROQ_API_KEY" not in drive["environment"]
+          assert "DJANGO_SECRET_KEY" not in drive["environment"]
           profile = services["profile-service"]
           profile_env = profile["environment"]
           assert set(profile_env) == {
@@ -249,7 +257,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - run: cp .env.example .env
-      - run: docker compose -f docker/docker-compose.yml up -d --build --wait conversation-service document-search-service document-access-service document-library-service document-transfer-service profile-service document-export-service
+      - run: docker compose -f docker/docker-compose.yml up -d --build --wait conversation-service document-search-service document-access-service document-library-service document-transfer-service profile-service document-export-service google-drive-import-service
       - run: docker compose -f docker/docker-compose.yml run --rm --no-deps rag-chat-db-role
       - run: docker compose -f docker/docker-compose.yml run --rm --no-deps embedding-db-role
       - run: docker compose -f docker/docker-compose.yml exec -T postgres psql -U postgres -d documents_db -v ON_ERROR_STOP=1 < scripts/database/auth/verify_roles.sql
@@ -353,9 +361,17 @@ jobs:
           path: ${{ runner.temp }}/export-image-audit/*.json
           if-no-files-found: ignore
           retention-days: 7
-      - name: Probar asociación de carpetas desde Google Drive sin OAuth
+      - name: Probar runtime, identidad y rol de Drive sin OAuth
         run: |
+          docker compose -f docker/docker-compose.yml run --rm --no-deps drive-db-role
+          docker compose -f docker/docker-compose.yml run --rm --no-deps drive-db-role
           docker compose -f docker/docker-compose.yml run --build --rm --no-deps drive-tests
-          docker compose -f docker/docker-compose.yml run --rm --no-deps drive-tests ruff check --no-cache app tests
+          docker compose -f docker/docker-compose.yml run --rm --no-deps drive-tests ruff check --no-cache app tests /drive-checks
+          docker compose -f docker/docker-compose.yml run --build --rm --no-deps drive-audit
+          docker compose -f docker/docker-compose.yml restart google-drive-import-service
+          docker compose -f docker/docker-compose.yml up -d --no-deps --wait google-drive-import-service
+          docker compose -f docker/docker-compose.yml cp scripts/drive/verify_auth_contract.py auth-service:/tmp/drive-auth-contract.py
+          marker=$(python3 -c 'import uuid; print(uuid.uuid4().hex)')
+          docker compose -f docker/docker-compose.yml exec -T -e DRIVE_PROBE_MARKER="$marker" auth-service python /tmp/drive-auth-contract.py
       - if: failure()
-        run: docker compose -f docker/docker-compose.yml logs auth-db-roles auth-migrate auth-service conversation-db-role conversation-service rag-chat-db-role embedding-db-role search-db-role document-search-service access-db-role document-access-service library-db-role document-library-service transfer-db-role document-transfer-service profile-db-role profile-service export-db-role document-export-service
+        run: docker compose -f docker/docker-compose.yml logs auth-db-roles auth-migrate auth-service conversation-db-role conversation-service rag-chat-db-role embedding-db-role search-db-role document-search-service access-db-role document-access-service library-db-role document-library-service transfer-db-role document-transfer-service profile-db-role profile-service export-db-role document-export-service drive-db-role google-drive-import-service

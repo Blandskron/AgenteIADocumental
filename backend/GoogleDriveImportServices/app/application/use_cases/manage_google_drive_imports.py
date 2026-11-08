@@ -31,12 +31,14 @@ class ManageGoogleDriveImports:
         return {"authorization_url": self._google_client.build_authorization_url(state), "state": state}
 
     def connect(self, owner_user_id: str, code: str) -> dict[str, Any]:
+        self._repository.check_identity()
         token_payload = self._google_client.exchange_code(code)
         access_token = token_payload.get("access_token")
         if not access_token:
             raise ValidationError("Google OAuth did not return an access token.")
 
         refresh_token = token_payload.get("refresh_token")
+        self._repository.check_identity()
         userinfo = self._google_client.get_userinfo(access_token)
         expires_at = self._expires_at(token_payload)
 
@@ -100,7 +102,9 @@ class ManageGoogleDriveImports:
             )
 
             try:
+                self._repository.check_identity()
                 downloaded = self._google_client.download_file(access_token, file_request.file_id, file_request.export_mime_type)
+                self._repository.check_identity()
                 upload_response = self._document_client.upload(
                     bearer_token=bearer_token,
                     filename=downloaded.filename,
@@ -150,11 +154,11 @@ class ManageGoogleDriveImports:
                     },
                 )
                 processed += 1
-            except Exception as exc:
+            except Exception:
                 failed += 1
                 self._repository.update_import_file(
                     file_record.import_file_id,
-                    {"status": "FAILED", "error_message": str(exc)},
+                    {"status": "FAILED", "error_message": "Google Drive file import failed."},
                 )
 
         status = "COMPLETED" if failed == 0 and folder_warnings == 0 else "PARTIAL" if processed else "FAILED"
@@ -181,6 +185,7 @@ class ManageGoogleDriveImports:
         should_refresh = connection.expires_at and connection.expires_at <= datetime.now(UTC) + timedelta(minutes=2)
 
         if should_refresh and refresh_token:
+            self._repository.check_identity()
             token_payload = self._google_client.refresh_access_token(refresh_token)
             access_token = token_payload.get("access_token")
             if not access_token:

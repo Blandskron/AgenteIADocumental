@@ -1,62 +1,57 @@
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 
 from app.config.logging import configure_logging
-from app.config.settings import get_settings
+from app.config.readiness import check_dependencies
+from app.config.settings import Settings, get_settings
 from app.infrastructure.database.connection import Database
 from app.interfaces.api.router import api_router
 from app.shared.errors import AppError, ExternalServiceError, GoogleDriveError, NotFoundError, ValidationError
 
 
-settings = get_settings()
-database = Database(settings.database_url)
+def create_app(settings: Settings | None = None):
+    settings = settings or get_settings()
+    database = Database(settings.database_url, settings.db_pool_min_size, settings.db_pool_max_size, settings.db_timeout_seconds)
 
+    @asynccontextmanager
+    async def lifespan(app):
+        configure_logging(settings.log_level)
+        try:
+            try:
+                database.open()
+                with database.session() as session:
+                    check_dependencies(settings, session)
+            except Exception:
+                raise RuntimeError("Drive dependencies are unavailable.") from None
+            yield
+        finally:
+            database.close()
 
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    configure_logging(settings.log_level)
-    database.open()
+    app = FastAPI(title=settings.app_name, version="0.2.0", lifespan=lifespan)
     app.state.database = database
-    yield
-    database.close()
+    app.dependency_overrides[get_settings] = lambda: settings
+    app.add_middleware(CORSMiddleware, allow_origins=settings.cors_origins, allow_credentials=False,
+                       allow_methods=["GET", "POST"], allow_headers=["Authorization", "Content-Type"])
+    app.include_router(api_router)
+    for kind, code, detail in ((NotFoundError,404,"Google Drive resource not found."),
+                              (ValidationError,400,"Invalid Google Drive request."),
+                              (GoogleDriveError,502,"Google Drive provider operation failed."),
+                              (ExternalServiceError,502,"Document ingestion is unavailable."),
+                              (AppError,500,"Google Drive operation failed."),
+                              (IntegrityError,409,"Drive operation conflicts with stored data."),
+                              (SQLAlchemyError,503,"Drive persistence is unavailable."),
+                              (Exception,500,"Google Drive operation failed.")):
+        def handler(request, exc, code=code, detail=detail):
+            return JSONResponse(status_code=code, content={"detail": detail})
+        app.add_exception_handler(kind, handler)
+    app.add_exception_handler(RequestValidationError, invalid_request)
+    return app
 
 
-app = FastAPI(title=settings.app_name, version="0.1.0", lifespan=lifespan)
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=settings.cors_origins,
-    allow_credentials=False,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
-app.include_router(api_router)
-
-
-@app.exception_handler(NotFoundError)
-async def not_found_handler(request: Request, exc: NotFoundError) -> JSONResponse:
-    return JSONResponse(status_code=404, content={"detail": str(exc)})
-
-
-@app.exception_handler(ValidationError)
-async def validation_handler(request: Request, exc: ValidationError) -> JSONResponse:
-    return JSONResponse(status_code=400, content={"detail": str(exc)})
-
-
-@app.exception_handler(GoogleDriveError)
-async def google_drive_handler(request: Request, exc: GoogleDriveError) -> JSONResponse:
-    return JSONResponse(status_code=502, content={"detail": str(exc)})
-
-
-@app.exception_handler(ExternalServiceError)
-async def external_service_handler(request: Request, exc: ExternalServiceError) -> JSONResponse:
-    return JSONResponse(status_code=502, content={"detail": str(exc)})
-
-
-@app.exception_handler(AppError)
-async def app_error_handler(request: Request, exc: AppError) -> JSONResponse:
-    return JSONResponse(status_code=500, content={"detail": str(exc)})
+async def invalid_request(request: Request, exc: RequestValidationError):
+    return JSONResponse(status_code=422, content={"detail": "Invalid Google Drive request values."})

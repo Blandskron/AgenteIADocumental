@@ -2,6 +2,8 @@
 
 Lee [README.md](README.md), [ROADMAP](../../ROADMAP.md#googledriveimportservices) y [AGENTS raíz](../../AGENTS.md). DRIVE-001 es diagnóstico: sus propuestas no son garantías implementadas. Retoma En curso o elige Lista; conserva el ID y evidencia del incremento. Los paquetes propuestos no eliminan criterios de aceptación.
 
+DRIVE-002/003 establece el runtime factory y el rol drive_runtime. Conexión/historial siguen globales por usuario; el acceso exige permiso vigente de grupo del tenant activo o superusuario actual. No mantener transacciones/locks durante red. GOOGLE_DRIVE_ENABLED=false permite operar sin secretos Google; no reactivar OAuth como efecto de una migración ni declarar resueltos state, importaciones o web pendientes.
+
 ## Fronteras y contratos
 
 - Auth es dueño de identidad, huella, actividad, tenant y permisos. No asumir que verificar firma basta para revocación ni aceptar identidades por username/sub/unknown. El contrato use_google_drive y conexión global/tenant debe ser explícito con sus consumidores.

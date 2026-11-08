@@ -2,7 +2,7 @@
 
 Microservicio responsable de conectar Google Drive con la biblioteca documental de Blandskron Documental.
 
-**Estado:** DRIVE-001 es el diagnóstico, no el cierre del servicio. La implementación actual conserva deuda de identidad, OAuth, límites y operación. Las mejoras están en el [tablero](../../ROADMAP.md#googledriveimportservices); la [guía para agentes](AGENTS.md) delimita contratos y pruebas. [BASELINE.json](docs/BASELINE.json) identifica la revisión y la evidencia sintética.
+**Estado:** DRIVE-001 integrado; DRIVE-002/003 en revisión: runtime explícito, identidad vigente y rol mínimo. OAuth/state, importaciones acotadas/recuperables y coordinación web conservan sus tarjetas; el servicio no está cerrado. [Tablero](../../ROADMAP.md#googledriveimportservices), [guía para agentes](AGENTS.md) y [línea base histórica](docs/BASELINE.json).
 
 ## Responsabilidad
 
@@ -25,6 +25,8 @@ Microservicio responsable de conectar Google Drive con la biblioteca documental 
 ```text
 GOOGLE_OAUTH_CLIENT_ID=
 GOOGLE_OAUTH_CLIENT_SECRET=
+GOOGLE_DRIVE_ENABLED=false
+DRIVE_DB_PASSWORD=blandskron-local-drive
 GOOGLE_DRIVE_REDIRECT_URI=http://localhost:3000/documents
 GOOGLE_TOKEN_ENCRYPTION_KEY=change-me-with-a-long-random-secret
 RAG_DOCUMENT_BASE_URL=http://localhost:8003
@@ -99,7 +101,58 @@ docker compose -f docker/docker-compose.yml run --rm --no-deps drive-tests ruff 
 
 Las pruebas usan registros sintéticos con IDs únicos y limpieza explícita, PostgreSQL real y un proveedor simulado. No requieren OAuth ni descargan documentos. Cubren propiedad, inserción idempotente, espera real sobre el bloqueo compartido y fallos de asociación, incluido un resultado de carga sin ID documental. Este alcance coordina el escritor con Library; no constituye el cierre de modernización de GoogleDriveImportServices.
 
+## Operación DRIVE-002/003
+
+`uvicorn app.main:create_app --factory --port 8017` construye la aplicación sin dotenv ni acceso DB/clave al importar. Son obligatorios DATABASE_URL PostgreSQL/psycopg y AUTH_JWT_PUBLIC_KEY_PATH absoluto; la clave RSA de al menos2048bits se lee sin caché al arrancar/verificar. PGPASSWORD mantiene la contraseña separada de la URL. Pool base1, máximo10 y timeout30s por conexión/pool/sentencia son efectivos; el pool crea conexiones bajo demanda. Fallar startup cierra la DB. Health público distingue liveness de /health/db (esquema/clave/helpers); respuestas de error no reflejan inputs, SQL ni excepciones de proveedores.
+
+Drive está deshabilitado por defecto. Sin secretos Google puede arrancar, verificar readiness y consultar conexión/historial con identidad y permiso válidos. auth-url, callback e importaciones devuelven503 después de autenticar/autorizar; no construyen el cifrador ni llaman al proveedor. Para habilitarlo se exige GOOGLE_DRIVE_ENABLED=true, cliente/secreto y clave de cifrado independiente de al menos32caracteres, sin valores vacíos/de ejemplo. Los alias anteriores siguen admitidos, pero el proceso no lee archivos .env: Compose inyecta solo variables explícitas. CORS admite orígenes locales explícitos por defecto, [] lo desactiva y * se rechaza. Los endpoints Google son los HTTPS soportados y el scope es drive.file; ingesta admite su URL local de desarrollo o HTTPS.
+
+**No habilitar la integración para una publicación hasta completar DRIVE-004/005/006.** Este incremento mantiene el callback code-only y el transporte/importación antiguos; retirar el fallback de cifrado no implementa aún intentos OAuth, claves versionadas, reanudación ni límites de descarga. Si había tokens cifrados con una clave antigua, conservar datos y clave en el procedimiento de migración revisado de DRIVE-004: no sustituirla ni borrar grants a ciegas. El fallback público anterior ya no se activa.
+
+### Identidad y permiso vigente
+
+Se exige el contrato RS256 de Auth: user_id entero positivo canónico, exp/iat/jti/access y hash_password válidos. No se acepta dueño por sub/username/unknown. Un helper booleano privado comprueba cuenta activa y huella actual; otro evalúa el permiso actual desde PostgreSQL. Contraseña modificada o cuenta inactiva/eliminada:401; identidad válida sin acceso:403; dependencia SQL no disponible:503. Firma/claims inválidos se rechazan sin llamar al proveedor.
+
+La conexión y el historial continúan siendo **globales del usuario**, sin convertirlos en recursos de tenant ni ampliar acceso a otros dueños. Para usarlos, un miembro activo de un tenant activo debe pertenecer en ese mismo tenant a un grupo con use_google_drive o *. Un administrador de tenant también necesita esa concesión explícita, coherente con la guarda UI existente; no basta un rol/permiso obsoleto del JWT. El superusuario se comprueba en auth_user actual, no en flags del cliente; una degradación pierde el bypass. Ingesta conserva por separado su autorización de upload y el estampado de tenant/propiedad.
+
+Las comprobaciones usan transacciones cortas, terminadas antes de Google. El repositorio revalida al consultar/persistir y el caso de uso antes de exchange/userinfo/refresh/download/upload; la revocación durante una llamada impide el siguiente paso cuando vuelve a comprobarse. No se promete cancelar una petición de red ya enviada ni rollback de efectos del proveedor. Una revocación/fallo a mitad de importación puede requerir la recuperación aún pendiente en DRIVE-005.
+
+### Permisos DB y despliegue
+
+drive_runtime LOGIN sin membresías/superusuario/CREATE/RLS bypass puede seleccionar sus tres tablas, insertar y actualizar solo columnas de operación. No tiene DELETE, TRUNCATE, contraseñas, documentos ni carpetas. drive_helper_owner NOLOGIN conserva las columnas mínimas para cuatro funciones booleanas SECURITY DEFINER, con search_path fijo y EXECUTE privado: identidad, permiso, propiedad de carpeta y asociación. Esta última mantiene el advisory lock de Library, locks de documento/carpeta/ancestros y ON CONFLICT, además de exigir documento propio. El rol es una identidad del servicio, **no RLS por usuario**; los filtros del repositorio siguen delimitando al dueño.
+
+[provision_role.sql](../../scripts/database/drive/provision_role.sql) es transaccional/repetible y [verify_role.sql](../../scripts/database/drive/verify_role.sql) rechaza privilegios inesperados, delegación, secuencias o ejecución de helpers ajenos. No repara silenciosamente concesiones extra. La contraseña pública de .env.example es solo desarrollo; usar una independiente al desplegar. La imagen usa UID10010 y targets separados runtime/test/audit, sin instalador ni pytest/Ruff en ejecución. El hardening read-only/recursos y escaneo SO/vendorizados siguen en DRIVE-007.
+
+Para instalación nueva, desde raíz con configuración explícita:
+
+```powershell
+docker compose --env-file .env.example -f docker/docker-compose.yml up -d --build --wait google-drive-import-service
+```
+
+En una instalación existente, respaldar DB/configuración y detener el runtime antiguo. Mantener GOOGLE_DRIVE_ENABLED=false durante la actualización. Con esquema y Auth actualizados, ejecutar drive-db-role y reconstruir; no hay migración destructiva de conexiones/historial:
+
+```powershell
+docker compose -f docker/docker-compose.yml stop google-drive-import-service
+docker compose -f docker/docker-compose.yml run --rm --no-deps drive-db-role
+docker compose -f docker/docker-compose.yml up -d --build --wait google-drive-import-service
+```
+
+### Validación del paquete
+
+Sobre proyecto/DB/claves sintéticos separados:72 pruebas PostgreSQL/Linux, Ruff, provisión repetida, reinicio, login real del rol y SQLSTATE42501 para operaciones prohibidas. Incluyen modo deshabilitado, provider simulado habilitado, revocación durante red sin locks de Auth retenidos, aislamiento, privilegios inesperados, pool/rollback y pérdida de clave. La sonda [verify_auth_contract.py](../../scripts/drive/verify_auth_contract.py) corre dentro de Auth de desarrollo con marcador explícito: login/refresh de tres roles, permisos retirados, contraseña/inactividad/eliminación y limpieza de usuarios/tenant/budgets; no llama Google.
+
+```powershell
+docker compose -f docker/docker-compose.yml run --build --rm --no-deps drive-tests
+docker compose -f docker/docker-compose.yml run --rm --no-deps drive-tests ruff check --no-cache app tests /drive-checks
+docker compose -f docker/docker-compose.yml run --build --rm --no-deps drive-audit
+docker compose -f docker/docker-compose.yml config --quiet
+```
+
+La suite exige DRIVE_TEST_DATABASE_URL sintética y DRIVE_TEST_RUNTIME_PASSWORD, provistas por drive-tests. Fuera de Compose se puede ejecutar el subconjunto sin DB con pytest -m "not postgres"; no usar el runtime de producción para instalar herramientas. pip check y pip-audit del inventario funcional actualizado aprobaron sin avisos Python; el inventario se congela antes de instalar la herramienta y excluye pip, retirado del runtime. Esto no es un escaneo SO ni prueba de ausencia de vulnerabilidades. La advertencia TestClient/httpx se conserva; CI repite la suite y la sonda. BASELINE sigue siendo histórico, sin sobrescribir su evidencia ni atribuirle resultados de esta imagen.
+
 ## Diagnóstico DRIVE-001
+
+Esta sección y BASELINE describen la revisión histórica anterior a DRIVE-002/003, no las garantías del runtime actual. La operación vigente y sus límites se explican a continuación.
 
 Revisión de `e20052ba1d1b399091ddda1ed1ebee762d2289f4`, el 8 de noviembre de 2026. Se leyeron los 39 archivos rastreados del servicio y se contrastaron los consumidores web, Auth, Library, ingesta, Compose y SQL. Auditoría estática con revisiones independientes y validación del padre: tres hallazgos medios y uno bajo condicionado. No se usaron OAuth, claves ni documentos reales ni se intentó agotar memoria. No se cambió el runtime en este incremento.
 
