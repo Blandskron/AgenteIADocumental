@@ -101,12 +101,17 @@ class TenantIdentityBoundaryTests(APITestCase):
         self.assertEqual(response.data["user_id"], str(self.member.pk))
 
     def test_tenant_admin_cannot_replace_membership_identity(self):
-        response = self.client.patch(
-            f"/api/users/tenant-memberships/{self.membership.pk}/",
-            {"user_id": str(self.victim.pk)},
-            format="json",
-        )
-        self.assertEqual(response.status_code, 400)
+        responses = []
+        for user_id in (str(self.victim.pk), "2147483647"):
+            response = self.client.patch(
+                f"/api/users/tenant-memberships/{self.membership.pk}/",
+                {"user_id": user_id},
+                format="json",
+            )
+            self.assertEqual(response.status_code, 400)
+            responses.append(response.data)
+        # Refusing an immutable change must not reveal other global identities.
+        self.assertEqual(responses[0], responses[1])
         self.membership.refresh_from_db()
         self.assertEqual(self.membership.user_id, str(self.admin.pk))
 

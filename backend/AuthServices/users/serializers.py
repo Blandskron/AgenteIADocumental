@@ -420,6 +420,8 @@ class TenantMembershipSerializer(TenantScopedSerializer):
         read_only_fields = ("membership_id", "created_by_user_id", "permissions", "created_at", "updated_at")
 
     def validate_user_id(self, value):
+        if self.instance and value != self.instance.user_id:
+            raise serializers.ValidationError("El usuario de la membresía es inmutable.")
         if (
             not value.isascii() or not value.isdecimal() or value.startswith("0")
             or not User.objects.filter(pk=int(value)).exists()
