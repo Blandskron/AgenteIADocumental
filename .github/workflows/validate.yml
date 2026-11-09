@@ -266,6 +266,11 @@ jobs:
       - run: docker compose -f docker/docker-compose.yml run --rm --no-deps rag-chat-db-role
       - run: docker compose -f docker/docker-compose.yml run --rm --no-deps embedding-db-role
       - run: docker compose -f docker/docker-compose.yml exec -T postgres psql -U postgres -d documents_db -v ON_ERROR_STOP=1 < scripts/database/auth/verify_roles.sql
+      - name: Validar preflight multiempresa sin modificar históricos
+        run: |
+          docker compose -f docker/docker-compose.yml run --rm --no-deps database-schema psql -h postgres -U postgres -d documents_db -X -q -v ON_ERROR_STOP=1 -f /schema/tests/tenant_preflight.sql
+          docker compose -f docker/docker-compose.yml run --rm --no-deps database-schema psql -h postgres -U postgres -d documents_db -X -q -v ON_ERROR_STOP=1 -f /schema/checks/tenant_preflight.sql
+
       - run: docker compose -f docker/docker-compose.yml exec -T postgres psql -U postgres -d documents_db -v ON_ERROR_STOP=1 < scripts/database/conversation/verify_role.sql
       - run: docker compose -f docker/docker-compose.yml exec -T postgres psql -U postgres -d documents_db -v ON_ERROR_STOP=1 < scripts/database/rag-chat/verify_role.sql
       - run: docker compose -f docker/docker-compose.yml exec -T postgres psql -U postgres -d documents_db -v ON_ERROR_STOP=1 < scripts/database/embedding/verify_role.sql

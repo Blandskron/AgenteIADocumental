@@ -135,6 +135,8 @@ El esquema SQL vive en `scripts/database/run_all.sql` y ahora carga solo dominio
 - importaciones de Google Drive
 - constraints, indices, funciones, triggers y seeds necesarios
 
+El [preflight multiempresa](scripts/database/README.md#preflight-multiempresa--plat-001a) devuelve un diagnóstico JSON de solo lectura antes de planificar restricciones o reparación histórica. No modifica registros ni garantiza la integridad de escrituras futuras.
+
 ## Credenciales locales
 
 La creación del administrador es explícita. Desde la raíz y con el stack activo, ejecuta el comando y elige tu contraseña en el prompt:
