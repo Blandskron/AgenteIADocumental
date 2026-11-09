@@ -1,4 +1,4 @@
-from django.db import IntegrityError
+from django.db import IntegrityError, OperationalError
 from rest_framework.exceptions import APIException
 
 
@@ -7,6 +7,7 @@ RELATION_CONSTRAINTS = frozenset(
         "tenant_assignments_group_tenant_fk",
         "tenant_assignments_membership_fk",
         "tenant_areas_parent_tenant_fk",
+        "tenant_areas_tenant_id_fkey",
         "tenant_memberships_area_tenant_fk",
         "tenant_areas_parent_area_id_fkey",
         "tenant_memberships_area_id_fkey",
@@ -17,17 +18,25 @@ RELATION_CONSTRAINTS = frozenset(
 
 class TenantRelationConflict(APIException):
     status_code = 409
-    default_detail = "La relación cambió. Recarga los datos antes de volver a guardar."
+    default_detail = "La relación no es válida o cambió. Revisa y recarga los datos antes de volver a guardar."
     default_code = "tenant_relation_conflict"
 
 
 def is_relation_conflict(error):
     cause = error.__cause__
-    return (
-        isinstance(error, IntegrityError)
-        and getattr(cause, "sqlstate", None) == "23503"
-        and getattr(getattr(cause, "diag", None), "constraint_name", None)
-        in RELATION_CONSTRAINTS
+    state = getattr(cause, "sqlstate", None)
+    # A topology writer can lose serialization, deadlock resolution, or the
+    # bounded tenant lock. Reload explicitly: replaying mutations is unsafe.
+    if isinstance(error, OperationalError) and state in {"40001", "40P01", "55P03"}:
+        return True
+    constraint = getattr(getattr(cause, "diag", None), "constraint_name", None)
+    return isinstance(error, IntegrityError) and (
+        (state == "23503" and constraint in RELATION_CONSTRAINTS)
+        or (
+            state == "23514"
+            and constraint
+            in {"tenant_areas_acyclic", "tenant_areas_identity_immutable"}
+        )
     )
 
 
@@ -40,7 +49,7 @@ def relation_conflict_schema(serializer):
     )
 
     conflict = OpenApiResponse(
-        description="La relación cambió; recargar antes de reintentar."
+        description="Relación inválida o modificada; revisar y recargar antes de reintentar."
     )
     identifier = [OpenApiParameter("id", str, OpenApiParameter.PATH)]
     return extend_schema_view(
