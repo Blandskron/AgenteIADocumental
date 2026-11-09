@@ -13,17 +13,20 @@ const scanner = "aquasec/trivy@sha256:8f6bb947dbc528902e11f2f5be52f7b519f6a39d5d
 const base = "backend/GoogleDriveImportServices";
 function docker(argv, input) {
   const result = spawnSync("docker", argv, { input, encoding: "utf8", maxBuffer: 64 * 1024 * 1024, shell: false });
-  if (result.status !== 0 || result.error) throw new Error(`Docker audit step failed: ${argv[0]} (${result.status})`);
+  if (result.status !== 0 || result.error) throw new Error(`Docker audit step failed: ${argv[0]} (${result.status}): ${(result.stderr || result.error?.message || "").slice(-4000)}`);
   return result.stdout.trim();
 }
 function hash(data) { return createHash("sha256").update(data).digest("hex"); }
-fs.mkdirSync(out); // Refuse to overwrite evidence.
+fs.mkdirSync(out, { mode: 0o700 }); // Refuse to overwrite evidence; keep artifacts private.
 const image = docker(["image", "inspect", "--format", "{{.Id}}", imageArg]);
 if (!/^sha256:[a-f0-9]{64}$/.test(image)) throw new Error("Expected immutable image ID");
 const archive = path.join(out, "runtime-image.tar");
 docker(["save", "--output", archive, image]);
-const savedConfig = docker(["run", "--rm", "--network", "none", "--read-only", "--mount", `type=bind,source=${out},target=/audit,readonly`,
-  "--entrypoint", "python", image, "-c", "import tarfile,json,hashlib; t=tarfile.open('/audit/runtime-image.tar'); m=json.load(t.extractfile('manifest.json')); assert len(m)==1; print('sha256:'+hashlib.sha256(t.extractfile(m[0]['Config']).read()).hexdigest())"]);
+// docker save may create a 0600 archive on Linux. Only this offline, read-only
+// artifact reader uses the archive owner; runtime inventory still checks UID 10010.
+const archiveOwner = fs.statSync(archive);
+const savedConfig = docker(["run", "--rm", "--user", `${archiveOwner.uid}:${archiveOwner.gid}`, "--cap-drop=ALL", "--security-opt=no-new-privileges:true", "--network", "none", "--read-only", "--mount", `type=bind,source=${archive},target=/runtime-image.tar,readonly`,
+  "--entrypoint", "python", image, "-c", "import tarfile,json,hashlib; t=tarfile.open('/runtime-image.tar'); m=json.load(t.extractfile('manifest.json')); assert len(m)==1; print('sha256:'+hashlib.sha256(t.extractfile(m[0]['Config']).read()).hexdigest())"]);
 const digest = createHash("sha256");
 for await (const chunk of fs.createReadStream(archive)) digest.update(chunk);
 const runtime = JSON.parse(docker(["run", "--rm", "-i", "--network", "none", "--read-only", "--cap-drop=ALL", "--security-opt=no-new-privileges:true",
