@@ -292,7 +292,7 @@ jobs:
           docker compose -f docker/docker-compose.yml cp scripts/database/constraints/003_tenant_area_relations.sql auth-service:/tmp/tenant-areas.sql
           docker compose -f docker/docker-compose.yml cp scripts/database/tests/test_tenant_area_relations.py auth-service:/tmp/test_tenant_area_relations.py
           docker compose -f docker/docker-compose.yml exec -T -e POSTGRES_DB=plat_relations_ci -e PLAT_TEST_DATABASE=plat_relations_ci -e PLAT_TEST_ADMIN_PASSWORD=admin1234 auth-service python /tmp/test_tenant_area_relations.py
-          docker compose -f docker/docker-compose.yml run --build --rm --no-deps --volume "$PWD/scripts/database/tests:/relation-checks:ro" -e PLAT_TEST_DATABASE=plat_relations_ci -e PLAT_TEST_ADMIN_PASSWORD=admin1234 -e PLAT_TEST_AUTH_PASSWORD=blandskron-local-runtime embedding-tests python /relation-checks/test_embedding_area_relations.py
+          docker compose -f docker/docker-compose.yml run --build --rm --no-deps --volume "$PWD/scripts/database/tests:/relation-checks:ro" -e PYTHONPATH=/app -e PLAT_TEST_DATABASE=plat_relations_ci -e PLAT_TEST_ADMIN_PASSWORD=admin1234 -e PLAT_TEST_AUTH_PASSWORD=blandskron-local-runtime embedding-tests python /relation-checks/test_embedding_area_relations.py
           docker compose -f docker/docker-compose.yml run --rm --no-deps database-schema psql -h postgres -U postgres -d plat_relations_ci -v ON_ERROR_STOP=1 -f /schema/run_all.sql
           docker compose -f docker/docker-compose.yml run --rm --no-deps database-schema psql -h postgres -U postgres -d plat_relations_ci -v ON_ERROR_STOP=1 -f /schema/migrations/004_tenant_area_relations.sql
 

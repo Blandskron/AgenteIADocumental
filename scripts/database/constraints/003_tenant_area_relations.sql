@@ -9,6 +9,28 @@ DO $$
 DECLARE bad_parent bigint; bad_member bigint; bad_document bigint;
         spec record; actual text; valid boolean; column_info record;
 BEGIN
+    FOR spec IN SELECT * FROM (VALUES
+      ('tenant_areas','tenant_id',true), ('tenant_areas','area_id',true), ('tenant_areas','parent_area_id',false),
+      ('tenant_memberships','tenant_id',true), ('tenant_memberships','area_id',false),
+      ('documents','tenant_id',false), ('documents','owner_area_id',false)
+    ) AS x(table_name,column_name,required) LOOP
+        IF NOT EXISTS (SELECT 1 FROM pg_attribute a
+          WHERE a.attrelid=format('public.%I',spec.table_name)::regclass AND a.attname=spec.column_name
+            AND NOT a.attisdropped AND a.atttypid='text'::regtype
+            AND a.attnotnull=spec.required AND a.attgenerated='') THEN
+            RAISE EXCEPTION 'Unexpected tenant relation column. Review schema drift.';
+        END IF;
+    END LOOP;
+    -- An additional CASCADE FK could defeat the verified SET NULL action.
+    IF EXISTS (SELECT 1 FROM pg_constraint c
+      WHERE c.contype='f' AND c.conrelid IN ('public.tenant_areas'::regclass,'public.tenant_memberships'::regclass,'public.documents'::regclass)
+        AND c.conkey && ARRAY(SELECT a.attnum FROM pg_attribute a WHERE a.attrelid=c.conrelid
+          AND a.attname IN ('tenant_id','parent_area_id','area_id','owner_area_id','owner_area_tenant_id'))
+        AND NOT ((c.conrelid='public.tenant_areas'::regclass AND c.conname IN ('tenant_areas_tenant_id_fkey','tenant_areas_parent_area_id_fkey','tenant_areas_parent_tenant_fk'))
+          OR (c.conrelid='public.tenant_memberships'::regclass AND c.conname IN ('tenant_memberships_tenant_id_fkey','tenant_memberships_area_id_fkey','tenant_memberships_area_tenant_fk'))
+          OR (c.conrelid='public.documents'::regclass AND c.conname IN ('documents_tenant_id_fkey','documents_owner_area_id_fkey','documents_area_tenant_fk')))) THEN
+        RAISE EXCEPTION 'Unexpected tenant lifecycle foreign key. Review schema drift.';
+    END IF;
     SELECT count(*) INTO bad_parent FROM public.tenant_areas a
       LEFT JOIN public.tenant_areas p ON p.area_id=a.parent_area_id AND p.tenant_id=a.tenant_id
       WHERE a.parent_area_id IS NOT NULL AND p.area_id IS NULL;
@@ -42,6 +64,11 @@ BEGIN
     END IF;
 
     FOR spec IN SELECT * FROM (VALUES
+      ('tenant_areas','tenant_areas_tenant_id_fkey','FOREIGN KEY (tenant_id) REFERENCES tenants(tenant_id) ON DELETE CASCADE'),
+      ('tenant_areas','tenant_areas_parent_area_id_fkey','FOREIGN KEY (parent_area_id) REFERENCES tenant_areas(area_id) ON DELETE SET NULL'),
+      ('tenant_memberships','tenant_memberships_tenant_id_fkey','FOREIGN KEY (tenant_id) REFERENCES tenants(tenant_id) ON DELETE CASCADE'),
+      ('tenant_memberships','tenant_memberships_area_id_fkey','FOREIGN KEY (area_id) REFERENCES tenant_areas(area_id) ON DELETE SET NULL'),
+      ('documents','documents_tenant_id_fkey','FOREIGN KEY (tenant_id) REFERENCES tenants(tenant_id) ON DELETE SET NULL'),
       ('tenant_areas','tenant_areas_tenant_area_key','UNIQUE (tenant_id, area_id)'),
       ('tenant_areas','tenant_areas_parent_tenant_fk','FOREIGN KEY (tenant_id, parent_area_id) REFERENCES tenant_areas(tenant_id, area_id) ON DELETE SET NULL (parent_area_id)'),
       ('tenant_memberships','tenant_memberships_area_tenant_fk','FOREIGN KEY (tenant_id, area_id) REFERENCES tenant_areas(tenant_id, area_id) ON DELETE SET NULL (area_id)'),

@@ -241,6 +241,41 @@ class AreaRelations(unittest.TestCase):
     def test_parent_insert_before_delete(self):
         self.race(True)
 
+    def test_unexpected_cascade_is_rejected_without_changing_it(self):
+        for table, column, original in (
+            ("documents", "owner_area_id", "documents_owner_area_id_fkey"),
+            ("tenant_areas", "parent_area_id", "tenant_areas_parent_area_id_fkey"),
+            ("tenant_memberships", "area_id", "tenant_memberships_area_id_fkey"),
+        ):
+            with self.subTest(table=table):
+                self.admin.execute("BEGIN")
+                try:
+                    from psycopg import sql
+
+                    self.admin.execute(
+                        sql.SQL("ALTER TABLE {} DROP CONSTRAINT {}").format(
+                            sql.Identifier(table), sql.Identifier(original)
+                        )
+                    )
+                    self.admin.execute(
+                        sql.SQL(
+                            "ALTER TABLE {} ADD CONSTRAINT unexpected_cascade FOREIGN KEY ({}) REFERENCES tenant_areas(area_id) ON DELETE CASCADE"
+                        ).format(sql.Identifier(table), sql.Identifier(column))
+                    )
+                    with self.assertRaises(psycopg.Error) as error:
+                        self.apply()
+                    self.assertIn(
+                        "lifecycle foreign key", error.exception.diag.message_primary
+                    )
+                    self.assertEqual(
+                        self.admin.execute(
+                            "SELECT confdeltype FROM pg_constraint WHERE conname='unexpected_cascade'"
+                        ).fetchone()[0],
+                        "c",
+                    )
+                finally:
+                    self.admin.execute("ROLLBACK")
+
     def test_generated_column_drift_is_not_repaired(self):
         self.admin.execute("BEGIN")
         try:
