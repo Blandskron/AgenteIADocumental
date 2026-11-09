@@ -30,3 +30,7 @@ El perfil incluye identidad global, `roles`, `tenant_memberships`, `active_tenan
 | `/api/users/tenant-areas/`, `/api/users/tenant-groups/`, `/api/users/tenant-user-groups/` | Las referencias respetan la empresa del recurso. El borrado de áreas requiere superadministrador. |
 
 Un JWT válido identifica al actor. El alcance de la operación se resuelve en [users/views.py](../users/views.py) y [users/serializers.py](../users/serializers.py). Evita incluir tokens reales en ejemplos o diagnósticos.
+
+### Conflictos de relaciones multiempresa
+
+Si una referencia desaparece entre validación y escritura, las mutaciones de empresa/áreas/membresías/grupos/asignaciones pueden devolver 409 con un detalle genérico. Recargar antes de reintentar; no hay reintento automático ni valores SQL en la respuesta. La validación normal de una referencia de otra empresa sigue devolviendo 400. OpenAPI incluye 409 también en provision. La activación SQL y su alcance se describen en [la guía compartida](../../../scripts/database/README.md#áreas-y-documentos--segundo-incremento-plat-001b).
