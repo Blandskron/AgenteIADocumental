@@ -395,6 +395,7 @@ class TenantAreaSerializer(TenantScopedSerializer):
 
 class TenantMembershipSerializer(TenantScopedSerializer):
     tenant_relation = "area"
+    user_id = serializers.CharField(max_length=10, trim_whitespace=False)
     tenant_name = serializers.CharField(source="tenant.name", read_only=True)
     area_name = serializers.CharField(source="area.name", read_only=True)
     permissions = serializers.SerializerMethodField()
@@ -417,6 +418,14 @@ class TenantMembershipSerializer(TenantScopedSerializer):
             "updated_at",
         )
         read_only_fields = ("membership_id", "created_by_user_id", "permissions", "created_at", "updated_at")
+
+    def validate_user_id(self, value):
+        if (
+            not value.isascii() or not value.isdecimal() or value.startswith("0")
+            or not User.objects.filter(pk=int(value)).exists()
+        ):
+            raise serializers.ValidationError("Debe indicar una cuenta existente con su ID canónico.")
+        return value
 
     def get_permissions(self, membership) -> list[str]:
         return TENANT_ROLE_PERMISSIONS.get(membership.role, [])

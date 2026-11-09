@@ -77,6 +77,29 @@ class TenantIdentityBoundaryTests(APITestCase):
         self.assertEqual(response.status_code, 403)
         self.assertFalse(TenantMembership.objects.filter(user_id=str(self.victim.pk)).exists())
 
+    def test_membership_requires_existing_canonical_account(self):
+        self.client.force_authenticate(self.victim)
+        for user_id in (
+            "2147483647", "9999999999", "0", "-1", f"0{self.member.pk}",
+            f" {self.member.pk}", f"{self.member.pk} ", "１", "١", "unknown",
+        ):
+            with self.subTest(user_id=user_id):
+                response = self.client.post(
+                    "/api/users/tenant-memberships/",
+                    {"tenant": self.other_tenant.pk, "user_id": user_id, "role": "USER"},
+                    format="json",
+                )
+                self.assertEqual(response.status_code, 400)
+                self.assertIn("user_id", response.data)
+        self.assertFalse(TenantMembership.objects.filter(tenant=self.other_tenant).exists())
+        response = self.client.post(
+            "/api/users/tenant-memberships/",
+            {"tenant": self.other_tenant.pk, "user_id": str(self.member.pk), "role": "USER"},
+            format="json",
+        )
+        self.assertEqual(response.status_code, 201)
+        self.assertEqual(response.data["user_id"], str(self.member.pk))
+
     def test_tenant_admin_cannot_replace_membership_identity(self):
         response = self.client.patch(
             f"/api/users/tenant-memberships/{self.membership.pk}/",
