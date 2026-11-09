@@ -1,5 +1,6 @@
+import { useDriveImport } from "../../features/google-drive-import/useDriveImport.js";
+import { DriveHistory } from "../../features/google-drive-import/DriveHistory.jsx";
 import { ImportAttemptNotice } from "../../features/google-drive-import/ImportAttemptNotice.jsx";
-import { prepareImportAttempt, finishImportAttempt, rejectImportAttempt } from "../../features/google-drive-import/import-attempt.js";
 import { useEffect, useState, useRef } from "react";
 import { Bell, Check, Cloud, Folder, Menu, Plus, Star, X, Upload, Filter, LayoutGrid, List, FileText, Send } from "lucide-react";
 
@@ -44,12 +45,8 @@ import { listUsers } from "../../features/auth/api/user-management.api";
 import { waitForDocumentProcessed } from "../../features/documents/api/document-status.poller";
 import { isDocumentProcessed } from "../../features/documents/lib/document-status";
 import { LibraryPagination } from "../../features/document-library/ui/LibraryPagination";
-import {
-  importGoogleDriveFiles,
-} from "../../features/google-drive-import/api/google-drive-import.api";
 import { useDriveConnection } from "../../features/google-drive-import/useDriveConnection.js";
 import { openGoogleDrivePicker } from "../../features/google-drive-import/google-picker";
-import { getImportWarning } from "../../features/google-drive-import/import-result";
 
 export function DocumentSearchPage({ activeView = appRoutes.documents, onNavigate }) {
   const {
@@ -102,18 +99,9 @@ export function DocumentSearchPage({ activeView = appRoutes.documents, onNavigat
   const driveConnection = drive.connection;
   const [driveFileIds, setDriveFileIds] = useState("");
   const [selectedDriveFiles, setSelectedDriveFiles] = useState([]);
-  const [driveImportBusy, setDriveImportBusy] = useState(false);
-  const importBusyRef = useRef(false);
-  const importEpoch = useRef(0);
-  const driveClientRef = useRef(googleDriveImportClient);
-  driveClientRef.current = { client: googleDriveImportClient, version: driveConnection.version, connected: driveConnection.connected, busy: drive.busy };
-  useEffect(() => {
-    importEpoch.current++;
-    importBusyRef.current = false;
-    setDriveImportBusy(false);
-    setSelectedDriveFiles([]);
-    setDriveFileIds("");
-  }, [googleDriveImportClient, driveConnection.providerAccountId]);
+  const importing = useDriveImport(googleDriveImportClient, profileSessionKey, driveConnection, drive.busy);
+  const driveImportBusy = importing.busy;
+  useEffect(() => { setSelectedDriveFiles([]); setDriveFileIds(""); }, [googleDriveImportClient, driveConnection.providerAccountId]);
   const fileInputRef = useRef(null);
   const canAssignDocuments = isTenantAdmin(currentUser) || hasTenantPermission(currentUser, "assign_documents");
   const canUploadDocuments = isTenantAdmin(currentUser) || hasTenantPermission(currentUser, "upload_documents");
@@ -162,68 +150,20 @@ export function DocumentSearchPage({ activeView = appRoutes.documents, onNavigat
 
   const handleConnectDrive = drive.connect;
 
-  const handleImportDriveFiles = async (event, previousInput = null) => {
+  const handleImportDriveFiles = (event, previousInput = null) => {
     event.preventDefault();
-    const files = previousInput?.files || (selectedDriveFiles.length
-      ? selectedDriveFiles
-      : driveFileIds
-          .split(/[\n,]/)
-          .map((value) => value.trim())
-          .filter(Boolean)
-          .map((fileId) => ({ fileId })));
-    if (!files.length || importBusyRef.current) return;
-    importBusyRef.current = true;
-    const generation = ++importEpoch.current;
-
-    setDriveImportBusy(true);
-    setActionError("");
-    let attempt;
-    try {
-      const input = previousInput || { files, folderId: library.selectedFolder?.folderId || null, metadata: { imported_from_ui: true } };
-      attempt = prepareImportAttempt(profileSessionKey, input, driveConnection.version);
-      const imported = await importGoogleDriveFiles(googleDriveImportClient, { ...input, ...attempt });
-      if (importEpoch.current !== generation) return;
-      finishImportAttempt(profileSessionKey, attempt.operationId, imported);
-      if (imported.status === "REVIEW_REQUIRED") {
-        setActionError("La carga tiene un resultado incierto. Revisa el historial antes de reintentar.");
-        return;
-      }
-      if (!previousInput) setDriveFileIds("");
-      if (!previousInput) setSelectedDriveFiles([]);
-      setDriveModalOpen(false);
-      await search.runSearch();
-      if (importEpoch.current !== generation) return;
-      await library.refreshLibrary();
-      if (importEpoch.current === generation) setActionError(getImportWarning(imported));
-    } catch (error) {
-      if (importEpoch.current !== generation) return;
-      if (attempt) rejectImportAttempt(profileSessionKey, attempt.operationId, error);
-      if (error.payload?.code === "import_connection_changed") await drive.refresh();
-      setActionError(error.message);
-    } finally {
-      if (importEpoch.current === generation) importBusyRef.current = false;
-      if (importEpoch.current === generation) setDriveImportBusy(false);
-    }
+    const files = selectedDriveFiles.length ? selectedDriveFiles : driveFileIds.split(/[\n,]/).map((v) => v.trim()).filter(Boolean).map((fileId) => ({ fileId }));
+    return importing.controller.import(previousInput || { files, folderId: library.selectedFolder?.folderId || null, metadata: { imported_from_ui: true } }, driveConnection.version,
+      async (result, current) => {
+        if (!previousInput) { setDriveFileIds(""); setSelectedDriveFiles([]); }
+        setDriveModalOpen(false);
+        await search.runSearch();
+        if (current()) await library.refreshLibrary();
+      }, drive.refresh);
   };
-
-  const handleOpenGooglePicker = async () => {
-    setActionError("");
-    try {
-      const pickerContext = driveClientRef.current;
-      const pickedFiles = await openGoogleDrivePicker({
-        connection: driveConnection,
-        appId: env.googlePickerAppId,
-        clientId: env.googleClientId,
-        developerKey: env.googlePickerApiKey,
-      });
-      const current = driveClientRef.current;
-      if (current.client !== pickerContext.client || current.version !== pickerContext.version || !current.connected || current.busy || !pickedFiles.length) return;
-      setSelectedDriveFiles(pickedFiles);
-      setDriveFileIds(pickedFiles.map((file) => file.fileId).join("\n"));
-    } catch (error) {
-      setActionError(error.message);
-    }
-  };
+  const handleOpenGooglePicker = () => importing.controller.picker((signal) => openGoogleDrivePicker({ connection: driveConnection, signal,
+    appId: env.googlePickerAppId, clientId: env.googleClientId, developerKey: env.googlePickerApiKey }),
+    (files) => { setSelectedDriveFiles(files); setDriveFileIds(files.map((file) => file.fileId).join("\n")); });
 
   const handleUploadFile = async (event) => {
     const file = event.target.files?.[0];
@@ -394,7 +334,7 @@ export function DocumentSearchPage({ activeView = appRoutes.documents, onNavigat
   const totalFavoritesCount = library.favoriteDocuments.length;
   const totalFoldersCount = library.folders.length;
 
-  const combinedError = (!isFoldersView && !isFavoritesView && !isAssignmentsView && !isManagedView && !isNotificationsView ? search.error : "") || drive.error || actionError || assigned.error || managed.error || notificationList.error || library.error;
+  const combinedError = (!isFoldersView && !isFavoritesView && !isAssignmentsView && !isManagedView && !isNotificationsView ? search.error : "") || drive.error || importing.error || actionError || assigned.error || managed.error || notificationList.error || library.error;
 
   return (
     <AppShell
@@ -741,7 +681,9 @@ export function DocumentSearchPage({ activeView = appRoutes.documents, onNavigat
           onSubmit={submitAssignment}
         />
         <GoogleDriveImportModal
-          error={drive.error}
+          history={<DriveHistory client={googleDriveImportClient} scope={profileSessionKey} />}
+          onCancel={() => importing.controller.cancel()}
+          error={drive.error || importing.error}
           operationScope={profileSessionKey}
           connection={driveConnection}
           fileIds={driveFileIds}
@@ -749,10 +691,10 @@ export function DocumentSearchPage({ activeView = appRoutes.documents, onNavigat
           isOpen={driveModalOpen}
           pickerConfigured={Boolean(env.googleClientId && env.googlePickerApiKey)}
           selectedFiles={selectedDriveFiles}
-          onClose={() => setDriveModalOpen(false)}
+          onClose={() => { importing.controller.cancel(false); setDriveModalOpen(false); }}
           onConnect={handleConnectDrive}
           onDisconnect={drive.disconnect}
-          onFileIdsChange={setDriveFileIds}
+          onFileIdsChange={(value) => { setDriveFileIds(value); setSelectedDriveFiles([]); }}
           onImport={handleImportDriveFiles}
           onOpenPicker={handleOpenGooglePicker}
         />
@@ -883,6 +825,8 @@ function MoveDocumentModal({ document, folders, page, error, onLoadMore, isOpen,
 }
 
 function GoogleDriveImportModal({
+  history,
+  onCancel,
   error,
   connection,
   fileIds,
@@ -898,11 +842,18 @@ function GoogleDriveImportModal({
   onImport,
   onOpenPicker,
 }) {
+  const dialog = useRef(null);
+  useEffect(() => {
+    if (!isOpen) return;
+    const element = dialog.current, opener = document.activeElement;
+    element.showModal();
+    return () => { element.close(); if (opener?.isConnected) opener.focus(); };
+  }, [isOpen]);
   if (!isOpen) return null;
 
   return (
-    <div className="move-document-backdrop" role="presentation" onClick={onClose}>
-      <section
+    <div className="move-document-backdrop" role="presentation">
+      <dialog ref={dialog} onCancel={(event) => { event.preventDefault(); onClose(); }}
         className="move-document-modal google-drive-import-modal"
         role="dialog"
         aria-modal="true"
@@ -920,6 +871,8 @@ function GoogleDriveImportModal({
         </header>
         <form className="google-drive-import-form" onSubmit={onImport}>
           {error && <p role="alert">{error}</p>}
+          {history}
+          {isBusy && <button type="button" onClick={onCancel}>Dejar de esperar</button>}
           <ImportAttemptNotice scope={operationScope} isBusy={isBusy} onRetry={onImport} />
           {!connection?.enabled && <p role="status">La integración Google Drive está deshabilitada.</p>}
           {connection?.grantStatus === "LEGACY" && <p role="status">La conexión anterior requiere revisión de cifrado o una nueva autorización.</p>}
@@ -968,6 +921,8 @@ function GoogleDriveImportModal({
               <label>
                 IDs de archivos de Google Drive
                 <textarea
+                  disabled={isBusy}
+                  maxLength={3300}
                   value={fileIds}
                   onChange={(event) => onFileIdsChange(event.target.value)}
                   placeholder="El selector completara este campo. Tambien puedes pegar fileId separados por coma o salto de linea."
@@ -985,7 +940,7 @@ function GoogleDriveImportModal({
             </>
           )}
         </form>
-      </section>
+      </dialog>
     </div>
   );
 }

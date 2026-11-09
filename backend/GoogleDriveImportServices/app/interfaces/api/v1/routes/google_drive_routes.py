@@ -4,7 +4,7 @@ from app.config.security import DriveUser, bearer_token, owner_user_id, require_
 from app.application.use_cases.manage_google_drive_imports import ManageGoogleDriveImports
 from app.interfaces.api.v1.dependencies import get_google_drive_use_case, require_enabled
 from app.interfaces.api.v1.schemas.google_drive_schema import (
-    AuthUrlResponse, AuthUrlRequest, DisconnectRequest,
+    AuthUrlResponse, AuthUrlRequest, DisconnectRequest, GoogleDriveImportPage, GoogleDriveImportFilePage,
     GoogleDriveConnectRequest,
     GoogleDriveConnectionResponse,
     GoogleDriveImportFileResponse,
@@ -69,13 +69,15 @@ def create_import(
     return GoogleDriveImportWithFilesResponse(**_import_payload(record), files=[_file_response(file) for file in files])
 
 
-@router.get("/google-drive/imports", response_model=list[GoogleDriveImportResponse])
+@router.get("/google-drive/imports", response_model=GoogleDriveImportPage)
 def list_imports(
     limit: int = Query(default=25, ge=1, le=100),
+    before: str | None = Query(default=None, min_length=1, max_length=1024),
     current_user: DriveUser = Depends(require_authenticated_user),
     use_case: ManageGoogleDriveImports = Depends(get_google_drive_use_case),
 ):
-    return [_import_response(record) for record in use_case.list_imports(owner_user_id(current_user), limit)]
+    rows, cursor = use_case.list_imports(owner_user_id(current_user), limit, before)
+    return {"items": [_import_response(record) for record in rows], "next_cursor": cursor}
 
 
 @router.get("/google-drive/imports/{import_id}", response_model=GoogleDriveImportResponse)
@@ -87,13 +89,16 @@ def get_import(
     return _import_response(use_case.get_import(owner_user_id(current_user), import_id))
 
 
-@router.get("/google-drive/imports/{import_id}/files", response_model=list[GoogleDriveImportFileResponse])
+@router.get("/google-drive/imports/{import_id}/files", response_model=GoogleDriveImportFilePage)
 def list_import_files(
     import_id: str,
+    limit: int = Query(default=25, ge=1, le=100),
+    after: str | None = Query(default=None, min_length=1, max_length=1024),
     current_user: DriveUser = Depends(require_authenticated_user),
     use_case: ManageGoogleDriveImports = Depends(get_google_drive_use_case),
 ):
-    return [_file_response(file) for file in use_case.list_import_files(owner_user_id(current_user), import_id)]
+    rows, cursor = use_case.page_import_files(owner_user_id(current_user), import_id, limit, after)
+    return {"items": [_file_response(file) for file in rows], "next_cursor": cursor}
 
 
 def _import_payload(record) -> dict:
@@ -106,7 +111,7 @@ def _import_payload(record) -> dict:
         "total_files": record.total_files,
         "processed_files": record.processed_files,
         "failed_files": record.failed_files,
-        "metadata": record.metadata_ or {},
+        "metadata": _safe_metadata(record.metadata_, file=False),
         "error_message": "Google Drive import completed with errors." if record.error_message else None,
         "created_at": record.created_at,
         "updated_at": record.updated_at,
@@ -121,15 +126,36 @@ def _file_response(record) -> GoogleDriveImportFileResponse:
     return GoogleDriveImportFileResponse(
         import_file_id=str(record.import_file_id),
         import_id=str(record.import_id),
-        google_file_id=record.google_file_id,
-        filename=record.filename,
-        mime_type=record.mime_type,
-        export_mime_type=record.export_mime_type,
+        google_file_id=record.google_file_id[:128],
+        filename=record.filename[:200],
+        mime_type=record.mime_type[:128],
+        export_mime_type=record.export_mime_type[:128] if record.export_mime_type else None,
         size_bytes=record.size_bytes,
         status=record.status,
         document_id=record.document_id,
-        metadata=record.metadata_ or {},
+        metadata=_safe_metadata(record.metadata_, file=True),
         error_message="Google Drive file import completed with errors." if record.error_message else None,
         created_at=record.created_at,
         updated_at=record.updated_at,
     )
+
+
+def _safe_metadata(value, *, file):
+    value = value if isinstance(value, dict) else {}
+    result = {}
+    if not file:
+        result["source"] = "google_drive"
+        folder = value.get("folder_id")
+        if isinstance(folder, str) and len(folder) <= 128:
+            result["folder_id"] = folder
+    else:
+        status = value.get("document_status")
+        if isinstance(status, str) and status in {"PENDING", "UPLOADED", "PROCESSING", "PROCESSED", "FAILED", "REVIEW_REQUIRED"}:
+            result["document_status"] = status
+        association = value.get("folder_association")
+        if isinstance(association, dict) and isinstance(association.get("status"), str) and association.get("status") in {"COMPLETED", "FAILED"}:
+            result["folder_association"] = {"status": association["status"]}
+            folder = association.get("folder_id")
+            if isinstance(folder, str) and len(folder) <= 128:
+                result["folder_association"]["folder_id"] = folder
+    return result

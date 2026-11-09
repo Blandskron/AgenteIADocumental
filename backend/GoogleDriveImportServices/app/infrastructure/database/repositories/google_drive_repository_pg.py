@@ -1,10 +1,11 @@
 from contextlib import contextmanager
 
-from sqlalchemy import desc, select, text
+from sqlalchemy import desc, select, text, tuple_
 from app.config.security import DriveUser, check_identity
 
 from app.infrastructure.database.connection import Database
 from app.shared.errors import NotFoundError
+from app.shared.history_cursor import encode_cursor, decode_cursor
 from app.infrastructure.database.models import (
     GoogleDriveConnectionModel,
     GoogleDriveImportFileModel,
@@ -63,17 +64,29 @@ class GoogleDriveRepository(CredentialRepository, ImportRepository):
                 ),
             )
 
-    def list_imports(self, owner_user_id: str, limit: int) -> list[GoogleDriveImportModel]:
+    def page_imports(self, owner_user_id, limit, before=None):
         self._require_owner(owner_user_id)
+        position = decode_cursor(before, "imports", owner_user_id)
         with self._session() as session:
-            return list(
-                session.scalars(
-                    select(GoogleDriveImportModel)
-                    .where(GoogleDriveImportModel.owner_user_id == owner_user_id)
-                    .order_by(desc(GoogleDriveImportModel.created_at))
-                    .limit(limit),
-                ),
-            )
+            query = select(GoogleDriveImportModel).where(GoogleDriveImportModel.owner_user_id == owner_user_id)
+            if position:
+                query = query.where(tuple_(GoogleDriveImportModel.created_at, GoogleDriveImportModel.import_id) < position)
+            rows = list(session.scalars(query.order_by(desc(GoogleDriveImportModel.created_at), desc(GoogleDriveImportModel.import_id)).limit(limit+1)))
+            visible = rows[:limit]
+            return visible, encode_cursor(visible[-1], "imports", owner_user_id) if len(rows)>limit else None
+
+    def page_import_files(self, import_id, limit, after=None):
+        position = decode_cursor(after, "files", self._user.user_id, import_id)
+        with self._session() as session:
+            parent = self._owned_import(session, import_id)
+            if parent.status == "PURGED":
+                return [], None
+            query = select(GoogleDriveImportFileModel).where(GoogleDriveImportFileModel.import_id == import_id)
+            if position:
+                query = query.where(tuple_(GoogleDriveImportFileModel.created_at, GoogleDriveImportFileModel.import_file_id) > position)
+            rows = list(session.scalars(query.order_by(GoogleDriveImportFileModel.created_at, GoogleDriveImportFileModel.import_file_id).limit(limit+1)))
+            visible = rows[:limit]
+            return visible, encode_cursor(visible[-1], "files", self._user.user_id, import_id) if len(rows)>limit else None
 
     def list_import_files(self, import_id: str) -> list[GoogleDriveImportFileModel]:
         with self._session() as session:

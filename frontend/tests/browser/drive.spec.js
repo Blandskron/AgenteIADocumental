@@ -94,3 +94,57 @@ for (const path of ["/applications/google-drive", "/documents"]) {
     expect(errors).toEqual([]);
   });
 }
+
+for (const path of ["/applications/google-drive", "/documents"]) {
+  test(`Drive history on ${path} pages, reviews partial files and restores keyboard focus`, async ({ page }) => {
+    const { errors } = await prepare(page, { attempt: false });
+    await page.route("**/test-api/**/google-drive/imports**", async (route) => {
+      const url = new URL(route.request().url());
+      const row = (id) => ({ import_id: id, status: "REVIEW_REQUIRED", created_at: "2026-01-01T00:00:00Z", total_files: 2, processed_files: 1 });
+      if (url.pathname.endsWith("/files")) return route.fulfill({ json: { items: [{ import_file_id: "file-one", import_id: "one", filename: "sintetico.txt", status: "COMPLETED", document_id: "saved-document",
+        metadata: { folder_association: { status: "FAILED" }, document_status: "REVIEW_REQUIRED" } }], next_cursor: null } });
+      if (url.pathname.endsWith("/one")) return route.fulfill({ json: row("one") });
+      return route.fulfill({ json: { items: [row(url.searchParams.has("before") ? "two" : "one")], next_cursor: url.searchParams.has("before") ? null : "next" } });
+    });
+    await page.goto(path);
+    if (path === "/documents") await page.getByRole("button", { name: "Google Drive", exact: true }).click();
+    const opener = page.getByRole("button", { name: "Historial de Drive", exact: true });
+    await opener.click();
+    const dialog = page.getByRole("dialog", { name: "Historial de Drive", exact: true });
+    await expect(dialog.getByText("1 importaciones cargadas", { exact: true })).toBeVisible();
+    await dialog.getByRole("button", { name: "Cargar más importaciones" }).click();
+    await expect(dialog.getByText("2 importaciones cargadas", { exact: true })).toBeVisible();
+    await expect(dialog.getByRole("button", { name: "Cargar más importaciones" })).not.toBeVisible();
+    await dialog.getByRole("button", { name: /REVIEW_REQUIRED/ }).first().click();
+    await expect(dialog.getByText(/Documento: saved-document/)).toBeVisible();
+    await expect(dialog.getByText(/documento se conservó/)).toBeVisible();
+    await expect(dialog.getByText(/Resultado incierto/)).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(dialog).not.toBeVisible();
+    await expect(opener).toBeFocused();
+    expect(errors).toEqual([]);
+  });
+  test(`Drive cancellation on ${path} retains the operation and ignores its late response`, async ({ page }) => {
+    const { errors } = await prepare(page, { attempt: false });
+    const bodies = []; let release;
+    const held = new Promise((resolve) => { release = resolve; });
+    await page.route("**/test-api/**/google-drive/imports", async (route) => {
+      if (route.request().method() !== "POST") return route.fulfill({ json: { items: [], next_cursor: null } });
+      bodies.push(route.request().postDataJSON());
+      if (bodies.length === 1) await held;
+      await route.fulfill({ json: { import_id: "saved", status: "COMPLETED", files: [] } }).catch(() => {});
+    });
+    await page.goto(path);
+    if (path === "/documents") await page.getByRole("button", { name: "Google Drive", exact: true }).click();
+    await page.getByRole("textbox", { name: /IDs de archivos de Google Drive/ }).fill("synthetic-file");
+    await page.locator("form").filter({ has: page.getByRole("textbox", { name: /IDs de archivos de Google Drive/ }) }).locator('button[type="submit"]').click();
+    await expect.poll(() => bodies.length).toBe(1);
+    await page.getByRole("button", { name: "Dejar de esperar", exact: true }).click();
+    release();
+    await expect(page.getByRole("button", { name: "Consultar importación pendiente" })).toBeEnabled();
+    await page.getByRole("button", { name: "Consultar importación pendiente" }).click();
+    await expect.poll(() => bodies.length).toBe(2);
+    expect(bodies[1]).toEqual(bodies[0]);
+    expect(errors).toEqual([]);
+  });
+}

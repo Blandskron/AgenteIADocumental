@@ -37,7 +37,7 @@ La ingesta admite archivos de hasta 20 MiB. Drive cuenta los bytes durante la de
 - `backend/ConversationServices`: historial del chat documental. Usa **Cargar mensajes anteriores** para consultar páginas más antiguas.
 - `backend/ProfileServices`: perfil y avatar.
 - `backend/DocumentExportServices`: exportación PDF transaccional, historial paginado y rol mínimo. [Operación](backend/DocumentExportServices/README.md#ejecución-actual), [actualización](backend/DocumentExportServices/README.md#actualizar-una-instalación-existente) y [alcance del cierre](backend/DocumentExportServices/README.md#revisión-final-y-alcance).
-- `backend/GoogleDriveImportServices`: integración opcional con Google Drive. [Diagnóstico y límites actuales](backend/GoogleDriveImportServices/README.md#diagnóstico-drive-001); modernización pendiente de OAuth, identidad, transporte y recuperación.
+- `backend/GoogleDriveImportServices`: integración opcional con Google Drive. [Contrato y operación](backend/GoogleDriveImportServices/README.md); OAuth PKCE, importación recuperable e historial propio paginado.
 - `frontend`: interfaz React simple para chat y documentos.
 
 ## Arranque local con Docker

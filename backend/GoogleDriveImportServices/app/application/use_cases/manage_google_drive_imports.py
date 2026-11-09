@@ -202,8 +202,12 @@ class ManageGoogleDriveImports(CredentialLifecycle):
         self._repository.guard_import(lease)
         self._repository.ensure_connection_current(connection.version)
 
-    def list_imports(self, owner_user_id: str, limit: int) -> list[Any]:
-        return self._repository.list_imports(owner_user_id, limit)
+    def list_imports(self, owner_user_id, limit, before=None):
+        return self._repository.page_imports(owner_user_id, limit, before)
+
+    def page_import_files(self, owner_user_id, import_id, limit, after=None):
+        self.get_import(owner_user_id, import_id)
+        return self._repository.page_import_files(import_id, limit, after)
 
     def get_import(self, owner_user_id: str, import_id: str) -> Any:
         record = self._repository.get_import(owner_user_id, import_id)

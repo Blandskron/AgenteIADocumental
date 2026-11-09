@@ -418,6 +418,14 @@ services:
       context: ../../backend/GoogleDriveImportServices
       dockerfile: Dockerfile
     container_name: google-drive-import-service
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,nodev,size=67108864,uid=10010,gid=10010,mode=0700
+    mem_limit: 512m
+    cpus: "1.0"
+    pids_limit: 128
     environment:
       APP_NAME: google-drive-import-service
       APP_ENV: ${APP_ENV:-local}
@@ -473,6 +481,8 @@ services:
         condition: service_completed_successfully
 
   drive-audit:
+    volumes:
+      - ../../scripts/drive:/drive-checks:ro
     profiles: ["test"]
     build:
       context: ../../backend/GoogleDriveImportServices

@@ -1,0 +1,1013 @@
+{
+  "card": "DRIVE-007/008",
+  "date_utc": "2026-11-09T18:05:43.759Z",
+  "scanner": "Trivy 0.76.2",
+  "scanner_image": "aquasec/trivy@sha256:8f6bb947dbc528902e11f2f5be52f7b519f6a39d5d148f41166f2040499768fb",
+  "severity_filter": [
+    "HIGH",
+    "CRITICAL"
+  ],
+  "runtime_image_id": "sha256:a10085d9d8540b818775382906aa7427b154769d2fd00a7d576106018116f708",
+  "archive_sha256": "a94d57b092f25b196050949006bd9e5c94a475ba14cef3894f2bf127a16e165f",
+  "saved_config_id": "sha256:887dc979b1f12f8b12916783a9b4d61666d3e8fa8baa6356adf7748cef884ffa",
+  "scanned_config_id": "sha256:887dc979b1f12f8b12916783a9b4d61666d3e8fa8baa6356adf7748cef884ffa",
+  "base": "FROM python:3.12-slim@sha256:5e2bdb1b0d542d5039cffb8181c65930093949194a65c365dfb1b0fe13a4fa5b AS base",
+  "os": {
+    "Family": "debian",
+    "Name": "13.7"
+  },
+  "runtime": {
+    "uid": 10010,
+    "python": "3.12.16",
+    "packages": {
+      "PyJWT": "2.15.1",
+      "PyYAML": "6.0.3",
+      "SQLAlchemy": "2.0.40",
+      "annotated-doc": "0.0.5",
+      "annotated-types": "0.8.0",
+      "anyio": "4.16.0",
+      "certifi": "2026.10.23",
+      "cffi": "2.1.1",
+      "click": "8.5.1",
+      "cryptography": "50.0.2",
+      "fastapi": "0.162.0",
+      "greenlet": "3.5.6",
+      "h11": "0.16.0",
+      "httpcore": "1.0.9",
+      "httptools": "0.9.0",
+      "httpx": "0.28.1",
+      "idna": "3.20",
+      "opentelemetry-api": "1.45.2",
+      "psycopg": "3.2.9",
+      "psycopg-binary": "3.2.9",
+      "pycparser": "3.12",
+      "pydantic": "2.11.4",
+      "pydantic-settings": "2.9.1",
+      "pydantic_core": "2.33.2",
+      "python-dotenv": "1.2.4",
+      "starlette": "1.10.0",
+      "typing-inspection": "0.4.5",
+      "typing_extensions": "4.16.0",
+      "uvicorn": "0.34.2",
+      "uvloop": "0.23.0",
+      "watchfiles": "1.3.0",
+      "websockets": "17.4"
+    },
+    "requirements": {
+      "h11": [],
+      "httpx": [
+        "anyio",
+        "certifi",
+        "httpcore==1.*",
+        "idna",
+        "brotli; (platform_python_implementation == 'CPython') and extra == 'brotli'",
+        "brotlicffi; (platform_python_implementation != 'CPython') and extra == 'brotli'",
+        "click==8.*; extra == 'cli'",
+        "pygments==2.*; extra == 'cli'",
+        "rich<14,>=10; extra == 'cli'",
+        "h2<5,>=3; extra == 'http2'",
+        "socksio==1.*; extra == 'socks'",
+        "zstandard>=0.18.0; extra == 'zstd'"
+      ],
+      "cffi": [
+        "pycparser; implementation_name != \"PyPy\""
+      ],
+      "starlette": [
+        "anyio<5,>=4.0.0",
+        "typing-extensions>=4.10.0; python_version < '3.13'",
+        "httpx2>=2.0.0; extra == 'full'",
+        "httpx<0.29.0,>=0.27.0; extra == 'full'",
+        "itsdangerous; extra == 'full'",
+        "jinja2; extra == 'full'",
+        "opentelemetry-api; extra == 'full'",
+        "python-multipart>=0.0.18; extra == 'full'",
+        "pyyaml; extra == 'full'"
+      ],
+      "click": [],
+      "psycopg": [
+        "backports.zoneinfo>=0.2.0; python_version < \"3.9\"",
+        "typing-extensions>=4.6; python_version < \"3.13\"",
+        "tzdata; sys_platform == \"win32\"",
+        "psycopg-c==3.2.9; implementation_name != \"pypy\" and extra == \"c\"",
+        "psycopg-binary==3.2.9; implementation_name != \"pypy\" and extra == \"binary\"",
+        "psycopg-pool; extra == \"pool\"",
+        "anyio>=4.0; extra == \"test\"",
+        "mypy>=1.14; extra == \"test\"",
+        "pproxy>=2.7; extra == \"test\"",
+        "pytest>=6.2.5; extra == \"test\"",
+        "pytest-cov>=3.0; extra == \"test\"",
+        "pytest-randomly>=3.5; extra == \"test\"",
+        "ast-comments>=1.1.2; extra == \"dev\"",
+        "black>=24.1.0; extra == \"dev\"",
+        "codespell>=2.2; extra == \"dev\"",
+        "dnspython>=2.1; extra == \"dev\"",
+        "flake8>=4.0; extra == \"dev\"",
+        "isort[colors]>=6.0; extra == \"dev\"",
+        "isort-psycopg; extra == \"dev\"",
+        "mypy>=1.14; extra == \"dev\"",
+        "pre-commit>=4.0.1; extra == \"dev\"",
+        "types-setuptools>=57.4; extra == \"dev\"",
+        "types-shapely>=2.0; extra == \"dev\"",
+        "wheel>=0.37; extra == \"dev\"",
+        "Sphinx>=5.0; extra == \"docs\"",
+        "furo==2022.6.21; extra == \"docs\"",
+        "sphinx-autobuild>=2021.3.14; extra == \"docs\"",
+        "sphinx-autodoc-typehints>=1.12; extra == \"docs\""
+      ],
+      "pydantic_core": [
+        "typing-extensions>=4.6.0,!=4.7.0"
+      ],
+      "python-dotenv": [
+        "click>=5.0; extra == \"cli\""
+      ],
+      "httptools": [],
+      "fastapi": [
+        "starlette>=0.46.0",
+        "pydantic>=2.9.0",
+        "typing-extensions>=4.8.0",
+        "typing-inspection>=0.4.2",
+        "annotated-doc>=0.0.2",
+        "opentelemetry-api>=1.44.0",
+        "opentelemetry-sdk>=1.44.0; extra == \"opentelemetry\"",
+        "opentelemetry-exporter-otlp-proto-http>=1.44.0; extra == \"opentelemetry\"",
+        "opentelemetry-sdk>=1.44.0; extra == \"standard\"",
+        "opentelemetry-exporter-otlp-proto-http>=1.44.0; extra == \"standard\"",
+        "fastapi-cli[standard]>=0.0.32; extra == \"standard\"",
+        "fastar>=0.9.0; extra == \"standard\"",
+        "httpx<1.0.0,>=0.23.0; extra == \"standard\"",
+        "httpx2>=2.0.0; extra == \"standard\"",
+        "jinja2>=3.1.5; extra == \"standard\"",
+        "python-multipart>=0.0.18; extra == \"standard\"",
+        "email-validator>=2.0.0; extra == \"standard\"",
+        "uvicorn[standard]>=0.12.0; extra == \"standard\"",
+        "pydantic-settings>=2.0.0; extra == \"standard\"",
+        "pydantic-extra-types>=2.0.0; extra == \"standard\"",
+        "opentelemetry-sdk>=1.44.0; extra == \"standard-no-fastapi-cloud-cli\"",
+        "opentelemetry-exporter-otlp-proto-http>=1.44.0; extra == \"standard-no-fastapi-cloud-cli\"",
+        "fastapi-cli[standard-no-fastapi-cloud-cli]>=0.0.32; extra == \"standard-no-fastapi-cloud-cli\"",
+        "httpx<1.0.0,>=0.23.0; extra == \"standard-no-fastapi-cloud-cli\"",
+        "httpx2>=2.0.0; extra == \"standard-no-fastapi-cloud-cli\"",
+        "jinja2>=3.1.5; extra == \"standard-no-fastapi-cloud-cli\"",
+        "python-multipart>=0.0.18; extra == \"standard-no-fastapi-cloud-cli\"",
+        "email-validator>=2.0.0; extra == \"standard-no-fastapi-cloud-cli\"",
+        "uvicorn[standard]>=0.12.0; extra == \"standard-no-fastapi-cloud-cli\"",
+        "pydantic-settings>=2.0.0; extra == \"standard-no-fastapi-cloud-cli\"",
+        "pydantic-extra-types>=2.0.0; extra == \"standard-no-fastapi-cloud-cli\"",
+        "opentelemetry-sdk>=1.44.0; extra == \"all\"",
+        "opentelemetry-exporter-otlp-proto-http>=1.44.0; extra == \"all\"",
+        "fastapi-cli[standard]>=0.0.32; extra == \"all\"",
+        "httpx<1.0.0,>=0.23.0; extra == \"all\"",
+        "httpx2>=2.0.0; extra == \"all\"",
+        "jinja2>=3.1.5; extra == \"all\"",
+        "python-multipart>=0.0.18; extra == \"all\"",
+        "itsdangerous>=1.1.0; extra == \"all\"",
+        "pyyaml>=5.3.1; extra == \"all\"",
+        "email-validator>=2.0.0; extra == \"all\"",
+        "uvicorn[standard]>=0.12.0; extra == \"all\"",
+        "pydantic-settings>=2.0.0; extra == \"all\"",
+        "pydantic-extra-types>=2.0.0; extra == \"all\""
+      ],
+      "idna": [
+        "ruff >= 0.16.0 ; extra == \"all\"",
+        "mypy >= 1.11.2 ; extra == \"all\"",
+        "ty >= 0.0.37 ; extra == \"all\"",
+        "pytest >= 8.3.2 ; extra == \"all\"",
+        "hypothesis >= 6.141.1 ; extra == \"all\"",
+        "coverage >= 7.10.0 ; extra == \"all\""
+      ],
+      "PyJWT": [
+        "typing_extensions>=4.0; python_version < \"3.11\"",
+        "cryptography>=3.4.0; extra == \"crypto\""
+      ],
+      "pydantic": [
+        "annotated-types>=0.6.0",
+        "pydantic-core==2.33.2",
+        "typing-extensions>=4.12.2",
+        "typing-inspection>=0.4.0",
+        "email-validator>=2.0.0; extra == 'email'",
+        "tzdata; (python_version >= '3.9' and platform_system == 'Windows') and extra == 'timezone'"
+      ],
+      "typing-inspection": [
+        "typing-extensions>=4.15.0"
+      ],
+      "httpcore": [
+        "certifi",
+        "h11>=0.16",
+        "anyio<5.0,>=4.0; extra == 'asyncio'",
+        "h2<5,>=3; extra == 'http2'",
+        "socksio==1.*; extra == 'socks'",
+        "trio<1.0,>=0.22.0; extra == 'trio'"
+      ],
+      "watchfiles": [
+        "anyio>=3.0.0"
+      ],
+      "annotated-doc": [],
+      "psycopg-binary": [],
+      "uvicorn": [
+        "click>=7.0",
+        "h11>=0.8",
+        "typing-extensions>=4.0; python_version < '3.11'",
+        "colorama>=0.4; (sys_platform == 'win32') and extra == 'standard'",
+        "httptools>=0.6.3; extra == 'standard'",
+        "python-dotenv>=0.13; extra == 'standard'",
+        "pyyaml>=5.1; extra == 'standard'",
+        "uvloop!=0.15.0,!=0.15.1,>=0.14.0; (sys_platform != 'win32' and (sys_platform != 'cygwin' and platform_python_implementation != 'PyPy')) and extra == 'standard'",
+        "watchfiles>=0.13; extra == 'standard'",
+        "websockets>=10.4; extra == 'standard'"
+      ],
+      "uvloop": [
+        "aiohttp>=3.10.5; extra == \"test\"",
+        "flake8~=6.1; extra == \"test\"",
+        "psutil; extra == \"test\"",
+        "pycodestyle~=2.11.0; extra == \"test\"",
+        "pyOpenSSL~=25.3.0; python_version < \"3.9\" and extra == \"test\"",
+        "pyOpenSSL~=26.4.0; python_version >= \"3.9\" and extra == \"test\"",
+        "mypy>=0.800; extra == \"test\"",
+        "packaging>=20; extra == \"dev\"",
+        "setuptools>=60; extra == \"dev\"",
+        "Cython~=3.1; extra == \"dev\"",
+        "Sphinx~=4.1.2; extra == \"docs\"",
+        "sphinxcontrib-asyncio~=0.3.0; extra == \"docs\"",
+        "sphinx_rtd_theme~=0.5.2; extra == \"docs\""
+      ],
+      "opentelemetry-api": [
+        "typing-extensions>=4.5.0"
+      ],
+      "SQLAlchemy": [
+        "importlib-metadata; python_version < \"3.8\"",
+        "greenlet>=1; python_version < \"3.14\" and (platform_machine == \"aarch64\" or (platform_machine == \"ppc64le\" or (platform_machine == \"x86_64\" or (platform_machine == \"amd64\" or (platform_machine == \"AMD64\" or (platform_machine == \"win32\" or platform_machine == \"WIN32\"))))))",
+        "typing-extensions>=4.6.0",
+        "greenlet>=1; extra == \"asyncio\"",
+        "mypy>=0.910; extra == \"mypy\"",
+        "pyodbc; extra == \"mssql\"",
+        "pymssql; extra == \"mssql-pymssql\"",
+        "pyodbc; extra == \"mssql-pyodbc\"",
+        "mysqlclient>=1.4.0; extra == \"mysql\"",
+        "mysql-connector-python; extra == \"mysql-connector\"",
+        "mariadb!=1.1.10,!=1.1.2,!=1.1.5,>=1.0.1; extra == \"mariadb-connector\"",
+        "cx_oracle>=8; extra == \"oracle\"",
+        "oracledb>=1.0.1; extra == \"oracle-oracledb\"",
+        "psycopg2>=2.7; extra == \"postgresql\"",
+        "pg8000>=1.29.1; extra == \"postgresql-pg8000\"",
+        "greenlet>=1; extra == \"postgresql-asyncpg\"",
+        "asyncpg; extra == \"postgresql-asyncpg\"",
+        "psycopg2-binary; extra == \"postgresql-psycopg2binary\"",
+        "psycopg2cffi; extra == \"postgresql-psycopg2cffi\"",
+        "psycopg>=3.0.7; extra == \"postgresql-psycopg\"",
+        "psycopg[binary]>=3.0.7; extra == \"postgresql-psycopgbinary\"",
+        "pymysql; extra == \"pymysql\"",
+        "greenlet>=1; extra == \"aiomysql\"",
+        "aiomysql>=0.2.0; extra == \"aiomysql\"",
+        "greenlet>=1; extra == \"aioodbc\"",
+        "aioodbc; extra == \"aioodbc\"",
+        "greenlet>=1; extra == \"asyncmy\"",
+        "asyncmy!=0.2.4,!=0.2.6,>=0.2.3; extra == \"asyncmy\"",
+        "greenlet>=1; extra == \"aiosqlite\"",
+        "aiosqlite; extra == \"aiosqlite\"",
+        "typing_extensions!=3.10.0.1; extra == \"aiosqlite\"",
+        "sqlcipher3_binary; extra == \"sqlcipher\""
+      ],
+      "greenlet": [
+        "Sphinx; extra == \"docs\"",
+        "furo; extra == \"docs\"",
+        "objgraph; extra == \"test\"",
+        "psutil; extra == \"test\"",
+        "setuptools; extra == \"test\""
+      ],
+      "typing_extensions": [],
+      "PyYAML": [],
+      "cryptography": [
+        "cffi>=2.0.0 ; platform_python_implementation != 'PyPy'",
+        "typing-extensions>=4.13.2 ; python_full_version < '3.11'",
+        "bcrypt>=3.1.5 ; extra == 'ssh'"
+      ],
+      "annotated-types": [],
+      "pycparser": [],
+      "websockets": [],
+      "anyio": [
+        "exceptiongroup>=1.0.2; python_version < \"3.11\"",
+        "idna>=2.8",
+        "typing_extensions>=4.16.0; python_version < \"3.15\"",
+        "trio>=0.32.0; extra == \"trio\""
+      ],
+      "certifi": [],
+      "pydantic-settings": [
+        "pydantic>=2.7.0",
+        "python-dotenv>=0.21.0",
+        "typing-inspection>=0.4.0",
+        "boto3-stubs[secretsmanager]; extra == 'aws-secrets-manager'",
+        "boto3>=1.35.0; extra == 'aws-secrets-manager'",
+        "azure-identity>=1.16.0; extra == 'azure-key-vault'",
+        "azure-keyvault-secrets>=4.8.0; extra == 'azure-key-vault'",
+        "google-cloud-secret-manager>=2.23.1; extra == 'gcp-secret-manager'",
+        "tomli>=2.0.1; extra == 'toml'",
+        "pyyaml>=6.0.1; extra == 'yaml'"
+      ]
+    },
+    "pip_vendor_setuptools": [],
+    "pip_vendor_pkg_resources_present": false,
+    "os_packages": [
+      "adduser\t3.152",
+      "apt\t3.0.4",
+      "base-files\t13.8+deb13u7",
+      "base-passwd\t3.6.7",
+      "bash\t5.2.37-2+b10",
+      "bsdutils\t1:2.41.5-0+deb13u1",
+      "ca-certificates\t20250419+deb13u1",
+      "coreutils\t9.7-3",
+      "dash\t0.5.12-12",
+      "debconf\t1.5.91",
+      "debian-archive-keyring\t2025.1",
+      "debianutils\t5.23.2",
+      "diffutils\t1:3.10-4",
+      "dpkg\t1.22.22",
+      "findutils\t4.10.0-3",
+      "gcc-14-base:amd64\t14.2.0-19",
+      "grep\t3.11-4",
+      "gzip\t1.13-1+deb13u1",
+      "hostname\t3.25",
+      "init-system-helpers\t1.69~deb13u1",
+      "libacl1:amd64\t2.3.2-2+b1",
+      "libapt-pkg7.0:amd64\t3.0.4",
+      "libattr1:amd64\t1:2.5.2-3",
+      "libaudit-common\t1:4.0.2-2+deb13u1",
+      "libaudit1:amd64\t1:4.0.2-2+deb13u1",
+      "libblkid1:amd64\t2.41.5-0+deb13u1",
+      "libbsd0:amd64\t0.12.2-2",
+      "libbz2-1.0:amd64\t1.0.8-6",
+      "libc-bin\t2.41-12+deb13u4",
+      "libc6:amd64\t2.41-12+deb13u4",
+      "libcap-ng0:amd64\t0.8.5-4+b1",
+      "libcap2:amd64\t1:2.75-10+deb13u1+b3",
+      "libcrypt1:amd64\t1:4.4.38-1",
+      "libdb5.3t64:amd64\t5.3.28+dfsg2-9",
+      "libdebconfclient0:amd64\t0.280",
+      "libffi8:amd64\t3.4.8-2",
+      "libgcc-s1:amd64\t14.2.0-19",
+      "libgdbm6t64:amd64\t1.24-2",
+      "libgmp10:amd64\t2:6.3.0+dfsg-3",
+      "libhogweed6t64:amd64\t3.10.1-1",
+      "liblastlog2-2:amd64\t2.41.5-0+deb13u1",
+      "liblz4-1:amd64\t1.10.0-4",
+      "liblzma5:amd64\t5.8.1-1+deb13u2",
+      "libmd0:amd64\t1.1.0-2+b1",
+      "libmount1:amd64\t2.41.5-0+deb13u1",
+      "libncursesw6:amd64\t6.5+20250216-2",
+      "libnettle8t64:amd64\t3.10.1-1",
+      "libpam-modules:amd64\t1.7.0-5",
+      "libpam-modules-bin\t1.7.0-5",
+      "libpam-runtime\t1.7.0-5",
+      "libpam0g:amd64\t1.7.0-5",
+      "libpcre2-8-0:amd64\t10.46-1~deb13u3",
+      "libreadline8t64:amd64\t8.2-6",
+      "libseccomp2:amd64\t2.6.0-2",
+      "libselinux1:amd64\t3.8.1-1",
+      "libsemanage-common\t3.8.1-1",
+      "libsemanage2:amd64\t3.8.1-1",
+      "libsepol2:amd64\t3.8.1-1",
+      "libsmartcols1:amd64\t2.41.5-0+deb13u1",
+      "libsqlite3-0:amd64\t3.46.1-7+deb13u2",
+      "libssl3t64:amd64\t3.5.7-1~deb13u3",
+      "libstdc++6:amd64\t14.2.0-19",
+      "libsystemd0:amd64\t257.13-1~deb13u1",
+      "libtinfo6:amd64\t6.5+20250216-2",
+      "libudev1:amd64\t257.13-1~deb13u1",
+      "libuuid1:amd64\t2.41.5-0+deb13u1",
+      "libxxhash0:amd64\t0.8.3-2",
+      "libzstd1:amd64\t1.5.7+dfsg-1",
+      "login\t1:4.16.0-2+really2.41.5-0+deb13u1",
+      "login.defs\t1:4.17.4-2",
+      "mawk\t1.3.4.20250131-1",
+      "mount\t2.41.5-0+deb13u1",
+      "ncurses-base\t6.5+20250216-2",
+      "ncurses-bin\t6.5+20250216-2",
+      "netbase\t6.5",
+      "openssl\t3.5.7-1~deb13u3",
+      "openssl-provider-legacy\t3.5.7-1~deb13u3",
+      "passwd\t1:4.17.4-2",
+      "perl-base\t5.40.1-6+deb13u1",
+      "readline-common\t8.2-6",
+      "sed\t4.9-2+deb13u1",
+      "sqv\t1.3.0-3+b2",
+      "sysvinit-utils\t3.14-4",
+      "tar\t1.35+dfsg-3.1",
+      "tzdata\t2026f-0+deb13u1",
+      "util-linux\t2.41.5-0+deb13u1",
+      "zlib1g:amd64\t1:1.3.dfsg+really1.3.1-1+deb13u1"
+    ]
+  },
+  "source_hash_normalization": "UTF-8 LF for runtime source text",
+  "build_inputs": [
+    {
+      "path": "backend/GoogleDriveImportServices/Dockerfile",
+      "sha256": "8a861f9aa2a61a95f283aa1e3fd9cc6b3ca1dd9b2f05b505905d197abd8b7f7e"
+    },
+    {
+      "path": "backend/GoogleDriveImportServices/app/__init__.py",
+      "sha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b"
+    },
+    {
+      "path": "backend/GoogleDriveImportServices/app/application/__init__.py",
+      "sha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b"
+    },
+    {
+      "path": "backend/GoogleDriveImportServices/app/application/use_cases/__init__.py",
+      "sha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b"
+    },
+    {
+      "path": "backend/GoogleDriveImportServices/app/application/use_cases/credential_lifecycle.py",
+      "sha256": "c1436aea42abe25ed025d23b1c4af235c0b95b5d4659e94f4d8a7d3fc9ca9258"
+    },
+    {
+      "path": "backend/GoogleDriveImportServices/app/application/use_cases/manage_google_drive_imports.py",
+      "sha256": "44635e16cfcf0dfd306864b262986b1b1f7998594fc10b20e0c6d5ab512835be"
+    },
+    {
+      "path": "backend/GoogleDriveImportServices/app/config/__init__.py",
+      "sha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b"
+    },
+    {
+      "path": "backend/GoogleDriveImportServices/app/config/database.py",
+      "sha256": "18fae1c8f8b58a84494e86c2326dcb559cabcdb1335d296766b85cec05d7e1e3"
+    },
+    {
+      "path": "backend/GoogleDriveImportServices/app/config/logging.py",
+      "sha256": "0ef05936e0f58ba1570a01a219e38e8da455d4a72de4e9accfcfec45168b1a9f"
+    },
+    {
+      "path": "backend/GoogleDriveImportServices/app/config/readiness.py",
+      "sha256": "2ab2a15e2bff98bf3b214c09131260cc0d1451a4db18807cff5a824ecee2a2e0"
+    },
+    {
+      "path": "backend/GoogleDriveImportServices/app/config/security.py",
+      "sha256": "d6f773b6398545394ca3591eb8f749b4803f04a17322f90c94f7f09beab93c37"
+    },
+    {
+      "path": "backend/GoogleDriveImportServices/app/config/settings.py",
+      "sha256": "f4e00f14fcf135eaeae85ce996aa966495a7587942021a92a49cf53a44b24bf5"
+    },
+    {
+      "path": "backend/GoogleDriveImportServices/app/domain/__init__.py",
+      "sha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b"
+    },
+    {
+      "path": "backend/GoogleDriveImportServices/app/domain/entities.py",
+      "sha256": "d116d6dbaffa247ba446e01fae47d427f08f79ed451adf1ae927602c270fd028"
+    },
+    {
+      "path": "backend/GoogleDriveImportServices/app/infrastructure/__init__.py",
+      "sha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b"
+    },
+    {
+      "path": "backend/GoogleDriveImportServices/app/infrastructure/database/__init__.py",
+      "sha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b"
+    },
+    {
+      "path": "backend/GoogleDriveImportServices/app/infrastructure/database/connection.py",
+      "sha256": "67a82906aece8b18b587d0e6b7ebb8872fa3cd5ef41157622de737f96603992c"
+    },
+    {
+      "path": "backend/GoogleDriveImportServices/app/infrastructure/database/models.py",
+      "sha256": "101bef47099fc9b48e4297922fd04cc36365f1115b172e08e0c852f15c7cd2f4"
+    },
+    {
+      "path": "backend/GoogleDriveImportServices/app/infrastructure/database/repositories/__init__.py",
+      "sha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b"
+    },
+    {
+      "path": "backend/GoogleDriveImportServices/app/infrastructure/database/repositories/credential_repository.py",
+      "sha256": "55aed3c61f76fe56bdfabf97b89bc88c9e54389b65f24edb3e50434314710a3d"
+    },
+    {
+      "path": "backend/GoogleDriveImportServices/app/infrastructure/database/repositories/google_drive_repository_pg.py",
+      "sha256": "c9242c79e0c16f7bedea2e81fc72d64cdce801418b5496041e4c4981f7ec6626"
+    },
+    {
+      "path": "backend/GoogleDriveImportServices/app/infrastructure/database/repositories/import_repository.py",
+      "sha256": "13d9a8c52cd6e094156781b23efd4418692149b42e953214103d263ea1bac784"
+    },
+    {
+      "path": "backend/GoogleDriveImportServices/app/infrastructure/documents/__init__.py",
+      "sha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b"
+    },
+    {
+      "path": "backend/GoogleDriveImportServices/app/infrastructure/documents/document_upload_client.py",
+      "sha256": "569e1ee255ad020b87691f5400b40244d8ff3776495e124ccc24417cc710a00c"
+    },
+    {
+      "path": "backend/GoogleDriveImportServices/app/infrastructure/google/__init__.py",
+      "sha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b"
+    },
+    {
+      "path": "backend/GoogleDriveImportServices/app/infrastructure/google/bounded_transport.py",
+      "sha256": "b734710d64ce4cc581e103f35312c55293025e677812141810649b2c5a078a40"
+    },
+    {
+      "path": "backend/GoogleDriveImportServices/app/infrastructure/google/drive_client.py",
+      "sha256": "1174886e9c126920ffc3a66182b211fa549f3c09ae831841ca5baa59d9a6ed18"
+    },
+    {
+      "path": "backend/GoogleDriveImportServices/app/infrastructure/google/token_cipher.py",
+      "sha256": "6aa33e29a2c531b75834f63fc05200f48369008f743d7fe2bc496886b241611d"
+    },
+    {
+      "path": "backend/GoogleDriveImportServices/app/interfaces/__init__.py",
+      "sha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b"
+    },
+    {
+      "path": "backend/GoogleDriveImportServices/app/interfaces/api/__init__.py",
+      "sha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b"
+    },
+    {
+      "path": "backend/GoogleDriveImportServices/app/interfaces/api/credential_middleware.py",
+      "sha256": "83f4c619b80e1a64a8d850b78b2d36f71cd62f1a44ef332d8f947324306e9515"
+    },
+    {
+      "path": "backend/GoogleDriveImportServices/app/interfaces/api/router.py",
+      "sha256": "3c92085b25980c940fe1436948118ec7dbefa8d9c388bfd8f303ff24d9af2346"
+    },
+    {
+      "path": "backend/GoogleDriveImportServices/app/interfaces/api/v1/__init__.py",
+      "sha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b"
+    },
+    {
+      "path": "backend/GoogleDriveImportServices/app/interfaces/api/v1/dependencies.py",
+      "sha256": "c06d9e796b00dfda48585c0a0c13b452c86b0f5eee8e66e50ac4a232b5303640"
+    },
+    {
+      "path": "backend/GoogleDriveImportServices/app/interfaces/api/v1/routes/__init__.py",
+      "sha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b"
+    },
+    {
+      "path": "backend/GoogleDriveImportServices/app/interfaces/api/v1/routes/google_drive_routes.py",
+      "sha256": "27e7bccd6075b8655133a01cdc32f5c1726755c8a4ca47e1da7af6c7e0c77894"
+    },
+    {
+      "path": "backend/GoogleDriveImportServices/app/interfaces/api/v1/routes/health_routes.py",
+      "sha256": "191bce8ccb1af76f9fb9f8fef424cf42b59e1f7472a92ee58a7f205054aa67b6"
+    },
+    {
+      "path": "backend/GoogleDriveImportServices/app/interfaces/api/v1/schemas/__init__.py",
+      "sha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b"
+    },
+    {
+      "path": "backend/GoogleDriveImportServices/app/interfaces/api/v1/schemas/google_drive_schema.py",
+      "sha256": "82c5c093f2ae01e0632af18335228abddab6c3130b7186c97a337ed0ebe8c597"
+    },
+    {
+      "path": "backend/GoogleDriveImportServices/app/main.py",
+      "sha256": "a7801a45dcdfd02f4fce0113e2c9ddb5f0919094cde2b738af9b5c2f558a0bf2"
+    },
+    {
+      "path": "backend/GoogleDriveImportServices/app/shared/__init__.py",
+      "sha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b"
+    },
+    {
+      "path": "backend/GoogleDriveImportServices/app/shared/errors.py",
+      "sha256": "923941c7ff8549f42ccd09f5e42aac53d9cd560a2230f6cbe60b0df2c54fb89e"
+    },
+    {
+      "path": "backend/GoogleDriveImportServices/app/shared/history_cursor.py",
+      "sha256": "a3921f566ba662e11730c034acc757de52c2d6380fea4c8a753795f65c44c379"
+    },
+    {
+      "path": "backend/GoogleDriveImportServices/app/shared/import_limits.py",
+      "sha256": "1b1e8b5d70fcd5ec7b67d2d89004862d8ab54f05825532d4eabbf8dd5e81dc26"
+    },
+    {
+      "path": "backend/GoogleDriveImportServices/requirements.txt",
+      "sha256": "95c393840fd25acbf99aca634ff3e496b5d3474e713ebe80f9db3cbf4e5e4245"
+    }
+  ],
+  "build_inputs_sha256": "feddaced720059bea8eb94aaa14b4cd903712eee5c95b9c87f566c7129299885",
+  "findings": [
+    {
+      "id": "CVE-2026-76642",
+      "package": "bsdutils",
+      "installed": "1:2.41.5-0+deb13u1",
+      "fixed": null,
+      "severity": "HIGH",
+      "target": "/audit/runtime-image.tar (debian 13.7)",
+      "disposition": "DRIVE-F01: OS without fix indicated; rebuild/rescan before public deployment (PLAT-002)."
+    },
+    {
+      "id": "CVE-2026-78408",
+      "package": "bsdutils",
+      "installed": "1:2.41.5-0+deb13u1",
+      "fixed": null,
+      "severity": "HIGH",
+      "target": "/audit/runtime-image.tar (debian 13.7)",
+      "disposition": "DRIVE-F01: OS without fix indicated; rebuild/rescan before public deployment (PLAT-002)."
+    },
+    {
+      "id": "CVE-2026-78409",
+      "package": "bsdutils",
+      "installed": "1:2.41.5-0+deb13u1",
+      "fixed": null,
+      "severity": "HIGH",
+      "target": "/audit/runtime-image.tar (debian 13.7)",
+      "disposition": "DRIVE-F01: OS without fix indicated; rebuild/rescan before public deployment (PLAT-002)."
+    },
+    {
+      "id": "CVE-2026-78410",
+      "package": "bsdutils",
+      "installed": "1:2.41.5-0+deb13u1",
+      "fixed": null,
+      "severity": "HIGH",
+      "target": "/audit/runtime-image.tar (debian 13.7)",
+      "disposition": "DRIVE-F01: OS without fix indicated; rebuild/rescan before public deployment (PLAT-002)."
+    },
+    {
+      "id": "CVE-2026-54369",
+      "package": "libacl1",
+      "installed": "2.3.2-2+b1",
+      "fixed": null,
+      "severity": "HIGH",
+      "target": "/audit/runtime-image.tar (debian 13.7)",
+      "disposition": "DRIVE-F01: OS without fix indicated; rebuild/rescan before public deployment (PLAT-002)."
+    },
+    {
+      "id": "CVE-2026-76642",
+      "package": "libblkid1",
+      "installed": "2.41.5-0+deb13u1",
+      "fixed": null,
+      "severity": "HIGH",
+      "target": "/audit/runtime-image.tar (debian 13.7)",
+      "disposition": "DRIVE-F01: OS without fix indicated; rebuild/rescan before public deployment (PLAT-002)."
+    },
+    {
+      "id": "CVE-2026-78408",
+      "package": "libblkid1",
+      "installed": "2.41.5-0+deb13u1",
+      "fixed": null,
+      "severity": "HIGH",
+      "target": "/audit/runtime-image.tar (debian 13.7)",
+      "disposition": "DRIVE-F01: OS without fix indicated; rebuild/rescan before public deployment (PLAT-002)."
+    },
+    {
+      "id": "CVE-2026-78409",
+      "package": "libblkid1",
+      "installed": "2.41.5-0+deb13u1",
+      "fixed": null,
+      "severity": "HIGH",
+      "target": "/audit/runtime-image.tar (debian 13.7)",
+      "disposition": "DRIVE-F01: OS without fix indicated; rebuild/rescan before public deployment (PLAT-002)."
+    },
+    {
+      "id": "CVE-2026-78410",
+      "package": "libblkid1",
+      "installed": "2.41.5-0+deb13u1",
+      "fixed": null,
+      "severity": "HIGH",
+      "target": "/audit/runtime-image.tar (debian 13.7)",
+      "disposition": "DRIVE-F01: OS without fix indicated; rebuild/rescan before public deployment (PLAT-002)."
+    },
+    {
+      "id": "CVE-2026-76642",
+      "package": "liblastlog2-2",
+      "installed": "2.41.5-0+deb13u1",
+      "fixed": null,
+      "severity": "HIGH",
+      "target": "/audit/runtime-image.tar (debian 13.7)",
+      "disposition": "DRIVE-F01: OS without fix indicated; rebuild/rescan before public deployment (PLAT-002)."
+    },
+    {
+      "id": "CVE-2026-78408",
+      "package": "liblastlog2-2",
+      "installed": "2.41.5-0+deb13u1",
+      "fixed": null,
+      "severity": "HIGH",
+      "target": "/audit/runtime-image.tar (debian 13.7)",
+      "disposition": "DRIVE-F01: OS without fix indicated; rebuild/rescan before public deployment (PLAT-002)."
+    },
+    {
+      "id": "CVE-2026-78409",
+      "package": "liblastlog2-2",
+      "installed": "2.41.5-0+deb13u1",
+      "fixed": null,
+      "severity": "HIGH",
+      "target": "/audit/runtime-image.tar (debian 13.7)",
+      "disposition": "DRIVE-F01: OS without fix indicated; rebuild/rescan before public deployment (PLAT-002)."
+    },
+    {
+      "id": "CVE-2026-78410",
+      "package": "liblastlog2-2",
+      "installed": "2.41.5-0+deb13u1",
+      "fixed": null,
+      "severity": "HIGH",
+      "target": "/audit/runtime-image.tar (debian 13.7)",
+      "disposition": "DRIVE-F01: OS without fix indicated; rebuild/rescan before public deployment (PLAT-002)."
+    },
+    {
+      "id": "CVE-2026-76642",
+      "package": "libmount1",
+      "installed": "2.41.5-0+deb13u1",
+      "fixed": null,
+      "severity": "HIGH",
+      "target": "/audit/runtime-image.tar (debian 13.7)",
+      "disposition": "DRIVE-F01: OS without fix indicated; rebuild/rescan before public deployment (PLAT-002)."
+    },
+    {
+      "id": "CVE-2026-78408",
+      "package": "libmount1",
+      "installed": "2.41.5-0+deb13u1",
+      "fixed": null,
+      "severity": "HIGH",
+      "target": "/audit/runtime-image.tar (debian 13.7)",
+      "disposition": "DRIVE-F01: OS without fix indicated; rebuild/rescan before public deployment (PLAT-002)."
+    },
+    {
+      "id": "CVE-2026-78409",
+      "package": "libmount1",
+      "installed": "2.41.5-0+deb13u1",
+      "fixed": null,
+      "severity": "HIGH",
+      "target": "/audit/runtime-image.tar (debian 13.7)",
+      "disposition": "DRIVE-F01: OS without fix indicated; rebuild/rescan before public deployment (PLAT-002)."
+    },
+    {
+      "id": "CVE-2026-78410",
+      "package": "libmount1",
+      "installed": "2.41.5-0+deb13u1",
+      "fixed": null,
+      "severity": "HIGH",
+      "target": "/audit/runtime-image.tar (debian 13.7)",
+      "disposition": "DRIVE-F01: OS without fix indicated; rebuild/rescan before public deployment (PLAT-002)."
+    },
+    {
+      "id": "CVE-2025-69720",
+      "package": "libncursesw6",
+      "installed": "6.5+20250216-2",
+      "fixed": null,
+      "severity": "HIGH",
+      "target": "/audit/runtime-image.tar (debian 13.7)",
+      "disposition": "DRIVE-F01: OS without fix indicated; rebuild/rescan before public deployment (PLAT-002)."
+    },
+    {
+      "id": "CVE-2026-76642",
+      "package": "libsmartcols1",
+      "installed": "2.41.5-0+deb13u1",
+      "fixed": null,
+      "severity": "HIGH",
+      "target": "/audit/runtime-image.tar (debian 13.7)",
+      "disposition": "DRIVE-F01: OS without fix indicated; rebuild/rescan before public deployment (PLAT-002)."
+    },
+    {
+      "id": "CVE-2026-78408",
+      "package": "libsmartcols1",
+      "installed": "2.41.5-0+deb13u1",
+      "fixed": null,
+      "severity": "HIGH",
+      "target": "/audit/runtime-image.tar (debian 13.7)",
+      "disposition": "DRIVE-F01: OS without fix indicated; rebuild/rescan before public deployment (PLAT-002)."
+    },
+    {
+      "id": "CVE-2026-78409",
+      "package": "libsmartcols1",
+      "installed": "2.41.5-0+deb13u1",
+      "fixed": null,
+      "severity": "HIGH",
+      "target": "/audit/runtime-image.tar (debian 13.7)",
+      "disposition": "DRIVE-F01: OS without fix indicated; rebuild/rescan before public deployment (PLAT-002)."
+    },
+    {
+      "id": "CVE-2026-78410",
+      "package": "libsmartcols1",
+      "installed": "2.41.5-0+deb13u1",
+      "fixed": null,
+      "severity": "HIGH",
+      "target": "/audit/runtime-image.tar (debian 13.7)",
+      "disposition": "DRIVE-F01: OS without fix indicated; rebuild/rescan before public deployment (PLAT-002)."
+    },
+    {
+      "id": "CVE-2026-119373",
+      "package": "libsqlite3-0",
+      "installed": "3.46.1-7+deb13u2",
+      "fixed": null,
+      "severity": "HIGH",
+      "target": "/audit/runtime-image.tar (debian 13.7)",
+      "disposition": "DRIVE-F01: OS without fix indicated; rebuild/rescan before public deployment (PLAT-002)."
+    },
+    {
+      "id": "CVE-2026-119374",
+      "package": "libsqlite3-0",
+      "installed": "3.46.1-7+deb13u2",
+      "fixed": null,
+      "severity": "HIGH",
+      "target": "/audit/runtime-image.tar (debian 13.7)",
+      "disposition": "DRIVE-F01: OS without fix indicated; rebuild/rescan before public deployment (PLAT-002)."
+    },
+    {
+      "id": "CVE-2026-119379",
+      "package": "libsqlite3-0",
+      "installed": "3.46.1-7+deb13u2",
+      "fixed": null,
+      "severity": "HIGH",
+      "target": "/audit/runtime-image.tar (debian 13.7)",
+      "disposition": "DRIVE-F01: OS without fix indicated; rebuild/rescan before public deployment (PLAT-002)."
+    },
+    {
+      "id": "CVE-2026-16742",
+      "package": "libsystemd0",
+      "installed": "257.13-1~deb13u1",
+      "fixed": null,
+      "severity": "HIGH",
+      "target": "/audit/runtime-image.tar (debian 13.7)",
+      "disposition": "DRIVE-F01: OS without fix indicated; rebuild/rescan before public deployment (PLAT-002)."
+    },
+    {
+      "id": "CVE-2025-69720",
+      "package": "libtinfo6",
+      "installed": "6.5+20250216-2",
+      "fixed": null,
+      "severity": "HIGH",
+      "target": "/audit/runtime-image.tar (debian 13.7)",
+      "disposition": "DRIVE-F01: OS without fix indicated; rebuild/rescan before public deployment (PLAT-002)."
+    },
+    {
+      "id": "CVE-2026-16742",
+      "package": "libudev1",
+      "installed": "257.13-1~deb13u1",
+      "fixed": null,
+      "severity": "HIGH",
+      "target": "/audit/runtime-image.tar (debian 13.7)",
+      "disposition": "DRIVE-F01: OS without fix indicated; rebuild/rescan before public deployment (PLAT-002)."
+    },
+    {
+      "id": "CVE-2026-76642",
+      "package": "libuuid1",
+      "installed": "2.41.5-0+deb13u1",
+      "fixed": null,
+      "severity": "HIGH",
+      "target": "/audit/runtime-image.tar (debian 13.7)",
+      "disposition": "DRIVE-F01: OS without fix indicated; rebuild/rescan before public deployment (PLAT-002)."
+    },
+    {
+      "id": "CVE-2026-78408",
+      "package": "libuuid1",
+      "installed": "2.41.5-0+deb13u1",
+      "fixed": null,
+      "severity": "HIGH",
+      "target": "/audit/runtime-image.tar (debian 13.7)",
+      "disposition": "DRIVE-F01: OS without fix indicated; rebuild/rescan before public deployment (PLAT-002)."
+    },
+    {
+      "id": "CVE-2026-78409",
+      "package": "libuuid1",
+      "installed": "2.41.5-0+deb13u1",
+      "fixed": null,
+      "severity": "HIGH",
+      "target": "/audit/runtime-image.tar (debian 13.7)",
+      "disposition": "DRIVE-F01: OS without fix indicated; rebuild/rescan before public deployment (PLAT-002)."
+    },
+    {
+      "id": "CVE-2026-78410",
+      "package": "libuuid1",
+      "installed": "2.41.5-0+deb13u1",
+      "fixed": null,
+      "severity": "HIGH",
+      "target": "/audit/runtime-image.tar (debian 13.7)",
+      "disposition": "DRIVE-F01: OS without fix indicated; rebuild/rescan before public deployment (PLAT-002)."
+    },
+    {
+      "id": "CVE-2026-76642",
+      "package": "login",
+      "installed": "1:4.16.0-2+really2.41.5-0+deb13u1",
+      "fixed": null,
+      "severity": "HIGH",
+      "target": "/audit/runtime-image.tar (debian 13.7)",
+      "disposition": "DRIVE-F01: OS without fix indicated; rebuild/rescan before public deployment (PLAT-002)."
+    },
+    {
+      "id": "CVE-2026-78408",
+      "package": "login",
+      "installed": "1:4.16.0-2+really2.41.5-0+deb13u1",
+      "fixed": null,
+      "severity": "HIGH",
+      "target": "/audit/runtime-image.tar (debian 13.7)",
+      "disposition": "DRIVE-F01: OS without fix indicated; rebuild/rescan before public deployment (PLAT-002)."
+    },
+    {
+      "id": "CVE-2026-78409",
+      "package": "login",
+      "installed": "1:4.16.0-2+really2.41.5-0+deb13u1",
+      "fixed": null,
+      "severity": "HIGH",
+      "target": "/audit/runtime-image.tar (debian 13.7)",
+      "disposition": "DRIVE-F01: OS without fix indicated; rebuild/rescan before public deployment (PLAT-002)."
+    },
+    {
+      "id": "CVE-2026-78410",
+      "package": "login",
+      "installed": "1:4.16.0-2+really2.41.5-0+deb13u1",
+      "fixed": null,
+      "severity": "HIGH",
+      "target": "/audit/runtime-image.tar (debian 13.7)",
+      "disposition": "DRIVE-F01: OS without fix indicated; rebuild/rescan before public deployment (PLAT-002)."
+    },
+    {
+      "id": "CVE-2026-76642",
+      "package": "mount",
+      "installed": "2.41.5-0+deb13u1",
+      "fixed": null,
+      "severity": "HIGH",
+      "target": "/audit/runtime-image.tar (debian 13.7)",
+      "disposition": "DRIVE-F01: OS without fix indicated; rebuild/rescan before public deployment (PLAT-002)."
+    },
+    {
+      "id": "CVE-2026-78408",
+      "package": "mount",
+      "installed": "2.41.5-0+deb13u1",
+      "fixed": null,
+      "severity": "HIGH",
+      "target": "/audit/runtime-image.tar (debian 13.7)",
+      "disposition": "DRIVE-F01: OS without fix indicated; rebuild/rescan before public deployment (PLAT-002)."
+    },
+    {
+      "id": "CVE-2026-78409",
+      "package": "mount",
+      "installed": "2.41.5-0+deb13u1",
+      "fixed": null,
+      "severity": "HIGH",
+      "target": "/audit/runtime-image.tar (debian 13.7)",
+      "disposition": "DRIVE-F01: OS without fix indicated; rebuild/rescan before public deployment (PLAT-002)."
+    },
+    {
+      "id": "CVE-2026-78410",
+      "package": "mount",
+      "installed": "2.41.5-0+deb13u1",
+      "fixed": null,
+      "severity": "HIGH",
+      "target": "/audit/runtime-image.tar (debian 13.7)",
+      "disposition": "DRIVE-F01: OS without fix indicated; rebuild/rescan before public deployment (PLAT-002)."
+    },
+    {
+      "id": "CVE-2025-69720",
+      "package": "ncurses-base",
+      "installed": "6.5+20250216-2",
+      "fixed": null,
+      "severity": "HIGH",
+      "target": "/audit/runtime-image.tar (debian 13.7)",
+      "disposition": "DRIVE-F01: OS without fix indicated; rebuild/rescan before public deployment (PLAT-002)."
+    },
+    {
+      "id": "CVE-2025-69720",
+      "package": "ncurses-bin",
+      "installed": "6.5+20250216-2",
+      "fixed": null,
+      "severity": "HIGH",
+      "target": "/audit/runtime-image.tar (debian 13.7)",
+      "disposition": "DRIVE-F01: OS without fix indicated; rebuild/rescan before public deployment (PLAT-002)."
+    },
+    {
+      "id": "CVE-2026-9538",
+      "package": "perl-base",
+      "installed": "5.40.1-6+deb13u1",
+      "fixed": null,
+      "severity": "HIGH",
+      "target": "/audit/runtime-image.tar (debian 13.7)",
+      "disposition": "DRIVE-F01: OS without fix indicated; rebuild/rescan before public deployment (PLAT-002)."
+    },
+    {
+      "id": "CVE-2026-76642",
+      "package": "util-linux",
+      "installed": "2.41.5-0+deb13u1",
+      "fixed": null,
+      "severity": "HIGH",
+      "target": "/audit/runtime-image.tar (debian 13.7)",
+      "disposition": "DRIVE-F01: OS without fix indicated; rebuild/rescan before public deployment (PLAT-002)."
+    },
+    {
+      "id": "CVE-2026-78408",
+      "package": "util-linux",
+      "installed": "2.41.5-0+deb13u1",
+      "fixed": null,
+      "severity": "HIGH",
+      "target": "/audit/runtime-image.tar (debian 13.7)",
+      "disposition": "DRIVE-F01: OS without fix indicated; rebuild/rescan before public deployment (PLAT-002)."
+    },
+    {
+      "id": "CVE-2026-78409",
+      "package": "util-linux",
+      "installed": "2.41.5-0+deb13u1",
+      "fixed": null,
+      "severity": "HIGH",
+      "target": "/audit/runtime-image.tar (debian 13.7)",
+      "disposition": "DRIVE-F01: OS without fix indicated; rebuild/rescan before public deployment (PLAT-002)."
+    },
+    {
+      "id": "CVE-2026-78410",
+      "package": "util-linux",
+      "installed": "2.41.5-0+deb13u1",
+      "fixed": null,
+      "severity": "HIGH",
+      "target": "/audit/runtime-image.tar (debian 13.7)",
+      "disposition": "DRIVE-F01: OS without fix indicated; rebuild/rescan before public deployment (PLAT-002)."
+    }
+  ],
+  "counts": {
+    "matches": 47,
+    "unique_ids": 11,
+    "critical": 0
+  }
+}
