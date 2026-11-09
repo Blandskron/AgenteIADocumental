@@ -24,3 +24,21 @@ class DriveConflictError(AppError):
 
 class ReauthorizationRequired(AppError):
     pass
+
+
+class ImportSourceConflict(AppError):
+    pass
+
+
+class ImportConnectionConflict(AppError):
+    pass
+
+
+class ProviderStatusError(GoogleDriveError):
+    def __init__(self, status):
+        self.status = status
+        super().__init__("Unexpected provider status.")
+
+
+class UploadRejected(ExternalServiceError):
+    pass

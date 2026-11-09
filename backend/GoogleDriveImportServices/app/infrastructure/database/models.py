@@ -34,10 +34,18 @@ class GoogleDriveConnectionModel(Base):
 
 class GoogleDriveImportModel(Base):
     __tablename__ = "google_drive_imports"
+    __mapper_args__ = {"eager_defaults": True}
 
     import_id: Mapped[str] = mapped_column(Text, primary_key=True, server_default=FetchedValue())
     owner_user_id: Mapped[str] = mapped_column(Text, nullable=False)
     status: Mapped[str] = mapped_column(Text, nullable=False, default="PENDING")
+    operation_id: Mapped[str | None] = mapped_column(Text)
+    request_hash: Mapped[str | None] = mapped_column(Text)
+    tenant_id: Mapped[str | None] = mapped_column(Text)
+    connection_version: Mapped[int | None] = mapped_column(BigInteger)
+    version: Mapped[int] = mapped_column(BigInteger, nullable=False, server_default="1")
+    lease_token: Mapped[str | None] = mapped_column(Text)
+    lease_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     total_files: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     processed_files: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     failed_files: Mapped[int] = mapped_column(Integer, nullable=False, default=0)

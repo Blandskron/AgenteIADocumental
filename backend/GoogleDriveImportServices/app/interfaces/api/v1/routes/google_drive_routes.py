@@ -101,6 +101,8 @@ def _import_payload(record) -> dict:
         "import_id": str(record.import_id),
         "owner_user_id": record.owner_user_id,
         "status": record.status,
+        "operation_id": record.operation_id,
+        "version": record.version,
         "total_files": record.total_files,
         "processed_files": record.processed_files,
         "failed_files": record.failed_files,

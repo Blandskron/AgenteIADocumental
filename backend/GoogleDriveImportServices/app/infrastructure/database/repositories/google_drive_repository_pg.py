@@ -1,5 +1,4 @@
 from contextlib import contextmanager
-from typing import Any
 
 from sqlalchemy import desc, select, text
 from app.config.security import DriveUser, check_identity
@@ -16,7 +15,10 @@ from app.infrastructure.database.models import (
 from app.infrastructure.database.repositories.credential_repository import CredentialRepository
 
 
-class GoogleDriveRepository(CredentialRepository):
+from app.infrastructure.database.repositories.import_repository import ImportRepository
+
+
+class GoogleDriveRepository(CredentialRepository, ImportRepository):
     def __init__(self, database: Database, current_user: DriveUser) -> None:
         self._database = database
         self._user = current_user
@@ -51,22 +53,6 @@ class GoogleDriveRepository(CredentialRepository):
                 select(GoogleDriveConnectionModel).where(GoogleDriveConnectionModel.owner_user_id == owner_user_id),
             )
 
-    def create_import(self, owner_user_id: str, total_files: int, metadata: dict[str, Any]) -> GoogleDriveImportModel:
-        self._require_owner(owner_user_id)
-        with self._session() as session:
-            record = GoogleDriveImportModel(
-                owner_user_id=owner_user_id,
-                status="RUNNING",
-                total_files=total_files,
-                processed_files=0,
-                failed_files=0,
-                metadata_=metadata,
-            )
-            session.add(record)
-            session.commit()
-            session.refresh(record)
-            return record
-
     def get_import(self, owner_user_id: str, import_id: str) -> GoogleDriveImportModel | None:
         self._require_owner(owner_user_id)
         with self._session() as session:
@@ -89,50 +75,18 @@ class GoogleDriveRepository(CredentialRepository):
                 ),
             )
 
-    def add_import_file(self, import_id: str, payload: dict[str, Any]) -> GoogleDriveImportFileModel:
-        with self._session() as session:
-            self._owned_import(session, import_id)
-            record = GoogleDriveImportFileModel(import_id=import_id, **payload)
-            session.add(record)
-            session.commit()
-            session.refresh(record)
-            return record
-
-    def update_import_file(self, import_file_id: str, payload: dict[str, Any]) -> GoogleDriveImportFileModel | None:
-        with self._session() as session:
-            record = session.scalar(select(GoogleDriveImportFileModel).join(
-                GoogleDriveImportModel, GoogleDriveImportFileModel.import_id == GoogleDriveImportModel.import_id).where(
-                GoogleDriveImportFileModel.import_file_id == import_file_id,
-                GoogleDriveImportModel.owner_user_id == self._user.user_id))
-            if record is None:
-                raise NotFoundError("Google Drive file not found.")
-            for key, value in payload.items():
-                setattr(record, key, value)
-            session.commit()
-            session.refresh(record)
-            return record
-
     def list_import_files(self, import_id: str) -> list[GoogleDriveImportFileModel]:
         with self._session() as session:
-            self._owned_import(session, import_id)
+            parent = self._owned_import(session, import_id)
+            if parent.status == "PURGED":
+                return []
             return list(
                 session.scalars(
                     select(GoogleDriveImportFileModel)
                     .where(GoogleDriveImportFileModel.import_id == import_id)
-                    .order_by(GoogleDriveImportFileModel.created_at),
+                    .order_by(GoogleDriveImportFileModel.created_at, GoogleDriveImportFileModel.import_file_id),
                 ),
             )
-
-    def finish_import(self, import_id: str, processed_files: int, failed_files: int, status: str, error_message: str | None) -> GoogleDriveImportModel | None:
-        with self._session() as session:
-            record = self._owned_import(session, import_id)
-            record.processed_files = processed_files
-            record.failed_files = failed_files
-            record.status = status
-            record.error_message = error_message
-            session.commit()
-            session.refresh(record)
-            return record
 
     def owns_folder(self, folder_id: str, owner_user_id: str) -> bool:
         self._require_owner(owner_user_id)

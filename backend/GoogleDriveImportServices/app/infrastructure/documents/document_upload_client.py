@@ -1,25 +1,74 @@
 import json
+from time import monotonic
 
-import httpx
 
-from app.config.settings import Settings
-from app.shared.errors import ExternalServiceError
+from app.infrastructure.google.bounded_transport import provider_json
+from app.shared.errors import ExternalServiceError, ProviderStatusError, UploadRejected
+from app.shared.import_limits import FILE_ID
 
 
 class DocumentUploadClient:
-    def __init__(self, settings: Settings) -> None:
+    def __init__(self, settings):
         self._base_url = settings.rag_document_base_url.rstrip("/")
         self._timeout = settings.request_timeout_seconds
 
-    def upload(self, bearer_token: str, filename: str, mime_type: str, content: bytes, metadata: dict) -> dict:
-        files = {"file": (filename, content, mime_type)}
-        data = {"process": "true", "metadata": json.dumps(metadata)}
-        headers = {"Authorization": f"Bearer {bearer_token}"}
+    def upload(
+        self, bearer_token, filename, mime_type, content, metadata, *, deadline=None
+    ):
+        deadline = deadline or monotonic() + self._timeout
+        try:
+            value = provider_json(
+                "POST",
+                f"{self._base_url}/api/v1/documents/upload",
+                timeout=self._timeout,
+                deadline=deadline,
+                files={"file": (filename, content, mime_type)},
+                data={
+                    "process": "false",
+                    "metadata": json.dumps(metadata, allow_nan=False),
+                },
+                headers={"Authorization": f"Bearer {bearer_token}"},
+            )
+            identifier = value.get("document_id")
+            if (
+                not isinstance(identifier, str)
+                or not FILE_ID.fullmatch(identifier)
+                or value.get("status")
+                not in {"PROCESSED", "UPLOADED", "PROCESSING", "PENDING", "FAILED"}
+            ):
+                raise ValueError()
+            return {"document_id": identifier, "status": value["status"]}
+        except ProviderStatusError as exc:
+            if exc.status in {401, 403}:
+                raise UploadRejected(
+                    "Ingestion rejected authorization before document creation."
+                ) from None
+            raise ExternalServiceError(
+                "Document upload outcome requires review."
+            ) from None
+        except Exception:
+            raise ExternalServiceError(
+                "Document upload outcome requires review."
+            ) from None
 
-        with httpx.Client(timeout=self._timeout) as client:
-            response = client.post(f"{self._base_url}/api/v1/documents/upload", files=files, data=data, headers=headers)
-
-        if response.status_code >= 400:
-            raise ExternalServiceError(f"Document upload failed: HTTP {response.status_code} {response.text[:180]}")
-
-        return response.json()
+    def process_document(self, bearer_token, document_id, *, deadline=None):
+        try:
+            if not FILE_ID.fullmatch(document_id):
+                raise ValueError()
+            value = provider_json(
+                "POST",
+                f"{self._base_url}/api/v1/documents/{document_id}/process",
+                timeout=self._timeout,
+                deadline=deadline,
+                headers={"Authorization": f"Bearer {bearer_token}"},
+            )
+            if (
+                value.get("document_id") != document_id
+                or value.get("status") != "PROCESSED"
+            ):
+                raise ValueError()
+            return value
+        except Exception:
+            raise ExternalServiceError(
+                "Document processing requires review; the uploaded document is retained."
+            ) from None

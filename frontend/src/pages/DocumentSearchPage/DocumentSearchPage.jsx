@@ -1,3 +1,5 @@
+import { ImportAttemptNotice } from "../../features/google-drive-import/ImportAttemptNotice.jsx";
+import { prepareImportAttempt, finishImportAttempt, rejectImportAttempt } from "../../features/google-drive-import/import-attempt.js";
 import { useEffect, useState, useRef } from "react";
 import { Bell, Check, Cloud, Folder, Menu, Plus, Star, X, Upload, Filter, LayoutGrid, List, FileText, Send } from "lucide-react";
 
@@ -101,12 +103,17 @@ export function DocumentSearchPage({ activeView = appRoutes.documents, onNavigat
   const [driveFileIds, setDriveFileIds] = useState("");
   const [selectedDriveFiles, setSelectedDriveFiles] = useState([]);
   const [driveImportBusy, setDriveImportBusy] = useState(false);
+  const importBusyRef = useRef(false);
+  const importEpoch = useRef(0);
   const driveClientRef = useRef(googleDriveImportClient);
   driveClientRef.current = { client: googleDriveImportClient, version: driveConnection.version, connected: driveConnection.connected, busy: drive.busy };
   useEffect(() => {
+    importEpoch.current++;
+    importBusyRef.current = false;
+    setDriveImportBusy(false);
     setSelectedDriveFiles([]);
     setDriveFileIds("");
-  }, [googleDriveImportClient, driveConnection.version]);
+  }, [googleDriveImportClient, driveConnection.providerAccountId]);
   const fileInputRef = useRef(null);
   const canAssignDocuments = isTenantAdmin(currentUser) || hasTenantPermission(currentUser, "assign_documents");
   const canUploadDocuments = isTenantAdmin(currentUser) || hasTenantPermission(currentUser, "upload_documents");
@@ -155,35 +162,47 @@ export function DocumentSearchPage({ activeView = appRoutes.documents, onNavigat
 
   const handleConnectDrive = drive.connect;
 
-  const handleImportDriveFiles = async (event) => {
+  const handleImportDriveFiles = async (event, previousInput = null) => {
     event.preventDefault();
-    const files = selectedDriveFiles.length
+    const files = previousInput?.files || (selectedDriveFiles.length
       ? selectedDriveFiles
       : driveFileIds
           .split(/[\n,]/)
           .map((value) => value.trim())
           .filter(Boolean)
-          .map((fileId) => ({ fileId }));
-    if (!files.length) return;
+          .map((fileId) => ({ fileId })));
+    if (!files.length || importBusyRef.current) return;
+    importBusyRef.current = true;
+    const generation = ++importEpoch.current;
 
     setDriveImportBusy(true);
     setActionError("");
+    let attempt;
     try {
-      const imported = await importGoogleDriveFiles(googleDriveImportClient, {
-        files,
-        folderId: library.selectedFolder?.folderId,
-        metadata: { imported_from_ui: true },
-      });
-      setDriveFileIds("");
-      setSelectedDriveFiles([]);
+      const input = previousInput || { files, folderId: library.selectedFolder?.folderId || null, metadata: { imported_from_ui: true } };
+      attempt = prepareImportAttempt(profileSessionKey, input, driveConnection.version);
+      const imported = await importGoogleDriveFiles(googleDriveImportClient, { ...input, ...attempt });
+      if (importEpoch.current !== generation) return;
+      finishImportAttempt(profileSessionKey, attempt.operationId, imported);
+      if (imported.status === "REVIEW_REQUIRED") {
+        setActionError("La carga tiene un resultado incierto. Revisa el historial antes de reintentar.");
+        return;
+      }
+      if (!previousInput) setDriveFileIds("");
+      if (!previousInput) setSelectedDriveFiles([]);
       setDriveModalOpen(false);
       await search.runSearch();
+      if (importEpoch.current !== generation) return;
       await library.refreshLibrary();
-      setActionError(getImportWarning(imported));
+      if (importEpoch.current === generation) setActionError(getImportWarning(imported));
     } catch (error) {
+      if (importEpoch.current !== generation) return;
+      if (attempt) rejectImportAttempt(profileSessionKey, attempt.operationId, error);
+      if (error.payload?.code === "import_connection_changed") await drive.refresh();
       setActionError(error.message);
     } finally {
-      setDriveImportBusy(false);
+      if (importEpoch.current === generation) importBusyRef.current = false;
+      if (importEpoch.current === generation) setDriveImportBusy(false);
     }
   };
 
@@ -723,6 +742,7 @@ export function DocumentSearchPage({ activeView = appRoutes.documents, onNavigat
         />
         <GoogleDriveImportModal
           error={drive.error}
+          operationScope={profileSessionKey}
           connection={driveConnection}
           fileIds={driveFileIds}
           isBusy={driveImportBusy || drive.busy}
@@ -873,6 +893,7 @@ function GoogleDriveImportModal({
   onClose,
   onConnect,
   onDisconnect,
+  operationScope,
   onFileIdsChange,
   onImport,
   onOpenPicker,
@@ -899,6 +920,7 @@ function GoogleDriveImportModal({
         </header>
         <form className="google-drive-import-form" onSubmit={onImport}>
           {error && <p role="alert">{error}</p>}
+          <ImportAttemptNotice scope={operationScope} isBusy={isBusy} onRetry={onImport} />
           {!connection?.enabled && <p role="status">La integración Google Drive está deshabilitada.</p>}
           {connection?.grantStatus === "LEGACY" && <p role="status">La conexión anterior requiere revisión de cifrado o una nueva autorización.</p>}
           {connection?.grantStatus === "REAUTH_REQUIRED" && <p role="status">Autoriza Google Drive nuevamente para continuar.</p>}

@@ -123,10 +123,13 @@ def test_runtime_persistence_positive_and_permissions_verifier(runtime_url, iden
     user=DriveUser(str(identities["owner"]),identities["fingerprint"],identities["tenant"])
     try:
         repo=GoogleDriveRepository(db,user)
-        record=repo.create_import(user.user_id,1,{})
-        file=repo.add_import_file(record.import_id,{"google_file_id":"synthetic","filename":"file.txt","mime_type":"text/plain"})
-        repo.update_import_file(file.import_file_id,{"status":"FAILED","error_message":"synthetic"})
-        assert repo.finish_import(record.import_id,0,1,"FAILED",None).failed_files==1
+        from uuid import uuid4
+        from app.interfaces.api.v1.schemas.google_drive_schema import GoogleDriveImportRequest
+        payload=GoogleDriveImportRequest(operation_id=str(uuid4()),files=[{"file_id":"synthetic"}])
+        record,_=repo.claim_import(payload.operation_id,"a"*64,payload,1)
+        file=repo.list_import_files(record.import_id)[0]
+        repo.journal_file(record,file.import_file_id,{"status":"FAILED","error_message":"synthetic"})
+        assert repo.complete_operation(record).failed_files==1
         with engine.begin() as c:
             c.execute(text(Path("/drive-db/verify_role.sql").read_text()))
     finally:
@@ -238,11 +241,14 @@ def test_repository_cannot_mutate_another_owners_import(runtime_url, identities,
     db=Database(runtime_url)
     repo=GoogleDriveRepository(db,DriveUser(str(identities["owner"]),identities["fingerprint"],identities["tenant"]))
     try:
+        from types import SimpleNamespace
+        from app.shared.errors import DriveConflictError
+        foreign=SimpleNamespace(import_id=identifier,version=1,lease_token="synthetic")
         actions=[lambda:repo.get_connection(str(identities["other"])),lambda:repo.list_import_files(identifier),
-                 lambda:repo.add_import_file(identifier,{}),lambda:repo.update_import_file(file_id,{"status":"FAILED"}),
-                 lambda:repo.finish_import(identifier,1,0,"COMPLETED",None)]
+                 lambda:repo.journal_file(foreign,file_id,{"status":"FAILED"}),
+                 lambda:repo.complete_operation(foreign)]
         for action in actions:
-            with pytest.raises(NotFoundError):
+            with pytest.raises((NotFoundError,DriveConflictError)):
                 action()
     finally:
         db.close()

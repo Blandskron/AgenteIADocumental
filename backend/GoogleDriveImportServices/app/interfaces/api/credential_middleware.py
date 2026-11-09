@@ -4,7 +4,7 @@ from starlette.responses import JSONResponse
 
 
 class CredentialMiddleware:
-    """Bound only small OAuth control requests; media limits belong to ingestion."""
+    """Bound OAuth and import control requests before JSON parsing."""
 
     def __init__(self, app):
         self.app = app
@@ -19,7 +19,8 @@ class CredentialMiddleware:
                     (b"cache-control", b"no-store, private"), (b"referrer-policy", b"no-referrer")]
             await send(message)
 
-        if scope["method"] == "POST" and scope["path"].endswith(("/auth-url", "/oauth/callback", "/disconnect")):
+        if scope["method"] == "POST" and scope["path"].endswith(("/auth-url", "/oauth/callback", "/disconnect", "/imports")):
+            maximum = 65536 if scope["path"].endswith("/imports") else 16384
             chunks = []
             size = 0
             try:
@@ -30,8 +31,8 @@ class CredentialMiddleware:
                             return
                         data = message.get("body", b"")
                         size += len(data)
-                        if size > 16384:
-                            return await JSONResponse({"detail": "OAuth request is too large."}, 413)(scope, receive, private_send)
+                        if size > maximum:
+                            return await JSONResponse({"detail": "Drive request is too large."}, 413)(scope, receive, private_send)
                         chunks.append(data)
                         if not message.get("more_body", False):
                             break
