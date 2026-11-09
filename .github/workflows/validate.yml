@@ -342,11 +342,11 @@ jobs:
         run: |
           docker compose -f docker/docker-compose.yml run --rm --no-deps access-db-role
           docker compose -f docker/docker-compose.yml exec -T postgres psql -U postgres -d documents_db -v ON_ERROR_STOP=1 < scripts/database/access/verify_role.sql
-          docker compose -f docker/docker-compose.yml exec -T document-access-service python -m pip --no-cache-dir check
+          docker compose -f docker/docker-compose.yml exec -T document-access-service python -c 'import importlib.util; assert importlib.util.find_spec("pip") is None'
           docker compose -f docker/docker-compose.yml exec -T document-access-service python -c 'import os, importlib.util; assert os.geteuid() == 10004; assert all(importlib.util.find_spec(name) is None for name in ("pytest", "ruff", "httpx"))'
       - name: Comprobar imagen de ConversationServices
         run: |
-          docker compose -f docker/docker-compose.yml exec -T conversation-service python -m pip --no-cache-dir check
+          docker compose -f docker/docker-compose.yml exec -T conversation-service python -c 'import importlib.util; assert importlib.util.find_spec("pip") is None'
           docker compose -f docker/docker-compose.yml exec -T conversation-service python -c 'import os; assert os.geteuid() == 10002'
       - name: Probar JWT, aislamiento y vínculos contra PostgreSQL
         run: |
@@ -354,7 +354,7 @@ jobs:
           docker compose -f docker/docker-compose.yml run --rm --no-deps conversation-tests ruff check --no-cache app tests
       - name: Validar imagen y contrato de DocumentSearchServices
         run: |
-          docker compose -f docker/docker-compose.yml exec -T document-search-service python -m pip --no-cache-dir check
+          docker compose -f docker/docker-compose.yml exec -T document-search-service python -c 'import importlib.util; assert importlib.util.find_spec("pip") is None'
           docker compose -f docker/docker-compose.yml exec -T document-search-service python -c 'import os, importlib.util; assert os.geteuid() == 10005; assert all(importlib.util.find_spec(name) is None for name in ("pytest", "ruff", "httpx"))'
           docker compose -f docker/docker-compose.yml run --build --rm --no-deps search-tests
           docker compose -f docker/docker-compose.yml run --rm --no-deps search-tests ruff check --no-cache app tests
@@ -367,7 +367,7 @@ jobs:
         run: |
           docker compose -f docker/docker-compose.yml run --rm --no-deps library-db-role
           docker compose -f docker/docker-compose.yml exec -T postgres psql -U postgres -d documents_db -v ON_ERROR_STOP=1 < scripts/database/library/verify_role.sql
-          docker compose -f docker/docker-compose.yml exec -T document-library-service python -m pip --no-cache-dir check
+          docker compose -f docker/docker-compose.yml exec -T document-library-service python -c 'import importlib.util; assert importlib.util.find_spec("pip") is None'
           docker compose -f docker/docker-compose.yml exec -T document-library-service python -c 'import os, importlib.util; assert os.geteuid() == 10006; assert all(importlib.util.find_spec(name) is None for name in ("pytest", "ruff", "httpx", "pip_audit"))'
           docker compose -f docker/docker-compose.yml run --build --rm --no-deps library-tests
           docker compose -f docker/docker-compose.yml run --rm --no-deps library-tests ruff check --no-cache app tests
@@ -376,7 +376,7 @@ jobs:
         run: |
           docker compose -f docker/docker-compose.yml run --rm --no-deps transfer-db-role
           docker compose -f docker/docker-compose.yml exec -T postgres psql -U postgres -d documents_db -v ON_ERROR_STOP=1 < scripts/database/transfer/verify_role.sql
-          docker compose -f docker/docker-compose.yml exec -T document-transfer-service python -m pip --no-cache-dir check
+          docker compose -f docker/docker-compose.yml exec -T document-transfer-service python -c 'import importlib.util; assert importlib.util.find_spec("pip") is None'
           docker compose -f docker/docker-compose.yml exec -T document-transfer-service python -c 'import os, importlib.util; assert os.geteuid() == 10007; assert all(importlib.util.find_spec(name) is None for name in ("pytest", "ruff", "httpx", "pip_audit"))'
           docker compose -f docker/docker-compose.yml exec -T postgres psql -U postgres -d documents_db -v ON_ERROR_STOP=1 < scripts/database/transfer/audit_owners.sql
           docker compose -f docker/docker-compose.yml run --build --rm --no-deps transfer-tests
@@ -388,7 +388,7 @@ jobs:
         run: |
           docker compose -f docker/docker-compose.yml run --rm --no-deps profile-db-role
           docker compose -f docker/docker-compose.yml run --rm --no-deps profile-db-role
-          docker compose -f docker/docker-compose.yml exec -T profile-service python -m pip --no-cache-dir check
+          docker compose -f docker/docker-compose.yml exec -T profile-service python -c 'import importlib.util; assert importlib.util.find_spec("pip") is None'
           docker compose -f docker/docker-compose.yml exec -T profile-service python -c 'import importlib.util, os; assert os.geteuid() == 10008; assert all(importlib.util.find_spec(name) is None for name in ("pytest", "ruff", "httpx", "pip_audit"))'
           docker compose -f docker/docker-compose.yml exec -T profile-service python -c 'import subprocess; version=subprocess.check_output(["dpkg-query","-W","-f=${Version}","zlib1g"],text=True); subprocess.check_call(["dpkg","--compare-versions",version,"ge","1:1.3.dfsg+really1.3.1-1+deb13u1"])'
           docker compose -f docker/docker-compose.yml run --build --rm --no-deps profile-tests

@@ -91,7 +91,7 @@ export function createAuthorizedClient({ baseUrl, getAccessToken, refreshAccessT
       let newAccessToken = null;
 
       try {
-        newAccessToken = await refreshAccessToken?.();
+        newAccessToken = await refreshAccessToken?.(accessToken);
       } catch {
         onUnauthorized?.();
       }

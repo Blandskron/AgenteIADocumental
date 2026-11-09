@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Building2,
   Check,
@@ -86,6 +86,12 @@ export function AdminPage({ onNavigate }) {
     [currentUser?.activeTenant, currentUser?.activeTenantId],
   );
   const [selectedTenantId, setSelectedTenantId] = useState(currentUser?.activeTenantId || "");
+  const context = useRef(null);
+  context.current = { client: authClient, tenant: selectedTenantId };
+  const loads = useRef(0);
+  const saveLane = useRef(null);
+  const mounted = useRef(false);
+  useEffect(() => { mounted.current = true; return () => { mounted.current = false; loads.current++; }; }, []);
   const [tenantForm, setTenantForm] = useState({ name: "", taxId: "" });
   const [areaForm, setAreaForm] = useState({ name: "", parentAreaId: "" });
   const [userForm, setUserForm] = useState({
@@ -104,6 +110,13 @@ export function AdminPage({ onNavigate }) {
     permissions: ["view_documents", "download_documents"],
   });
   const [assignGroupForm, setAssignGroupForm] = useState({ userId: "", groupId: "" });
+  useEffect(() => {
+    setAreaForm({ name: "", parentAreaId: "" });
+    setUserForm({ username: "", email: "", firstName: "", lastName: "", password: "", role: "USER", areaId: "" });
+    setGroupForm({ groupId: "", name: "Usuarios", description: "", permissions: ["view_documents", "download_documents"] });
+    setAssignGroupForm({ userId: "", groupId: "" });
+    setError(""); setSuccess("");
+  }, [authClient, selectedTenantId]);
 
   const availableTenants = tenants.length ? tenants : fallbackTenant ? [fallbackTenant] : [];
   const selectedTenant = availableTenants.find((tenant) => tenant.tenantId === selectedTenantId) || availableTenants[0];
@@ -116,6 +129,8 @@ export function AdminPage({ onNavigate }) {
   const usersById = useMemo(() => new Map(users.map((user) => [String(user.id), user])), [users]);
 
   const loadData = useCallback(async () => {
+    const request = ++loads.current;
+    const current = () => mounted.current && request === loads.current;
     if (!canManage) return;
     setIsLoading(true);
     setError("");
@@ -127,49 +142,63 @@ export function AdminPage({ onNavigate }) {
         listTenantGroups(authClient),
         listTenantUserGroups(authClient),
       ]);
-      setUsers(loadedUsers);
-      setAreas(loadedAreas);
-      setMemberships(loadedMemberships);
-      setTenantGroups(loadedGroups);
-      setTenantUserGroups(loadedUserGroups);
-
       if (isGlobalAdmin) {
         const loadedTenants = await listTenants(authClient);
+        if (!current()) return;
         setTenants(loadedTenants);
         if (!selectedTenantId && loadedTenants[0]) setSelectedTenantId(loadedTenants[0].tenantId);
       } else if (!selectedTenantId && fallbackTenant) {
         setSelectedTenantId(fallbackTenant.tenantId);
       }
+      if (!current()) return;
+      setUsers(loadedUsers);
+      setAreas(loadedAreas);
+      setMemberships(loadedMemberships);
+      setTenantGroups(loadedGroups);
+      setTenantUserGroups(loadedUserGroups);
     } catch (requestError) {
-      setError(requestError.message || "No se pudo cargar la administracion.");
+      if (current() && requestError.name !== "AbortError") setError(requestError.message || "No se pudo cargar la administracion.");
     } finally {
-      setIsLoading(false);
+      if (current()) setIsLoading(false);
     }
   }, [authClient, canManage, fallbackTenant, isGlobalAdmin, selectedTenantId]);
 
   useEffect(() => {
     loadData();
+    return () => { loads.current++; };
   }, [loadData]);
 
   async function runSave(action, message) {
+    if (saveLane.current) return;
+    const expected = context.current;
+    const operation = {};
+    saveLane.current = operation;
+    const isCurrent = () => mounted.current && context.current.client === expected.client && context.current.tenant === expected.tenant;
+    const assertCurrent = () => {
+      if (!isCurrent()) {
+        throw new DOMException("El contexto cambió.", "AbortError");
+      }
+    };
     setIsSaving(true);
     setError("");
     setSuccess("");
     try {
-      await action();
+      await action(assertCurrent);
+      assertCurrent();
       setSuccess(message);
       await loadData();
     } catch (requestError) {
-      setError(requestError.message || "No se pudo guardar el cambio.");
+      if (isCurrent() && requestError.name !== "AbortError") setError(requestError.message || "No se pudo guardar el cambio.");
     } finally {
-      setIsSaving(false);
+      if (saveLane.current === operation) { saveLane.current = null; if (mounted.current) setIsSaving(false); }
     }
   }
 
   async function handleCreateTenant(event) {
     event.preventDefault();
-    await runSave(async () => {
+    await runSave(async (assertCurrent) => {
       const tenant = await createTenant(authClient, tenantForm);
+      assertCurrent();
       setTenantForm({ name: "", taxId: "" });
       setSelectedTenantId(tenant.tenantId);
     }, "Empresa creada correctamente.");
@@ -177,47 +206,51 @@ export function AdminPage({ onNavigate }) {
 
   async function handleCreateArea(event) {
     event.preventDefault();
-    await runSave(async () => {
+    await runSave(async (assertCurrent) => {
       await createTenantArea(authClient, {
         tenantId: selectedTenant.tenantId,
         name: areaForm.name,
         parentAreaId: areaForm.parentAreaId,
       });
+      assertCurrent();
       setAreaForm({ name: "", parentAreaId: "" });
     }, "Area creada correctamente.");
   }
 
   async function handleCreateUser(event) {
     event.preventDefault();
-    await runSave(async () => {
+    await runSave(async (assertCurrent) => {
       await provisionTenantUser(authClient, {
         ...userForm,
         tenantId: selectedTenant.tenantId,
       });
+      assertCurrent();
       setUserForm({ username: "", email: "", firstName: "", lastName: "", password: "", role: "USER", areaId: "" });
     }, "Usuario creado y asignado a la empresa.");
   }
 
   async function handleSaveGroup(event) {
     event.preventDefault();
-    await runSave(async () => {
+    await runSave(async (assertCurrent) => {
       if (groupForm.groupId) {
         await updateTenantGroup(authClient, groupForm.groupId, groupForm);
       } else {
         await createTenantGroup(authClient, { ...groupForm, tenantId: selectedTenant.tenantId });
       }
+      assertCurrent();
       setGroupForm({ groupId: "", name: "Usuarios", description: "", permissions: ["view_documents", "download_documents"] });
     }, "Grupo y permisos guardados.");
   }
 
   async function handleAssignGroup(event) {
     event.preventDefault();
-    await runSave(async () => {
+    await runSave(async (assertCurrent) => {
       await assignTenantUserGroup(authClient, {
         tenantId: selectedTenant.tenantId,
         userId: assignGroupForm.userId,
         groupId: assignGroupForm.groupId,
       });
+      assertCurrent();
       setAssignGroupForm({ userId: "", groupId: "" });
     }, "Grupo asignado al usuario.");
   }
@@ -267,13 +300,13 @@ export function AdminPage({ onNavigate }) {
 
           <section className="admin-content">
             {error && (
-              <div className="admin-alert error">
+              <div className="admin-alert error" role="alert">
                 <CircleAlert size={17} />
                 {error}
               </div>
             )}
             {success && (
-              <div className="admin-alert success">
+              <div className="admin-alert success" role="status">
                 <Check size={17} />
                 {success}
               </div>
@@ -289,7 +322,7 @@ export function AdminPage({ onNavigate }) {
                 <div className="admin-tenant-bar">
                   <label>
                     Empresa activa
-                    <select value={selectedTenant?.tenantId || ""} onChange={(event) => setSelectedTenantId(event.target.value)}>
+                    <select disabled={isSaving} value={selectedTenant?.tenantId || ""} onChange={(event) => setSelectedTenantId(event.target.value)}>
                       {availableTenants.map((tenant) => (
                         <option key={tenant.tenantId} value={tenant.tenantId}>
                           {tenant.name}

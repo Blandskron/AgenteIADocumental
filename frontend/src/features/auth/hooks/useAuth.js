@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback, useMemo } from "react";
+import { useEffect, useState, useCallback, useMemo, useRef } from "react";
 
 import { normalizeAuthUser, userFromAccessToken, userStorageScope } from "../../../entities/auth/model/auth.user";
 import { loadAuthSession, saveAuthSession, clearAuthSession } from "../../../entities/auth/model/auth.storage";
@@ -10,10 +10,18 @@ export function useAuth() {
     if (!saved?.access) return null;
     const sessionId = typeof saved.sessionId === "string" && /^[a-f0-9-]{36}$/.test(saved.sessionId)
       ? saved.sessionId : crypto.randomUUID();
-    return { ...saved, sessionId };
+    return { ...saved, sessionId, user: saved.user || userFromAccessToken(saved.access, saved.username) };
   });
   const [loginError, setLoginError] = useState("");
   const [isAuthenticating, setIsAuthenticating] = useState(false);
+  const authRef = useRef(auth);
+  authRef.current = auth;
+  const generation = useRef(0);
+  const mounted = useRef(false);
+  const refreshPending = useRef(null);
+  const readAuthSession = useCallback(() => authRef.current, []);
+
+  useEffect(() => { mounted.current = true; return () => { mounted.current = false; }; }, []);
 
   useEffect(() => {
     if (auth) {
@@ -23,69 +31,97 @@ export function useAuth() {
     }
   }, [auth]);
 
-  useEffect(() => {
-    if (!auth?.access) return;
-    meRequest(auth.access)
-      .then((user) => {
-        setAuth((current) => (current?.access === auth.access ? { ...current, user: normalizeAuthUser(user) } : current));
-      })
-      .catch(() => {});
-  }, [auth?.access]);
-
   const login = useCallback(async (credentials) => {
+    const operation = ++generation.current;
     setIsAuthenticating(true);
     setLoginError("");
 
     try {
       const payload = await loginRequest(credentials);
+      if (!mounted.current || operation !== generation.current) return false;
       const user = normalizeAuthUser(payload, credentials.username);
-      setAuth({
+      const next = {
         sessionId: crypto.randomUUID(),
         access: payload.access,
         refresh: payload.refresh,
         username: user.username,
         user,
-      });
+      };
+      authRef.current = next;
+      setAuth(next);
       return true;
     } catch (error) {
+      if (!mounted.current || operation !== generation.current) return false;
       setLoginError(error.message);
       return false;
     } finally {
-      setIsAuthenticating(false);
+      if (mounted.current && operation === generation.current) setIsAuthenticating(false);
     }
   }, []);
 
-  const refreshAccessToken = useCallback(async () => {
-    if (!auth?.refresh) return null;
+  const refreshAccessToken = useCallback((rejectedAccess) => {
+    const expected = authRef.current;
+    if (!expected?.refresh) return Promise.resolve(null);
+    if (rejectedAccess && rejectedAccess !== expected.access) return Promise.resolve(expected.access);
+    if (refreshPending.current?.refresh === expected.refresh) return refreshPending.current.promise;
+    const operation = generation.current;
+    const promise = (async () => {
 
     try {
-      const payload = await refreshTokenRequest(auth.refresh);
+      const payload = await refreshTokenRequest(expected.refresh);
+      if (!mounted.current || operation !== generation.current || authRef.current?.sessionId !== expected.sessionId) return null;
       const nextAuth = {
-        ...auth,
+        ...expected,
         access: payload.access,
-        refresh: payload.refresh || auth.refresh,
-        user: payload.user ? normalizeAuthUser(payload.user) : userFromAccessToken(payload.access, auth.username),
+        refresh: payload.refresh || expected.refresh,
+        user: payload.user ? normalizeAuthUser(payload.user) : userFromAccessToken(payload.access, expected.username),
       };
-      setAuth((current) => (current?.refresh === auth.refresh ? nextAuth : current));
+      authRef.current = nextAuth;
+      setAuth((current) => (current?.refresh === expected.refresh ? nextAuth : current));
       return nextAuth.access;
     } catch {
-      setAuth((current) => (current?.refresh === auth.refresh ? null : current));
+      if (mounted.current && operation === generation.current && authRef.current?.refresh === expected.refresh) {
+        authRef.current = null;
+        setAuth((current) => (current?.refresh === expected.refresh ? null : current));
+      }
       return null;
+    } finally {
+      if (refreshPending.current?.promise === promise) refreshPending.current = null;
     }
-  }, [auth]);
+    })();
+    refreshPending.current = { refresh: expected.refresh, promise };
+    return promise;
+  }, []);
+
+  useEffect(() => {
+    if (!auth?.access) return;
+    meRequest(auth.access)
+      .then((user) => {
+        if (!mounted.current) return;
+        setAuth((current) => (current?.access === auth.access ? { ...current, user: normalizeAuthUser(user) } : current));
+      })
+      .catch((error) => {
+        if (error.status === 401 && authRef.current?.access === auth.access) refreshAccessToken(auth.access);
+      });
+  }, [auth?.access, refreshAccessToken]);
 
   const logout = useCallback(() => {
+    const previous = authRef.current;
+    generation.current++;
+    authRef.current = null;
     setAuth(null);
-    if (!auth?.refresh) return;
+    setIsAuthenticating(false);
+    setLoginError("");
+    if (!previous?.refresh) return;
 
-    logoutRequest(auth.access, auth.refresh)
+    logoutRequest(previous.access, previous.refresh)
       .catch(async (error) => {
         if (error.status !== 401) return;
-        const { access } = await refreshTokenRequest(auth.refresh);
-        await logoutRequest(access, auth.refresh);
+        const { access } = await refreshTokenRequest(previous.refresh);
+        await logoutRequest(access, previous.refresh);
       })
       .catch(() => {});
-  }, [auth?.access, auth?.refresh]);
+  }, []);
 
   const currentUser = useMemo(() => {
     return auth?.user || userFromAccessToken(auth?.access, auth?.username);
@@ -106,6 +142,7 @@ export function useAuth() {
       login,
       refreshAccessToken,
       logout,
+      readAuthSession,
     }),
     [
       auth,

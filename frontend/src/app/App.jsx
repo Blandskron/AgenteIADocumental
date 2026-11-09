@@ -18,6 +18,19 @@ function normalizeRoute(pathname) {
 export function App() {
   const { currentUser, isAuthenticated } = useAuthContext();
   const [route, setRoute] = useState(() => normalizeRoute(window.location.pathname || appRoutes.chat));
+  const canUseChat = currentUser?.isSuperuser || hasTenantPermission(currentUser, "use_chat");
+  const canUseIntegrations = currentUser?.isSuperuser || hasTenantPermission(currentUser, "use_google_drive") || hasTenantPermission(currentUser, "use_sharepoint");
+  const canAdmin = isTenantAdmin(currentUser);
+  const denied = (route === appRoutes.chat && !canUseChat)
+    || ([appRoutes.applications, appRoutes.googleDriveApplication].includes(route) && !canUseIntegrations)
+    || (route === appRoutes.admin && !canAdmin);
+
+  useEffect(() => {
+    if (isAuthenticated && denied) {
+      window.history.replaceState(null, "", appRoutes.documents);
+      setRoute(appRoutes.documents);
+    }
+  }, [isAuthenticated, denied]);
 
   useEffect(() => {
     function handlePopState() {
@@ -54,30 +67,7 @@ export function App() {
 
   if (!isAuthenticated) return <LoginPage />;
 
-  const canUseChat = currentUser?.isSuperuser || hasTenantPermission(currentUser, "use_chat");
-  const canUseIntegrations =
-    currentUser?.isSuperuser ||
-    hasTenantPermission(currentUser, "use_google_drive") ||
-    hasTenantPermission(currentUser, "use_sharepoint");
-  const canAdmin = isTenantAdmin(currentUser);
-
-  if (route === appRoutes.chat && !canUseChat) {
-    window.history.replaceState(null, "", appRoutes.documents);
-    setRoute(appRoutes.documents);
-    return null;
-  }
-
-  if ((route === appRoutes.applications || route === appRoutes.googleDriveApplication) && !canUseIntegrations) {
-    window.history.replaceState(null, "", appRoutes.documents);
-    setRoute(appRoutes.documents);
-    return null;
-  }
-
-  if (route === appRoutes.admin && !canAdmin) {
-    window.history.replaceState(null, "", appRoutes.documents);
-    setRoute(appRoutes.documents);
-    return null;
-  }
+  if (denied) return null;
 
   if (
     route === appRoutes.documents ||

@@ -1,4 +1,5 @@
 import { Download, X } from "lucide-react";
+import { ModalDialog } from "../../../shared/components/ModalDialog";
 
 export function DocumentPreviewModal({ preview, onClose, onDownload }) {
   if (!preview) return null;
@@ -7,7 +8,7 @@ export function DocumentPreviewModal({ preview, onClose, onDownload }) {
 
   return (
     <div className="document-preview-backdrop" role="presentation">
-      <section className="document-preview-modal" role="dialog" aria-modal="true" aria-label="Vista previa">
+      <ModalDialog className="document-preview-modal" aria-label="Vista previa" onClose={onClose}>
         <header className="document-preview-header">
           <div>
             <p>Vista previa</p>
@@ -30,7 +31,7 @@ export function DocumentPreviewModal({ preview, onClose, onDownload }) {
             Este formato no se puede previsualizar directamente. Puedes descargarlo para abrirlo localmente.
           </div>
         )}
-      </section>
+      </ModalDialog>
     </div>
   );
 }

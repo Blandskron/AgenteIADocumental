@@ -9,7 +9,7 @@ from app.config.settings import get_settings
 from app.infrastructure.database.connection import Database
 from app.interfaces.api.router import api_router
 from app.interfaces.api.upload_limits import UploadBodyLimitMiddleware
-from app.shared.errors import AppError, ConflictError, ExternalServiceError, ExtractionError, NotFoundError, PayloadTooLarge, ValidationError
+from app.shared.errors import AppError, ConflictError, DocumentRelationConflict, ExternalServiceError, ExtractionError, NotFoundError, PayloadTooLarge, ValidationError
 
 
 settings = get_settings()
@@ -62,7 +62,10 @@ async def extraction_error_handler(request: Request, exc: ExtractionError) -> JS
 
 @app.exception_handler(ConflictError)
 async def conflict_error_handler(request: Request, exc: ConflictError) -> JSONResponse:
-    return JSONResponse(status_code=409, content={"detail": str(exc)})
+    content = {"detail": str(exc)}
+    if isinstance(exc, DocumentRelationConflict):
+        content["code"] = "document_relation_changed"
+    return JSONResponse(status_code=409, content=content)
 
 
 @app.exception_handler(ExternalServiceError)

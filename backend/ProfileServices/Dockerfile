@@ -1,4 +1,4 @@
-FROM python:3.12-slim AS base
+FROM python:3.12-slim@sha256:5e2bdb1b0d542d5039cffb8181c65930093949194a65c365dfb1b0fe13a4fa5b AS base
 
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
@@ -7,6 +7,7 @@ WORKDIR /app
 
 # Debian's security repository carries the zlib fixes before the slim tag rebuild.
 RUN apt-get update \
+    && apt-get upgrade -y --no-install-recommends \
     && apt-get install -y --no-install-recommends --only-upgrade zlib1g \
     && rm -rf /var/lib/apt/lists/*
 
@@ -28,6 +29,8 @@ RUN python -m pip install --no-cache-dir pip-audit==2.10.1
 CMD ["pip-audit", "--disable-pip", "--no-deps", "--cache-dir", "/tmp/pip-audit-cache", "-r", "/tmp/runtime-packages.txt"]
 
 FROM base AS runtime
+
+RUN python -m pip check && python -m pip uninstall -y pip
 USER 10008:10008
 EXPOSE 8000
 

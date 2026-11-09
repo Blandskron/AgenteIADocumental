@@ -50,13 +50,12 @@ export function LoginForm({ error, isSubmitting, onSubmit }) {
         </span>
       </label>
 
-      {error && <div className="login-error">{error}</div>}
+      {error && <div className="login-error" role="alert">{error}</div>}
 
       <button className="login-button" disabled={isSubmitting}>
         {isSubmitting ? "Ingresando..." : "Ingresar"}
       </button>
 
-      {/* Frase eliminada por requerimiento */}
     </form>
   );
 }

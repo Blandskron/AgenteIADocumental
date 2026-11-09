@@ -18,7 +18,9 @@ class TransferBudget:
         self.remaining -= amount
 
 
-def read_response(response, destination, maximum, deadline, budget=None, *, allowed_statuses=(200,)):
+def read_response(
+    response, destination, maximum, deadline, budget=None, *, allowed_statuses=(200,)
+):
     if response.status_code not in allowed_statuses:
         raise ProviderStatusError(response.status_code)
     if response.headers.get("content-encoding", "identity").lower() != "identity":
@@ -45,7 +47,9 @@ def read_response(response, destination, maximum, deadline, budget=None, *, allo
     return total
 
 
-def provider_json(method, url, *, timeout, deadline=None, **kwargs):
+def provider_json(
+    method, url, *, timeout, deadline=None, rejection_codes=None, **kwargs
+):
     deadline = deadline or monotonic() + timeout
     if monotonic() >= deadline:
         raise GoogleDriveError("Provider time budget is exhausted.")
@@ -58,8 +62,23 @@ def provider_json(method, url, *, timeout, deadline=None, **kwargs):
         ) as client:
             with client.stream(method, url, headers=headers, **kwargs) as response:
                 with SpooledTemporaryFile(max_size=32768, mode="w+b") as body:
-                    read_response(response, body, 32768, deadline)
+                    codes = (rejection_codes or {}).get(response.status_code)
+                    read_response(
+                        response,
+                        body,
+                        32768,
+                        deadline,
+                        allowed_statuses=(200, response.status_code)
+                        if codes
+                        else (200,),
+                    )
                     value = json.load(body)
+                    if response.status_code != 200:
+                        code = value.get("code") if isinstance(value, dict) else None
+                        raise ProviderStatusError(
+                            response.status_code,
+                            code if isinstance(code, str) and code in codes else None,
+                        )
         if not isinstance(value, dict):
             raise ValueError()
         return value

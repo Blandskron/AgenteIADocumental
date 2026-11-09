@@ -24,6 +24,9 @@ BEGIN;
 \ir functions/001_functions.sql
 \ir triggers/001_updated_at_triggers.sql
 \ir seeds/001_reference_data.sql
+\ir constraints/002_tenant_assignments.sql
+\ir constraints/003_tenant_area_relations.sql
+\ir constraints/004_tenant_hierarchy.sql
 
 COMMIT;
 
