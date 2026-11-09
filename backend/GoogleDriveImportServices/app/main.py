@@ -12,7 +12,7 @@ from app.config.settings import Settings, get_settings
 from app.infrastructure.database.connection import Database
 from app.interfaces.api.router import api_router
 from app.interfaces.api.credential_middleware import CredentialMiddleware
-from app.shared.errors import DriveConflictError, ReauthorizationRequired, AppError, ExternalServiceError, GoogleDriveError, NotFoundError, ValidationError
+from app.shared.errors import ImportConnectionConflict, ImportSourceConflict, DriveConflictError, ReauthorizationRequired, AppError, ExternalServiceError, GoogleDriveError, NotFoundError, ValidationError
 
 
 def create_app(settings: Settings | None = None):
@@ -40,7 +40,7 @@ def create_app(settings: Settings | None = None):
     app.add_middleware(CORSMiddleware, allow_origins=settings.cors_origins, allow_credentials=False,
                        allow_methods=["GET", "POST"], allow_headers=["Authorization", "Content-Type"])
     app.include_router(api_router)
-    for kind, code, detail in ((DriveConflictError,409,"Drive credentials changed or are busy."),
+    for kind, code, detail in ((DriveConflictError,409,"Drive operation changed or is busy."),
                               (ReauthorizationRequired,409,"Google Drive authorization must be renewed."),
                               (NotFoundError,404,"Google Drive resource not found."),
                               (ValidationError,400,"Invalid Google Drive request."),
@@ -53,9 +53,19 @@ def create_app(settings: Settings | None = None):
         def handler(request, exc, code=code, detail=detail):
             return JSONResponse(status_code=code, content={"detail": detail})
         app.add_exception_handler(kind, handler)
+    app.add_exception_handler(ImportConnectionConflict, import_connection_conflict)
+    app.add_exception_handler(ImportSourceConflict, import_source_conflict)
     app.add_exception_handler(RequestValidationError, invalid_request)
     return app
 
 
 async def invalid_request(request: Request, exc: RequestValidationError):
     return JSONResponse(status_code=422, content={"detail": "Invalid Google Drive request values."})
+
+
+async def import_source_conflict(request, exc):
+    return JSONResponse(status_code=409, content={"code": "import_source_conflict", "detail": "Selected Drive files were already uploaded or require review."})
+
+
+async def import_connection_conflict(request, exc):
+    return JSONResponse(status_code=409, content={"code": "import_connection_changed", "detail": "Reload the current Google Drive connection before starting a new import."})

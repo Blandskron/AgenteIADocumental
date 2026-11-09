@@ -23,7 +23,7 @@ Las vistas de asignaciones, gestión y notificaciones cargan 50 registros por p�
 
 La biblioteca también carga por páginas de 50 las carpetas raíz, su contenido, favoritos y documentos actualizados recientemente. Usa **Cargar más** y **Actualizar biblioteca** para volver a las primeras páginas. Los contadores indican registros cargados; la cantidad de documentos de cada carpeta incluye todos los visibles. La web navega raíces y su contenido; la jerarquía completa está disponible en la API.
 
-La ingesta admite archivos de hasta 20 MiB. El mismo límite aplica a las cargas directas y a las importaciones de Google Drive.
+La ingesta admite archivos de hasta 20 MiB. Drive cuenta los bytes durante la descarga, con un máximo adicional de 100 MiB por lote, dos importaciones simultáneas y una por usuario. API, esquema y web deben actualizarse juntos por la nueva clave de operación. Si se pierde una respuesta, usa «Consultar importación pendiente»; las cargas inciertas requieren revisión y conservan su identificador de operación. [Contrato de importación y mantenimiento](backend/GoogleDriveImportServices/README.md#importaciones-acotadas-y-recuperables-drive-005).
 
 ## Servicios activos
 

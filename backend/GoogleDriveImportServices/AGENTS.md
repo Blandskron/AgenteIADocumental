@@ -8,6 +8,8 @@ DRIVE-004 introduce intentos PKCE/state consumidos antes del canje, envelope/key
 
 ## Fronteras y contratos
 
+DRIVE-005 usa operation_id, hash/tenant, lease SQL y diario por archivo. Los escritores antiguos sin lease se retiraron: usa claim_import/journal_file/complete_operation y no confirmes un padre con archivos activos. Antes del POST de carga confirma UPLOADING; guarda el ID devuelto con process=false antes de pedir procesamiento. No conviertas una respuesta perdida en FAILED ni elimines marcadores para repetir una carga. La retención revisada conserva tombstones de operación/fuente y nunca borra documentos. La clave web y payload deben sobrevivir a refresh/recarga sin mezclarse entre cuentas/tenants. Consulta el README para límites, recuperación y mantenimiento; DRIVE-006 mantiene pendiente el controlador/historial completo.
+
 - Auth es dueño de identidad, huella, actividad, tenant y permisos. No asumir que verificar firma basta para revocación ni aceptar identidades por username/sub/unknown. El contrato use_google_drive y conexión global/tenant debe ser explícito con sus consumidores.
 - Revisa juntos schemas/rutas, ManageGoogleDriveImports, repositorio/cifrador/cliente Google, SQL, Compose y web: ApplicationsPage, DocumentSearchPage, AuthProvider, google-drive-import API y Picker. Los cambios de callback, páginas o estados exigen despliegue conjunto y pruebas de ambas páginas.
 - Callback solo de un intento iniciado y ligado a usuario/navegador, aleatorio, corto y de un uso; validar/consumir antes de canjear. No inferir propiedad del state JSON ni convertir return_url en redirección libre. Verificar PKCE y coherencia de cuenta/cliente con el flujo Google realmente elegido.

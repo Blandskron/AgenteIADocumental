@@ -5,7 +5,7 @@ const user = { id: 123, username: "synthetic", active_tenant_id: "tenant-one", a
   active_permissions: ["use_google_drive", "upload_documents"], tenant_memberships: [] };
 const access = (jti) => `synthetic.${Buffer.from(JSON.stringify({ ...user, jti })).toString("base64url")}.synthetic`;
 
-async function prepare(page, { attempt = true, wrongScope = false, refresh = false } = {}) {
+async function prepare(page, { attempt = true, wrongScope = false, refresh = false, importMode = null } = {}) {
   await page.addInitScript(({ user, token, sessionId, attempt, wrongScope }) => {
     window.__BLANDSKRON_CONFIG__ = Object.fromEntries(["AUTH", "PROFILE", "RAG_CHAT", "RAG_DOCUMENT", "DOCUMENT_SEARCH",
       "DOCUMENT_ACCESS", "DOCUMENT_LIBRARY", "DOCUMENT_TRANSFER", "DOCUMENT_EXPORT", "GOOGLE_DRIVE_IMPORT", "CONVERSATION"]
@@ -20,7 +20,7 @@ async function prepare(page, { attempt = true, wrongScope = false, refresh = fal
       verifier: "v".repeat(43), createdAt: Date.now(), callbackPath: location.pathname,
     }));
   }, { user, token: access("first"), sessionId, attempt, wrongScope });
-  const calls = [], errors = [];
+  const calls = [], errors = [], imports = [];
   page.on("pageerror", (error) => errors.push(error.message));
   await page.route("**/test-api/**", async (route) => {
     const path = new URL(route.request().url()).pathname;
@@ -37,12 +37,37 @@ async function prepare(page, { attempt = true, wrongScope = false, refresh = fal
     if (path.endsWith("/google-drive/connection")) return json({ connected: true, enabled: true, version: 2,
       grant_status: "ACTIVE", provider_account_email: "synthetic@example.invalid" });
     if (path.endsWith("/google-drive/disconnect")) return json({ connected: false, enabled: true, version: 3, grant_status: "DISCONNECTED" });
+    if (path.endsWith("/google-drive/imports") && route.request().method() === "POST" && importMode) {
+      imports.push(route.request().postDataJSON());
+      if (importMode === "lost" && imports.length === 1) return route.abort("failed");
+      return json({ import_id: "synthetic-import", operation_id: imports.at(-1).operation_id, version: 2,
+        status: importMode === "ambiguous" ? "REVIEW_REQUIRED" : "COMPLETED", files: [] });
+    }
     if (/document-library|\/folders|\/favorites|\/recent/.test(path)) return json({ items: [], limit: 50, offset: 0, has_more: false });
     if (/\/search/.test(path)) return json({ documents: [], total: 0 });
     if (path.endsWith("/api/v1/conversations")) return json([{ conversation_id: "synthetic-chat", title: "Chat sintético" }]);
     return json([]);
   });
-  return { calls, errors };
+  return { calls, errors, imports };
+}
+
+for (const path of ["/applications/google-drive", "/documents"]) {
+  test(`lost import response on ${path} reuses its operation after reload`, async ({ page }) => {
+    const { imports, errors } = await prepare(page, { attempt: false, importMode: "lost" });
+    await page.goto(path);
+    if (path === "/documents") await page.getByRole("button", { name: "Google Drive", exact: true }).click();
+    await page.getByRole("textbox", { name: /IDs de archivos de Google Drive/ }).fill("synthetic-file");
+    await page.locator("form").filter({ has: page.getByRole("textbox", { name: /IDs de archivos de Google Drive/ }) }).locator('button[type="submit"]').click();
+    await expect.poll(() => imports.length).toBe(1);
+    await expect(page.getByRole("button", { name: "Consultar importación pendiente" })).toBeEnabled();
+    await page.reload();
+    if (path === "/documents") await page.getByRole("button", { name: "Google Drive", exact: true }).click();
+    await page.getByRole("button", { name: "Consultar importación pendiente" }).click();
+    await expect.poll(() => imports.length).toBe(2);
+    expect(imports[1]).toEqual(imports[0]);
+    await expect(page.getByRole("button", { name: "Consultar importación pendiente" })).not.toBeVisible();
+    expect(errors).toEqual([]);
+  });
 }
 
 for (const path of ["/applications/google-drive", "/documents"]) {

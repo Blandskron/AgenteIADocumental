@@ -2,7 +2,7 @@
 
 Microservicio responsable de conectar Google Drive con la biblioteca documental de Blandskron Documental.
 
-**Estado:** DRIVE-001/002/003/004 integrados: OAuth PKCE, credenciales versionadas y callbacks compartidos. Importación acotada/recuperable, controlador web completo e imagen conservan sus tarjetas; el servicio no está cerrado. [Tablero](../../ROADMAP.md#googledriveimportservices), [guía para agentes](AGENTS.md) y [línea base histórica](docs/BASELINE.json).
+**Estado:** DRIVE-001/002/003/004 integrados: OAuth PKCE, credenciales versionadas y callbacks compartidos. DRIVE-005 en revisión: importaciones acotadas y diario recuperable. El controlador web completo y la imagen conservan sus tarjetas; el servicio no está cerrado. [Tablero](../../ROADMAP.md#googledriveimportservices), [guía para agentes](AGENTS.md) y [línea base histórica](docs/BASELINE.json).
 
 ## Responsabilidad
 
@@ -65,18 +65,50 @@ GET  /api/v1/google-drive/imports/{import_id}/files
 
 ## Tamaño del lote — DRIVE-005A
 
-La API acepta entre 1 y 25 archivos por solicitud; fuera de ese rango responde 422. Si el límite configurado del servicio es menor, un lote que lo exceda responde 400 antes de consultar carpetas/conexiones, crear registros o llamar a proveedores. El lote se rechaza completo: no se recorta silenciosamente. Divide la selección en lotes admitidos. Los límites de bytes reales, cuerpo/campos y recuperación siguen pendientes en DRIVE-005; este incremento no hace segura una descarga grande ni un reintento ambiguo.
+La API acepta entre 1 y 25 archivos por solicitud; fuera de ese rango responde 422. Si el límite configurado del servicio es menor, un lote que lo exceda responde 400 antes de consultar carpetas/conexiones, crear registros o llamar a proveedores. El lote se rechaza completo: no se recorta silenciosamente. Divide la selección en lotes admitidos. DRIVE-005 añade los límites y el protocolo de recuperación descritos a continuación.
+
+## Importaciones acotadas y recuperables DRIVE-005
+
+Despliega esquema, rol, Drive y frontend juntos, con escritores antiguos detenidos. `database-schema` incluye `drive/import_lifecycle.sql`; conserva dueños, ciphertext, documentos e historial y marca importaciones antiguas interrumpidas como REVIEW_REQUIRED. Ejecuta después `drive-db-role` y reconstruye el servicio/web. Las credenciales y datos personales no forman parte de las pruebas. El runtime sigue deshabilitado por defecto.
+
+POST imports exige `operation_id` UUID canónico, `files` y, para vincular la selección web, `connection_version`. El schema prohíbe campos extra, IDs con rutas/query, archivos repetidos y nombres con separadores/controles; acota campos y metadata a 4 KiB, 32 elementos por colección y cuatro niveles. La metadata no puede sustituir identidad, source, folder/import ni campos Google reservados; el backend construye los campos de procedencia y Embedding conserva su propia autorización/estampado. El cuerpo completo tiene un máximo real de 64 KiB y una espera de lectura de 15 segundos antes de parsearlo.
+
+La descarga usa streaming y un spool privado: hasta 1 MiB en memoria, después archivo temporal anónimo, cerrado también ante errores y revocación. Cuenta bytes reales sin depender de metadata o Content-Length: 20 MiB por archivo y 100 MiB por operación, incluyendo transferencias fallidas. Se rechazan tamaños falsos, respuestas parciales/redirecciones, contenido codificado y MIME inesperado. Solo se contactan endpoints configurados/soportados; no se siguen webViewLinks del proveedor. Las respuestas JSON de metadata/ingesta se limitan a 32 KiB y se validan sus tipos/identificadores. [Streaming HTTPX](https://www.python-httpx.org/quickstart/#streaming-responses) y [exportaciones oficiales de Google](https://developers.google.com/workspace/drive/api/guides/ref-export-formats).
+
+El presupuesto de trabajo remoto es de 120 segundos por descarga y 600 por lote, comprobado entre lecturas, antes de cada fase y antes de iniciar solicitudes; cada espera de socket tiene además el timeout configurado (30 segundos por defecto). Una lectura ya iniciada puede consumir ese timeout antes de devolver control. No es una promesa de cancelación instantánea ni de tiempo exacto de respuesta HTTP, que también incluye transacciones SQL acotadas. Dos leases SQL globales, con un máximo de uno por dueño, limitan importaciones entre procesos/réplicas; el lease dura 15 minutos. Ningún lock/transacción se mantiene durante red. El spool se libera al terminar la carga, antes del procesamiento.
+
+El diario crea el padre y sus archivos PENDING en una transacción. DOWNLOADING prueba que no se intentó cargar; UPLOADING se confirma antes del POST remoto. La carga usa `process=false`; su ID se guarda como UPLOADED antes de llamar al procesamiento documental. Un fallo o timeout de procesamiento conserva ese ID y produce PARTIAL con advertencia. La asociación de carpeta conserva el protocolo Library; un fallo tampoco repite la carga y mantiene el documento confirmado.
+
+La misma clave, mismo payload y tenant devuelve el resultado guardado; un intento activo o una clave usada para otro payload/tenant devuelve 409. No se vuelve a descargar/cargar durante un replay. Una respuesta de carga perdida, JSON inválido o fallo ambiguo queda REVIEW_REQUIRED y bloquea otra carga del mismo archivo. Incluso con una clave nueva, un Google file ID ya cargado o pendiente de revisión para ese dueño no se vuelve a cargar. La identidad/permiso y las versiones de conexión/lease se comprueban antes de costes remotos. Reimportar revisiones de un mismo Google file ID no está implementado: requiere una política explícita de versiones, no eliminar los marcadores para forzar otra carga.
+
+Los rechazos de autorización 401/403 de la ingesta ocurren antes de crear el documento y se registran FAILED, deteniendo las siguientes cargas del lote. Otras respuestas de carga no se interpretan como prueba de ausencia de documento. La web conserva la clave y el payload de un intento sin respuesta en sessionStorage, ligados a sesión/usuario/tenant. «Consultar importación pendiente» reenvía la misma operación, también tras recargar. Una operación fallida de forma conocida puede iniciar un intento nuevo; una incierta conserva la clave y requiere revisar el resultado. Cambiar de cuenta o conexión invalida las actualizaciones tardías. Esto no cierra la paginación, cancelación e historial visual completo de DRIVE-006.
+
+Consultar GET imports/{id} recupera un lease vencido del propio usuario. Un DOWNLOADING/PENDING interrumpido pasa a FAILED; UPLOADING pasa a REVIEW_REQUIRED; UPLOADED/COMPLETED conservan su ID. El padre recalcula contadores/estado y aumenta versión; un worker tardío pierde su permiso de escritura. No se repite ninguna carga en esa recuperación. FAILED cuenta fallos conocidos; processed_files cuenta documentos cuya creación se confirmó, aunque su procesamiento o asociación necesite revisión. REVIEW_REQUIRED identifica un resultado de creación desconocido, no un documento confirmado como perdido.
+
+### Revisión y mantenimiento
+
+Ante REVIEW_REQUIRED, localiza el documento por dueño y metadata.import_id/google_file_id mediante acceso autorizado. No infieras que no existe solo por un timeout o una consulta temprana: drena las solicitudes y revisa la ingesta en una ventana de mantenimiento. Conserva el documento encontrado y revisa procesamiento/asociación con los endpoints existentes de Embedding/Library. Resolver una ambigüedad necesita una disposición humana documentada; no hay botón ni tarea que borre esa evidencia o vuelva a cargarla automáticamente.
+
+[maintain_imports.py](../../scripts/drive/maintain_imports.py) permite planificar recuperación y compactación de historial en un entorno de mantenimiento con `app` en PYTHONPATH. Exige `DRIVE_MAINTENANCE_DATABASE_URL` explícita con credenciales administrativas del entorno y no lee .env. No amplía privilegios del runtime. Usa secretos del despliegue, no argumentos ni archivos del repo:
+
+```text
+python /drive-checks/maintain_imports.py --plan /private/drive-imports-plan.json
+# Revisar acciones, IDs, versiones y hashes fuera de Git; el plan no modifica datos.
+python /drive-checks/maintain_imports.py --apply /private/drive-imports-plan.json
+```
+
+Procesa hasta 1000 entradas por plan. Recupera leases vencidos y compacta historial terminal sin advertencias pendientes, de más de 30 días. Conserva REVIEW_REQUIRED, archivos UPLOADED y advertencias sin resolver. PURGED elimina nombres/metadata del historial visible, pero conserva IDs/marcadores de fuente y operación para impedir duplicados; nunca elimina documentos, conexiones o credenciales. Aplicar verifica versión/hash bajo locks ordenados; cualquier cambio revierte el lote completo. Protege los planes como metadata privada y genera otro plan para el siguiente lote; la disposición de datos históricos no consiste en un borrado masivo.
 
 ## Formatos nativos de Google
 
 ```text
 Google Docs   -> DOCX
-Google Sheets -> XLSX
-Google Slides -> PPTX
+Google Sheets -> PDF
+Google Slides -> PDF
 Google Drawing -> PDF
 ```
 
-Estos son los formatos que solicita el cliente actual, no una garantía de procesamiento. Embedding admite PDF/DOCX y otros formatos de su contrato, pero no XLSX/PPTX. DRIVE-005 debe elegir una conversión compatible para Sheets/Slides o rechazarlos explícitamente antes de descargar; no basta con que Google complete la exportación.
+Docs se exporta a DOCX por defecto y admite PDF explícito. Sheets, Slides y Drawing se exportan a PDF. Los binarios admitidos coinciden con el contrato de ingesta: PDF, DOCX, TXT, Markdown, CSV, PNG, JPEG y TIFF. XLSX/PPTX binarios, carpetas, shortcuts y conversiones arbitrarias se rechazan antes de descargar contenido. La validación del contenido y extracción continúa perteneciendo a Embedding.
 
 ## Seguridad
 
@@ -148,7 +180,7 @@ La suite mantenida incluye state ausente/ajeno/vencido/replay, PKCE, tenant/conf
 
 Drive está deshabilitado por defecto. Sin secretos Google puede arrancar, verificar readiness y consultar conexión/historial con identidad y permiso válidos. auth-url, callback e importaciones devuelven503 después de autenticar/autorizar; no construyen el cifrador ni llaman al proveedor. Para habilitarlo se exige GOOGLE_DRIVE_ENABLED=true, cliente/secreto y clave de cifrado independiente de al menos32caracteres, sin valores vacíos/de ejemplo. Los alias anteriores siguen admitidos, pero el proceso no lee archivos .env: Compose inyecta solo variables explícitas. CORS admite orígenes locales explícitos por defecto, [] lo desactiva y * se rechaza. Los endpoints Google son los HTTPS soportados y el scope es drive.file; ingesta admite su URL local de desarrollo o HTTPS.
 
-**Mantener Drive deshabilitado para publicación hasta completar DRIVE-005/006.** DRIVE-004 sustituye el callback code-only y añade el ciclo de credenciales descrito abajo. Descarga, recuperación de ingesta y coordinación web completa siguen pendientes. No sustituir claves ni borrar grants heredados a ciegas.
+**Mantener Drive deshabilitado para publicación hasta completar DRIVE-006/007/008.** OAuth y límites/diario se describen en sus secciones; todavía faltan el controlador web/historial completo, artefacto y validación final. No sustituir claves ni borrar grants heredados a ciegas.
 
 ### Identidad y permiso vigente
 

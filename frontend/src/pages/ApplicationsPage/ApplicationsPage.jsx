@@ -1,3 +1,6 @@
+import { getImportWarning } from "../../features/google-drive-import/import-result.js";
+import { ImportAttemptNotice } from "../../features/google-drive-import/ImportAttemptNotice.jsx";
+import { prepareImportAttempt, finishImportAttempt, rejectImportAttempt } from "../../features/google-drive-import/import-attempt.js";
 import { useEffect, useRef, useState } from "react";
 import { ChevronRight, Cloud, ShieldCheck, X } from "lucide-react";
 
@@ -36,12 +39,17 @@ export function ApplicationsPage({ activeView = appRoutes.applications, onNaviga
   const [selectedFiles, setSelectedFiles] = useState([]);
   const [isBusy, setIsBusy] = useState(false);
   const [status, setStatus] = useState({ error: "", success: "" });
+  const importBusyRef = useRef(false);
+  const importEpoch = useRef(0);
   const driveClientRef = useRef(googleDriveImportClient);
   driveClientRef.current = { client: googleDriveImportClient, version: connection.version, connected: connection.connected, busy: drive.busy };
   useEffect(() => {
+    importEpoch.current++;
+    importBusyRef.current = false;
+    setIsBusy(false);
     setSelectedFiles([]);
     setFileIds("");
-  }, [googleDriveImportClient, connection.version]);
+  }, [googleDriveImportClient, connection.providerAccountId]);
   const isDriveDetail = activeView === appRoutes.googleDriveApplication;
 
 
@@ -66,32 +74,45 @@ export function ApplicationsPage({ activeView = appRoutes.applications, onNaviga
     }
   }
 
-  async function handleImportDriveFiles(event) {
+  async function handleImportDriveFiles(event, previousInput = null) {
     event.preventDefault();
-    const files = selectedFiles.length
+    const files = previousInput?.files || (selectedFiles.length
       ? selectedFiles
       : fileIds
           .split(/[\n,]/)
           .map((value) => value.trim())
           .filter(Boolean)
-          .map((fileId) => ({ fileId }));
+          .map((fileId) => ({ fileId })));
 
-    if (!files.length) return;
+    if (!files.length || importBusyRef.current) return;
+    importBusyRef.current = true;
+    const generation = ++importEpoch.current;
 
     setIsBusy(true);
     setStatus({ error: "", success: "" });
+    let attempt;
     try {
-      await importGoogleDriveFiles(googleDriveImportClient, {
-        files,
-        metadata: { imported_from_applications: true },
-      });
-      setFileIds("");
-      setSelectedFiles([]);
-      setStatus({ error: "", success: "Documentos enviados a procesamiento." });
+      const input = previousInput || { files, metadata: { imported_from_applications: true } };
+      attempt = prepareImportAttempt(profileSessionKey, input, connection.version);
+      const imported = await importGoogleDriveFiles(googleDriveImportClient, { ...input, ...attempt });
+      if (importEpoch.current !== generation) return;
+      finishImportAttempt(profileSessionKey, attempt.operationId, imported);
+      if (imported.status === "REVIEW_REQUIRED") {
+        setStatus({ error: "La carga tiene un resultado incierto. Revisa el historial antes de reintentar.", success: "" });
+        return;
+      }
+      if (!previousInput) setFileIds("");
+      if (!previousInput) setSelectedFiles([]);
+      const warning = getImportWarning(imported);
+      setStatus({ error: warning, success: warning ? "" : "Documentos enviados a procesamiento." });
     } catch (error) {
+      if (importEpoch.current !== generation) return;
+      if (attempt) rejectImportAttempt(profileSessionKey, attempt.operationId, error);
+      if (error.payload?.code === "import_connection_changed") await drive.refresh();
       setStatus({ error: error.message, success: "" });
     } finally {
-      setIsBusy(false);
+      if (importEpoch.current === generation) importBusyRef.current = false;
+      if (importEpoch.current === generation) setIsBusy(false);
     }
   }
 
@@ -118,6 +139,7 @@ export function ApplicationsPage({ activeView = appRoutes.applications, onNaviga
       <main className="applications-page blandskron-screen">
         {isDriveDetail ? (
           <GoogleDriveApplication
+            operationScope={profileSessionKey}
             connection={connection}
             fileIds={fileIds}
             isBusy={isBusy || drive.busy}
@@ -176,6 +198,7 @@ function GoogleDriveApplication({
   onBack,
   onConnect,
   onDisconnect,
+  operationScope,
   onFileIdsChange,
   onImport,
   onOpenPicker,
@@ -203,6 +226,7 @@ function GoogleDriveApplication({
         </button>
       </div>
 
+      <ImportAttemptNotice scope={operationScope} isBusy={isBusy} onRetry={onImport} />
       {!connection?.enabled && <p role="status">La integración Google Drive está deshabilitada.</p>}
       {connection?.grantStatus === "LEGACY" && <p role="status">La conexión anterior requiere revisión de cifrado o una nueva autorización.</p>}
       {connection?.grantStatus === "REAUTH_REQUIRED" && <p role="status">Autoriza Google Drive nuevamente para continuar.</p>}

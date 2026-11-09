@@ -1,3 +1,4 @@
+from io import BytesIO
 import os
 from concurrent.futures import ThreadPoolExecutor
 from threading import Event
@@ -104,6 +105,28 @@ def test_drive_writer_obeys_library_transaction_lock(committed_records):
 
 
 class ImportRepository:
+    def replay_import(self, *args):
+        return None
+
+    def claim_import(self, operation_id, fingerprint, payload, version):
+        record = SimpleNamespace(import_id="synthetic-import", version=1)
+        for item in payload.files:
+            self.add_import_file(record.import_id, {"google_file_id": item.file_id, "status": "PENDING", "metadata_": {}, "error_message": None})
+        return record, True
+
+    def guard_import(self, *args):
+        pass
+
+    def journal_file(self, lease, file_id, values):
+        self.update_import_file(file_id, values)
+
+    def complete_operation(self, lease):
+        processed = sum(f.status in {"UPLOADED", "COMPLETED"} for f in self.files)
+        failed = sum(f.status == "FAILED" for f in self.files)
+        unknown = any(f.status == "REVIEW_REQUIRED" for f in self.files)
+        warning = any(f.error_message for f in self.files)
+        return self.finish_import(lease.import_id, processed, failed, "REVIEW_REQUIRED" if unknown else "PARTIAL" if processed and warning else "COMPLETED" if processed else "FAILED", "Algunos documentos se importaron sin poder agregarse a la carpeta seleccionada." if warning else None)
+
     def ensure_connection_current(self, version):
         pass
 
@@ -136,7 +159,8 @@ class ImportRepository:
             setattr(record, key, value)
         return record
 
-    def associate_document_with_folder(self, **payload):
+    def associate_document_with_folder(self, folder_id, document_id, owner_user_id):
+        payload = {"folder_id": folder_id, "document_id": document_id, "owner_user_id": owner_user_id}
         if self.association_error:
             raise self.association_error
         self.associations.append(payload)
@@ -152,9 +176,10 @@ class SyntheticGoogleClient:
     def __init__(self):
         self.downloads = 0
 
-    def download_file(self, *args):
+    def download_file(self, *args, **kwargs):
         self.downloads += 1
-        return SimpleNamespace(filename="synthetic.txt", mime_type="text/plain", content=b"Synthetic",
+        body = BytesIO(b"Synthetic")
+        return SimpleNamespace(filename="synthetic.txt", mime_type="text/plain", content=body, size_bytes=9, close=body.close,
                                export_mime_type=None, metadata=SimpleNamespace(web_view_link=None, mime_type="text/plain"))
 
 
@@ -175,7 +200,7 @@ def use_case(repository):
 
 
 def request(folder="synthetic-folder"):
-    return GoogleDriveImportRequest(files=[GoogleDriveFileRequest(file_id="synthetic-file")], folder_id=folder)
+    return GoogleDriveImportRequest(operation_id=str(uuid4()), files=[GoogleDriveFileRequest(file_id="synthetic-file")], folder_id=folder)
 
 
 def test_foreign_folder_is_rejected_before_provider_calls():
@@ -213,7 +238,7 @@ def test_successful_imports_preserve_completion(folder_id):
 def test_batch_at_configured_limit_imports_every_file():
     repository = ImportRepository()
     service, google, upload = use_case(repository)
-    payload = GoogleDriveImportRequest(files=[GoogleDriveFileRequest(file_id=f"synthetic-{index}") for index in range(5)])
+    payload = GoogleDriveImportRequest(operation_id=str(uuid4()), files=[GoogleDriveFileRequest(file_id=f"synthetic-{index}") for index in range(5)])
     result, files = service.import_files("42", "synthetic", payload)
     assert result.status == "COMPLETED" and result.processed_files == 5
     assert len(files) == google.downloads == upload.uploads == 5
@@ -224,6 +249,6 @@ def test_missing_uploaded_document_id_cannot_silently_skip_association():
     service, _, upload = use_case(repository)
     upload.upload = lambda **payload: {"status": "PROCESSED"}
     result, files = service.import_files("42", "synthetic", request())
-    assert result.status == "PARTIAL" and result.error_message
-    assert files[0].metadata_["folder_association"]["status"] == "FAILED"
+    assert result.status == "REVIEW_REQUIRED" and result.error_message
+    assert files[0].status == "REVIEW_REQUIRED"
     assert repository.associations == []

@@ -313,18 +313,22 @@ def test_google_transport_uses_pkce_drive_identity_and_explicit_revocation(setti
     seen = []
     real_client = httpx.Client
 
+    def wire(payload, status=200):
+        import json
+        return httpx.Response(status, stream=httpx.ByteStream(json.dumps(payload).encode()))
+
     def transport(request):
         seen.append(request)
         if request.url.path == "/token":
             form = parse_qs(request.content.decode())
             assert form["code_verifier"] == [VERIFIER]
             assert form["redirect_uri"] == [settings.google_oauth_redirect_uri]
-            return httpx.Response(200, json={"access_token": "synthetic"})
+            return wire({"access_token": "synthetic"})
         if request.url.path == "/drive/v3/about":
             assert request.url.params["fields"] == "user(permissionId,emailAddress)"
-            return httpx.Response(200, json={"user": {"permissionId": "synthetic-account"}})
+            return wire({"user": {"permissionId": "synthetic-account"}})
         if request.url.path == "/revoke":
-            return httpx.Response(400, json={"error": "invalid_token"})
+            return wire({"error": "invalid_token"}, 400)
         raise AssertionError("Unexpected external request")
 
     monkeypatch.setattr(httpx, "Client", lambda **kwargs: real_client(transport=httpx.MockTransport(transport), **kwargs))

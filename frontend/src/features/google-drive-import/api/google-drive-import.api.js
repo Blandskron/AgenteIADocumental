@@ -17,6 +17,8 @@ function normalizeConnection(payload = {}) {
 function normalizeImport(payload = {}) {
   return {
     importId: payload.import_id,
+    operationId: payload.operation_id,
+    version: payload.version,
     ownerUserId: payload.owner_user_id,
     status: payload.status,
     totalFiles: payload.total_files,
@@ -64,11 +66,14 @@ export function getGoogleDriveConnection(apiClient) {
   return apiClient("/api/v1/google-drive/connection", { method: "GET" }).then(normalizeConnection);
 }
 
-export function importGoogleDriveFiles(apiClient, { files, folderId = null, metadata = {} }) {
+export function importGoogleDriveFiles(apiClient, { files, folderId = null, metadata = {}, operationId, connectionVersion }) {
+  if (!operationId) throw new Error("La importación requiere una clave de operación.");
   return apiClient("/api/v1/google-drive/imports", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
+      operation_id: operationId,
+      connection_version: connectionVersion,
       files: files.map((file) => ({
         file_id: file.fileId || file.id,
         name: file.name,

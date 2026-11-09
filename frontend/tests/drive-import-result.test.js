@@ -8,7 +8,7 @@ test("partial folder association preserves the imported document and its warning
     status: "PARTIAL", processed_files: 1, failed_files: 0, error_message: "Asociación incompleta",
     files: [{ status: "COMPLETED", document_id: "synthetic", error_message: "Sin carpeta",
       metadata: { folder_association: { status: "FAILED" } } }],
-  }), { files: [{ fileId: "synthetic" }], folderId: "synthetic-folder" });
+  }), { operationId: "synthetic-operation", files: [{ fileId: "synthetic" }], folderId: "synthetic-folder" });
   assert.equal(getImportWarning(result), "Asociación incompleta");
   assert.equal(result.files[0].documentId, "synthetic");
   assert.equal(result.files[0].errorMessage, "Sin carpeta");
