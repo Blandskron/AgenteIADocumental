@@ -2,7 +2,7 @@
 
 Microservicio responsable de conectar Google Drive con la biblioteca documental de Blandskron Documental.
 
-**Estado:** DRIVE-001/002/003/004 integrados: OAuth PKCE, credenciales versionadas y callbacks compartidos. DRIVE-005 en revisión: importaciones acotadas y diario recuperable. El controlador web completo y la imagen conservan sus tarjetas; el servicio no está cerrado. [Tablero](../../ROADMAP.md#googledriveimportservices), [guía para agentes](AGENTS.md) y [línea base histórica](docs/BASELINE.json).
+**Estado:** DRIVE-001/002/003/004/005 integrados: OAuth PKCE, credenciales versionadas y callbacks compartidos. Incluye importaciones acotadas y diario recuperable. El controlador web completo y la imagen conservan sus tarjetas; el servicio no está cerrado. [Tablero](../../ROADMAP.md#googledriveimportservices), [guía para agentes](AGENTS.md) y [línea base histórica](docs/BASELINE.json).
 
 ## Responsabilidad
 
