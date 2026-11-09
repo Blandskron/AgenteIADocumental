@@ -313,6 +313,27 @@ jobs:
           after=$(docker compose -f docker/docker-compose.yml exec -T postgres psql -U postgres -d plat_hierarchy_ci -At -c "$fingerprint")
           test -n "$before" && test "$before" = "$after"
 
+      - name: Probar ciclo de vida de usuarios y membresías con Auth real
+        run: |
+          docker compose -f docker/docker-compose.yml exec -T postgres psql -U postgres -d documents_db -v ON_ERROR_STOP=1 -c 'CREATE DATABASE plat_identity_ci'
+          trap 'docker compose -f docker/docker-compose.yml exec -T postgres psql -U postgres -d documents_db -v ON_ERROR_STOP=1 -c "DROP DATABASE plat_identity_ci WITH (FORCE)"' EXIT
+          docker compose -f docker/docker-compose.yml run --rm --no-deps database-schema psql -h postgres -U postgres -d plat_identity_ci -v ON_ERROR_STOP=1 -f /schema/run_all.sql
+          docker compose -f docker/docker-compose.yml run --rm --no-deps auth-db-roles psql -h postgres -U postgres -d plat_identity_ci -v ON_ERROR_STOP=1 -f /auth-db/provision_roles.sql
+          docker compose -f docker/docker-compose.yml run --rm --no-deps -e POSTGRES_DB=plat_identity_ci auth-migrate
+          docker compose -f docker/docker-compose.yml run --rm --no-deps database-schema psql -h postgres -U postgres -d plat_identity_ci -v ON_ERROR_STOP=1 -f /schema/migrations/006_tenant_user_links.sql
+          docker compose -f docker/docker-compose.yml cp scripts/database/constraints/005_tenant_user_links.sql auth-service:/tmp/tenant-user-links.sql
+          docker compose -f docker/docker-compose.yml cp scripts/database/tests/test_tenant_user_links.py auth-service:/tmp/test_tenant_user_links.py
+          docker compose -f docker/docker-compose.yml exec -T -e POSTGRES_DB=plat_identity_ci -e PLAT_TEST_DATABASE=plat_identity_ci -e PLAT_TEST_ADMIN_PASSWORD=admin1234 auth-service python /tmp/test_tenant_user_links.py
+          docker compose -f docker/docker-compose.yml exec -T postgres psql -U postgres -d plat_identity_ci -v ON_ERROR_STOP=1 -c "INSERT INTO tenants(tenant_id,name) VALUES('preserve','synthetic'); WITH u AS (INSERT INTO auth_user(password,is_superuser,username,first_name,last_name,email,is_staff,is_active,date_joined) VALUES('!',false,'preserve','','','',false,true,now()) RETURNING id) INSERT INTO tenant_memberships(tenant_id,user_id,role) SELECT 'preserve',id::text,'USER' FROM u; INSERT INTO documents(document_id,tenant_id,owner_user_id,filename,storage_path,mime_type) SELECT 'preserve-document','preserve',user_id,'synthetic','synthetic','text/plain' FROM tenant_memberships WHERE tenant_id='preserve';"
+          fingerprint="SELECT md5(jsonb_build_object('membership',to_jsonb(m)-'updated_at','document',to_jsonb(d)-'updated_at')::text) FROM tenant_memberships m JOIN documents d ON d.owner_user_id=m.user_id WHERE m.tenant_id='preserve'"
+          before=$(docker compose -f docker/docker-compose.yml exec -T postgres psql -U postgres -d plat_identity_ci -At -c "$fingerprint")
+          docker compose -f docker/docker-compose.yml run --rm --no-deps database-schema psql -h postgres -U postgres -d plat_identity_ci -v ON_ERROR_STOP=1 -f /schema/run_all.sql
+          docker compose -f docker/docker-compose.yml run --rm --no-deps auth-db-roles psql -h postgres -U postgres -d plat_identity_ci -v ON_ERROR_STOP=1 -f /auth-db/provision_roles.sql
+          docker compose -f docker/docker-compose.yml run --rm --no-deps -e POSTGRES_DB=plat_identity_ci auth-migrate
+          docker compose -f docker/docker-compose.yml run --rm --no-deps database-schema psql -h postgres -U postgres -d plat_identity_ci -v ON_ERROR_STOP=1 -f /schema/migrations/006_tenant_user_links.sql
+          after=$(docker compose -f docker/docker-compose.yml exec -T postgres psql -U postgres -d plat_identity_ci -At -c "$fingerprint")
+          test -n "$before" && test "$before" = "$after"
+
       - run: docker compose -f docker/docker-compose.yml exec -T postgres psql -U postgres -d documents_db -v ON_ERROR_STOP=1 < scripts/database/conversation/verify_role.sql
       - run: docker compose -f docker/docker-compose.yml exec -T postgres psql -U postgres -d documents_db -v ON_ERROR_STOP=1 < scripts/database/rag-chat/verify_role.sql
       - run: docker compose -f docker/docker-compose.yml exec -T postgres psql -U postgres -d documents_db -v ON_ERROR_STOP=1 < scripts/database/embedding/verify_role.sql

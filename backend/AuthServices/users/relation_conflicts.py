@@ -9,6 +9,7 @@ RELATION_CONSTRAINTS = frozenset(
         "tenant_areas_parent_tenant_fk",
         "tenant_areas_tenant_id_fkey",
         "tenant_memberships_area_tenant_fk",
+        "tenant_memberships_auth_user_fk",
         "tenant_areas_parent_area_id_fkey",
         "tenant_memberships_area_id_fkey",
         "tenant_user_groups_group_id_fkey",
@@ -35,7 +36,11 @@ def is_relation_conflict(error):
         or (
             state == "23514"
             and constraint
-            in {"tenant_areas_acyclic", "tenant_areas_identity_immutable"}
+            in {
+                "tenant_areas_acyclic",
+                "tenant_areas_identity_immutable",
+                "tenant_memberships_auth_user_check",
+            }
         )
     )
 

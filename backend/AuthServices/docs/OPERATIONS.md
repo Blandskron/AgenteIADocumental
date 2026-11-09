@@ -18,6 +18,10 @@ docker compose -f docker/docker-compose.yml logs auth-db-roles auth-migrate auth
 
 Para volver a la imagen anterior, conserva los volúmenes y verifica la compatibilidad del esquema aplicado. El usuario de base de la versión anterior de Compose sigue teniendo acceso a las tablas tras el cambio de propiedad.
 
+La integridad optativa de membresías se aplica con `scripts/database/migrations/006_tenant_user_links.sql` solo después de `auth-migrate`, por un operador del esquema. No ejecutarla en `database-schema` antes de Django. Requiere respaldo, escritores detenidos, preflight y disposición explícita de cualquier referencia heredada inconsistente. La [guía SQL](../../../scripts/database/README.md#identidad-auth-y-membresías--segundo-incremento-plat-001c) detalla bloqueo, coste de la columna STORED y verificación de deriva. Ni Compose ni run_all.sql activan esa migración todavía.
+
+Una baja definitiva elimina membresías y asignaciones; no elimina documentos ni cambia su propietario histórico. Para suspender acceso conservando configuración, deshabilita la cuenta. Las altas normales usan la secuencia de Auth: no reasignar IDs eliminados, reiniciar esa secuencia ni importar cuentas reutilizando identificadores históricos. Al restaurar una copia, restaurar identidad y documentos coherentes y mantener la secuencia por encima de los IDs históricos; la FK no impide una reutilización manual privilegiada. No modificar tablas de Django ni ampliar permisos del rol web para aplicar este DDL. `makemigrations --check --dry-run` corresponde al rol de migración, no al rol HTTP.
+
 ## Entornos y secretos
 
 Compose usa `AUTH_ENV=development`. Si necesitas credenciales locales propias para los roles, exporta `AUTH_DB_RUNTIME_PASSWORD` y `AUTH_DB_MIGRATE_PASSWORD` en el proceso que ejecuta Compose. El `.env` raíz también lo leen otros servicios, por lo que estas credenciales deben quedarse fuera de ese archivo.
