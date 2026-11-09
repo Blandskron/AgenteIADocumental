@@ -296,6 +296,23 @@ jobs:
           docker compose -f docker/docker-compose.yml run --rm --no-deps database-schema psql -h postgres -U postgres -d plat_relations_ci -v ON_ERROR_STOP=1 -f /schema/run_all.sql
           docker compose -f docker/docker-compose.yml run --rm --no-deps database-schema psql -h postgres -U postgres -d plat_relations_ci -v ON_ERROR_STOP=1 -f /schema/migrations/004_tenant_area_relations.sql
 
+      - name: Probar jerarquía sin ciclos con conexiones e instantáneas concurrentes
+        run: |
+          docker compose -f docker/docker-compose.yml exec -T postgres psql -U postgres -d documents_db -v ON_ERROR_STOP=1 -c 'CREATE DATABASE plat_hierarchy_ci'
+          trap 'docker compose -f docker/docker-compose.yml exec -T postgres psql -U postgres -d documents_db -v ON_ERROR_STOP=1 -c "DROP DATABASE plat_hierarchy_ci WITH (FORCE)"' EXIT
+          docker compose -f docker/docker-compose.yml run --rm --no-deps database-schema psql -h postgres -U postgres -d plat_hierarchy_ci -v ON_ERROR_STOP=1 -f /schema/run_all.sql
+          docker compose -f docker/docker-compose.yml run --rm --no-deps database-schema psql -h postgres -U postgres -d plat_hierarchy_ci -v ON_ERROR_STOP=1 -f /schema/migrations/005_tenant_hierarchy.sql
+          docker compose -f docker/docker-compose.yml cp scripts/database/constraints/004_tenant_hierarchy.sql auth-service:/tmp/tenant-hierarchy.sql
+          docker compose -f docker/docker-compose.yml cp scripts/database/tests/test_tenant_hierarchy.py auth-service:/tmp/test_tenant_hierarchy.py
+          docker compose -f docker/docker-compose.yml exec -T -e POSTGRES_DB=plat_hierarchy_ci -e PLAT_TEST_DATABASE=plat_hierarchy_ci -e PLAT_TEST_ADMIN_PASSWORD=admin1234 auth-service python /tmp/test_tenant_hierarchy.py
+          docker compose -f docker/docker-compose.yml exec -T postgres psql -U postgres -d plat_hierarchy_ci -v ON_ERROR_STOP=1 -c "INSERT INTO tenants(tenant_id,name) VALUES('preserve','synthetic'); INSERT INTO tenant_areas(area_id,tenant_id,name) VALUES('preserve-area','preserve','synthetic'); INSERT INTO documents(document_id,tenant_id,owner_area_id,owner_user_id,filename,storage_path,mime_type) VALUES('preserve-document','preserve','preserve-area','historical','synthetic','synthetic','text/plain');"
+          fingerprint="SELECT md5((to_jsonb(d)-'updated_at')::text) FROM documents d WHERE document_id='preserve-document'"
+          before=$(docker compose -f docker/docker-compose.yml exec -T postgres psql -U postgres -d plat_hierarchy_ci -At -c "$fingerprint")
+          docker compose -f docker/docker-compose.yml run --rm --no-deps database-schema psql -h postgres -U postgres -d plat_hierarchy_ci -v ON_ERROR_STOP=1 -f /schema/run_all.sql
+          docker compose -f docker/docker-compose.yml run --rm --no-deps database-schema psql -h postgres -U postgres -d plat_hierarchy_ci -v ON_ERROR_STOP=1 -f /schema/migrations/005_tenant_hierarchy.sql
+          after=$(docker compose -f docker/docker-compose.yml exec -T postgres psql -U postgres -d plat_hierarchy_ci -At -c "$fingerprint")
+          test -n "$before" && test "$before" = "$after"
+
       - run: docker compose -f docker/docker-compose.yml exec -T postgres psql -U postgres -d documents_db -v ON_ERROR_STOP=1 < scripts/database/conversation/verify_role.sql
       - run: docker compose -f docker/docker-compose.yml exec -T postgres psql -U postgres -d documents_db -v ON_ERROR_STOP=1 < scripts/database/rag-chat/verify_role.sql
       - run: docker compose -f docker/docker-compose.yml exec -T postgres psql -U postgres -d documents_db -v ON_ERROR_STOP=1 < scripts/database/embedding/verify_role.sql

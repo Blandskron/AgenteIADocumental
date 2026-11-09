@@ -31,3 +31,9 @@ Reconstruye la imagen con `docker compose -f docker/docker-compose.yml build --p
 Para auditar también el sistema base, exporta `docker-auth-service` con `docker image save` a un archivo temporal y usa `trivy image --input <archivo> --scanners vuln --severity HIGH,CRITICAL`. Registra el identificador de imagen, los hallazgos de Debian y de Python y las versiones corregidas disponibles.
 
 La auditoría del 3 de noviembre de 2026 no encontró avisos con `pip-audit` en las versiones fijadas. Trivy 0.74.0 encontró cero avisos altos o críticos en Python y nueve CVE altos sin corrección indicada en Debian 13. El digest y el detalle del alcance quedaron en el [PR de auditoría](https://github.com/Blandskron/AgenteIADocumental/pull/13). Es evidencia de esa imagen y de las bases de avisos consultadas en esa fecha.
+
+## Jerarquía compartida — PLAT-001C
+
+La prueba `scripts/database/tests/test_tenant_hierarchy.py` se ejecuta desde la imagen Auth contra una DB desechable `plat_hierarchy_*`, después del bootstrap y de `migrations/005_tenant_hierarchy.sql`. Requiere `POSTGRES_DB` y `PLAT_TEST_DATABASE` con ese nombre, `PLAT_TEST_ADMIN_PASSWORD` de prueba y las credenciales de ejemplo de `auth_runtime`. Copiar la prueba y `constraints/004_tenant_hierarchy.sql` a `/tmp/test_tenant_hierarchy.py` y `/tmp/tenant-hierarchy.sql`; ejecutar `python /tmp/test_tenant_hierarchy.py`. CI prepara y retira esa DB automáticamente.
+
+Comprueba movimientos válidos, ciclos propios/descendientes/multifila, padres de otra empresa o ausentes, identidad inmutable, conservación documental, repetibilidad y deriva. Usa logins reales, observa esperas de PostgreSQL y enfrenta movimientos opuestos en Read Committed, Repeatable Read y Serializable, también tras rollback. Verifica HTTP 409 sin datos SQL y reutilización de conexión; las fixtures corruptas nunca salen de su transacción. Esta prueba no activa la migración en el stack general ni cierra el ciclo de vida de usuarios pendiente.
