@@ -927,7 +927,7 @@ function GoogleDriveImportModal({
                 className="action-button-primary"
                 type="button"
                 onClick={onOpenPicker}
-                disabled={!pickerConfigured || isBusy}
+                disabled={!connection?.enabled || connection.busy || !pickerConfigured || isBusy}
               >
                 <Cloud size={16} /> Abrir selector de Drive
               </button>
@@ -956,7 +956,7 @@ function GoogleDriveImportModal({
                 <button type="button" onClick={onClose}>
                   Cancelar
                 </button>
-                <button type="submit" disabled={isBusy || !fileIds.trim()}>
+                <button type="submit" disabled={!connection?.enabled || connection.busy || isBusy || !fileIds.trim()}>
                   {isBusy ? "Importando..." : "Importar"}
                 </button>
               </footer>

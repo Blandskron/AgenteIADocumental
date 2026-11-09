@@ -134,7 +134,7 @@ El plan no modifica grants y marca claves desconocidas/leases como review_requir
 
 ### Evidencia y alcance
 
-Verificación local: 95 pruebas backend, 110 Node y 10 Chromium, npm ci/build, Ruff, pip-audit funcional sin avisos conocidos, Compose válido, provisión repetida y actualización/reinicio, y sonda Auth de tres roles aprobados. npm conserva cuatro alertas altas ya registradas en WEB-001; no se actualizaron dependencias web en este incremento. TestClient/httpx conserva su advertencia upstream.
+Verificación local: 95 pruebas backend, 111 Node y 10 Chromium, npm ci/build, Ruff, pip-audit funcional sin avisos conocidos, Compose válido, provisión repetida y actualización/reinicio, y sonda Auth de tres roles aprobados. npm conserva cuatro alertas altas ya registradas en WEB-001; no se actualizaron dependencias web en este incremento. TestClient/httpx conserva su advertencia upstream.
 
 La suite mantenida incluye state ausente/ajeno/vencido/replay, PKCE, tenant/configuración, consumo concurrente real, límites de intentos, refresh exitoso/fallido/ambiguo, lease vencido y respuesta tardía, reconnect sin refresh, desconexión/reintento y rotación revisada. El transporte HTTP de Google se simula con MockTransport; no se realizó OAuth real. Node cubre limpieza/correlación/coalescencia y cuenta/cliente Picker; Chromium cubre ambas páginas, callbacks rechazados, refresh de Auth y desconexión. Los comandos de pruebas abajo siguen vigentes. El diagnóstico siguiente conserva evidencia histórica; no representa el comportamiento nuevo.
 

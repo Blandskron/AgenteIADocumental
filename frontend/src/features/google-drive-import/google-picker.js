@@ -37,7 +37,7 @@ export async function openGoogleDrivePicker({ appId, clientId, developerKey, con
     throw new Error("Falta configurar Google Picker.");
   }
 
-  if (!connection?.connected || connection.busy || connection.oauthClientId !== clientId || connection.pickerAppId !== appId || !connection.providerAccountId) {
+  if (!connection?.enabled || !connection?.connected || connection.busy || connection.oauthClientId !== clientId || connection.pickerAppId !== appId || !connection.providerAccountId) {
     throw new Error("Picker debe usar la aplicación y cuenta de la conexión activa de Drive.");
   }
   await loadPickerLibraries();

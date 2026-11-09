@@ -249,7 +249,7 @@ function GoogleDriveApplication({
             className="action-button-secondary"
             type="button"
             onClick={onOpenPicker}
-            disabled={!pickerConfigured || isBusy}
+            disabled={!connection?.enabled || connection.busy || !pickerConfigured || isBusy}
           >
             <Cloud size={16} /> Abrir selector de Drive
           </button>
@@ -279,7 +279,7 @@ function GoogleDriveApplication({
               rows={5}
             />
           </label>
-          <button className="action-button-primary" type="submit" disabled={isBusy || !fileIds.trim()}>
+          <button className="action-button-primary" type="submit" disabled={!connection?.enabled || connection.busy || isBusy || !fileIds.trim()}>
             {isBusy ? "Importando..." : "Importar a Blandskron Documental"}
           </button>
         </form>

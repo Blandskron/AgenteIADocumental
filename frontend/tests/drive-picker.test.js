@@ -2,9 +2,14 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { openGoogleDrivePicker } from "../src/features/google-drive-import/google-picker.js";
 
+test("disabled integration cannot contact Google even with an existing connection", async () => {
+  await assert.rejects(openGoogleDrivePicker({ appId: "123", clientId: "client", developerKey: "synthetic",
+    connection: { enabled: false, connected: true, oauthClientId: "client", pickerAppId: "123", providerAccountId: "account-one" } }), /aplicación y cuenta/);
+});
+
 test("Picker rejects a different OAuth client before loading Google scripts", async () => {
   await assert.rejects(openGoogleDrivePicker({ appId: "123", clientId: "different", developerKey: "synthetic",
-    connection: { connected: true, oauthClientId: "expected", pickerAppId: "123", providerAccountId: "account-one" } }), /aplicación y cuenta/);
+    connection: { enabled: true, connected: true, oauthClientId: "expected", pickerAppId: "123", providerAccountId: "account-one" } }), /aplicación y cuenta/);
 });
 
 test("Picker checks Drive account before opening and never sends its ephemeral token to the backend", async (context) => {
@@ -21,7 +26,7 @@ test("Picker checks Drive account before opening and never sends its ephemeral t
   } };
   try {
     await assert.rejects(openGoogleDrivePicker({ appId: "123", clientId: "client", developerKey: "synthetic",
-      connection: { connected: true, oauthClientId: "client", pickerAppId: "123", providerAccountId: "account-one" } }), /misma cuenta/);
+      connection: { enabled: true, connected: true, oauthClientId: "client", pickerAppId: "123", providerAccountId: "account-one" } }), /misma cuenta/);
     assert.equal(opened, 0);
   } finally { globalThis.window = previous; }
 });
