@@ -22,3 +22,5 @@ Crea el administrador solo en el primer arranque. Abre [Django Admin](http://loc
 - [AGENTS.md](AGENTS.md) para colaborar y [tablero del repositorio](../../ROADMAP.md) para seguimientos.
 
 Las rutas y serializadores viven en `users/`. Las rutas de Swagger, ReDoc y OpenAPI están en [core/openapi.py](core/openapi.py). `docs/` contiene las guías escritas. Django gestiona las tablas de identidad y sesión. El esquema multiempresa vive en [scripts/database](../../scripts/database/) y se mapea con modelos no gestionados.
+
+El seguimiento de integridad compartida PLAT-001 dispone de un [preflight y mapa de escritores](../../scripts/database/README.md). Es diagnóstico de solo lectura; las restricciones PostgreSQL y las carreras concurrentes conservan sus tarjetas.
