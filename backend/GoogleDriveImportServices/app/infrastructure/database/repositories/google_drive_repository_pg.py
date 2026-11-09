@@ -1,5 +1,4 @@
 from contextlib import contextmanager
-from datetime import datetime
 from typing import Any
 
 from sqlalchemy import desc, select, text
@@ -14,7 +13,10 @@ from app.infrastructure.database.models import (
 )
 
 
-class GoogleDriveRepository:
+from app.infrastructure.database.repositories.credential_repository import CredentialRepository
+
+
+class GoogleDriveRepository(CredentialRepository):
     def __init__(self, database: Database, current_user: DriveUser) -> None:
         self._database = database
         self._user = current_user
@@ -42,50 +44,12 @@ class GoogleDriveRepository:
             raise NotFoundError("Google Drive import not found.")
         return record
 
-    def upsert_connection(self, owner_user_id: str, payload: dict[str, Any]) -> GoogleDriveConnectionModel:
-        self._require_owner(owner_user_id)
-        with self._session() as session:
-            connection = session.scalar(
-                select(GoogleDriveConnectionModel).where(GoogleDriveConnectionModel.owner_user_id == owner_user_id),
-            )
-            if connection is None:
-                connection = GoogleDriveConnectionModel(owner_user_id=owner_user_id, **payload)
-                session.add(connection)
-            else:
-                for key, value in payload.items():
-                    setattr(connection, key, value)
-            session.commit()
-            session.refresh(connection)
-            return connection
-
     def get_connection(self, owner_user_id: str) -> GoogleDriveConnectionModel | None:
         self._require_owner(owner_user_id)
         with self._session() as session:
             return session.scalar(
                 select(GoogleDriveConnectionModel).where(GoogleDriveConnectionModel.owner_user_id == owner_user_id),
             )
-
-    def update_connection_tokens(
-        self,
-        owner_user_id: str,
-        access_token_encrypted: str,
-        refresh_token_encrypted: str | None,
-        expires_at: datetime | None,
-    ) -> GoogleDriveConnectionModel | None:
-        self._require_owner(owner_user_id)
-        with self._session() as session:
-            connection = session.scalar(
-                select(GoogleDriveConnectionModel).where(GoogleDriveConnectionModel.owner_user_id == owner_user_id),
-            )
-            if connection is None:
-                return None
-            connection.access_token_encrypted = access_token_encrypted
-            if refresh_token_encrypted:
-                connection.refresh_token_encrypted = refresh_token_encrypted
-            connection.expires_at = expires_at
-            session.commit()
-            session.refresh(connection)
-            return connection
 
     def create_import(self, owner_user_id: str, total_files: int, metadata: dict[str, Any]) -> GoogleDriveImportModel:
         self._require_owner(owner_user_id)

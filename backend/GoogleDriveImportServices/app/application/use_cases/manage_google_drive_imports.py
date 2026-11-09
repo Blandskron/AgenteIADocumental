@@ -1,6 +1,3 @@
-import base64
-import json
-from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from app.config.settings import Settings
@@ -10,7 +7,10 @@ from app.infrastructure.google.token_cipher import TokenCipher
 from app.shared.errors import NotFoundError, ValidationError
 
 
-class ManageGoogleDriveImports:
+from app.application.use_cases.credential_lifecycle import CredentialLifecycle
+
+
+class ManageGoogleDriveImports(CredentialLifecycle):
     def __init__(
         self,
         repository,
@@ -24,45 +24,6 @@ class ManageGoogleDriveImports:
         self._document_client = document_client
         self._token_cipher = token_cipher
         self._settings = settings
-
-    def auth_url(self, owner_user_id: str, return_url: str | None = None) -> dict[str, str]:
-        state_payload = {"owner_user_id": owner_user_id, "return_url": return_url or ""}
-        state = base64.urlsafe_b64encode(json.dumps(state_payload).encode("utf-8")).decode("utf-8")
-        return {"authorization_url": self._google_client.build_authorization_url(state), "state": state}
-
-    def connect(self, owner_user_id: str, code: str) -> dict[str, Any]:
-        self._repository.check_identity()
-        token_payload = self._google_client.exchange_code(code)
-        access_token = token_payload.get("access_token")
-        if not access_token:
-            raise ValidationError("Google OAuth did not return an access token.")
-
-        refresh_token = token_payload.get("refresh_token")
-        self._repository.check_identity()
-        userinfo = self._google_client.get_userinfo(access_token)
-        expires_at = self._expires_at(token_payload)
-
-        connection = self._repository.upsert_connection(
-            owner_user_id,
-            {
-                "provider_account_email": userinfo.get("email"),
-                "scopes": token_payload.get("scope", " ".join(self._settings.google_oauth_scope_list)).split(),
-                "access_token_encrypted": self._token_cipher.encrypt(access_token),
-                "refresh_token_encrypted": self._token_cipher.encrypt(refresh_token),
-                "expires_at": expires_at,
-                "metadata_": {"provider": "google_drive", "email_verified": userinfo.get("email_verified")},
-            },
-        )
-        return connection
-
-    def connected_status(self, owner_user_id: str) -> dict[str, Any]:
-        connection = self._repository.get_connection(owner_user_id)
-        return {
-            "connected": connection is not None,
-            "provider_account_email": connection.provider_account_email if connection else None,
-            "scopes": connection.scopes if connection else [],
-            "expires_at": connection.expires_at if connection else None,
-        }
 
     def import_files(self, owner_user_id: str, bearer_token: str, payload) -> tuple[Any, list[Any]]:
         file_requests = payload.files[: self._settings.max_import_files]
@@ -103,8 +64,10 @@ class ManageGoogleDriveImports:
 
             try:
                 self._repository.check_identity()
+                self._repository.ensure_connection_current(connection.version)
                 downloaded = self._google_client.download_file(access_token, file_request.file_id, file_request.export_mime_type)
                 self._repository.check_identity()
+                self._repository.ensure_connection_current(connection.version)
                 upload_response = self._document_client.upload(
                     bearer_token=bearer_token,
                     filename=downloaded.filename,
@@ -178,32 +141,3 @@ class ManageGoogleDriveImports:
     def list_import_files(self, owner_user_id: str, import_id: str) -> list[Any]:
         self.get_import(owner_user_id, import_id)
         return self._repository.list_import_files(import_id)
-
-    def _valid_access_token(self, owner_user_id: str, connection) -> str:
-        access_token = self._token_cipher.decrypt(connection.access_token_encrypted)
-        refresh_token = self._token_cipher.decrypt(connection.refresh_token_encrypted)
-        should_refresh = connection.expires_at and connection.expires_at <= datetime.now(UTC) + timedelta(minutes=2)
-
-        if should_refresh and refresh_token:
-            self._repository.check_identity()
-            token_payload = self._google_client.refresh_access_token(refresh_token)
-            access_token = token_payload.get("access_token")
-            if not access_token:
-                raise ValidationError("Google OAuth did not refresh the access token.")
-            self._repository.update_connection_tokens(
-                owner_user_id,
-                self._token_cipher.encrypt(access_token),
-                self._token_cipher.encrypt(token_payload.get("refresh_token")),
-                self._expires_at(token_payload),
-            )
-
-        if not access_token:
-            raise ValidationError("Google Drive connection is missing an access token.")
-        return access_token
-
-    @staticmethod
-    def _expires_at(token_payload: dict[str, Any]) -> datetime | None:
-        expires_in = token_payload.get("expires_in")
-        if not expires_in:
-            return None
-        return datetime.now(UTC) + timedelta(seconds=int(expires_in))

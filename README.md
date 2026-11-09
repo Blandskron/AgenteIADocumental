@@ -9,7 +9,7 @@ Documento → extracción → embeddings → PostgreSQL / pgvector
 Pregunta → búsqueda con permisos → contexto → Groq → respuesta y PDF
 ```
 
-Google Drive es una integración opcional que requiere configurar OAuth. Para la demo basta con un archivo de texto o PDF sintético.
+Google Drive es una integración opcional que requiere configurar OAuth. La conexión usa PKCE S256 e intentos por pestaña; la desconexión confirma la revocación o muestra un estado pendiente. API, esquema y web deben desplegarse juntos. [Operación y rotación de claves](backend/GoogleDriveImportServices/README.md#oauth-y-credenciales-drive-004). Para la demo basta con un archivo de texto o PDF sintético.
 
 Drive arranca deshabilitado (`GOOGLE_DRIVE_ENABLED=false`), sin credenciales Google. Mantiene disponibles health e historial autorizado; las operaciones de proveedor devuelven 503. Su runtime usa `drive_runtime` y requiere aprovisionar `drive-db-role` con `DRIVE_DB_PASSWORD`. [Configuración, permisos y actualización](backend/GoogleDriveImportServices/README.md#operación-drive-002003).
 

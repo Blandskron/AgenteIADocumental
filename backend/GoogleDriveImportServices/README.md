@@ -2,7 +2,7 @@
 
 Microservicio responsable de conectar Google Drive con la biblioteca documental de Blandskron Documental.
 
-**Estado:** DRIVE-001 integrado; DRIVE-002/003 en revisión: runtime explícito, identidad vigente y rol mínimo. OAuth/state, importaciones acotadas/recuperables y coordinación web conservan sus tarjetas; el servicio no está cerrado. [Tablero](../../ROADMAP.md#googledriveimportservices), [guía para agentes](AGENTS.md) y [línea base histórica](docs/BASELINE.json).
+**Estado:** DRIVE-001/002/003 integrados. DRIVE-004 en revisión: OAuth PKCE, credenciales versionadas y callbacks compartidos. Importación acotada/recuperable, controlador web completo e imagen conservan sus tarjetas; el servicio no está cerrado. [Tablero](../../ROADMAP.md#googledriveimportservices), [guía para agentes](AGENTS.md) y [línea base histórica](docs/BASELINE.json).
 
 ## Responsabilidad
 
@@ -42,7 +42,8 @@ http://rag-document-embedding-service:8000
 
 ```text
 GET  /api/v1/health
-GET  /api/v1/google-drive/auth-url
+POST /api/v1/google-drive/auth-url
+POST /api/v1/google-drive/disconnect
 POST /api/v1/google-drive/oauth/callback
 GET  /api/v1/google-drive/connection
 POST /api/v1/google-drive/imports
@@ -53,9 +54,9 @@ GET  /api/v1/google-drive/imports/{import_id}/files
 
 ## Flujo recomendado
 
-1. El frontend obtiene `authorization_url`.
+1. La pestaña crea un verificador PKCE y envía su challenge S256 para obtener `authorization_url` y `state`.
 2. El usuario conecta Google Drive.
-3. El frontend recibe un `code` OAuth y lo envía al callback del microservicio.
+3. El frontend valida el intento local y envía `code`, `state` y `code_verifier`; el servidor consume el intento antes del canje.
 4. El frontend abre Google Picker con la misma aplicación OAuth.
 5. El frontend envía los `file_id` seleccionados a `/google-drive/imports`.
 6. El microservicio descarga o exporta cada archivo.
@@ -101,13 +102,49 @@ docker compose -f docker/docker-compose.yml run --rm --no-deps drive-tests ruff 
 
 Las pruebas usan registros sintéticos con IDs únicos y limpieza explícita, PostgreSQL real y un proveedor simulado. No requieren OAuth ni descargan documentos. Cubren propiedad, inserción idempotente, espera real sobre el bloqueo compartido y fallos de asociación, incluido un resultado de carga sin ID documental. Este alcance coordina el escritor con Library; no constituye el cierre de modernización de GoogleDriveImportServices.
 
+## OAuth y credenciales DRIVE-004
+
+Despliega esquema, servicio y frontend juntos. Detén escritores antiguos, respalda DB y claves en almacenamiento privado y ejecuta `database-schema` seguido de `drive-db-role`; reconstruye Drive y web. `scripts/database/run_all.sql` incorpora `drive/oauth_lifecycle.sql` de forma aditiva y repetible. Conserva ciphertext, dueño e historial: las conexiones anteriores quedan `LEGACY`, sin importación hasta revisión o reconexión. El nuevo runtime rechaza el callback anterior sin `state`/PKCE; GET auth-url devuelve 410 cuando está habilitado.
+
+`POST /google-drive/auth-url` recibe `{code_challenge}` S256. Devuelve URL Google, `state` y redirect configurado; no acepta una redirección elegida por el cliente. El redirect debe ser `/documents` o `/applications/google-drive` sobre un origen CORS permitido y el mismo origen de la pestaña. Configúralo también en el cliente web de Google Cloud. El state aleatorio de 256 bits dura cinco minutos, se liga a usuario, huella, tenant, configuración y versión de conexión; solo se guarda su hash. Hay como máximo diez intentos pendientes por dueño, limpiados al iniciar otro flujo.
+
+Ambas pantallas usan el mismo flujo: verificador aleatorio conservado en sessionStorage de la pestaña, comparación de state/sesión/ruta/caducidad y limpieza inmediata de parámetros OAuth también en errores. No hay tokens Google en DTO o almacenamiento del navegador; Picker obtiene un token efímero independiente. La sesión local conserva su identificador al recargar y lo cambia en un nuevo login; refresh conserva el cliente estable. El callback envía `{code,state,code_verifier,issuer?}`; el servidor consume el intento atómicamente antes de Google y exige S256. Los cuerpos de control se limitan a 16 KiB/15 s y las respuestas Drive llevan no-store/private. La pérdida de respuesta requiere empezar un intento nuevo, sin repetir ciegamente el canje.
+
+La identidad Google se obtiene de `Drive about.user.permissionId` con el único scope `drive.file`; email es presentación. `GOOGLE_PICKER_APP_ID` debe coincidir con `VITE_GOOGLE_PICKER_APP_ID`, y el OAuth client ID público debe coincidir con `VITE_GOOGLE_CLIENT_ID`. Picker verifica aplicación y permissionId antes de abrirse y rechaza otra cuenta. No envía su token efímero al backend. [Metadatos Google con S256](https://accounts.google.com/.well-known/openid-configuration), [OAuth web](https://developers.google.com/identity/protocols/oauth2/web-server) y [Drive about](https://developers.google.com/workspace/drive/api/reference/rest/v3/about/get).
+
+Las operaciones de credenciales usan una versión y un lease SQL de cinco minutos por dueño. Refresh, reconnect y revoke concurrentes devuelven 409; la versión/lease impide que una respuesta tardía reemplace otra conexión. No se mantienen transacciones sobre red. Un refresh fallido o ambiguo exige reautorización y conserva ciphertext. Un refresh omitido conserva el anterior; reconnect solo lo conserva para la misma cuenta previamente activa y con clave disponible. Una conexión heredada o de otro cliente requiere consentimiento offline nuevo. Se comprueba versión/estado antes de descargar y subir: una revocación posterior a esa comprobación no puede retirar una solicitud ya enviada.
+
+`POST /google-drive/disconnect` recibe `{version}`. Revoca en Google antes de borrar las credenciales y conserva una fila DISCONNECTED con versión para impedir reutilizar una versión antigua. Un error de red, clave no disponible o integración deshabilitada devuelve 202/REVOKE_PENDING: no permite importar/reconectar y ofrece reintentar. No significa revocación confirmada. Un lease interrumpido se recupera al siguiente acceso tras vencer, con conflicto explícito; una renovación ambigua nunca se repite automáticamente. Para grants heredados de clave desconocida, conserva backup, retira acceso desde la cuenta Google y realiza una disposición manual revisada antes de retirar esa fila; no hay endpoint que finja revocación ni borre conexiones indiscriminadamente.
+
+### Claves y rotación revisada
+
+Configura secretos independientes mediante el gestor de secretos del despliegue; no en Git, argumentos CLI, logs o material de demo. `GOOGLE_TOKEN_KEY_ID=v1` etiqueta la clave activa `GOOGLE_TOKEN_ENCRYPTION_KEY`. `GOOGLE_TOKEN_PREVIOUS_KEYS` es un objeto JSON de hasta tres claves anteriores con identificadores diferentes. Cada ciphertext nuevo tiene formato `drive1.<key-id>.<Fernet>`. No se aceptan claves ausentes o prefijos de ejemplo; ningún fallback se activa. La pérdida de una clave no se resuelve generando otra con el mismo ID.
+
+Para ciphertext antiguo sin envelope, `GOOGLE_TOKEN_LEGACY_KEY_ID` autoriza explícitamente una clave fuerte configurada en el keyring. Identificar primero qué clave lo generó. Grants cifrados con una constante pública/ejemplo o una clave perdida requieren revocación y consentimiento nuevo, no recifrado que los declare confiables. Rotar solo cambia cifrado/versión: no convierte LEGACY en ACTIVE ni inventa una cuenta Google.
+
+En una ventana de mantenimiento, sin escritores antiguos, ejecuta [rotate_credentials.py](../../scripts/drive/rotate_credentials.py) en un entorno del servicio con `app` en PYTHONPATH y variables explícitas. El script no carga .env ni llama a Google:
+
+```text
+python /drive-checks/rotate_credentials.py --plan /private/drive-rotation.json
+# Revisar fuera de Git: IDs de dueño, versiones, hashes y outcomes; nunca tokens.
+python /drive-checks/rotate_credentials.py --apply /private/drive-rotation.json
+```
+
+El plan no modifica grants y marca claves desconocidas/leases como review_required. Aplicar procesa solo ready, verifica configuración, dueño/hash/versión y ausencia de lease bajo lock; cualquier cambio desde la revisión revierte toda la transacción. Admite hasta 1000 grants por ventana, no sobreescribe planes ni hace cambios parciales. Protege el archivo del plan como metadata privada. Verifica que no queden ciphertext con el ID anterior antes de retirar esa clave; conserva los backups según la política del operador. Nunca reutilices un key ID para otro secreto.
+
+### Evidencia y alcance
+
+Verificación local: 95 pruebas backend, 111 Node y 10 Chromium, npm ci/build, Ruff, pip-audit funcional sin avisos conocidos, Compose válido, provisión repetida y actualización/reinicio, y sonda Auth de tres roles aprobados. npm conserva cuatro alertas altas ya registradas en WEB-001; no se actualizaron dependencias web en este incremento. TestClient/httpx conserva su advertencia upstream.
+
+La suite mantenida incluye state ausente/ajeno/vencido/replay, PKCE, tenant/configuración, consumo concurrente real, límites de intentos, refresh exitoso/fallido/ambiguo, lease vencido y respuesta tardía, reconnect sin refresh, desconexión/reintento y rotación revisada. El transporte HTTP de Google se simula con MockTransport; no se realizó OAuth real. Node cubre limpieza/correlación/coalescencia y cuenta/cliente Picker; Chromium cubre ambas páginas, callbacks rechazados, refresh de Auth y desconexión. Los comandos de pruebas abajo siguen vigentes. El diagnóstico siguiente conserva evidencia histórica; no representa el comportamiento nuevo.
+
 ## Operación DRIVE-002/003
 
 `uvicorn app.main:create_app --factory --port 8017` construye la aplicación sin dotenv ni acceso DB/clave al importar. Son obligatorios DATABASE_URL PostgreSQL/psycopg y AUTH_JWT_PUBLIC_KEY_PATH absoluto; la clave RSA de al menos2048bits se lee sin caché al arrancar/verificar. PGPASSWORD mantiene la contraseña separada de la URL. Pool base1, máximo10 y timeout30s por conexión/pool/sentencia son efectivos; el pool crea conexiones bajo demanda. Fallar startup cierra la DB. Health público distingue liveness de /health/db (esquema/clave/helpers); respuestas de error no reflejan inputs, SQL ni excepciones de proveedores.
 
 Drive está deshabilitado por defecto. Sin secretos Google puede arrancar, verificar readiness y consultar conexión/historial con identidad y permiso válidos. auth-url, callback e importaciones devuelven503 después de autenticar/autorizar; no construyen el cifrador ni llaman al proveedor. Para habilitarlo se exige GOOGLE_DRIVE_ENABLED=true, cliente/secreto y clave de cifrado independiente de al menos32caracteres, sin valores vacíos/de ejemplo. Los alias anteriores siguen admitidos, pero el proceso no lee archivos .env: Compose inyecta solo variables explícitas. CORS admite orígenes locales explícitos por defecto, [] lo desactiva y * se rechaza. Los endpoints Google son los HTTPS soportados y el scope es drive.file; ingesta admite su URL local de desarrollo o HTTPS.
 
-**No habilitar la integración para una publicación hasta completar DRIVE-004/005/006.** Este incremento mantiene el callback code-only y el transporte/importación antiguos; retirar el fallback de cifrado no implementa aún intentos OAuth, claves versionadas, reanudación ni límites de descarga. Si había tokens cifrados con una clave antigua, conservar datos y clave en el procedimiento de migración revisado de DRIVE-004: no sustituirla ni borrar grants a ciegas. El fallback público anterior ya no se activa.
+**Mantener Drive deshabilitado para publicación hasta completar DRIVE-005/006.** DRIVE-004 sustituye el callback code-only y añade el ciclo de credenciales descrito abajo. Descarga, recuperación de ingesta y coordinación web completa siguen pendientes. No sustituir claves ni borrar grants heredados a ciegas.
 
 ### Identidad y permiso vigente
 
@@ -139,7 +176,7 @@ docker compose -f docker/docker-compose.yml up -d --build --wait google-drive-im
 
 ### Validación del paquete
 
-Sobre proyecto/DB/claves sintéticos separados:72 pruebas PostgreSQL/Linux, Ruff, provisión repetida, reinicio, login real del rol y SQLSTATE42501 para operaciones prohibidas. Incluyen modo deshabilitado, provider simulado habilitado, revocación durante red sin locks de Auth retenidos, aislamiento, privilegios inesperados, pool/rollback y pérdida de clave. La sonda [verify_auth_contract.py](../../scripts/drive/verify_auth_contract.py) corre dentro de Auth de desarrollo con marcador explícito: login/refresh de tres roles, permisos retirados, contraseña/inactividad/eliminación y limpieza de usuarios/tenant/budgets; no llama Google.
+Evidencia histórica de DRIVE-002/003 sobre proyecto/DB/claves sintéticos separados: 72 pruebas PostgreSQL/Linux, Ruff, provisión repetida, reinicio, login real del rol y SQLSTATE42501 para operaciones prohibidas. Incluyen modo deshabilitado, provider simulado habilitado, revocación durante red sin locks de Auth retenidos, aislamiento, privilegios inesperados, pool/rollback y pérdida de clave. La sonda [verify_auth_contract.py](../../scripts/drive/verify_auth_contract.py) corre dentro de Auth de desarrollo con marcador explícito: login/refresh de tres roles, permisos retirados, contraseña/inactividad/eliminación y limpieza de usuarios/tenant/budgets; no llama Google.
 
 ```powershell
 docker compose -f docker/docker-compose.yml run --build --rm --no-deps drive-tests
@@ -150,7 +187,7 @@ docker compose -f docker/docker-compose.yml config --quiet
 
 La suite exige DRIVE_TEST_DATABASE_URL sintética y DRIVE_TEST_RUNTIME_PASSWORD, provistas por drive-tests. Fuera de Compose se puede ejecutar el subconjunto sin DB con pytest -m "not postgres"; no usar el runtime de producción para instalar herramientas. pip check y pip-audit del inventario funcional actualizado aprobaron sin avisos Python; el inventario se congela antes de instalar la herramienta y excluye pip, retirado del runtime. Esto no es un escaneo SO ni prueba de ausencia de vulnerabilidades. La advertencia TestClient/httpx se conserva; CI repite la suite y la sonda. BASELINE sigue siendo histórico, sin sobrescribir su evidencia ni atribuirle resultados de esta imagen.
 
-## Diagnóstico DRIVE-001
+## Diagnóstico histórico DRIVE-001
 
 Esta sección y BASELINE describen la revisión histórica anterior a DRIVE-002/003, no las garantías del runtime actual. La operación vigente y sus límites se explican a continuación.
 

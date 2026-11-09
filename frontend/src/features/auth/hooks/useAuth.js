@@ -7,7 +7,10 @@ import { loginRequest, logoutRequest, meRequest, refreshTokenRequest } from "../
 export function useAuth() {
   const [auth, setAuth] = useState(() => {
     const saved = loadAuthSession();
-    return saved?.access ? { ...saved, sessionId: crypto.randomUUID() } : null;
+    if (!saved?.access) return null;
+    const sessionId = typeof saved.sessionId === "string" && /^[a-f0-9-]{36}$/.test(saved.sessionId)
+      ? saved.sessionId : crypto.randomUUID();
+    return { ...saved, sessionId };
   });
   const [loginError, setLoginError] = useState("");
   const [isAuthenticating, setIsAuthenticating] = useState(false);

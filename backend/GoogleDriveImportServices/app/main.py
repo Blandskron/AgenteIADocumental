@@ -11,7 +11,8 @@ from app.config.readiness import check_dependencies
 from app.config.settings import Settings, get_settings
 from app.infrastructure.database.connection import Database
 from app.interfaces.api.router import api_router
-from app.shared.errors import AppError, ExternalServiceError, GoogleDriveError, NotFoundError, ValidationError
+from app.interfaces.api.credential_middleware import CredentialMiddleware
+from app.shared.errors import DriveConflictError, ReauthorizationRequired, AppError, ExternalServiceError, GoogleDriveError, NotFoundError, ValidationError
 
 
 def create_app(settings: Settings | None = None):
@@ -35,10 +36,13 @@ def create_app(settings: Settings | None = None):
     app = FastAPI(title=settings.app_name, version="0.2.0", lifespan=lifespan)
     app.state.database = database
     app.dependency_overrides[get_settings] = lambda: settings
+    app.add_middleware(CredentialMiddleware)
     app.add_middleware(CORSMiddleware, allow_origins=settings.cors_origins, allow_credentials=False,
                        allow_methods=["GET", "POST"], allow_headers=["Authorization", "Content-Type"])
     app.include_router(api_router)
-    for kind, code, detail in ((NotFoundError,404,"Google Drive resource not found."),
+    for kind, code, detail in ((DriveConflictError,409,"Drive credentials changed or are busy."),
+                              (ReauthorizationRequired,409,"Google Drive authorization must be renewed."),
+                              (NotFoundError,404,"Google Drive resource not found."),
                               (ValidationError,400,"Invalid Google Drive request."),
                               (GoogleDriveError,502,"Google Drive provider operation failed."),
                               (ExternalServiceError,502,"Document ingestion is unavailable."),

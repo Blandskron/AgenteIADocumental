@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ChevronRight, Cloud, ShieldCheck, X } from "lucide-react";
 
 import { env } from "../../app/config/env";
@@ -8,11 +8,9 @@ import { AppShell } from "../../shared/layouts/AppShell";
 import { Sidebar } from "../../widgets/Sidebar/Sidebar";
 import { useConversations } from "../../features/conversations/hooks/useConversations";
 import {
-  connectGoogleDrive,
-  getGoogleDriveAuthUrl,
-  getGoogleDriveConnection,
   importGoogleDriveFiles,
 } from "../../features/google-drive-import/api/google-drive-import.api";
+import { useDriveConnection } from "../../features/google-drive-import/useDriveConnection.js";
 import { openGoogleDrivePicker } from "../../features/google-drive-import/google-picker";
 
 export function ApplicationsPage({ activeView = appRoutes.applications, onNavigate }) {
@@ -20,6 +18,7 @@ export function ApplicationsPage({ activeView = appRoutes.applications, onNaviga
     conversationClient,
     currentUser,
     googleDriveImportClient,
+    profileSessionKey,
     logout,
     storageScope,
   } = useAuthContext();
@@ -31,54 +30,35 @@ export function ApplicationsPage({ activeView = appRoutes.applications, onNaviga
     setActiveId,
   } = useConversations(storageScope, conversationClient);
   const [sidebarOpen, setSidebarOpen] = useState(true);
-  const [connection, setConnection] = useState({ connected: false });
+  const drive = useDriveConnection(googleDriveImportClient, profileSessionKey);
+  const connection = drive.connection;
   const [fileIds, setFileIds] = useState("");
   const [selectedFiles, setSelectedFiles] = useState([]);
   const [isBusy, setIsBusy] = useState(false);
   const [status, setStatus] = useState({ error: "", success: "" });
+  const driveClientRef = useRef(googleDriveImportClient);
+  driveClientRef.current = { client: googleDriveImportClient, version: connection.version, connected: connection.connected, busy: drive.busy };
+  useEffect(() => {
+    setSelectedFiles([]);
+    setFileIds("");
+  }, [googleDriveImportClient, connection.version]);
   const isDriveDetail = activeView === appRoutes.googleDriveApplication;
 
-  useEffect(() => {
-    if (!googleDriveImportClient) return;
 
-    const params = new URLSearchParams(window.location.search);
-    const code = params.get("code");
-
-    if (code) {
-      connectGoogleDrive(googleDriveImportClient, code)
-        .then((nextConnection) => {
-          setConnection(nextConnection);
-          setStatus({ error: "", success: "Google Drive conectado correctamente." });
-          window.history.replaceState({}, document.title, appRoutes.googleDriveApplication);
-        })
-        .catch((error) => setStatus({ error: error.message, success: "" }));
-      return;
-    }
-
-    getGoogleDriveConnection(googleDriveImportClient)
-      .then(setConnection)
-      .catch(() => {});
-  }, [googleDriveImportClient]);
-
-  async function handleConnectDrive() {
-    setStatus({ error: "", success: "" });
-    try {
-      const payload = await getGoogleDriveAuthUrl(googleDriveImportClient, window.location.href);
-      window.location.assign(payload.authorization_url);
-    } catch (error) {
-      setStatus({ error: error.message, success: "" });
-    }
-  }
+  const handleConnectDrive = drive.connect;
 
   async function handleOpenGooglePicker() {
     setStatus({ error: "", success: "" });
     try {
+      const pickerContext = driveClientRef.current;
       const pickedFiles = await openGoogleDrivePicker({
+        connection,
         appId: env.googlePickerAppId,
         clientId: env.googleClientId,
         developerKey: env.googlePickerApiKey,
       });
-      if (!pickedFiles.length) return;
+      const current = driveClientRef.current;
+      if (current.client !== pickerContext.client || current.version !== pickerContext.version || !current.connected || current.busy || !pickedFiles.length) return;
       setSelectedFiles(pickedFiles);
       setFileIds(pickedFiles.map((file) => file.fileId).join("\n"));
     } catch (error) {
@@ -140,12 +120,13 @@ export function ApplicationsPage({ activeView = appRoutes.applications, onNaviga
           <GoogleDriveApplication
             connection={connection}
             fileIds={fileIds}
-            isBusy={isBusy}
+            isBusy={isBusy || drive.busy}
             pickerConfigured={Boolean(env.googlePickerApiKey && env.googleClientId)}
             selectedFiles={selectedFiles}
-            status={status}
+            status={{ ...status, error: drive.error || status.error }}
             onBack={() => onNavigate?.(appRoutes.applications)}
             onConnect={handleConnectDrive}
+            onDisconnect={drive.disconnect}
             onFileIdsChange={setFileIds}
             onImport={handleImportDriveFiles}
             onOpenPicker={handleOpenGooglePicker}
@@ -194,6 +175,7 @@ function GoogleDriveApplication({
   status,
   onBack,
   onConnect,
+  onDisconnect,
   onFileIdsChange,
   onImport,
   onOpenPicker,
@@ -216,11 +198,20 @@ function GoogleDriveApplication({
             archivos de Excel, PDF y archivos cargados, para incorporarlos a tu proyecto documental.
           </p>
         </div>
-        <button className="action-button-primary" type="button" onClick={onConnect}>
+        <button className="action-button-primary" type="button" disabled={isBusy || !connection?.enabled || connection?.grantStatus === "REVOKE_PENDING"} onClick={onConnect}>
           {connection?.connected ? "Reconectar" : "Conectar"}
         </button>
       </div>
 
+      {!connection?.enabled && <p role="status">La integración Google Drive está deshabilitada.</p>}
+      {connection?.grantStatus === "LEGACY" && <p role="status">La conexión anterior requiere revisión de cifrado o una nueva autorización.</p>}
+      {connection?.grantStatus === "REAUTH_REQUIRED" && <p role="status">Autoriza Google Drive nuevamente para continuar.</p>}
+      {connection?.grantStatus === "REVOKE_PENDING" && <p role="status">Desconexión pendiente de confirmar con Google. Puedes reintentarla.</p>}
+      {(connection?.version > 0 && connection?.grantStatus !== "DISCONNECTED") && (
+        <button type="button" className="action-button-secondary" disabled={isBusy || connection.busy} onClick={onDisconnect}>
+          {connection.grantStatus === "REVOKE_PENDING" ? "Reintentar desconexión" : "Desconectar Google Drive"}
+        </button>
+      )}
       <div className={`google-drive-status ${connection?.connected ? "connected" : ""}`}>
         <ShieldCheck size={18} />
         <span>
@@ -258,7 +249,7 @@ function GoogleDriveApplication({
             className="action-button-secondary"
             type="button"
             onClick={onOpenPicker}
-            disabled={!pickerConfigured || isBusy}
+            disabled={!connection?.enabled || connection.busy || !pickerConfigured || isBusy}
           >
             <Cloud size={16} /> Abrir selector de Drive
           </button>
@@ -288,7 +279,7 @@ function GoogleDriveApplication({
               rows={5}
             />
           </label>
-          <button className="action-button-primary" type="submit" disabled={isBusy || !fileIds.trim()}>
+          <button className="action-button-primary" type="submit" disabled={!connection?.enabled || connection.busy || isBusy || !fileIds.trim()}>
             {isBusy ? "Importando..." : "Importar a Blandskron Documental"}
           </button>
         </form>

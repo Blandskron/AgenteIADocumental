@@ -1,10 +1,10 @@
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, HTTPException, Response
 
 from app.config.security import DriveUser, bearer_token, owner_user_id, require_authenticated_user
 from app.application.use_cases.manage_google_drive_imports import ManageGoogleDriveImports
 from app.interfaces.api.v1.dependencies import get_google_drive_use_case, require_enabled
 from app.interfaces.api.v1.schemas.google_drive_schema import (
-    AuthUrlResponse,
+    AuthUrlResponse, AuthUrlRequest, DisconnectRequest,
     GoogleDriveConnectRequest,
     GoogleDriveConnectionResponse,
     GoogleDriveImportFileResponse,
@@ -22,7 +22,23 @@ def auth_url(
     current_user: DriveUser = Depends(require_authenticated_user),
     use_case: ManageGoogleDriveImports = Depends(get_google_drive_use_case),
 ):
-    return use_case.auth_url(owner_user_id(current_user), return_url)
+    raise HTTPException(status_code=410, detail="Start authorization with POST and PKCE.")
+
+
+@router.post("/google-drive/auth-url", dependencies=[Depends(require_enabled)], response_model=AuthUrlResponse)
+def start_authorization(payload: AuthUrlRequest, current_user: DriveUser = Depends(require_authenticated_user),
+                        use_case: ManageGoogleDriveImports = Depends(get_google_drive_use_case)):
+    return use_case.auth_url(owner_user_id(current_user), payload.code_challenge)
+
+
+@router.post("/google-drive/disconnect", response_model=GoogleDriveConnectionResponse)
+def disconnect(payload: DisconnectRequest, response: Response,
+               current_user: DriveUser = Depends(require_authenticated_user),
+               use_case: ManageGoogleDriveImports = Depends(get_google_drive_use_case)):
+    status = use_case.disconnect(owner_user_id(current_user), payload.version)
+    if status["grant_status"] == "REVOKE_PENDING":
+        response.status_code = 202
+    return status
 
 
 @router.post("/google-drive/oauth/callback", dependencies=[Depends(require_enabled)], response_model=GoogleDriveConnectionResponse)
@@ -31,13 +47,7 @@ def connect_google_drive(
     current_user: DriveUser = Depends(require_authenticated_user),
     use_case: ManageGoogleDriveImports = Depends(get_google_drive_use_case),
 ):
-    connection = use_case.connect(owner_user_id(current_user), payload.code)
-    return GoogleDriveConnectionResponse(
-        connected=True,
-        provider_account_email=connection.provider_account_email,
-        scopes=connection.scopes,
-        expires_at=connection.expires_at,
-    )
+    return use_case.connect(owner_user_id(current_user), payload.code, payload.state, payload.code_verifier)
 
 
 @router.get("/google-drive/connection", response_model=GoogleDriveConnectionResponse)

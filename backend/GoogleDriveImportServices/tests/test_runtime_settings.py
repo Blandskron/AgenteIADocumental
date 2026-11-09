@@ -60,4 +60,4 @@ def test_startup_failure_closes_engine_and_hides_configuration(settings):
 
 def test_schema_generation_without_lifespan(settings):
     schema=create_app(settings).openapi()
-    assert len(schema["paths"])==8
+    assert len(schema["paths"])==9
