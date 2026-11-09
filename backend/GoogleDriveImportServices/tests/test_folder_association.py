@@ -210,6 +210,15 @@ def test_successful_imports_preserve_completion(folder_id):
     assert len(repository.associations) == (1 if folder_id else 0)
 
 
+def test_batch_at_configured_limit_imports_every_file():
+    repository = ImportRepository()
+    service, google, upload = use_case(repository)
+    payload = GoogleDriveImportRequest(files=[GoogleDriveFileRequest(file_id=f"synthetic-{index}") for index in range(5)])
+    result, files = service.import_files("42", "synthetic", payload)
+    assert result.status == "COMPLETED" and result.processed_files == 5
+    assert len(files) == google.downloads == upload.uploads == 5
+
+
 def test_missing_uploaded_document_id_cannot_silently_skip_association():
     repository = ImportRepository()
     service, _, upload = use_case(repository)

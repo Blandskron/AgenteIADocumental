@@ -26,9 +26,11 @@ class ManageGoogleDriveImports(CredentialLifecycle):
         self._settings = settings
 
     def import_files(self, owner_user_id: str, bearer_token: str, payload) -> tuple[Any, list[Any]]:
-        file_requests = payload.files[: self._settings.max_import_files]
+        file_requests = payload.files
         if not file_requests:
             raise ValidationError("At least one Google Drive file is required.")
+        if len(file_requests) > self._settings.max_import_files:
+            raise ValidationError("Google Drive import exceeds the configured file limit.")
         if payload.folder_id and not self._repository.owns_folder(payload.folder_id, owner_user_id):
             raise NotFoundError("Folder not found.")
 

@@ -50,7 +50,7 @@ class GoogleDriveFileRequest(BaseModel):
 
 
 class GoogleDriveImportRequest(BaseModel):
-    files: list[GoogleDriveFileRequest] = Field(min_length=1)
+    files: list[GoogleDriveFileRequest] = Field(min_length=1, max_length=25)
     folder_id: str | None = None
     metadata: dict[str, Any] = Field(default_factory=dict)
 

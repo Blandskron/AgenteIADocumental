@@ -2,7 +2,7 @@
 
 Microservicio responsable de conectar Google Drive con la biblioteca documental de Blandskron Documental.
 
-**Estado:** DRIVE-001/002/003 integrados. DRIVE-004 en revisión: OAuth PKCE, credenciales versionadas y callbacks compartidos. Importación acotada/recuperable, controlador web completo e imagen conservan sus tarjetas; el servicio no está cerrado. [Tablero](../../ROADMAP.md#googledriveimportservices), [guía para agentes](AGENTS.md) y [línea base histórica](docs/BASELINE.json).
+**Estado:** DRIVE-001/002/003/004 integrados: OAuth PKCE, credenciales versionadas y callbacks compartidos. Importación acotada/recuperable, controlador web completo e imagen conservan sus tarjetas; el servicio no está cerrado. [Tablero](../../ROADMAP.md#googledriveimportservices), [guía para agentes](AGENTS.md) y [línea base histórica](docs/BASELINE.json).
 
 ## Responsabilidad
 
@@ -62,6 +62,10 @@ GET  /api/v1/google-drive/imports/{import_id}/files
 6. El microservicio descarga o exporta cada archivo.
 7. El microservicio sube cada archivo a `RagDocumentEmbeddingServices`.
 8. Los documentos quedan disponibles en la biblioteca documental de Blandskron Documental.
+
+## Tamaño del lote — DRIVE-005A
+
+La API acepta entre 1 y 25 archivos por solicitud; fuera de ese rango responde 422. Si el límite configurado del servicio es menor, un lote que lo exceda responde 400 antes de consultar carpetas/conexiones, crear registros o llamar a proveedores. El lote se rechaza completo: no se recorta silenciosamente. Divide la selección en lotes admitidos. Los límites de bytes reales, cuerpo/campos y recuperación siguen pendientes en DRIVE-005; este incremento no hace segura una descarga grande ni un reintento ambiguo.
 
 ## Formatos nativos de Google
 
