@@ -33,3 +33,5 @@ END $$;
 
 CREATE INDEX IF NOT EXISTS drive_import_file_parent_order ON public.google_drive_import_files(import_id,created_at,import_file_id);
 CREATE INDEX IF NOT EXISTS drive_import_file_source ON public.google_drive_import_files(google_file_id,import_id);
+
+CREATE INDEX IF NOT EXISTS drive_import_owner_page ON public.google_drive_imports(owner_user_id,created_at DESC,import_id DESC);

@@ -30,3 +30,34 @@ test("Picker checks Drive account before opening and never sends its ephemeral t
     assert.equal(opened, 0);
   } finally { globalThis.window = previous; }
 });
+
+test("Picker cancellation disposes its UI and ignores a late selected file", async (context) => {
+  const previous = globalThis.window;
+  let callback, disposed = 0, maximum;
+  class Builder {
+    setMaxItems(value) { maximum = value; return this; }
+    setAppId() { return this; } setDeveloperKey() { return this; } setOAuthToken() { return this; }
+    addView() { return this; } enableFeature() { return this; }
+    setCallback(value) { callback = value; return this; }
+    build() { return { setVisible() {}, dispose() { disposed++; } }; }
+  }
+  globalThis.window = { gapi: { load: (_, config) => config.callback() }, google: {
+    accounts: { oauth2: { initTokenClient: (config) => ({ requestAccessToken: () => config.callback({ access_token: "synthetic-ephemeral" }) }) } },
+    picker: { PickerBuilder: Builder, DocsView: class { setMode() { return this; } }, ViewId: { DOCS: "docs" }, DocsViewMode: { LIST: "list" },
+      Feature: { MULTISELECT_ENABLED: "multi" }, Response: { ACTION: "action", DOCUMENTS: "docs" }, Action: { PICKED: "picked", CANCEL: "cancel" },
+      Document: { ID: "id", NAME: "name", MIME_TYPE: "mime" } },
+  } };
+  context.mock.method(globalThis, "fetch", async () => ({ ok: true, json: async () => ({ user: { permissionId: "account-one" } }) }));
+  const abort = new AbortController();
+  try {
+    const work = openGoogleDrivePicker({ appId: "123", clientId: "client", developerKey: "synthetic", signal: abort.signal,
+      connection: { enabled: true, connected: true, oauthClientId: "client", pickerAppId: "123", providerAccountId: "account-one" } });
+    await new Promise((resolve) => setImmediate(resolve));
+    assert.equal(maximum, 25);
+    abort.abort();
+    await assert.rejects(work, { name: "AbortError" });
+    assert.equal(disposed, 1);
+    callback({ action: "picked", docs: [{ id: "late-file" }] });
+    assert.equal(disposed, 1);
+  } finally { globalThis.window = previous; }
+});

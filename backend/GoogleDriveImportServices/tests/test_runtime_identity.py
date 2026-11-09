@@ -18,7 +18,7 @@ def test_disabled_runtime_and_own_history(client, token, identities, engine):
     assert client.get("/api/v1/health/db").json() == {"status":"ok","enabled":False}
     headers = token()
     assert client.get("/api/v1/google-drive/connection",headers=headers).json()["connected"] is False
-    assert client.get("/api/v1/google-drive/imports",headers=headers).json() == []
+    assert client.get("/api/v1/google-drive/imports",headers=headers).json() == {"items": [], "next_cursor": None}
     assert client.get("/api/v1/google-drive/auth-url",headers=headers).status_code == 503
     assert client.post("/api/v1/google-drive/oauth/callback",json={"code":"synthetic"},headers=headers).status_code == 503
     assert client.post("/api/v1/google-drive/imports",json={"files":[{"file_id":"synthetic"}]},headers=headers).status_code == 503

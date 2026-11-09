@@ -66,10 +66,11 @@ export function getGoogleDriveConnection(apiClient) {
   return apiClient("/api/v1/google-drive/connection", { method: "GET" }).then(normalizeConnection);
 }
 
-export function importGoogleDriveFiles(apiClient, { files, folderId = null, metadata = {}, operationId, connectionVersion }) {
+export function importGoogleDriveFiles(apiClient, { files, folderId = null, metadata = {}, operationId, connectionVersion, signal }) {
   if (!operationId) throw new Error("La importación requiere una clave de operación.");
   return apiClient("/api/v1/google-drive/imports", {
     method: "POST",
+    signal,
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       operation_id: operationId,
@@ -86,8 +87,26 @@ export function importGoogleDriveFiles(apiClient, { files, folderId = null, meta
   }).then(normalizeImport);
 }
 
-export function listGoogleDriveImports(apiClient, limit = 25) {
-  return apiClient(`/api/v1/google-drive/imports?limit=${limit}`, { method: "GET" }).then((payload) =>
-    Array.isArray(payload) ? payload.map(normalizeImport) : [],
-  );
+function page(payload, normalize, id) {
+  if (!payload || !Array.isArray(payload.items) || payload.items.length > 100 ||
+      !(payload.next_cursor === null || (typeof payload.next_cursor === "string" && /^[A-Za-z0-9_-]{1,1024}$/.test(payload.next_cursor))) ||
+      payload.items.some((item) => !item || typeof item[id] !== "string" || !item[id]) ||
+      new Set(payload.items.map((item) => item[id])).size !== payload.items.length ||
+      (payload.next_cursor && !payload.items.length)) throw new Error("Respuesta de historial de Drive inválida.");
+  return { items: payload.items.map(normalize), nextCursor: payload.next_cursor };
+}
+export function listGoogleDriveImports(apiClient, { limit = 25, cursor, signal } = {}) {
+  const query = new URLSearchParams({ limit: String(limit) });
+  if (cursor) query.set("before", cursor);
+  return apiClient(`/api/v1/google-drive/imports?${query}`, { method: "GET", signal })
+    .then((payload) => page(payload, normalizeImport, "import_id"));
+}
+export function getGoogleDriveImport(apiClient, importId, signal) {
+  return apiClient(`/api/v1/google-drive/imports/${encodeURIComponent(importId)}`, { method: "GET", signal }).then(normalizeImport);
+}
+export function listGoogleDriveImportFiles(apiClient, importId, { limit = 25, cursor, signal } = {}) {
+  const query = new URLSearchParams({ limit: String(limit) });
+  if (cursor) query.set("after", cursor);
+  return apiClient(`/api/v1/google-drive/imports/${encodeURIComponent(importId)}/files?${query}`, { method: "GET", signal })
+    .then((payload) => page(payload, normalizeImportFile, "import_file_id"));
 }

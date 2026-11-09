@@ -54,7 +54,7 @@ def main():
             status, pair = request(auth, "/api/users/login/", body={"username":user.username,"password":password})
             assert status == 200
             pairs.append(pair)
-            assert request(drive, "/api/v1/google-drive/imports", token=pair["access"]) == (200, [])
+            assert request(drive, "/api/v1/google-drive/imports", token=pair["access"]) == (200, {"items": [], "next_cursor": None})
             assert request(drive, "/api/v1/google-drive/imports", token=pair["refresh"])[0] == 401
             assert request(drive, "/api/v1/google-drive/auth-url", token=pair["access"])[0] == 503
             status, renewed = request(auth, "/api/users/token/refresh/", body={"refresh":pair["refresh"]})

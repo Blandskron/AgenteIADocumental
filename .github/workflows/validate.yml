@@ -139,6 +139,11 @@ jobs:
           drive = services["google-drive-import-service"]
           assert drive["environment"]["DATABASE_URL"] == "postgresql+psycopg://drive_runtime@postgres:5432/documents_db"
           assert drive["environment"]["GOOGLE_DRIVE_ENABLED"] == "false"
+          assert drive["read_only"] is True
+          assert drive["cap_drop"] == ["ALL"]
+          assert "no-new-privileges:true" in drive["security_opt"]
+          assert drive["pids_limit"] == 128
+          assert "size=67108864" in drive["tmpfs"][0]
           assert json.loads(drive["environment"]["CORS_ORIGINS"]) == ["http://localhost:3000", "http://127.0.0.1:3000"]
           assert drive["depends_on"]["drive-db-role"]["condition"] == "service_completed_successfully"
           assert "health/db" in " ".join(drive["healthcheck"]["test"])
@@ -373,5 +378,21 @@ jobs:
           docker compose -f docker/docker-compose.yml cp scripts/drive/verify_auth_contract.py auth-service:/tmp/drive-auth-contract.py
           marker=$(python3 -c 'import uuid; print(uuid.uuid4().hex)')
           docker compose -f docker/docker-compose.yml exec -T -e DRIVE_PROBE_MARKER="$marker" auth-service python /tmp/drive-auth-contract.py
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Auditar imagen y grafo runtime de GoogleDriveImportServices
+        run: |
+          image=$(docker compose -f docker/docker-compose.yml images -q google-drive-import-service)
+          node scripts/drive/audit_image.mjs --image "$image" --out "$RUNNER_TEMP/drive-image-audit"
+          docker compose -f docker/docker-compose.yml run --rm --no-deps -T drive-audit python /drive-checks/verify_runtime_dependencies.py < "$RUNNER_TEMP/drive-image-audit/runtime.json"
+          docker compose -f docker/docker-compose.yml exec -T google-drive-import-service python -c 'import importlib.util, os, tempfile; assert os.geteuid() == 10010; assert all(importlib.util.find_spec(name) is None for name in ("pytest", "ruff", "pip_audit", "pip")); f=tempfile.TemporaryFile(); f.write(b"x" * 20971520); f.close(); assert os.stat("/tmp").st_mode & 0o777 == 0o700'
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: drive-image-audit
+          path: ${{ runner.temp }}/drive-image-audit/*.json
+          if-no-files-found: ignore
+          retention-days: 7
       - if: failure()
         run: docker compose -f docker/docker-compose.yml logs auth-db-roles auth-migrate auth-service conversation-db-role conversation-service rag-chat-db-role embedding-db-role search-db-role document-search-service access-db-role document-access-service library-db-role document-library-service transfer-db-role document-transfer-service profile-db-role profile-service export-db-role document-export-service drive-db-role google-drive-import-service

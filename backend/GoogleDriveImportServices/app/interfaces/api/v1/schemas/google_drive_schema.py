@@ -105,3 +105,13 @@ class GoogleDriveImportResponse(BaseModel):
 
 class GoogleDriveImportWithFilesResponse(GoogleDriveImportResponse):
     files: list[GoogleDriveImportFileResponse]
+
+
+class GoogleDriveImportPage(BaseModel):
+    items: list[GoogleDriveImportResponse]
+    next_cursor: str | None = None
+
+
+class GoogleDriveImportFilePage(BaseModel):
+    items: list[GoogleDriveImportFileResponse]
+    next_cursor: str | None = None
