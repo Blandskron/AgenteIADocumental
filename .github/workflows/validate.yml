@@ -271,6 +271,17 @@ jobs:
           docker compose -f docker/docker-compose.yml run --rm --no-deps database-schema psql -h postgres -U postgres -d documents_db -X -q -v ON_ERROR_STOP=1 -f /schema/tests/tenant_preflight.sql
           docker compose -f docker/docker-compose.yml run --rm --no-deps database-schema psql -h postgres -U postgres -d documents_db -X -q -v ON_ERROR_STOP=1 -f /schema/checks/tenant_preflight.sql
 
+      - name: Probar restricciones de asignaciones con logins y carreras reales
+        run: |
+          docker compose -f docker/docker-compose.yml exec -T postgres psql -U postgres -d documents_db -v ON_ERROR_STOP=1 -c 'CREATE DATABASE plat_assignments_ci'
+          trap 'docker compose -f docker/docker-compose.yml exec -T postgres psql -U postgres -d documents_db -v ON_ERROR_STOP=1 -c "DROP DATABASE plat_assignments_ci WITH (FORCE)"' EXIT
+          docker compose -f docker/docker-compose.yml run --rm --no-deps database-schema psql -h postgres -U postgres -d plat_assignments_ci -v ON_ERROR_STOP=1 -f /schema/run_all.sql
+          docker compose -f docker/docker-compose.yml cp scripts/database/constraints/002_tenant_assignments.sql auth-service:/tmp/tenant-assignments.sql
+          docker compose -f docker/docker-compose.yml cp scripts/database/tests/test_tenant_assignments.py auth-service:/tmp/test_tenant_assignments.py
+          docker compose -f docker/docker-compose.yml exec -T -e PLAT_TEST_DATABASE=plat_assignments_ci -e PLAT_TEST_ADMIN_PASSWORD=admin1234 auth-service python /tmp/test_tenant_assignments.py
+          docker compose -f docker/docker-compose.yml run --rm --no-deps database-schema psql -h postgres -U postgres -d plat_assignments_ci -v ON_ERROR_STOP=1 -f /schema/run_all.sql
+          docker compose -f docker/docker-compose.yml run --rm --no-deps database-schema psql -h postgres -U postgres -d plat_assignments_ci -v ON_ERROR_STOP=1 -f /schema/migrations/003_tenant_assignments.sql
+
       - run: docker compose -f docker/docker-compose.yml exec -T postgres psql -U postgres -d documents_db -v ON_ERROR_STOP=1 < scripts/database/conversation/verify_role.sql
       - run: docker compose -f docker/docker-compose.yml exec -T postgres psql -U postgres -d documents_db -v ON_ERROR_STOP=1 < scripts/database/rag-chat/verify_role.sql
       - run: docker compose -f docker/docker-compose.yml exec -T postgres psql -U postgres -d documents_db -v ON_ERROR_STOP=1 < scripts/database/embedding/verify_role.sql

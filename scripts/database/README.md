@@ -48,3 +48,17 @@ docker compose --env-file .env.example -p <proyecto-aislado> -f docker/docker-co
 ```
 
 El test compara deltas contra una línea base, contempla datos válidos/globales, cruces, huérfanos, ciclo propio/de dos nodos/descendiente, cadena profunda y privacidad. Dentro de su transacción sintética usa `session_replication_role=replica` para simular referencias rotas de un restore; requiere el usuario de prueba administrador y siempre termina con ROLLBACK. No ejecutar ese test en una base de uso real. El wrapper operativo anterior no utiliza esa opción ni necesita escribir.
+
+## Asignaciones por empresa — primer incremento PLAT-001B
+
+La migración optativa `migrations/003_tenant_assignments.sql` activa dos FKs validadas: (tenant_id,group_id) al grupo y (tenant_id,user_id) a la membresía. Ambas conservan ON DELETE CASCADE: retirar membresía o grupo elimina solo las asignaciones relacionadas. No exige membresía activa; deshabilitarla conserva su configuración. No cambia roles ni repara históricos.
+
+Con respaldo y escritores detenidos, ejecutar primero el preflight y revisar cualquier inconsistencia fuera de Git. En una conexión operativa autorizada, ejecutar la migración completa con ON_ERROR_STOP; toma locks de escritura sobre las tres tablas, espera cinco segundos como máximo y limita sentencias a 60 s. Si encuentra asignaciones cruzadas/huérfanas, informa solo conteos y revierte todo. Comprueba definición y validación de restricciones homónimas; una deriva exige revisión, nunca se sustituye silenciosamente.
+
+```sh
+docker compose -f docker/docker-compose.yml run --rm --no-deps database-schema psql -h postgres -U postgres -d documents_db -v ON_ERROR_STOP=1 -f /schema/migrations/003_tenant_assignments.sql
+```
+
+La activación es explícita mientras PLAT-001B completa áreas/documentos y coordina consumidores; no forma parte de run_all.sql todavía. No desplegarla automáticamente sobre históricos. Auth ya verifica empresa/membresía y serializa asignación/borrado de membresía; esta capa impide también SQL directo inconsistente. Otros servicios solo leen estas asignaciones. Las carreras pueden producir 23503: consumidores que activen la migración deben tratarlo como conflicto y recargar, sin reintento ciego. La traducción HTTP y validación integral tras activación siguen en PLAT-001B; no se declara cerrado el bloque.
+
+Las pruebas de test_tenant_assignments.py usan una DB separada cuyo nombre empieza por plat_assignments_, login real auth_runtime, bloqueos observados en pg_stat_activity y ambos órdenes entre inserción y borrado de grupo/membresía. Verifican repetibilidad, rechazo de deriva y preservación de datos ante preflight fallido. Nunca apuntarlas a documents_db; CI crea y elimina su DB sintética.
