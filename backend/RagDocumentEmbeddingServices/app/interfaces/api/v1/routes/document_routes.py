@@ -22,7 +22,10 @@ from app.interfaces.api.v1.schemas.document_schema import (
 router = APIRouter()
 
 
-@router.post("/upload", response_model=DocumentUploadResponse)
+@router.post(
+    "/upload", response_model=DocumentUploadResponse,
+    responses={409: {"description": "La empresa o el área cambió. Recargar sesión antes de reintentar."}},
+)
 def upload_document(
     file: UploadFile = File(...),
     metadata: str | None = Form(default=None),

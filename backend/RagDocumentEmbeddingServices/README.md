@@ -144,3 +144,7 @@ Authorization: Bearer <token>
 
 ## License
 Este proyecto está licenciado bajo los términos del archivo LICENSE del repositorio.
+
+## Conflictos de empresa y área
+
+Con las [relaciones SQL activadas](../../scripts/database/README.md#áreas-y-documentos--segundo-incremento-plat-001b), una empresa/área cambiada o inválida durante la carga devuelve 409. El escritor revierte también fallos al commit y permite reutilizar la sesión; la capa de carga retira el storage recién creado y no inicia procesamiento. Recargar la sesión antes de reenviar. No cambia el contrato de cargas globales o sin área.

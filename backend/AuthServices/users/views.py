@@ -19,6 +19,7 @@ from rest_framework_simplejwt.views import TokenRefreshView
 
 from drf_spectacular.utils import extend_schema, OpenApiResponse, inline_serializer
 from .models import Tenant, TenantArea, TenantGroup, TenantMembership, TenantUserGroup
+from .relation_conflicts import TenantRelationConflict, is_relation_conflict, relation_conflict_schema
 from .login_protection import audit_auth_event, login_retry_after
 from .serializers import (
     ChangePasswordSerializer,
@@ -63,6 +64,11 @@ class IsTenantAdminOrSuperAdmin(BasePermission):
 
 
 class AuditedModelViewSet(viewsets.ModelViewSet):
+    def handle_exception(self, exc):
+        if is_relation_conflict(exc):
+            exc = TenantRelationConflict()
+        return super().handle_exception(exc)
+
     def finalize_response(self, request, response, *args, **kwargs):
         response = super().finalize_response(request, response, *args, **kwargs)
         if request.method not in SAFE_METHODS and 200 <= response.status_code < 300:
@@ -144,6 +150,7 @@ class PermissionViewSet(viewsets.ReadOnlyModelViewSet):
 
 
 @extend_schema(tags=['Empresas'])
+@relation_conflict_schema(TenantSerializer)
 class TenantViewSet(AuditedModelViewSet):
     serializer_class = TenantSerializer
     permission_classes = [IsSuperAdmin]
@@ -156,6 +163,7 @@ class TenantViewSet(AuditedModelViewSet):
 
 
 @extend_schema(tags=['Areas'])
+@relation_conflict_schema(TenantAreaSerializer)
 class TenantAreaViewSet(AuditedModelViewSet):
     serializer_class = TenantAreaSerializer
     permission_classes = [IsTenantAdminOrSuperAdmin]
@@ -183,6 +191,7 @@ class TenantAreaViewSet(AuditedModelViewSet):
 
 
 @extend_schema(tags=['Membresias'])
+@relation_conflict_schema(TenantMembershipSerializer)
 class TenantMembershipViewSet(AuditedModelViewSet):
     serializer_class = TenantMembershipSerializer
     permission_classes = [IsTenantAdminOrSuperAdmin]
@@ -192,7 +201,7 @@ class TenantMembershipViewSet(AuditedModelViewSet):
             return [IsSuperAdmin()]
         return super().get_permissions()
 
-    @extend_schema(request=TenantUserProvisionSerializer, responses={201: TenantMembershipSerializer})
+    @extend_schema(request=TenantUserProvisionSerializer, responses={201: TenantMembershipSerializer, 409: OpenApiResponse(description="La relación cambió; recargar antes de reintentar.")})
     @action(detail=False, methods=["post"], url_path="provision", serializer_class=TenantUserProvisionSerializer)
     def provision(self, request):
         serializer = self.get_serializer(data=request.data)
@@ -231,6 +240,7 @@ class TenantMembershipViewSet(AuditedModelViewSet):
 
 
 @extend_schema(tags=['Grupos Tenant'])
+@relation_conflict_schema(TenantGroupSerializer)
 class TenantGroupViewSet(AuditedModelViewSet):
     serializer_class = TenantGroupSerializer
     permission_classes = [IsTenantAdminOrSuperAdmin]
@@ -260,6 +270,7 @@ class TenantGroupViewSet(AuditedModelViewSet):
 
 
 @extend_schema(tags=['Usuarios en grupos tenant'])
+@relation_conflict_schema(TenantUserGroupSerializer)
 class TenantUserGroupViewSet(AuditedModelViewSet):
     serializer_class = TenantUserGroupSerializer
     permission_classes = [IsTenantAdminOrSuperAdmin]

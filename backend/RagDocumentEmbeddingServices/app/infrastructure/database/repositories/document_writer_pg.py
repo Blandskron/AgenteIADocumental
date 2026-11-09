@@ -4,7 +4,7 @@ from datetime import UTC, datetime
 
 from psycopg.errors import LockNotAvailable
 from sqlalchemy import select
-from sqlalchemy.exc import OperationalError
+from sqlalchemy.exc import IntegrityError, OperationalError
 from sqlalchemy.orm import Session
 
 from app.domain.documents import Document, DocumentNotFoundError, DocumentStatus
@@ -35,20 +35,29 @@ class DocumentWriterPg:
             metadata_=metadata or {},
             status=status,
         )
-        self._session.add(document)
-        self._session.flush()
-        result = Document(
-            document_id=str(document.document_id),
-            filename=document.filename,
-            storage_path=document.storage_path,
-            mime_type=document.mime_type,
-            status=DocumentStatus(document.status),
-            metadata=document.metadata_ or {},
-            owner_user_id=document.owner_user_id,
-            tenant_id=document.tenant_id,
-        )
-        self._session.commit()
-        return result
+        try:
+            self._session.add(document)
+            self._session.flush()
+            result = Document(
+                document_id=str(document.document_id),
+                filename=document.filename,
+                storage_path=document.storage_path,
+                mime_type=document.mime_type,
+                status=DocumentStatus(document.status),
+                metadata=document.metadata_ or {},
+                owner_user_id=document.owner_user_id,
+                tenant_id=document.tenant_id,
+            )
+            self._session.commit()
+            return result
+        except IntegrityError as exc:
+            self._session.rollback()
+            if (getattr(exc.orig, "sqlstate", None) == "23503" and
+                    getattr(getattr(exc.orig, "diag", None), "constraint_name", None) in {
+                        "documents_area_tenant_fk", "documents_owner_area_id_fkey", "documents_tenant_id_fkey"}):
+                raise ConflictError("La empresa o el área cambió. Recarga la sesión antes de volver a cargar.") from None
+            raise
+
 
     @contextmanager
     def indexing_transaction(self, document_id: str) -> Iterator[None]:
