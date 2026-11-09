@@ -30,7 +30,8 @@ class CredentialLifecycle:
             if not isinstance(subject, str) or not subject or len(subject) > 256:
                 raise ValidationError("Google Drive account identity is unavailable.")
             if not values["refresh_token_encrypted"]:
-                if lease.grant_status != "ACTIVE" or lease.provider_account_id != subject:
+                if (lease.grant_status != "ACTIVE" or lease.provider_account_id != subject
+                        or lease.oauth_client_id != self._settings.google_oauth_client_id):
                     raise ReauthorizationRequired("Offline authorization is required.")
                 self._token_cipher.decrypt(lease.refresh_token_encrypted)
                 if not lease.refresh_token_encrypted:

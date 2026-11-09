@@ -142,6 +142,12 @@ def test_reconnect_omitted_refresh_only_preserves_same_account(lifecycle):
         authorize(context)
     retained = context.repo.get_connection(context.user.user_id)
     assert retained.provider_account_id == old.provider_account_id and retained.grant_status == "ACTIVE"
+    context.provider.subject = old.provider_account_id
+    context.settings.google_oauth_client_id = "another-client"
+    with pytest.raises(ReauthorizationRequired):
+        authorize(context)
+    retained = context.repo.get_connection(context.user.user_id)
+    assert retained.oauth_client_id == old.oauth_client_id and retained.refresh_token_encrypted == old.refresh_token_encrypted
 
 
 @pytest.mark.postgres
