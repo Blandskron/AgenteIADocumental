@@ -35,7 +35,7 @@ npm run test:browser
 
 Las pruebas de navegador usan identidad y documentos sintéticos y contratos HTTP simulados. No prueban una integración Google/Groq en vivo ni certifican cumplimiento WCAG completo. La verificación integral de servicios se documenta en [`docs/release`](../docs/release/README.md).
 
-Playwright sirve `dist/` con `vite preview` en loopback: ejecuta `npm run build` antes de las pruebas de navegador. `npm run format` aplica el formato de código de `src/`.
+Los comandos `dev` y `preview` escuchan en `127.0.0.1` de forma predeterminada, conforme al alcance local del proyecto. Playwright sirve `dist/` con `vite preview` en loopback: ejecuta `npm run build` antes de las pruebas de navegador. `npm run format` aplica el formato de código de `src/`.
 
 ## Design System
 

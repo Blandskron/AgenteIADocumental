@@ -18,7 +18,7 @@ La base tenía 34 archivos JSX y 61 archivos JavaScript, sin TypeScript ni ESLin
 | Diseño | Tokens semánticos claros/oscuros, superficies sobrias, acento verde, radios y elevación consistentes. CSS separado por dominio; botones tipados, diálogos nativos, formularios y estados compartidos. Inspiración Fluent/shadcn, sin incorporar sus bibliotecas. |
 | UX | Sugerencias del chat rellenan preguntas útiles; se retiran el filtro y selector de modelo sin acción. Búsqueda etiquetada, estado de vista comunicado, posibilidad de marcar notificaciones como leídas, errores recuperables y una sola creación ante envíos duplicados de carpeta. |
 | Accesibilidad | Foco visible, salto al contenido, título por ruta, botones separados para abrir/eliminar conversación, disclosures con estado, Escape y restitución de foco, menú móvil modal, reducción de movimiento y soporte de colores forzados. |
-| Seguridad | Se conservan los controles vigentes de sesión/tenant, PKCE, reintentos idempotentes y validación de descargas privadas. Vista previa en iframe con sandbox. Mensajes como texto y errores de render sin detalles internos. La autorización sigue en las APIs. |
+| Seguridad | Se conservan los controles vigentes de sesión/tenant, PKCE, reintentos idempotentes y validación de descargas privadas. Vista previa en iframe con sandbox. Mensajes como texto y errores de render sin detalles internos. `dev`/`preview` escuchan en loopback por defecto. La autorización sigue en las APIs. |
 | Rendimiento | Carga de páginas bajo demanda, sin incluir todas las funcionalidades en el acceso inicial. No se incorpora memoización indiscriminada ni virtualización sobre listas paginadas de 20/50 elementos. |
 
 ## Evidencia local
