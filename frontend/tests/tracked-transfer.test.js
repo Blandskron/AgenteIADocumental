@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { runDocumentUpload, runDocumentDownload } from "../src/features/transfers/document-transfer-flows.js";
-import { createTransferController } from "../src/features/transfers/transfer-controller.js";
+import { runDocumentUpload, runDocumentDownload } from "../src/features/transfers/document-transfer-flows.ts";
+import { createTransferController } from "../src/features/transfers/transfer-controller.ts";
 
 const settle = () => new Promise((resolve) => setImmediate(resolve));
 const pending = () => { let resolve; const promise = new Promise((done) => { resolve = done; }); return { promise, resolve }; };

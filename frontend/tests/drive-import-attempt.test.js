@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { prepareImportAttempt, finishImportAttempt } from "../src/features/google-drive-import/import-attempt.js";
+import { prepareImportAttempt, finishImportAttempt } from "../src/features/google-drive-import/import-attempt.ts";
 
 const storage = () => { const entries = new Map(); return {
   getItem: (key) => entries.get(key) || null, setItem: (key, value) => entries.set(key, value),

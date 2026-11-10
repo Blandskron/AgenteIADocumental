@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { createTransferController } from "../src/features/transfers/transfer-controller.js";
-import { listTransfers, updateTransfer } from "../src/features/transfers/api/transfers.api.js";
+import { createTransferController } from "../src/features/transfers/transfer-controller.ts";
+import { listTransfers, updateTransfer } from "../src/features/transfers/api/transfers.api.ts";
 
 const page = (ids, offset = 0, more = false) => ({ items: ids.map((id) => ({ transfer_id: id, status: "RUNNING" })), limit: 50, offset, has_more: more });
 const deferred = () => { let resolve, reject; const promise = new Promise((yes, no) => { resolve = yes; reject = no; }); return { promise, resolve, reject }; };

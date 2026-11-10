@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { createLibraryController } from "../src/features/document-library/library-controller.js";
-import { listFolders, listFolderDocuments, listRecentDocuments } from "../src/features/document-library/api/document-library.api.js";
-import { createSearchController } from "../src/features/document-search/search-controller.js";
+import { createLibraryController } from "../src/features/document-library/library-controller.ts";
+import { listFolders, listFolderDocuments, listRecentDocuments } from "../src/features/document-library/api/document-library.api.ts";
+import { createSearchController } from "../src/features/document-search/search-controller.ts";
 
 const page = (items = [], offset = 0, has_more = false) => ({ items, offset, limit: 50, has_more });
 const doc = (id) => ({ document_id: id, filename: `${id}.txt` });

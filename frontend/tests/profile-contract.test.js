@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { getProfile, updateProfile } from "../src/features/profile/api/profile.api.js";
+import { getProfile, updateProfile } from "../src/features/profile/api/profile.api.ts";
 
 test("profile writes send the version last read and omit owner identifiers", async () => {
   const client = async (path, options) => {

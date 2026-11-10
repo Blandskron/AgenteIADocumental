@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { assignDocument, listAssignedToMe, listManagedByMe, listNotifications } from "../src/features/document-access/api/document-access.api.js";
-import { ApiError, parseResponse } from "../src/shared/api/httpClient.js";
+import { assignDocument, listAssignedToMe, listManagedByMe, listNotifications } from "../src/features/document-access/api/document-access.api.ts";
+import { ApiError, parseResponse } from "../src/shared/api/httpClient.ts";
 
 for (const [loader, path, key, normalizedKey] of [
   [listAssignedToMe, "assigned-to-me", "assignment_id", "assignmentId"],

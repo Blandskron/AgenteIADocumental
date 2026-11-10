@@ -1,0 +1,166 @@
+.applications-heading h1 {
+  margin: 0 0 12px;
+}
+.applications-heading p {
+  color: var(--foreground-muted);
+  margin-bottom: 32px;
+}
+.applications-grid {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: repeat(auto-fill, minmax(min(360px, 100%), 1fr));
+}
+.application-row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 24px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  color: var(--foreground);
+  background: var(--surface);
+  text-align: left;
+}
+.application-row:hover {
+  border-color: var(--accent);
+  box-shadow: var(--shadow-sm);
+}
+.application-row > span:not(.application-icon) {
+  display: grid;
+  flex: 1;
+  gap: 6px;
+}
+.application-row small {
+  color: var(--foreground-muted);
+}
+.application-icon {
+  width: 52px;
+  height: 52px;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+}
+.application-icon svg {
+  width: 32px;
+  height: 32px;
+}
+.application-breadcrumb {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 24px;
+  color: var(--foreground-muted);
+}
+.application-breadcrumb button {
+  background: transparent;
+  border: 0;
+  color: var(--accent);
+  padding: 8px 0;
+}
+.application-detail-hero {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  margin-bottom: 32px;
+}
+.application-detail-hero > div {
+  flex: 1;
+}
+.application-detail-hero h1 {
+  margin: 0 0 8px;
+}
+.application-detail-hero p {
+  color: var(--foreground-muted);
+  margin: 0;
+}
+.application-info-panel,
+.application-import-panel {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  padding: 24px;
+  margin: 24px 0;
+}
+.application-info-panel h2,
+.application-import-panel h2 {
+  font-size: 17px;
+  margin-top: 0;
+}
+.application-info-panel dl > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--border);
+}
+.application-info-panel dt {
+  color: var(--foreground-muted);
+}
+.application-info-panel dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.application-import-panel form,
+.google-drive-import-form {
+  display: grid;
+  gap: 16px;
+}
+.application-import-panel label,
+.google-drive-import-form label {
+  display: grid;
+  gap: 8px;
+  font-weight: 600;
+}
+.application-import-panel textarea,
+.google-drive-import-form textarea {
+  width: 100%;
+  min-height: 100px;
+  resize: vertical;
+}
+.google-drive-help {
+  color: var(--foreground-muted);
+  font-size: 12px;
+}
+.google-drive-picked-files {
+  list-style: none;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+.google-drive-picked-files li {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  overflow-wrap: anywhere;
+}
+.google-drive-picked-files button {
+  min-width: 36px;
+  min-height: 36px;
+  display: grid;
+  place-items: center;
+  background: transparent;
+  color: var(--foreground);
+  border: 0;
+}
+.google-drive-import-form {
+  padding: 24px;
+}
+@media (max-width: 760px) {
+  .application-detail-hero {
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+  .application-detail-hero .application-icon {
+    display: none;
+  }
+  .application-info-panel,
+  .application-import-panel {
+    padding: 16px;
+  }
+}

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { createProfileSessionClient } from "../src/features/profile/api/session-client.js";
-import { normalizeAuthUser } from "../src/entities/auth/model/auth.user.js";
+import { createProfileSessionClient } from "../src/features/profile/api/session-client.ts";
+import { normalizeAuthUser } from "../src/entities/auth/model/auth.user.ts";
 
 test("refresh reuses a session client and newer requests use its latest credential", async () => {
   const original = global.fetch, seen = [];
