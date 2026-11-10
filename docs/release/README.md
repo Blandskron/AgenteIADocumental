@@ -2,6 +2,8 @@
 
 Esta carpeta contiene documentación y evidencia JSON; el código de verificación vive en `scripts/release/`. El [tablero](../../ROADMAP.md) registra el estado de entrega y los cierres históricos. Los contratos y la operación de cada servicio siguen en su README.
 
+La implementación transversal se integró en el [PR #85](https://github.com/Blandskron/AgenteIADocumental/pull/85), con los [siete jobs de CI aprobados](https://github.com/Blandskron/AgenteIADocumental/actions/runs/42730424304), incluido el recorrido integral y la auditoría de imágenes construidas en CI. Los JSON versionados identifican los artefactos locales y su fecha; los artefactos de esa ejecución identifican las imágenes de CI. No son un escaneo nuevo de un despliegue posterior. El cierre administrativo BD-008 sigue el estado del tablero.
+
 ## Reproducir sin datos personales
 
 Requisitos: Docker Compose reciente (soporte `!reset`/`!override`), Node 24 y acceso a los registros de imágenes y al modelo público de Hugging Face. Desde la raíz:
