@@ -28,7 +28,7 @@ El runner comprueba también el login del administrador generado, cambio de cont
 
 Después de inspeccionar el resultado y comprobar que no quedan fixtures, retirar únicamente los contenedores dedicados conservando volúmenes:
 
-```sh
+```powershell
 docker compose --env-file $env:VERIFICATION_ENV_FILE -p bd-final-check -f docker/docker-compose.yml -f docker/compose/verification.yml down --remove-orphans
 ```
 

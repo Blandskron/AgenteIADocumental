@@ -104,6 +104,8 @@ URLs principales:
 
 ## Ejecucion local
 
+Esta ruta es opcional para desarrollo sin Compose. Configura `DATABASE_URL` con el rol correspondiente, `AUTH_JWT_PUBLIC_KEY_PATH` y `AUTH_IDENTITY_URL` con Auth activo; el ejemplo ya no incluye una contraseña administrativa utilizable. La instalación con Docker de arriba prepara sus dependencias dentro de los contenedores.
+
 ```bash
 python -m venv .venv
 .venv\Scripts\activate

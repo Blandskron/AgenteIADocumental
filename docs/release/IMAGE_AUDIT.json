@@ -1,6 +1,6 @@
 {
   "card": "PLAT-002",
-  "date_utc": "2026-11-09T23:33:43.078Z",
+  "date_utc": "2026-11-10T12:31:50.732Z",
   "scanner_image": "aquasec/trivy@sha256:8f6bb947dbc528902e11f2f5be52f7b519f6a39d5d148f41166f2040499768fb",
   "severity_filter": [
     "HIGH",
@@ -10,12 +10,12 @@
   "images": [
     {
       "service": "auth-service",
-      "image_id": "sha256:3d10a0b874020841f80ee020c793cf1fe53c54cc2998c2ac8864d8710d7e8443",
+      "image_id": "sha256:bd6eea78703549b1e74756baf2f96fa4e92510fd9765d5ca922ffe7a8f9edfa3",
       "effective_uid": 10001,
-      "archive_sha256": "ebe48df5ef41e5062a667f7ac5f9716bea410a864c31206e3db928f0557ed18a",
-      "saved_config_id": "sha256:cb7f3aa563034834b8fa1c3eddc6c3ad8588658b25bc76f2918ab895873c3a07",
-      "scanned_image_id": "sha256:cb7f3aa563034834b8fa1c3eddc6c3ad8588658b25bc76f2918ab895873c3a07",
-      "collected_utc": "2026-11-10T00:08:21.772Z",
+      "archive_sha256": "41044a0d2cb4e10b3c66d3aad8c365a5778c073dca9f70a5419f9d55eade224e",
+      "saved_config_id": "sha256:6946bff63b0f018a6da5e667dac26b7b6a4119488b283d393b357aa84cf548d4",
+      "scanned_image_id": "sha256:6946bff63b0f018a6da5e667dac26b7b6a4119488b283d393b357aa84cf548d4",
+      "collected_utc": "2026-11-10T13:03:41.621Z",
       "os": {
         "Family": "debian",
         "Name": "13.7"
@@ -340,7 +340,7 @@
         },
         {
           "path": "backend/AuthServices/core/environment.py",
-          "sha256": "b736c4d9f193bccb4baed9e38e9e8d7eb87884e2d212f3830c001b6e6d86dd75"
+          "sha256": "86cb78d267634e4078b90648a76525688edb4ed8c799d591be2da5e98ba83f00"
         },
         {
           "path": "backend/AuthServices/core/jwt_keys.py",
@@ -403,6 +403,10 @@
           "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
         },
         {
+          "path": "backend/AuthServices/users/management/commands/bootstrap_admin.py",
+          "sha256": "093a1694a983330f844100834fcdb1c04ebdb1b49f59d2d93b57f3adb692dde6"
+        },
+        {
           "path": "backend/AuthServices/users/management/commands/grant_auth_runtime.py",
           "sha256": "a2de90bd3e1321db8bd92489917e1840e70796e1b8531f73f9a6be44b1b91e89"
         },
@@ -433,6 +437,10 @@
         {
           "path": "backend/AuthServices/users/serializers.py",
           "sha256": "a61c6be95d689c64648e34b2993e820d69564ab57dc485e5fb976ec37243909c"
+        },
+        {
+          "path": "backend/AuthServices/users/test_bootstrap_admin.py",
+          "sha256": "9d1136a0e531a2e82d8d649612cb8565bab3510ab7f35df5f4a4f420abbed5b0"
         },
         {
           "path": "backend/AuthServices/users/tests.py",
@@ -928,12 +936,12 @@
     },
     {
       "service": "conversation-service",
-      "image_id": "sha256:1f58d615744c1ce9025b883cd300b81808e57543a184ab439eb808559429a48a",
+      "image_id": "sha256:acd7702939e8ddd6f505957fe73350ff3d18323340de3b2ebc79d0c3d530d52d",
       "effective_uid": 10002,
-      "archive_sha256": "21202a483285b73f1a498a3b9f2077e8b0fd37f45b080f3742544f779ed6bd6a",
-      "saved_config_id": "sha256:68bf0293977baf5affef1e1ddfbe24f01866298a57a418242d402aa8a9004cac",
-      "scanned_image_id": "sha256:68bf0293977baf5affef1e1ddfbe24f01866298a57a418242d402aa8a9004cac",
-      "collected_utc": "2026-11-10T00:09:44.373Z",
+      "archive_sha256": "219ac5d77562556b212b1ef9e0605f7bccd06688216f33089691d2ec22dbf405",
+      "saved_config_id": "sha256:078bc33a2b63268f250c043caab75fc5d36f3f611994bfd2c6275c884e0fa52c",
+      "scanned_image_id": "sha256:078bc33a2b63268f250c043caab75fc5d36f3f611994bfd2c6275c884e0fa52c",
+      "collected_utc": "2026-11-10T13:04:14.630Z",
       "os": {
         "Family": "debian",
         "Name": "13.7"
@@ -1333,11 +1341,11 @@
         },
         {
           "path": "backend/ConversationServices/app/config/security.py",
-          "sha256": "7a85e46dbf92d2f0ca34b070382ff0332e9d6918fd9b2a25b5926e43ddc0cf58"
+          "sha256": "56e50e2398cac84f115158d0c56c1050f9825ff07651feaf500acdd5ededd653"
         },
         {
           "path": "backend/ConversationServices/app/config/settings.py",
-          "sha256": "838538aa411bee2998377b4c58183c59d8125d7df9d9827f7276c50a8409ba62"
+          "sha256": "9523a9b5923ae7b9aceb9893cbc2b194e2cba412406868052cf2ce4228f8f497"
         },
         {
           "path": "backend/ConversationServices/app/domain/__init__.py",
@@ -1925,12 +1933,12 @@
     },
     {
       "service": "rag-document-chat-service",
-      "image_id": "sha256:d0f8e09255b66fac32cc6cb0e2aa9d75fa4690f332e3d60e2e947cc939d6fa10",
+      "image_id": "sha256:884108572e07e58710388056f30d394c54041852e2d92af31b2e7d0b4f6b6089",
       "effective_uid": 10003,
-      "archive_sha256": "157934fdceac7f5e8b11847b369a67224b515121555671df16173a61bef85465",
-      "saved_config_id": "sha256:be287d36533971572eb471ee907be1afc3cbfccc7f2de28ee21bd49eb0a82f81",
-      "scanned_image_id": "sha256:be287d36533971572eb471ee907be1afc3cbfccc7f2de28ee21bd49eb0a82f81",
-      "collected_utc": "2026-11-10T00:17:32.341Z",
+      "archive_sha256": "c51d93ef48e25718121828618ecba6d5449db52c28a9e1280b6a1f63357f7888",
+      "saved_config_id": "sha256:2733d2f3d4df930df3018fb70c9e67be42cc4de917f3c774a8f1ce65cfca7ced",
+      "scanned_image_id": "sha256:2733d2f3d4df930df3018fb70c9e67be42cc4de917f3c774a8f1ce65cfca7ced",
+      "collected_utc": "2026-11-10T13:06:34.158Z",
       "os": {
         "Family": "debian",
         "Name": "13.7"
@@ -3294,11 +3302,11 @@
         },
         {
           "path": "backend/RagDocumentChatServices/app/config/security.py",
-          "sha256": "ec18ba3978fc190f9592d354e65ea94a8f6166a9c1b87dcbf4545a005bfe5b65"
+          "sha256": "9d15071adf663036c78c8d52973f0b60c9c221fff1af9fb109ed34a5129a82f4"
         },
         {
           "path": "backend/RagDocumentChatServices/app/config/settings.py",
-          "sha256": "82e032d5b1f9aaf787bde7954c4f6ff2b19ee896b9a32f57f05c90a3af69d0d5"
+          "sha256": "b0a525dd8436de67fc472b945e2d7ab4167fbfa14ac51b7704146914d4ad7d10"
         },
         {
           "path": "backend/RagDocumentChatServices/app/domain/__init__.py",
@@ -3358,7 +3366,7 @@
         },
         {
           "path": "backend/RagDocumentChatServices/app/infrastructure/database/repositories/vector_repository_pgvector.py",
-          "sha256": "46e12ffb301d08101a469dc53116a9121e12a0ba2acb6bfa31176c2105cecaed"
+          "sha256": "a7c8b2388878741a7014ade658083baf03a2d62997f6887790ddb23cc1383244"
         },
         {
           "path": "backend/RagDocumentChatServices/app/infrastructure/database/types.py",
@@ -3910,12 +3918,12 @@
     },
     {
       "service": "rag-document-embedding-service",
-      "image_id": "sha256:4dddfb3c3a65c4558922ae1a19eed5fc4a32ccffaecea6a2599bbf5bbc48b142",
+      "image_id": "sha256:af9b5cbd789850df895e7545fd94b33acab1186612456497e3fdc88b8ee48528",
       "effective_uid": 10004,
-      "archive_sha256": "7a8aeb4f4f330df12b53ae357ad6cf727d1ca193bdc2c26fd0210a04d476895a",
-      "saved_config_id": "sha256:8a342478f540ae494414a2b317c9a76d2350dd58cb4d3c53c06022d7fd8b6221",
-      "scanned_image_id": "sha256:8a342478f540ae494414a2b317c9a76d2350dd58cb4d3c53c06022d7fd8b6221",
-      "collected_utc": "2026-11-10T00:31:55.672Z",
+      "archive_sha256": "02805485612c8769c24161f994ee2b8acad117f861978394d2fc8d24c996e09f",
+      "saved_config_id": "sha256:978b5b19506cd159932341f7503dc33f595658e9443e3b1d6e721f0db05abd1a",
+      "scanned_image_id": "sha256:978b5b19506cd159932341f7503dc33f595658e9443e3b1d6e721f0db05abd1a",
+      "collected_utc": "2026-11-10T13:09:11.014Z",
       "os": {
         "Family": "debian",
         "Name": "13.7"
@@ -5244,28 +5252,28 @@
         "native_ocr": {
           "version": "tesseract 5.5.4",
           "linked_libraries": [
-            "\tlinux-vdso.so.1 (0x00007ffcccae7000)",
-            "\tlibtesseract.so.5.5 => /opt/tesseract/lib/libtesseract.so.5.5 (0x000071e32f826000)",
-            "\tlibleptonica.so.6 => /lib/x86_64-linux-gnu/libleptonica.so.6 (0x000071e32f554000)",
-            "\tlibstdc++.so.6 => /lib/x86_64-linux-gnu/libstdc++.so.6 (0x000071e32f2ee000)",
-            "\tlibm.so.6 => /lib/x86_64-linux-gnu/libm.so.6 (0x000071e32f1fe000)",
-            "\tlibgcc_s.so.1 => /lib/x86_64-linux-gnu/libgcc_s.so.1 (0x000071e32f1cf000)",
-            "\tlibc.so.6 => /lib/x86_64-linux-gnu/libc.so.6 (0x000071e32efdb000)",
-            "\t/lib64/ld-linux-x86-64.so.2 (0x000071e32fc29000)",
-            "\tlibpng16.so.16 => /lib/x86_64-linux-gnu/libpng16.so.16 (0x000071e32efa2000)",
-            "\tlibjpeg.so.62 => /lib/x86_64-linux-gnu/libjpeg.so.62 (0x000071e32ef0b000)",
-            "\tlibgif.so.7 => /lib/x86_64-linux-gnu/libgif.so.7 (0x000071e32eeff000)",
-            "\tlibtiff.so.6 => /lib/x86_64-linux-gnu/libtiff.so.6 (0x000071e32ee69000)",
-            "\tlibwebp.so.7 => /lib/x86_64-linux-gnu/libwebp.so.7 (0x000071e32ede7000)",
-            "\tlibwebpmux.so.3 => /lib/x86_64-linux-gnu/libwebpmux.so.3 (0x000071e32edd8000)",
-            "\tlibopenjp2.so.7 => /lib/x86_64-linux-gnu/libopenjp2.so.7 (0x000071e32ed66000)",
-            "\tlibz.so.1 => /lib/x86_64-linux-gnu/libz.so.1 (0x000071e32ed46000)",
-            "\tlibzstd.so.1 => /lib/x86_64-linux-gnu/libzstd.so.1 (0x000071e32ec7c000)",
-            "\tliblzma.so.5 => /lib/x86_64-linux-gnu/liblzma.so.5 (0x000071e32ec49000)",
-            "\tlibLerc.so.4 => /lib/x86_64-linux-gnu/libLerc.so.4 (0x000071e32ebbb000)",
-            "\tlibjbig.so.0 => /lib/x86_64-linux-gnu/libjbig.so.0 (0x000071e32ebaa000)",
-            "\tlibdeflate.so.0 => /lib/x86_64-linux-gnu/libdeflate.so.0 (0x000071e32eb93000)",
-            "\tlibsharpyuv.so.0 => /lib/x86_64-linux-gnu/libsharpyuv.so.0 (0x000071e32eb8a000)"
+            "\tlinux-vdso.so.1 (0x00007ffc24db0000)",
+            "\tlibtesseract.so.5.5 => /opt/tesseract/lib/libtesseract.so.5.5 (0x0000710ca3903000)",
+            "\tlibleptonica.so.6 => /lib/x86_64-linux-gnu/libleptonica.so.6 (0x0000710ca3631000)",
+            "\tlibstdc++.so.6 => /lib/x86_64-linux-gnu/libstdc++.so.6 (0x0000710ca33cb000)",
+            "\tlibm.so.6 => /lib/x86_64-linux-gnu/libm.so.6 (0x0000710ca32db000)",
+            "\tlibgcc_s.so.1 => /lib/x86_64-linux-gnu/libgcc_s.so.1 (0x0000710ca32ac000)",
+            "\tlibc.so.6 => /lib/x86_64-linux-gnu/libc.so.6 (0x0000710ca30b8000)",
+            "\t/lib64/ld-linux-x86-64.so.2 (0x0000710ca3d06000)",
+            "\tlibpng16.so.16 => /lib/x86_64-linux-gnu/libpng16.so.16 (0x0000710ca307f000)",
+            "\tlibjpeg.so.62 => /lib/x86_64-linux-gnu/libjpeg.so.62 (0x0000710ca2fe8000)",
+            "\tlibgif.so.7 => /lib/x86_64-linux-gnu/libgif.so.7 (0x0000710ca2fdc000)",
+            "\tlibtiff.so.6 => /lib/x86_64-linux-gnu/libtiff.so.6 (0x0000710ca2f46000)",
+            "\tlibwebp.so.7 => /lib/x86_64-linux-gnu/libwebp.so.7 (0x0000710ca2ec4000)",
+            "\tlibwebpmux.so.3 => /lib/x86_64-linux-gnu/libwebpmux.so.3 (0x0000710ca2eb5000)",
+            "\tlibopenjp2.so.7 => /lib/x86_64-linux-gnu/libopenjp2.so.7 (0x0000710ca2e43000)",
+            "\tlibz.so.1 => /lib/x86_64-linux-gnu/libz.so.1 (0x0000710ca2e23000)",
+            "\tlibzstd.so.1 => /lib/x86_64-linux-gnu/libzstd.so.1 (0x0000710ca2d59000)",
+            "\tliblzma.so.5 => /lib/x86_64-linux-gnu/liblzma.so.5 (0x0000710ca2d26000)",
+            "\tlibLerc.so.4 => /lib/x86_64-linux-gnu/libLerc.so.4 (0x0000710ca2c98000)",
+            "\tlibjbig.so.0 => /lib/x86_64-linux-gnu/libjbig.so.0 (0x0000710ca2c87000)",
+            "\tlibdeflate.so.0 => /lib/x86_64-linux-gnu/libdeflate.so.0 (0x0000710ca2c70000)",
+            "\tlibsharpyuv.so.0 => /lib/x86_64-linux-gnu/libsharpyuv.so.0 (0x0000710ca2c67000)"
           ]
         }
       },
@@ -5356,11 +5364,11 @@
         },
         {
           "path": "backend/RagDocumentEmbeddingServices/app/config/security.py",
-          "sha256": "ff228fd31f684c96ffb8a53b33bea703306c36a43af690af6503dfb341e6ec95"
+          "sha256": "7976bd116643e762e883b58ed912a33248128b74802f1d6ba5c7256ad815de73"
         },
         {
           "path": "backend/RagDocumentEmbeddingServices/app/config/settings.py",
-          "sha256": "ed36cb6f6363e9003ac23739366d4c8045b37152899dee51f08136b79a8891b8"
+          "sha256": "d335ee998be04ef42703fadac69816dfc2f91a30f0eaad6666622359acbdd99b"
         },
         {
           "path": "backend/RagDocumentEmbeddingServices/app/domain/__init__.py",
@@ -6048,12 +6056,12 @@
     },
     {
       "service": "document-search-service",
-      "image_id": "sha256:30b71807cda373d7f55e43f15d0c31edf2d1b0ddb4e9eace5771320f57fb0067",
+      "image_id": "sha256:f340120e4970db7fa4393cd94637ebca6daaa73e44e165bcc0188e76121fda84",
       "effective_uid": 10005,
-      "archive_sha256": "1948d73f25846474075ecfb323d7e971f9096c65bfc890fdfb5b28a96e3c3700",
-      "saved_config_id": "sha256:8dac14bd053257ddc795aa51f5165c80f5a2043092ece4b17e5c6bc467ef9c25",
-      "scanned_image_id": "sha256:8dac14bd053257ddc795aa51f5165c80f5a2043092ece4b17e5c6bc467ef9c25",
-      "collected_utc": "2026-11-10T00:32:46.860Z",
+      "archive_sha256": "a22ea28f91087666ad4e1afdcf81f866e533da49f66fdf1f7041c1af0941cef4",
+      "saved_config_id": "sha256:c5b74e6165f37ec92578b1cd89b0d3492f1a766967e2661813d5d7bedd97aa7d",
+      "scanned_image_id": "sha256:c5b74e6165f37ec92578b1cd89b0d3492f1a766967e2661813d5d7bedd97aa7d",
+      "collected_utc": "2026-11-10T13:09:51.133Z",
       "os": {
         "Family": "debian",
         "Name": "13.7"
@@ -6473,11 +6481,11 @@
         },
         {
           "path": "backend/DocumentSearchServices/app/config/security.py",
-          "sha256": "ccb96d9b26733b935534aceb270f94bab062487a9fd11acba84dc76a0bc0b357"
+          "sha256": "cd8ec0a164754b7791878b72fed6a261ac522198cdf64f6f01095c3eca206baa"
         },
         {
           "path": "backend/DocumentSearchServices/app/config/settings.py",
-          "sha256": "7aa4f1a955037a8b3e8ec22f7da88ca18720abe65a2d28f9886f1992e83796cc"
+          "sha256": "fd270831553f4139acb8fdd6763e39112b6a645ec27820001b2813eb8967c7d1"
         },
         {
           "path": "backend/DocumentSearchServices/app/domain/__init__.py",
@@ -7069,12 +7077,12 @@
     },
     {
       "service": "document-access-service",
-      "image_id": "sha256:4fad8dc0748f4fa342d44432604fec62056a2be3ff6a185230235746c8f95abd",
+      "image_id": "sha256:bc5c5ade42b96b5684286a09276a46fa33114b4a65b2d5630876d5396243b02e",
       "effective_uid": 10004,
-      "archive_sha256": "ceb1e18f7c9ee1893914b872d6f8cca305761c7d0ae1216a5920170f31193973",
-      "saved_config_id": "sha256:d01cf544fe45caab1a5447c3cc54ba20c425f2e77dc876c62cd522c6c079792b",
-      "scanned_image_id": "sha256:d01cf544fe45caab1a5447c3cc54ba20c425f2e77dc876c62cd522c6c079792b",
-      "collected_utc": "2026-11-10T00:34:09.240Z",
+      "archive_sha256": "19eada5b5374f967fe59f512ef9037d497f967246fdcb748404fe2704676e01f",
+      "saved_config_id": "sha256:029b532ba699eaf89ff129944eced340a7b93641722400305a4c7287b397380e",
+      "scanned_image_id": "sha256:029b532ba699eaf89ff129944eced340a7b93641722400305a4c7287b397380e",
+      "collected_utc": "2026-11-10T13:10:16.261Z",
       "os": {
         "Family": "debian",
         "Name": "13.7"
@@ -7494,11 +7502,11 @@
         },
         {
           "path": "backend/DocumentAccessServices/app/config/security.py",
-          "sha256": "ec18ba3978fc190f9592d354e65ea94a8f6166a9c1b87dcbf4545a005bfe5b65"
+          "sha256": "9d15071adf663036c78c8d52973f0b60c9c221fff1af9fb109ed34a5129a82f4"
         },
         {
           "path": "backend/DocumentAccessServices/app/config/settings.py",
-          "sha256": "cd66bd3337a98e466c70e61451dbcf7ae013a7c9de6b5f72957a6fbfec5cd0ed"
+          "sha256": "b567a722c90869ed7603fa01a44546fd59f7ef79040bd1dd206ea5ca6c5401ef"
         },
         {
           "path": "backend/DocumentAccessServices/app/domain/__init__.py",
@@ -8106,12 +8114,12 @@
     },
     {
       "service": "document-library-service",
-      "image_id": "sha256:99a9c8a07e446cbda328fd370e701875920380db10cb6356ff8aacff56e8e526",
+      "image_id": "sha256:025e50c745b5ba320714ee00fd9c5cdc327be64e40d5d7e2d4f494b288648a6a",
       "effective_uid": 10006,
-      "archive_sha256": "ea3a4b9cf4f1fedb7040bcbe2b5fdd229a210674b462da238396e7e93811408f",
-      "saved_config_id": "sha256:e296d1e83d2359e47b1287c654ab0a42c192a470fce7589e2af3eeba1039dfe4",
-      "scanned_image_id": "sha256:e296d1e83d2359e47b1287c654ab0a42c192a470fce7589e2af3eeba1039dfe4",
-      "collected_utc": "2026-11-10T00:35:24.954Z",
+      "archive_sha256": "7ec1ed31876847430c812a55aa5acac73677692f88db496bf183edbdd71e5584",
+      "saved_config_id": "sha256:390fbdd2e944a76af76787b6dec0b01caafdb132dfc0fbc02c692fdf31667d0c",
+      "scanned_image_id": "sha256:390fbdd2e944a76af76787b6dec0b01caafdb132dfc0fbc02c692fdf31667d0c",
+      "collected_utc": "2026-11-10T13:10:43.136Z",
       "os": {
         "Family": "debian",
         "Name": "13.7"
@@ -8507,11 +8515,11 @@
         },
         {
           "path": "backend/DocumentLibraryServices/app/config/security.py",
-          "sha256": "ec18ba3978fc190f9592d354e65ea94a8f6166a9c1b87dcbf4545a005bfe5b65"
+          "sha256": "9d15071adf663036c78c8d52973f0b60c9c221fff1af9fb109ed34a5129a82f4"
         },
         {
           "path": "backend/DocumentLibraryServices/app/config/settings.py",
-          "sha256": "9917b5175546da175f1db70117a86db3826373f1cb5fdcd0ebf8e59dfaacfb6c"
+          "sha256": "32b432882349138a598c0ee5276e4c87835bb1ab8220749ee7ba38194d2ebf76"
         },
         {
           "path": "backend/DocumentLibraryServices/app/infrastructure/__init__.py",
@@ -9079,12 +9087,12 @@
     },
     {
       "service": "document-transfer-service",
-      "image_id": "sha256:36e1d79f46a019dcd8c0e7dc2b60af46f0041206758e8731a94c4dae31beadcc",
+      "image_id": "sha256:52ec29be86c36d095f39f7d75f07efb48ab297659cc1e2ac67af953ea63c6e07",
       "effective_uid": 10007,
-      "archive_sha256": "23540dd9ef954d99358168a79fff582f3f0816ca0d203d8f8a39f1596c61af5d",
-      "saved_config_id": "sha256:82b0ace5584f6390fe77c1963fd982bd5ef915d665865ba1280cc5ce69e026f3",
-      "scanned_image_id": "sha256:82b0ace5584f6390fe77c1963fd982bd5ef915d665865ba1280cc5ce69e026f3",
-      "collected_utc": "2026-11-10T00:36:29.722Z",
+      "archive_sha256": "f32446b6f802167258e0863d7012603898d3797552f1289b1e2c4ce3c44a518b",
+      "saved_config_id": "sha256:e3901dae158a6fd25eed7e1b4194bcc34d3e208949b2beca0dcaa2c248bbc987",
+      "scanned_image_id": "sha256:e3901dae158a6fd25eed7e1b4194bcc34d3e208949b2beca0dcaa2c248bbc987",
+      "collected_utc": "2026-11-10T13:11:12.969Z",
       "os": {
         "Family": "debian",
         "Name": "13.7"
@@ -9480,11 +9488,11 @@
         },
         {
           "path": "backend/DocumentTransferServices/app/config/security.py",
-          "sha256": "e6ae565de4f1f8a6678fbd8ae72b8e89c53e4b71f24f0f6ea87277b13fa444b0"
+          "sha256": "c8c6d89b08b02265610dc23be9bed78df81e4718f43681f582103f4c66cc819a"
         },
         {
           "path": "backend/DocumentTransferServices/app/config/settings.py",
-          "sha256": "456f6b75b49918120bba535966621c4e0daaff52cc43c2c51fea74e6adccfbbf"
+          "sha256": "03098fff55a923012678c8b13b4bdea2a4f1a1d911c7b9866dbed9a4a25dcb9e"
         },
         {
           "path": "backend/DocumentTransferServices/app/domain/__init__.py",
@@ -10060,12 +10068,12 @@
     },
     {
       "service": "profile-service",
-      "image_id": "sha256:fb39c684ca18ee42eb1d51ab70946890f7989db490eefca04b4fddedfad53f0a",
+      "image_id": "sha256:9be966d4f17543f7371860b4470755bf32558d140bad638d4ed92edf42e9ef6f",
       "effective_uid": 10008,
-      "archive_sha256": "3259ad3e453115e10fa6d376e54c6acf218af191d68cb7afe3f500552fb00b97",
+      "archive_sha256": "d65761af933a030d887e3350e1ad96e7b36a05a848622fcd31e4dfcea6a9c887",
       "saved_config_id": "sha256:94ce4ddd1aad740f9d0f0dbf6fb0a514da29d8b2bdce3a323dbc53113fb7bc04",
       "scanned_image_id": "sha256:94ce4ddd1aad740f9d0f0dbf6fb0a514da29d8b2bdce3a323dbc53113fb7bc04",
-      "collected_utc": "2026-11-10T00:37:39.476Z",
+      "collected_utc": "2026-11-10T13:11:46.025Z",
       "os": {
         "Family": "debian",
         "Name": "13.7"
@@ -11124,12 +11132,12 @@
     },
     {
       "service": "document-export-service",
-      "image_id": "sha256:212745a93cd2bc360fd5737af5e4d7e3df4185fd14866b6c21ec4a56bfd62292",
+      "image_id": "sha256:1e358745ee852d56e6d1ebe65f3b99ba43c5063ab6bbad5b245b8d5cb02d9d56",
       "effective_uid": 10009,
-      "archive_sha256": "4b31017881c7effa90ce4fa4fe86c7e8595b2dbca3fd07fa21e7c0658cd472eb",
+      "archive_sha256": "a9c0db3e8dd467ef876e618117f610aced2f933e03422549054a7fe287350d9d",
       "saved_config_id": "sha256:3626a311a2edb55ca4d4906f3cfeb097c247cf27f2762a51060312aef1c3f1a9",
       "scanned_image_id": "sha256:3626a311a2edb55ca4d4906f3cfeb097c247cf27f2762a51060312aef1c3f1a9",
-      "collected_utc": "2026-11-10T00:38:51.253Z",
+      "collected_utc": "2026-11-10T13:12:16.586Z",
       "os": {
         "Family": "debian",
         "Name": "13.7"
@@ -12197,12 +12205,12 @@
     },
     {
       "service": "google-drive-import-service",
-      "image_id": "sha256:e85dfb4809c5220da261b69fd9af02710b8afaf7f9f0879cdbf72e125963fddb",
+      "image_id": "sha256:8f39a362be6735f9efab0f407ab81ed57ec8fa6ef6328a647235b77040fae51e",
       "effective_uid": 10010,
-      "archive_sha256": "eea49a92ac0d982f992e6d7e63a906de84b575887c0344c8f1d1f29007b50f04",
+      "archive_sha256": "37082242b3640cb59319669599b71ed0eb18584a6acd3210389c129c9ad5554b",
       "saved_config_id": "sha256:ad8a4fcd27e47a23a412eced15472f52b08078d882418a0d1fd9cb6fc1b3e5de",
       "scanned_image_id": "sha256:ad8a4fcd27e47a23a412eced15472f52b08078d882418a0d1fd9cb6fc1b3e5de",
-      "collected_utc": "2026-11-10T00:40:09.904Z",
+      "collected_utc": "2026-11-10T13:12:42.484Z",
       "os": {
         "Family": "debian",
         "Name": "13.7"
@@ -13252,12 +13260,12 @@
     },
     {
       "service": "blandskron-frontend",
-      "image_id": "sha256:4c6e3dff62600c29c60254ef406fcc067d952a13bc79b5e8eb4a1f7b8ef9a2eb",
+      "image_id": "sha256:6e322db392564f3d784cc7205f069bf0eac075fd62bb38f739cf2e6a263d209a",
       "effective_uid": 101,
-      "archive_sha256": "4669453e33b897a12a3a6ca7814d6b935fba701195320862c1df7e1b8fe153e4",
+      "archive_sha256": "5e1d3627b4d409d65691ddc93b3fbf35a9bdca92c4945dd1580bddba5c49976c",
       "saved_config_id": "sha256:5e335dbdf21fdb414cf3576e65c1f282fcc32574d9592075e1da37f9548d0f9b",
       "scanned_image_id": "sha256:5e335dbdf21fdb414cf3576e65c1f282fcc32574d9592075e1da37f9548d0f9b",
-      "collected_utc": "2026-11-10T00:40:55.094Z",
+      "collected_utc": "2026-11-10T13:13:07.639Z",
       "os": {
         "Family": "alpine",
         "Name": "3.24.2"
@@ -13711,11 +13719,11 @@
     }
   ],
   "requires_review": [],
-  "finished_utc": "2026-11-10T00:40:55.119Z",
-  "audit_tool_sha256": "51b20a4c6a3c9782b394ab3a0e98f39c79656efa859184f973e0490e6f65f850",
+  "finished_utc": "2026-11-10T13:13:07.671Z",
+  "audit_tool_sha256": "e3cd76f915a876554fbacf2931c74403d078366ee1d1f5ca6fc7b620fc274119",
   "inventory_tool_sha256": "9202222009a3297faafd7acde6ee9d88e9b7cb6f3b0eec60911f8e227a42f89a",
   "runtime_graph_verification": {
-    "checked_utc": "2026-11-10T00:41:20.137Z",
+    "checked_utc": "2026-11-10T13:14:05.953Z",
     "python_images": 11,
     "extras": {
       "uvicorn": [
