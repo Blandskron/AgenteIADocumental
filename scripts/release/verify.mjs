@@ -46,7 +46,7 @@ await check("Compose", ["config", "--quiet"]);
 await check("storage initializes empty directory and preserves inaccessible existing files", ["run", "--rm", "--network", "none",
   "--label", "blandskron.synthetic=bd-final-check", "--entrypoint", "sh", "-e", "DOCUMENT_UID=10004", "-e", "DOCUMENT_GID=10004",
   "--volume", `${path.resolve("docker/scripts/prepare_documents.sh")}:/prepare_documents.sh:ro`, "pgvector/pgvector:pg16", "-c",
-  'mkdir /documents && sh /prepare_documents.sh && test "$(stat -c %u /documents)" = 10004 && chown 0:0 /documents && chmod 700 /documents && printf synthetic >/documents/sentinel && if sh /prepare_documents.sh; then exit 1; fi && test "$(stat -c %u /documents)" = 0 && test "$(cat /documents/sentinel)" = synthetic'], false);
+  'mkdir /documents && if DOCUMENT_UID=00 sh /prepare_documents.sh; then exit 1; fi && sh /prepare_documents.sh && test "$(stat -c %u /documents)" = 10004 && chown 0:0 /documents && chmod 700 /documents && printf synthetic >/documents/sentinel && if sh /prepare_documents.sh; then exit 1; fi && test "$(stat -c %u /documents)" = 0 && test "$(cat /documents/sentinel)" = synthetic'], false);
 await check("tenant preflight with active constraints", sql("documents_db", "tests/tenant_preflight.sql"));
 for (const script of ["auth/verify_roles.sql", "conversation/verify_role.sql", "rag-chat/verify_role.sql", "embedding/verify_role.sql",
   "search/verify_role.sql", "access/verify_role.sql", "library/verify_role.sql", "transfer/verify_role.sql", "profile/verify_role.sql", "export/verify_role.sql", "drive/verify_role.sql"]) {

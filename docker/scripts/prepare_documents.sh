@@ -3,7 +3,7 @@ set -eu
 case "$DOCUMENT_UID:$DOCUMENT_GID" in
     *[!0-9:]*|:*|*:) echo "Document UID/GID must be numeric." >&2; exit 1 ;;
 esac
-if [ "$DOCUMENT_UID" = 0 ] || [ "$DOCUMENT_GID" = 0 ]; then
+if [ "$DOCUMENT_UID" -eq 0 ] || [ "$DOCUMENT_GID" -eq 0 ]; then
     echo "Document storage requires a non-root owner." >&2
     exit 1
 fi
