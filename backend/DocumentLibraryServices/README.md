@@ -4,7 +4,7 @@
 
 Organiza documentos en carpetas personales, favoritos y una vista de documentos actualizados recientemente. Usa FastAPI, SQLAlchemy y el PostgreSQL compartido. El puerto local de Compose es `8006`.
 
-El servicio usa identidad JWT estricta, permisos documentales coherentes, integridad SQL, escrituras transaccionales y listados paginados. Ejecuta como usuario sin privilegios y con un rol PostgreSQL dedicado. El [tablero](../../ROADMAP.md#documentlibraryservices) es la fuente de tareas y [AGENTS.md](AGENTS.md) indica cómo intervenir el servicio.
+Consulta [AGENTS.md](AGENTS.md) para colaborar y la [verificación de entrega](../../docs/release/README.md) para evidencia transversal, alcance y avisos.
 
 ## Recorrido y responsabilidades
 
@@ -101,7 +101,7 @@ Las asignaciones se consultan en PostgreSQL en cada operación. Los roles, grupo
 
 Guardar un favorito o una asociación no concede acceso. Los listados y los conteos ocultan documentos inaccesibles, aunque sus marcadores sigan almacenados. Las carpetas vacías siguen apareciendo con cero y el frontend usa `document_count`, conservando el cero sin sustituirlo por un valor histórico de metadatos.
 
-Las carpetas siguen siendo privadas por `user_id`, incluso para administradores de documentos. Leer una carpeta comprueba tanto al propietario de la carpeta como al de sus asociaciones. Retirar una asociación exige carpeta propia; retirar un favorito o una asociación propia permite limpiar marcadores revocados sin devolver información del documento. Agregar o mover requiere lectura documental actual y carpeta destino propia; el movimiento a `null` también comprueba lectura. Los resultados booleanos y contadores de escritura se mantienen hasta la revisión de contrato de las siguientes tarjetas.
+Las carpetas siguen siendo privadas por `user_id`, incluso para administradores de documentos. Leer una carpeta comprueba tanto al propietario de la carpeta como al de sus asociaciones. Retirar una asociación exige carpeta propia; retirar un favorito o una asociación propia permite limpiar marcadores revocados sin devolver información del documento. Agregar o mover requiere lectura documental actual y carpeta destino propia; el movimiento a `null` también comprueba lectura. Los resultados booleanos y contadores de escritura forman parte del contrato actual.
 
 ## Escrituras y concurrencia
 

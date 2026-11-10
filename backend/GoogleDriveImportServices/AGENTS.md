@@ -1,6 +1,6 @@
 # Trabajar en GoogleDriveImportServices
 
-Lee [README.md](README.md), [ROADMAP](../../ROADMAP.md#googledriveimportservices) y [AGENTS raíz](../../AGENTS.md). El diagnóstico histórico vive en docs/HISTORY.md; el README describe el contrato vigente. Retoma En curso o elige Lista; conserva el ID y evidencia del incremento. Los paquetes propuestos no eliminan criterios de aceptación.
+Lee el [README](README.md), las [reglas raíz](../../AGENTS.md) y la [verificación de entrega](../../docs/release/README.md). Delimita cada cambio en su PR y conserva los contratos vigentes.
 
 DRIVE-002/003 establece el runtime factory y el rol drive_runtime. Conexión/historial siguen globales por usuario; el acceso exige permiso vigente de grupo del tenant activo o superusuario actual. No mantener transacciones/locks durante red. GOOGLE_DRIVE_ENABLED=false permite operar sin secretos Google; no reactivar OAuth como efecto de una migración ni declarar resueltas importaciones o coordinación web pendientes.
 
@@ -28,6 +28,6 @@ DRIVE-005 usa operation_id, hash/tenant, lease SQL y diario por archivo. Los esc
 - Cubrir límites binarios/nativos y encabezados falsos, reintentos, fallo DB/proveedor/upload ambiguo, cancelación/reinicio y archivos temporales. Pruebas web Node/Chromium, sesión estable durante refresh, cuenta/tenant/desmontaje y accesibilidad cuando se toquen consumidores.
 - Compose config desde raíz; provisión de rol repetible y login real/SQLSTATE negativos. Arranque nuevo y actualización sobre volumen existente; no presentar SET ROLE desde administrador como prueba de login restringido.
 - Auditar inventario runtime, SO y copias vendorizadas por separado, identificando imagen/digest exactos. No atribuir un target test al runtime ni un escaneo Python a la imagen completa; registrar alertas y diferencias entre proveedores sin supresiones.
-- Actualiza README/tablero con comandos, contratos y evidencia real. En revisión al entregar; Hecha solo al integrar y satisfacer criterios. El cierre Drive no cierra PLAT-001, WEB-001, PLAT-002 ni DEMO-001.
+- Actualiza README y PR con comandos, contratos, resultados y limitaciones; conserva migradores y evidencia trazable.
 
-DRIVE-007/008: mantener raíz read-only, tmpfs privado acotado y runtime sin instalador. Auditar imagen/archivo inmutables con audit_image.mjs y verificar su grafo separado; conservar todos los hallazgos y DRIVE-F01 en PLAT-002. No actualizar IMAGE_AUDIT sin reconstruir sus fuentes; CI genera su evidencia propia. Cancelar web solo detiene la espera: conservar clave/payload y descartar resultados tras cambio de contexto o desmontaje.
+DRIVE-007/008: mantener raíz read-only, tmpfs privado acotado y runtime sin instalador. Auditar imagen/archivo inmutables con audit_image.mjs y verificar su grafo separado; conservar todos los hallazgos y su disposición en la evidencia de entrega. No actualizar IMAGE_AUDIT sin reconstruir sus fuentes; CI genera su evidencia propia. Cancelar web solo detiene la espera: conservar clave/payload y descartar resultados tras cambio de contexto o desmontaje.

@@ -1,6 +1,6 @@
 # DocumentLibraryServices
 
-Lee el [contrato, operación y pruebas](README.md) y la tarjeta del [tablero](../../ROADMAP.md#documentlibraryservices). Library dispone de configuración explícita, acceso coherente, integridad, concurrencia, límites, paginación y ejecución restringida. Conserva ese contrato al mantenerlo.
+Lee el [README](README.md), las [reglas raíz](../../AGENTS.md) y la [verificación de entrega](../../docs/release/README.md). Delimita cada cambio en su PR y conserva los contratos vigentes.
 
 - Comprueba identidad JWT, propiedad de carpeta y permiso documental por separado. Una asociación o favorito nunca concede lectura.
 - Reutiliza Identifier y los esquemas de entrada. Valida nombres tras trim, metadatos y cuerpos según README. Mover exige destino explícito; PATCH rechaza cambios nulos o ausentes. Conserva errores sin input, ctx, claves desconocidas o detalles SQL, y no traduzcas errores inesperados a éxitos.
@@ -17,5 +17,5 @@ Lee el [contrato, operación y pruebas](README.md) y la tarjeta del [tablero](..
 - Conserva páginas con desempate por ID y filtros antes del límite. Los conteos son de documentos visibles; no los sustituyas por metadatos. Prueba consultas por lote, no consultas por documento o carpeta, y el descarte de respuestas obsoletas del controlador web.
 - Un favorito ausente en una página parcial no prueba que no exista. Reutiliza los marcadores acotados y privados y comprueba count=0 en altas. Mantén documentado que la interfaz navega raíces y la API admite jerarquía.
 - Usa PostgreSQL y datos sintéticos. Revierte datos o retíralos por IDs únicos. Separa scripts de código y documentación Markdown.
-- Registra comandos y comprobaciones pendientes en la tarjeta. Mantén README operativo y seguimientos de dependencias e imagen; evita nuevos planes de modernización o capas sin consumidores.
+- Registra comandos y comprobaciones pendientes en el PR. Mantén README operativo y seguimientos de dependencias e imagen; evita nuevos planes de modernización o capas sin consumidores.
 - Ejecuta `library-tests` sobre PostgreSQL y Ruff antes de cerrar cambios del servicio. Conserva la separación entre vida (`health`) y disponibilidad (`health/db`), y prueba cambios de entorno sin cargar secretos del `.env` raíz.

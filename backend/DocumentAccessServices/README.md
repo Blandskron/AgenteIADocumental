@@ -196,7 +196,7 @@ Get-Content scripts/database/access/verify_role.sql | docker compose -f docker/d
 
 Fuera de Compose, instala `requirements.txt` desde este directorio y configura `DATABASE_URL`, `PGPASSWORD`, `AUTH_JWT_PUBLIC_KEY_PATH` y `DOCUMENT_STORAGE_BASE_PATH` en el entorno o en el `.env` del servicio. Provisiona previamente el rol con `scripts/database/access/provision_role.sql` usando una sesión administrativa de psql y `ACCESS_DB_PASSWORD` en su entorno. Ejecuta `python -m uvicorn app.main:app --port 8005`. En este modo, configura CORS con `CORS_ORIGINS`.
 
-El [tablero de modernización](../../ROADMAP.md#documentaccessservices) registra los incrementos de permisos, archivos, borrado, asignaciones y operación que siguen a la configuración inicial.
+Consulta [AGENTS.md](AGENTS.md) para colaborar y la [verificación de entrega](../../docs/release/README.md) para evidencia transversal, alcance y avisos.
 
 ## Pruebas
 
@@ -218,7 +218,7 @@ El cierre funcional de los incrementos ACCESS-001 a ACCESS-007 cubre permisos, a
 
 El 5 de noviembre de 2026, `pip-audit` 2.10.1 no reportó vulnerabilidades conocidas en el inventario completo de Python de la imagen de ejecución. El objetivo `access-audit` congela ese inventario antes de instalar el auditor, para incluir dependencias transitivas sin confundirlas con las herramientas de auditoría.
 
-Trivy 0.74.0 examinó los paquetes del sistema de la imagen `sha256:341af67dbe506c6caae0beff102eb0c3444060fb20225e2fa3a5c78d16c422b4`, basada en Debian 13.7. Reportó 46 coincidencias altas por paquete, correspondientes a 10 CVE distintos, sin críticos ni versiones corregidas indicadas en el resultado. Los CVE fueron CVE-2025-69720, CVE-2026-119373, CVE-2026-16742, CVE-2026-54369, CVE-2026-76642, CVE-2026-76844, CVE-2026-78408, CVE-2026-78409, CVE-2026-78410 y CVE-2026-9538. ACCESS-F01 en el tablero conserva el seguimiento de la imagen base. Estos avisos requieren reevaluación al reconstruir y no equivalen a una explotación validada de las rutas del servicio.
+Trivy 0.74.0 examinó los paquetes del sistema de la imagen `sha256:341af67dbe506c6caae0beff102eb0c3444060fb20225e2fa3a5c78d16c422b4`, basada en Debian 13.7. Reportó 46 coincidencias altas por paquete, correspondientes a 10 CVE distintos, sin críticos ni versiones corregidas indicadas en el resultado. Los CVE fueron CVE-2025-69720, CVE-2026-119373, CVE-2026-16742, CVE-2026-54369, CVE-2026-76642, CVE-2026-76844, CVE-2026-78408, CVE-2026-78409, CVE-2026-78410 y CVE-2026-9538. La verificación de entrega conserva los avisos de la imagen base y su disposición. Estos avisos requieren reevaluación al reconstruir y no equivalen a una explotación validada de las rutas del servicio.
 
 ## Example Requests
 
