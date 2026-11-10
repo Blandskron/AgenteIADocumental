@@ -2,7 +2,7 @@
 
 ## Alcance y diagnóstico
 
-Base: `main` en `f8d9aec`. Se revisaron las pantallas de acceso, chat, biblioteca, asignaciones/notificaciones, integraciones, perfil y administración; sus clientes, controladores, almacenamiento, estilos y regresiones. No se modificaron servicios, esquema, secretos ni datos. Las únicas adaptaciones fuera de `frontend/` son los gates de lint/tipos en CI y el selector de contraseña de la prueba transversal para admitir la etiqueta en español.
+Base: `main` en `f8d9aec`. Se revisaron las pantallas de acceso, chat, biblioteca, asignaciones/notificaciones, integraciones, perfil y administración; sus clientes, controladores, almacenamiento, estilos y regresiones. No se modificaron servicios, esquema, secretos ni datos. Las adaptaciones fuera de `frontend/` son los gates de calidad en CI, el selector de contraseña de la prueba transversal para admitir la etiqueta en español y el inventario de entradas de compilación de la imagen web para incluir TypeScript/Vite y sus recursos públicos.
 
 La base tenía 34 archivos JSX y 61 archivos JavaScript, sin TypeScript ni ESLint. La biblioteca concentraba 1.113 líneas y `components.css` acumulaba 3.673, con capas históricas superpuestas. Todas las páginas se importaban al entrar. El historial anidaba acciones interactivas; varias sugerencias y controles no tenían acción. La navegación móvil y los estados de foco carecían de un contrato uniforme. Los controladores de operaciones, la paginación y la separación por funcionalidades ya aportaban valor y tenían regresiones útiles.
 
@@ -32,6 +32,7 @@ Validación con Node 24.15.0, npm 11.14.1 y Chromium. Todas las identidades y re
 - `npm run build`: aprobado, con chunks separados para chat, documentos, perfil, administración e integraciones. El JS de entrada ocupa aproximadamente 247 kB / 79 kB gzip; no se atribuye una mejora porcentual sin una medición equivalente de la base.
 - `npm run test:browser`: 35 pruebas aprobadas sobre producción, incluidas 14 nuevas de diseño, teclado, accesibilidad, recuperación y exclusión de envíos duplicados. Axe aplica etiquetas WCAG 2 A/AA, 2.1 AA y 2.2 AA. La cobertura automática incluye login, chat claro/oscuro, biblioteca/diálogo, móvil a 320/390 px, perfil, administración y aplicaciones en ambos temas.
 - Se revisaron capturas sintéticas de login, chat claro/oscuro y biblioteca de escritorio/móvil; se conservan como artefactos locales de Playwright en `test-results/`.
+- Una copia limpia exportada de Git en `1b846e3`, sin `.env`, aprobó de nuevo instalación, auditoría, lint, tipos, formato, las 123 pruebas y build. Los nombres/hash de los bundles coinciden con la copia de trabajo verificada en navegador. Esto detecta dependencias accidentales de archivos locales ignorados; no sustituye la ejecución pendiente de CI en Linux.
 
 ## Límites y operación
 
