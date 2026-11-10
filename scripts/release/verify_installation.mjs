@@ -38,7 +38,7 @@ const compose = (label, args) => run(label, "docker", [...fresh, ...args], { env
 const probe = `bd-final-check-clean-probe-${suffix}`;
 try {
   run("stop only the dedicated synthetic stack", "docker", [...current, "stop"]);
-  compose("clean installation and automatic migrations/bootstrap", ["up", "-d", "--build", "--wait", "blandskron-frontend"]);
+  compose("clean installation and automatic migrations/bootstrap", ["up", "-d", "--build", "--force-recreate", "--wait", "blandskron-frontend"]);
   compose("real embeddings, search, RAG/PDF and isolation from clean clone", ["run", "--rm", "--no-deps", "export-tests", "python", "/verification/demo_flow.py"]);
   compose("create private lifecycle probe", ["run", "-d", "--no-deps", "--name", probe,
     "-e", `INITIAL_ADMIN_USERNAME=${credentials.INITIAL_ADMIN_USERNAME}`,
@@ -59,7 +59,7 @@ try {
     "-d", "documents_db", "-v", "ON_ERROR_STOP=1", "-f", "/schema/tests/release_cleanup.sql"]);
   if (run("clone remains clean after installation", "git", ["status", "--porcelain"], { cwd: clone })) throw Error("Installation modified source files");
   compose("stop fresh synthetic installation preserving its volumes", ["stop"]);
-  run("restore original synthetic volumes and configuration", "docker", [...current, "up", "-d", "--wait", "blandskron-frontend"]);
+  run("restore original synthetic volumes and configuration", "docker", [...current, "up", "-d", "--force-recreate", "--wait", "blandskron-frontend"]);
   report.result = "passed";
 } finally {
   report.finished_utc = new Date().toISOString();
