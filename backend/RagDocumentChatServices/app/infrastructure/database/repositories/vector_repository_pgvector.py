@@ -1,7 +1,7 @@
-from sqlalchemy import bindparam, literal, or_, select
+from sqlalchemy import bindparam, func, literal, or_, select
 from sqlalchemy.orm import Session
 
-from app.config.security import is_superadmin_user, tenant_ids_for_role, user_groups, user_id
+from app.config.security import is_superadmin_user, tenant_ids_for_role, tenant_memberships, user_groups, user_id
 from app.domain.embeddings import SearchResult
 from app.infrastructure.database.models import DocumentAssignmentModel, DocumentEmbeddingModel, DocumentModel
 from app.infrastructure.database.types import Vector
@@ -101,15 +101,21 @@ class VectorRepositoryPgVector:
                 assignment.assigned_by_user_id == current_user_id,
             ),
         ).exists()
-        clauses = [
-            DocumentModel.owner_user_id == current_user_id,
-            DocumentModel.metadata_["owner_user_id"].astext == current_user_id,
-            active_assignment,
-        ]
+        owner_id = func.coalesce(DocumentModel.owner_user_id, DocumentModel.metadata_["owner_user_id"].astext)
+        tenant_id = func.coalesce(DocumentModel.tenant_id, DocumentModel.metadata_["tenant_id"].astext)
+        clauses = [owner_id == current_user_id, active_assignment]
         admin_tenant_ids = tenant_ids_for_role(self._current_user, "TENANT_ADMIN")
         if admin_tenant_ids:
-            clauses.append(DocumentModel.tenant_id.in_(admin_tenant_ids))
-            clauses.append(DocumentModel.metadata_["tenant_id"].astext.in_(admin_tenant_ids))
-        for group in user_groups(self._current_user):
-            clauses.append(DocumentModel.metadata_.contains({"owner_groups": [group]}))
+            clauses.append(tenant_id.in_(admin_tenant_ids))
+        groups = user_groups(self._current_user)
+        if groups:
+            member_tenant_ids = [
+                str(membership["tenant_id"])
+                for membership in tenant_memberships(self._current_user)
+                if membership.get("tenant_id")
+            ]
+            clauses.append(
+                or_(tenant_id.is_(None), tenant_id.in_(member_tenant_ids))
+                & or_(*(DocumentModel.metadata_.contains({"owner_groups": [group]}) for group in groups))
+            )
         return statement.filter(or_(*clauses))

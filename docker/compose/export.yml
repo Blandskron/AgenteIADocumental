@@ -2,7 +2,7 @@ services:
   export-db-role:
     image: pgvector/pgvector:pg16
     environment:
-      PGPASSWORD: admin1234
+      PGPASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
       EXPORT_DB_PASSWORD: ${EXPORT_DB_PASSWORD:-blandskron-local-export}
     volumes:
       - ../../scripts/database/export:/export-db:ro
@@ -60,7 +60,7 @@ services:
     environment:
       EXPORT_TEST_RUNTIME_PASSWORD: ${EXPORT_DB_PASSWORD:-blandskron-local-export}
       EXPORT_TEST_DATABASE_URL: postgresql+psycopg://postgres@postgres:5432/documents_db
-      PGPASSWORD: admin1234
+      PGPASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
     volumes:
       - ../../scripts/export:/export-checks:ro
       - ../../scripts/database/export:/export-db:ro

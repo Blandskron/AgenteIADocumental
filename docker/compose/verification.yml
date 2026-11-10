@@ -1,6 +1,10 @@
-# Dedicated synthetic verification only. Use --env-file .env.example -p bd-final-check.
+# Dedicated synthetic verification only. Use the private env generated from .env.example and -p bd-final-check.
 # No personal .env, uploads, OAuth grants or credentials are mounted.
 services:
+  document-storage:
+    volumes: !override
+      - verification_documents:/documents
+      - ./scripts/prepare_documents.sh:/prepare_documents.sh:ro
   postgres:
     container_name: !reset null
     ports: !reset []

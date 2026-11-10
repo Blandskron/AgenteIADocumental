@@ -2,6 +2,9 @@
 import fs from "node:fs";
 import { spawnSync } from "node:child_process";
 
+const verificationEnvFile = process.env.VERIFICATION_ENV_FILE || ".env.example";
+process.loadEnvFile(verificationEnvFile);
+
 const filename = "docs/release/IMAGE_AUDIT.json";
 const report = JSON.parse(fs.readFileSync(filename, "utf8"));
 const images = report.images.filter((image) => image.inventory);
@@ -14,7 +17,7 @@ const program = [
   "    sys.stdin=io.StringIO(json.dumps(image['inventory']))",
   "    verify()",
 ].join("\n");
-const result = spawnSync("docker", ["compose", "--env-file", ".env.example", "-p", "bd-final-check",
+const result = spawnSync("docker", ["compose", "--env-file", verificationEnvFile, "-p", "bd-final-check",
   "-f", "docker/docker-compose.yml", "-f", "docker/compose/verification.yml", "run", "--rm", "--no-deps", "-T",
   "export-tests", "python", "-c", program], { input: JSON.stringify(images), encoding: "utf8", maxBuffer: 4 * 1024 * 1024, shell: false });
 if (result.status !== 0) throw Error(`Runtime graph check failed: ${(result.stderr || "").slice(-2000)}`);

@@ -50,11 +50,12 @@ El arranque aplica restricciones compartidas de empresa/área/jerarquía y, desp
 
 ```powershell
 if (-not (Test-Path .env)) { Copy-Item .env.example .env }
-# Configura GROQ_API_KEY en .env.
+# Configura POSTGRES_PASSWORD, DJANGO_SECRET_KEY, INITIAL_ADMIN_USERNAME,
+# INITIAL_ADMIN_PASSWORD y GROQ_API_KEY en .env. Usa secretos propios.
 docker compose -f docker/docker-compose.yml up -d --build --wait
 ```
 
-En una instalación nueva, crea primero el administrador local como se indica abajo. Abre `http://localhost:3000`, inicia sesión y carga un documento de prueba. El primer uso de embeddings descarga el modelo. Por ejemplo, carga un archivo que diga «El plazo del contrato de prueba es de 97 días» y pregunta «¿Cuál es el plazo del contrato?».
+Compose crea el administrador inicial automáticamente después de las migraciones, sin repetirlo ni restablecer su contraseña. Abre `http://localhost:3000`, inicia sesión y carga un documento de prueba. El primer uso de embeddings descarga el modelo. Por ejemplo, carga un archivo que diga «El plazo del contrato de prueba es de 97 días» y pregunta «¿Cuál es el plazo del contrato?».
 
 La configuración de Compose y las credenciales de ejemplo están pensadas para una instancia de desarrollo local. Mantén tu clave de Groq en `.env` y usa datos sintéticos en la demo.
 
@@ -62,11 +63,11 @@ Compose provisiona el rol `conversation_runtime` al arrancar ConversationService
 
 El chat RAG usa el rol `rag_chat_runtime`. Puedes cambiar su contraseña local con `RAG_CHAT_DB_PASSWORD` en `.env`. [Operación del chat RAG](backend/RagDocumentChatServices/README.md#running-the-service).
 
-La ingesta usa el rol `embedding_runtime`. En Linux, crea `documents` como usuario local y configura `EMBEDDING_UID` y `EMBEDDING_GID` con los IDs de ese usuario antes de levantar Compose. [Operación de ingesta](backend/RagDocumentEmbeddingServices/README.md#running-the-service).
+La ingesta usa el rol `embedding_runtime`. Compose prepara automáticamente el directorio documental nuevo. Si ya contiene archivos, conserva sus permisos: configura `EMBEDDING_UID` y `EMBEDDING_GID` con los IDs del propietario existente. [Operación de ingesta](backend/RagDocumentEmbeddingServices/README.md#running-the-service).
 
 La búsqueda documental usa el rol de solo lectura `document_search_runtime`. Puedes cambiar su contraseña local con `SEARCH_DB_PASSWORD` en `.env`. [Operación de búsqueda](backend/DocumentSearchServices/README.md#running-the-service).
 
-El acceso documental usa `document_access_runtime` y `ACCESS_DB_PASSWORD`. En Linux, configura `ACCESS_UID` y `ACCESS_GID` con el mismo propietario del directorio `documents` que usa la ingesta. [Permisos y operación de acceso](backend/DocumentAccessServices/README.md#running-the-service).
+El acceso documental usa `document_access_runtime` y `ACCESS_DB_PASSWORD`. Acceso hereda los UID/GID de ingesta por defecto; si configuras `ACCESS_UID` y `ACCESS_GID`, deben permitir acceso al mismo directorio. [Permisos y operación de acceso](backend/DocumentAccessServices/README.md#running-the-service).
 
 La biblioteca documental usa `document_library_runtime`, `LIBRARY_DB_PASSWORD` y una función acotada para bloquear referencias sin poder modificar documentos. Ejecuta sin root y mantiene configuración explícita y CORS local; `LIBRARY_CORS_ORIGINS` y `LIBRARY_DB_POOL_*` permiten ajustarlos. [Arranque y pruebas de Library](backend/DocumentLibraryServices/README.md#arranque-y-permisos).
 
@@ -145,11 +146,13 @@ El [preflight multiempresa](scripts/database/README.md#preflight-multiempresa--p
 
 ## Credenciales locales
 
-La creación del administrador es explícita. Desde la raíz y con el stack activo, ejecuta el comando y elige tu contraseña en el prompt:
+En una instalación nueva, configura `INITIAL_ADMIN_USERNAME` y `INITIAL_ADMIN_PASSWORD`; el correo `INITIAL_ADMIN_EMAIL` es opcional. La contraseña debe cumplir los validadores de Django. Si ya existe cualquier superusuario, Compose lo conserva sin cambiar contraseña, estado ni privilegios. Si el nombre inicial pertenece a una cuenta normal y no hay administrador, el bootstrap falla sin promoverla. Puedes retirar las variables iniciales después del primer arranque.
 
-```powershell
-docker compose -f docker/docker-compose.yml exec auth-service python manage.py createsuperuser
-```
+`POSTGRES_PASSWORD` es la contraseña del operador PostgreSQL y `DJANGO_SECRET_KEY` debe ser un secreto aleatorio propio. En una instalación existente conserva el valor actual de PostgreSQL: editar la variable no cambia la contraseña del volumen. No borres volúmenes para resolver una discrepancia; revisa logs y sigue una rotación explícita. Las contraseñas por rol siguen siendo configurables para la demo local; este Compose no es una configuración de producción pública.
+
+pgAdmin queda fuera del arranque habitual. Solo si lo necesitas, configura `PGADMIN_DEFAULT_EMAIL` y `PGADMIN_DEFAULT_PASSWORD` y ejecuta `docker compose -f docker/docker-compose.yml --profile tools up -d pgadmin`. No dispone de contraseña predeterminada.
+
+Los servicios documentales consultan la identidad vigente en Auth antes de autorizar cada operación. Una cuenta deshabilitada, contraseña cambiada o permiso retirado deja de beneficiarse de claims antiguos. Si Auth no está disponible, las operaciones protegidas responden 503. Para ejecución directa, configura `AUTH_IDENTITY_URL` (por defecto `http://127.0.0.1:8001/api/users/me/`); Compose usa la dirección interna de Auth. No hay caché de permisos ni envío por proxies/redirecciones.
 
 Para actualizar desde la versión con un volumen JWT compartido, sigue el [procedimiento de AuthServices](backend/AuthServices/docs/OPERATIONS.md#actualización-desde-el-volumen-jwt-compartido).
 
@@ -184,3 +187,7 @@ Con el stack local activo y `GROQ_API_KEY` configurada, ejecuta desde PowerShell
 ```
 
 La prueba inicia sesión, carga e indexa un documento sintético, lo reindexa, comprueba su recuperación y descarga un PDF con la respuesta. Usa una instancia de desarrollo, ya que el documento y la exportación quedan registrados. Para verificar aislamiento, pasa también `-ObserverCredential` con un segundo usuario que tenga permiso `use_chat` y carezca de acceso al documento.
+
+## Publicación y colaboración
+
+La instalación soportada es local en loopback. El repositorio conserva su [licencia actual](LICENSE), que reserva derechos: todavía no se anuncia como Open Source. La elección de licencia y la revisión de procedencia requieren aprobación del titular. Consulta [contribución](CONTRIBUTING.md) y [reporte de vulnerabilidades](SECURITY.md).

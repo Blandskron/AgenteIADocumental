@@ -4,7 +4,9 @@ SET LOCAL statement_timeout = '30s';
 SET LOCAL lock_timeout = '5s';
 DO $$
 BEGIN
-    IF EXISTS (SELECT FROM auth_user)
+    -- The installation now deliberately retains its bootstrapped administrator.
+    IF (SELECT count(*) FROM auth_user) <> 1
+       OR NOT EXISTS (SELECT FROM auth_user WHERE username='synthetic-release-admin' AND is_superuser AND is_active)
        OR EXISTS (SELECT FROM tenants)
        OR EXISTS (SELECT FROM tenant_memberships)
        OR EXISTS (SELECT FROM documents)
@@ -13,6 +15,6 @@ BEGIN
         RAISE EXCEPTION 'Synthetic release fixtures remain; inspect the dedicated project before cleanup.';
     END IF;
 END $$;
-SELECT json_build_object('users', 0, 'tenants', 0, 'memberships', 0,
+SELECT json_build_object('bootstrap_administrators', 1, 'fixture_users', 0, 'tenants', 0, 'memberships', 0,
                          'documents', 0, 'exports', 0, 'auxiliary_databases', 0) AS cleanup;
 ROLLBACK;

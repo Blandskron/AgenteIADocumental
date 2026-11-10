@@ -2,7 +2,7 @@ services:
   auth-db-roles:
     image: pgvector/pgvector:pg16
     environment:
-      PGPASSWORD: admin1234
+      PGPASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
       AUTH_DB_RUNTIME_PASSWORD: ${AUTH_DB_RUNTIME_PASSWORD:-blandskron-local-runtime}
       AUTH_DB_MIGRATE_PASSWORD: ${AUTH_DB_MIGRATE_PASSWORD:-blandskron-local-migrate}
     volumes:
@@ -16,9 +16,9 @@ services:
     build:
       context: ../../backend/AuthServices
       dockerfile: Dockerfile
-    env_file:
-      - ../../backend/AuthServices/.env.example
     environment:
+      AUTH_ENV: development
+      DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY:?Set DJANGO_SECRET_KEY in .env}
       POSTGRES_HOST: postgres
       POSTGRES_PORT: 5432
       POSTGRES_DB: documents_db
@@ -35,7 +35,7 @@ services:
   tenant-integrity:
     image: pgvector/pgvector:pg16
     environment:
-      PGPASSWORD: admin1234
+      PGPASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
     volumes:
       - ../../scripts/database:/schema:ro
     command: ["psql", "-h", "postgres", "-U", "postgres", "-d", "documents_db", "-v", "ON_ERROR_STOP=1", "-f", "/schema/migrations/006_tenant_user_links.sql"]
@@ -43,14 +43,37 @@ services:
       auth-migrate:
         condition: service_completed_successfully
 
+  auth-bootstrap:
+    build:
+      context: ../../backend/AuthServices
+      dockerfile: Dockerfile
+    user: "10001:10001"
+    environment:
+      AUTH_ENV: development
+      DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY:?Set DJANGO_SECRET_KEY in .env}
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: documents_db
+      POSTGRES_USER: auth_runtime
+      POSTGRES_PASSWORD: ${AUTH_DB_RUNTIME_PASSWORD:-blandskron-local-runtime}
+      DJANGO_PRIVATE_KEY_PATH: /tmp/auth-bootstrap/private.pem
+      DJANGO_PUBLIC_KEY_PATH: /tmp/auth-bootstrap/public.pem
+      INITIAL_ADMIN_USERNAME: ${INITIAL_ADMIN_USERNAME:-}
+      INITIAL_ADMIN_PASSWORD: ${INITIAL_ADMIN_PASSWORD:-}
+      INITIAL_ADMIN_EMAIL: ${INITIAL_ADMIN_EMAIL:-}
+    command: ["python", "manage.py", "bootstrap_admin"]
+    depends_on:
+      tenant-integrity:
+        condition: service_completed_successfully
+
   auth-service:
     build:
       context: ../../backend/AuthServices
       dockerfile: Dockerfile
     container_name: blandskron-auth-service
-    env_file:
-      - ../../backend/AuthServices/.env.example
     environment:
+      AUTH_ENV: development
+      DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY:?Set DJANGO_SECRET_KEY in .env}
       POSTGRES_HOST: postgres
       POSTGRES_PORT: 5432
       POSTGRES_DB: documents_db
@@ -75,5 +98,5 @@ services:
       timeout: 3s
       retries: 20
     depends_on:
-      tenant-integrity:
+      auth-bootstrap:
         condition: service_completed_successfully

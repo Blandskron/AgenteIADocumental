@@ -1,3 +1,4 @@
+import json
 from os import environ
 from time import time
 from uuid import uuid4
@@ -26,6 +27,40 @@ from app.shared.errors import ExternalServiceError
 
 
 VECTOR = [1.0] + [0.0] * 383
+
+
+@pytest.mark.parametrize("question", ["¿Qué dice?", "Haz un resumen"])
+@pytest.mark.parametrize("role", ["USER", "TENANT_ADMIN"])
+def test_group_sharing_respects_tenants_and_canonical_identity(session, question, role):
+    own_tenant, foreign_tenant = uuid4().hex, uuid4().hex
+    actor = uuid4().int % (2**60) + 1
+    group = "synthetic-shared-" + uuid4().hex
+    for tenant in (own_tenant, foreign_tenant):
+        session.execute(text("INSERT INTO tenants(tenant_id,name) VALUES(:id,'Synthetic')"), {"id": tenant})
+    documents = {}
+    for kind, tenant, metadata in (
+        ("local", own_tenant, {"owner_groups": [group]}),
+        ("foreign", foreign_tenant, {"owner_groups": [group]}),
+        ("global", None, {"owner_groups": [group]}),
+        ("conflicting_owner", foreign_tenant, {"owner_user_id": str(actor)}),
+        ("conflicting_tenant", foreign_tenant, {"tenant_id": own_tenant}),
+        ("legacy", None, {"tenant_id": own_tenant, "owner_groups": [group]}),
+    ):
+        identifier = documents[kind] = uuid4().hex
+        session.execute(text("""INSERT INTO documents(document_id,tenant_id,owner_user_id,filename,storage_path,mime_type,metadata)
+            VALUES(:id,:tenant,:owner,'Synthetic.txt','Synthetic.txt','text/plain',CAST(:metadata AS jsonb))"""),
+                        {"id": identifier, "tenant": tenant, "owner": str(actor + 1), "metadata": json.dumps(metadata)})
+        session.execute(text("""INSERT INTO document_embeddings(document_id,chunk_index,chunk_content,embedding)
+            VALUES(:id,0,'Synthetic chunk',CAST(:vector AS vector))"""), {"id": identifier, "vector": str(VECTOR)})
+    session.execute(text("SET LOCAL ROLE rag_chat_runtime"))
+    user = {"user_id": actor, "groups": [group], "tenant_memberships": [{"tenant_id": own_tenant, "role": role}]}
+    repository = VectorRepositoryPgVector(session, user)
+    provider = RecordingProvider()
+    chat = AskDocumentChat(SearchSimilarChunks(FixedEmbedding(), repository, limit=24), provider)
+    answer = chat.execute(question, document_ids=list(documents.values()))
+    expected = {documents[kind] for kind in ("local", "global", "legacy")}
+    assert provider.document_ids == expected
+    assert {source.document_id for source in answer.sources} == expected
 
 
 @pytest.fixture(scope="module")

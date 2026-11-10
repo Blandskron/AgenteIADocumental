@@ -25,7 +25,7 @@ def run():
         host="postgres",
         dbname="documents_db",
         user="postgres",
-        password="admin1234",
+        password=os.environ["PGPASSWORD"],
         autocommit=True,
     )
     marker = "synthetic-release-" + uuid4().hex
@@ -188,10 +188,26 @@ def run():
         checks.append(
             "real Unicode PDF render/extraction/download; cross-owner download rejected"
         )
+        connection.execute("DELETE FROM tenant_group_permissions WHERE group_id=%s AND permission_code='use_chat'", (group,))
+        request("rag-document-chat-service:8000", "POST", "/api/v1/chat/ask", tokens[0], expected=403,
+                json={"question": "Synthetic permission removed", "document_ids": documents})
+        connection.execute("INSERT INTO tenant_group_permissions(group_id,permission_code) VALUES(%s,'use_chat')", (group,))
+        checks.append("removing a group permission immediately denies chat with the previously issued JWT")
         connection.execute(
             "UPDATE auth_user SET is_active=false WHERE id=%s", (users[0],)
         )
         request("auth-service:8001", "GET", "/api/users/me/", tokens[0], expected=401)
+        for service, route in (
+            ("rag-document-chat-service:8000", "/api/v1/chat/ask"),
+            ("rag-document-embedding-service:8000", f"/api/v1/documents/{documents[0]}/status"),
+            ("document-search-service:8000", "/api/v1/documents/search"),
+            ("document-access-service:8000", f"/api/v1/documents/{documents[0]}/content"),
+            ("document-library-service:8000", "/api/v1/folders"),
+            ("document-transfer-service:8000", "/api/v1/transfers"),
+            ("conversation-service:8000", "/api/v1/conversations"),
+        ):
+            kwargs = {"json": {"question": "Synthetic", "document_ids": documents}} if service.startswith("rag-document-chat") else {}
+            request(service, "POST" if kwargs else "GET", route, tokens[0], expected=401, **kwargs)
         request(
             "document-export-service:8000",
             "GET",
@@ -200,7 +216,7 @@ def run():
             expected=401,
         )
         checks.append(
-            "revocation checked against current Auth before protected PDF access"
+            "disabled account rejected by all seven legacy services and PDF with an existing JWT"
         )
         print(
             json.dumps(
