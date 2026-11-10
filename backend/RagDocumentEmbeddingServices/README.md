@@ -1,5 +1,7 @@
 # RagDocumentEmbeddingServices
 
+> Evidencia transversal vigente: [verificación de entrega](../../docs/release/README.md) e [imágenes finales](../../docs/release/IMAGE_AUDIT.json). Runtime Python sin pip/ensurepip; comprobación del grafo durante el build, herramientas en test/audit. Los escaneos fechados anteriores conservan su valor histórico y no describen esta imagen.
+
 ## Overview
 RagDocumentEmbeddingServices es un microservicio basado en FastAPI encargado de la ingestión, procesamiento, reindexación y consulta de estado de documentos para sistemas RAG (Retrieval-Augmented Generation). Permite subir documentos, procesarlos para generar embeddings, reindexar y consultar su estado, integrándose en una arquitectura de microservicios con autenticación JWT y persistencia en PostgreSQL.
 
@@ -110,7 +112,9 @@ docker compose -f docker/docker-compose.yml run --build --rm embedding-tests
 
 ### Verificación de la imagen
 
-Reconstruye con `docker compose -f docker/docker-compose.yml build --pull rag-document-embedding-service`. Audita las versiones instaladas con `pip-audit` a partir de `pip list --format=freeze` dentro de la imagen. Para revisar también Debian y las dependencias empaquetadas, ejecuta `trivy image --scanners vuln --severity HIGH,CRITICAL docker-rag-document-embedding-service`.
+**Entrega vigente:** la [auditoría transversal](../../docs/release/README.md) sustituye como referencia actual al escaneo histórico descrito abajo. El runtime ya no incluye `pip` ni `ensurepip`; el grafo se valida durante el build y el inventario se obtiene con `importlib.metadata`. OCR usa Tesseract 5.5.4 compilado desde fuente/checksum fijos, sin archivo/curl ni libxml2/libarchive/libcurl del sistema. Se conservan licencia e idioma inglés y se prueba extracción real de una imagen sintética en `tests/test_native_ocr.py`. No cambia el contrato de formatos ni el timeout de OCR. Consulta `docs/release/IMAGE_AUDIT.json` para el artefacto exacto y sus avisos residuales.
+
+Reconstruye con `docker compose -f docker/docker-compose.yml build --pull rag-document-embedding-service`. Para inventario, SO y paquetes empaquetados, usa el verificador transversal sobre las imágenes realmente levantadas. No instales el auditor en runtime.
 
 El 4 de noviembre de 2026, `pip-audit` no reportó avisos para los paquetes Python instalados en la imagen `sha256:6e043fa1cb26203d36f4e29f7f7fc8e372c6cf5d00840aefd2207e01ecee8be5`. Trivy 0.74.0, sobre el inventario `dpkg` de la imagen, reportó 31 CVE altos y un CVE crítico en Debian 13.7 sin versiones corregidas indicadas para esa distribución.
 
@@ -147,4 +151,4 @@ Este proyecto está licenciado bajo los términos del archivo LICENSE del reposi
 
 ## Conflictos de empresa y área
 
-Con las [relaciones SQL activadas](../../scripts/database/README.md#áreas-y-documentos--segundo-incremento-plat-001b), una empresa/área cambiada o inválida durante la carga devuelve 409. El escritor revierte también fallos al commit y permite reutilizar la sesión; la capa de carga retira el storage recién creado y no inicia procesamiento. Recargar la sesión antes de reenviar. No cambia el contrato de cargas globales o sin área.
+Con las [relaciones SQL activadas por defecto](../../scripts/database/README.md#áreas-y-documentos--segundo-incremento-plat-001b), una empresa/área cambiada o inválida durante la carga devuelve 409 con `code: "document_relation_changed"`. El escritor revierte también fallos al commit y permite reutilizar la sesión; la capa de carga retira el storage recién creado y no inicia procesamiento. Solo ese código garantiza el rechazo sin documento creado; otros conflictos o fallos de compensación no llevan el marcador. Recargar la sesión antes de reenviar. No cambia el contrato de cargas globales o sin área.

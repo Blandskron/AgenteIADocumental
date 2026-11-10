@@ -13,7 +13,7 @@ from sqlalchemy.orm import Session
 
 from app.application.documents.use_cases.upload_document import UploadDocument
 from app.infrastructure.database.repositories.document_writer_pg import DocumentWriterPg
-from app.shared.errors import ConflictError
+from app.shared.errors import ConflictError, DocumentRelationConflict
 
 
 class EmbeddingRelations(unittest.TestCase):
@@ -84,6 +84,7 @@ class EmbeddingRelations(unittest.TestCase):
                         },
                     )
                 self.assertNotIn("Key (", str(e.exception))
+                self.assertIsInstance(e.exception, DocumentRelationConflict)
                 self.assertNotIn("documents_area_tenant_fk", str(e.exception))
                 self.assertEqual(
                     session.execute(text("SELECT count(*) FROM documents")).scalar(), 0

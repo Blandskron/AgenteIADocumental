@@ -97,3 +97,45 @@ test("admin refuses duplicate submit, preserves conflicts and resets forms acros
   await expect(name).toHaveValue("");
   expect(errors).toEqual([]);
 });
+
+test("folder dialog contains keyboard focus, names its input and restores the trigger", async ({ page }) => {
+  const errors = await prepare(page, person(123, true), async (route, path, json) => {
+    if (/document-library|\/folders|\/favorites|\/recent|\/assignments|\/notifications|\/search/.test(path)) {
+      await json({ items: [], limit: 50, offset: 0, has_more: false, total: 0 }); return true;
+    }
+    return false;
+  });
+  await page.goto("/documents");
+  const trigger = page.getByRole("button", { name: "Nueva Carpeta", exact: false });
+  await trigger.click();
+  const dialog = page.getByRole("dialog", { name: "Nueva Carpeta", exact: true });
+  await expect(dialog).toBeVisible();
+  await expect(dialog.getByLabel("Nombre de carpeta")).toBeVisible();
+  await page.keyboard.press("Shift+Tab");
+  expect(await dialog.evaluate((element) => element.contains(document.activeElement))).toBe(true);
+  await page.keyboard.press("Escape");
+  await expect(dialog).toHaveCount(0);
+  await expect(trigger).toBeFocused();
+  expect(errors).toEqual([]);
+});
+
+test("refresh into another tenant remounts page drafts without mixing local state", async ({ page }) => {
+  const old = person(), next = { ...person(), active_tenant_id: "tenant-two",
+    tenant_memberships: [{ tenant_id: "tenant-two", tenant_name: "Empresa dos", role: "USER" }] };
+  let changed = false;
+  const errors = await prepare(page, old, async (route, path, json) => {
+    if (path.endsWith("/token/refresh/")) { changed = true; await json({ access: access(next), refresh: "next-refresh", user: next }); return true; }
+    if (path.endsWith("/me/")) { await json(changed ? next : old); return true; }
+    if (path.endsWith("/profile/upload")) { await json({ detail: "expired" }, 401); return true; }
+    if (path.endsWith("/profile")) { await json({ user_id: "123", version: 1, additional_info: { full_name: "Nombre guardado" } }); return true; }
+    return false;
+  });
+  await page.goto("/profile");
+  const name = page.getByLabel("Nombre Completo");
+  await expect(name).toHaveValue("Nombre guardado");
+  await name.fill("Borrador de otra empresa");
+  await page.locator('input[type="file"]').setInputFiles({ name: "synthetic.png", mimeType: "image/png", buffer: Buffer.from("synthetic") });
+  await expect.poll(() => changed).toBe(true);
+  await expect(name).toHaveValue("Nombre guardado");
+  expect(errors).toEqual([]);
+});

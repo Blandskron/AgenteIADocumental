@@ -26,7 +26,7 @@ RUN sed -i 's/\r$//' /app/entrypoint.sh \
        python manage.py collectstatic --noinput \
     && rm -r "$key_dir"
 
-RUN python -m pip check && python -m pip uninstall -y pip
+RUN python -m pip check && python -m pip uninstall -y pip && rm -rf /usr/local/lib/python3.12/ensurepip
 
 EXPOSE 8001
 

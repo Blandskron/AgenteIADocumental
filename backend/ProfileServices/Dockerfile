@@ -30,7 +30,7 @@ CMD ["pip-audit", "--disable-pip", "--no-deps", "--cache-dir", "/tmp/pip-audit-c
 
 FROM base AS runtime
 
-RUN python -m pip check && python -m pip uninstall -y pip
+RUN python -m pip check && python -m pip uninstall -y pip && rm -rf /usr/local/lib/python3.12/ensurepip
 USER 10008:10008
 EXPOSE 8000
 

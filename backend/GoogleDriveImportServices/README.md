@@ -1,5 +1,7 @@
 # GoogleDriveImportServices
 
+> Evidencia transversal vigente: [verificación de entrega](../../docs/release/README.md) e [imágenes finales](../../docs/release/IMAGE_AUDIT.json). Runtime Python sin pip/ensurepip; comprobación del grafo durante el build, herramientas en test/audit. Los escaneos fechados anteriores conservan su valor histórico y no describen esta imagen.
+
 Microservicio responsable de conectar Google Drive con la biblioteca documental de Blandskron Documental.
 
 **Estado:** cierre funcional DRIVE-006/007/008 integrado en los PR #78/#79 con seis checks aprobados. Incluye identidad vigente, OAuth PKCE, diario recuperable, historial paginado y web coordinada. [Tablero](../../ROADMAP.md#googledriveimportservices), [guía para agentes](AGENTS.md), [diagnóstico histórico](docs/HISTORY.md) y [auditoría de imagen](docs/IMAGE_AUDIT.json). Google Drive sigue opcional y deshabilitado por defecto.
@@ -257,6 +259,8 @@ Restaurar primero en un entorno aislado con Google deshabilitado y sin escritura
 
 ## Revisión final y alcance
 
+La entrega transversal actualiza la suite a 175 casos y revisa el contrato con ingesta: un 409 acotado con `code: "document_relation_changed"` confirma que no se creó documento y se registra como rechazo conocido. Un 409 desconocido, malformado, sobredimensionado o con respuesta perdida conserva revisión por resultado incierto; no permite repetir automáticamente el upload. La clasificación comparte límites y deadline del transporte. La evidencia vigente de imágenes y frontend está en la [verificación de entrega](../../docs/release/README.md); los conteos de los párrafos siguientes corresponden al cierre histórico del servicio.
+
 DRIVE-006/007/008 agrupan contrato/web, contenedor y cierre en un incremento. Validación sintética: 165 pruebas PostgreSQL/HTTP, 123 Node y 16 escenarios Chromium del conjunto, npm ci/build, Ruff, Compose, pip check/audit, instalación nueva, actualización repetida, reinicio y sonda Auth real de tres roles. La suite cubre dos dueños, permisos/revocación, state/PKCE/refresh/revoke, formatos/bytes/timeouts, fallos de upload/asociación, replay/leases, retención y privacidad de páginas. Navegador usa APIs simuladas; no es OAuth real. La evidencia de ejecución e integración se registra en ROADMAP: PR #78/#79, seis checks aprobados en CI #165.
 
-Se conserva código de mantenimiento, esquema, pruebas y BASELINE/HISTORY necesarios para operación o trazabilidad; docs solo contiene documentación/JSON, scripts mantenidos viven fuera. La revisión no habilita Google ni usa grants/documentos personales. El cierre funcional no cierra PLAT-001, WEB-001, PLAT-002 o DEMO-001; cuatro alertas npm conocidas y DRIVE-F01 siguen explícitos.
+Se conserva código de mantenimiento, esquema, pruebas y BASELINE/HISTORY necesarios para operación o trazabilidad; docs solo contiene documentación/JSON, scripts mantenidos viven fuera. La revisión no habilita Google ni usa grants/documentos personales. El cierre funcional original no cerraba PLAT-001, WEB-001, PLAT-002 o DEMO-001. La entrega transversal reevalúa DRIVE-F01 y resuelve las cuatro alertas npm; el tablero registra el estado de revisión e integración.

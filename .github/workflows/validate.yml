@@ -9,6 +9,34 @@ permissions:
   contents: read
 
 jobs:
+  release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Evitar publicar evidencia de una ejecución anterior
+        run: python3 -c 'from pathlib import Path; [Path(p).unlink(missing_ok=True) for p in ("docs/release/VERIFICATION.json", "docs/release/IMAGE_AUDIT.json")]'
+      - name: Construir entorno integral sin secretos ni datos personales
+        run: docker compose --env-file .env.example -p bd-final-check -f docker/docker-compose.yml -f docker/compose/verification.yml up -d --build --wait blandskron-frontend
+      - name: Validar servicios, integridad concurrente y recorrido documental
+        run: node scripts/release/verify.mjs
+      - name: Auditar doce imágenes finales sin supresiones
+        run: node scripts/release/audit_images.mjs --project bd-final-check
+      - name: Validar el grafo capturado sin herramientas en runtime
+        run: node scripts/release/verify_graphs.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: release-verification
+          path: docs/release/*.json
+          retention-days: 14
+      - name: Retirar únicamente el entorno sintético
+        if: always()
+        run: docker compose --env-file .env.example -p bd-final-check -f docker/docker-compose.yml -f docker/compose/verification.yml down --volumes --remove-orphans
+
   frontend:
     runs-on: ubuntu-latest
     defaults:
@@ -22,6 +50,7 @@ jobs:
           cache: npm
           cache-dependency-path: frontend/package-lock.json
       - run: npm ci
+      - run: npm audit --audit-level=low
       - run: npm test
       - run: npm run build
       - run: npx playwright install --with-deps chromium
@@ -41,6 +70,14 @@ jobs:
           from pathlib import Path
 
           services = json.loads(Path("/tmp/blandskron-compose.json").read_text())["services"]
+          assert services["auth-service"]["depends_on"]["tenant-integrity"]["condition"] == "service_completed_successfully"
+          assert services["tenant-integrity"]["depends_on"]["auth-migrate"]["condition"] == "service_completed_successfully"
+          frontend = services["blandskron-frontend"]
+          assert frontend["read_only"] is True and frontend["cap_drop"] == ["ALL"]
+          assert "no-new-privileges:true" in frontend["security_opt"]
+          assert all(name.startswith("VITE_") for name in frontend["environment"])
+          assert frontend["ports"][0]["target"] == 8080
+          assert frontend["ports"][0]["host_ip"] == "127.0.0.1"
           conversation_env = services["conversation-service"]["environment"]
           assert set(conversation_env) == {
               "APP_ENV", "APP_NAME", "LOG_LEVEL", "CORS_ORIGINS", "DATABASE_URL",

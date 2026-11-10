@@ -1,5 +1,7 @@
 # DocumentTransferServices
 
+> Evidencia transversal vigente: [verificación de entrega](../../docs/release/README.md) e [imágenes finales](../../docs/release/IMAGE_AUDIT.json). Runtime Python sin pip/ensurepip; comprobación del grafo durante el build, herramientas en test/audit. Los escaneos fechados anteriores conservan su valor histórico y no describen esta imagen.
+
 Historial personal de cargas y descargas de Blandskron Documental. FastAPI registra los eventos que informa el cliente; no recibe archivos, no los descarga ni acredita su recepción. El puerto local es 8007. Google Drive usa otro recorrido y no registra aquí todas sus importaciones.
 
 ## Recorrido y archivos de referencia

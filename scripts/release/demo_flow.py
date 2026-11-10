@@ -14,6 +14,10 @@ import psycopg
 from pypdf import PdfReader
 
 
+class SimulatedLostUploadResponse(Exception):
+    """Verification-only fault after a real upload committed, before its ID is received."""
+
+
 def run():
     if os.environ.get("RELEASE_VERIFICATION") != "bd-final-check":
         raise RuntimeError("Dedicated verification environment required")
@@ -25,6 +29,7 @@ def run():
         autocommit=True,
     )
     marker = "synthetic-release-" + uuid4().hex
+    filename = "blandskron-demo-" + marker + ".txt"
     password = secrets.token_urlsafe(24)
     salt = secrets.token_hex(12)
     encoded = base64.b64encode(
@@ -37,6 +42,7 @@ def run():
     client = httpx.Client(timeout=300, trust_env=False)
 
     def request(service, method, route, token=None, expected=200, **kwargs):
+        print(f"Synthetic check: {service} {method} {route}", flush=True)
         headers = {"Authorization": "Bearer " + token} if token else {}
         response = client.request(
             method, "http://" + service + route, headers=headers, **kwargs
@@ -45,6 +51,8 @@ def run():
             raise AssertionError(
                 f"Synthetic {service} {route} expected {expected}, received {response.status_code}"
             )
+        if os.environ.get("DEMO_LOST_UPLOAD_RESPONSE") == "1" and route == "/api/v1/documents/upload":
+            raise SimulatedLostUploadResponse()
         return response
 
     try:
@@ -92,7 +100,6 @@ def run():
         checks.append(
             "real Auth login: two users with current tenant/group permissions"
         )
-        filename = "blandskron-demo-" + marker + ".txt"
         upload = request(
             "rag-document-embedding-service:8000",
             "POST",
@@ -213,9 +220,10 @@ def run():
                 connection.execute(
                     "DELETE FROM document_exports WHERE export_id=ANY(%s)", (exports,)
                 )
-            if documents:
+            if documents or users:
                 connection.execute(
-                    "DELETE FROM documents WHERE document_id=ANY(%s)", (documents,)
+                    "DELETE FROM documents WHERE document_id=ANY(%s) OR (owner_user_id=ANY(%s) AND filename=%s)",
+                    (documents, [str(uid) for uid in users], filename),
                 )
             if users:
                 connection.execute(
@@ -229,4 +237,10 @@ def run():
 
 
 if __name__ == "__main__":
-    run()
+    try:
+        run()
+    except SimulatedLostUploadResponse:
+        print("Synthetic lost upload response injected; cleanup completed.")
+    else:
+        if os.environ.get("DEMO_LOST_UPLOAD_RESPONSE") == "1":
+            raise AssertionError("The expected synthetic fault was not reached.")

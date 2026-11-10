@@ -731,6 +731,7 @@ export function DocumentSearchPage({ activeView = appRoutes.documents, onNavigat
                 {library.error && <p role="alert">{library.error}</p>}
                 <input
                   id="new-folder-name-input"
+                  aria-label="Nombre de carpeta"
                   className="modal-input"
                   onChange={(event) => setNewFolderName(event.target.value)}
                   placeholder="Nombre de la carpeta"

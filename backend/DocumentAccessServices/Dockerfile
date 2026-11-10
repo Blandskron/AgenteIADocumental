@@ -30,7 +30,7 @@ CMD ["python", "-m", "pytest", "-q", "-p", "no:cacheprovider", "tests"]
 
 FROM base AS runtime
 
-RUN python -m pip check && python -m pip uninstall -y pip
+RUN python -m pip check && python -m pip uninstall -y pip && rm -rf /usr/local/lib/python3.12/ensurepip
 
 USER 10004:10004
 EXPOSE 8000

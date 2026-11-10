@@ -1,6 +1,6 @@
 # Cómo colaborar en este repositorio
 
-Este repositorio contiene una plataforma documental. Blandskron Documental es el nombre propuesto para el portafolio. El [tablero](ROADMAP.md) describe cómo llegar a esa versión y qué trabajo puede avanzar.
+Este repositorio contiene Blandskron Documental, una plataforma documental de portafolio. El [tablero](ROADMAP.md) registra entregas, evidencia y trabajo autorizado. El [README](README.md) es la entrada humana; cada servicio mantiene su contrato y sus instrucciones locales.
 
 ## Antes de empezar
 
@@ -25,3 +25,4 @@ Este repositorio contiene una plataforma documental. Blandskron Documental es el
 - Ejecuta las comprobaciones de la tarjeta. Para frontend, usa `npm ci` y `npm run build` desde `frontend`. Para Compose, ejecuta `docker compose -f docker/docker-compose.yml config --quiet` desde la raíz con la configuración requerida por la rama.
 - Registra evidencia breve en la tarjeta, incluyendo comandos ejecutados y comprobaciones pendientes. Pásala a **En revisión**. Ciérrala cuando cumpla sus criterios de aceptación.
 - Actualiza el README si cambian comandos, variables requeridas o el recorrido de la demo.
+- Para cambios transversales usa la [verificación de entrega](docs/release/README.md): proyecto dedicado `bd-final-check`, `.env.example`, datos sintéticos y herramientas en `scripts/release/`. `docs/` conserva solo documentación/evidencia. No declares una auditoría histórica como resultado de la imagen actual ni una prueba con proveedor simulado como integración en vivo.

@@ -94,7 +94,8 @@ export function AuthProvider({ children }) {
     ],
   );
 
-  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+  // A different account/tenant must not persist the previous page's local state.
+  return <AuthContext.Provider key={profileSessionKey || "signed-out"} value={value}>{children}</AuthContext.Provider>;
 }
 
 export function useAuthContext() {

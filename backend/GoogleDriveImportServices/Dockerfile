@@ -20,7 +20,7 @@ RUN pip install --no-cache-dir pip-audit==2.10.1
 CMD ["pip-audit", "--disable-pip", "--no-deps", "--cache-dir", "/tmp/pip-audit-cache", "-r", "/tmp/runtime-packages.txt"]
 
 FROM base AS runtime
-RUN python -m pip uninstall -y pip
+RUN python -m pip uninstall -y pip && rm -rf /usr/local/lib/python3.12/ensurepip
 USER 10010:10010
 EXPOSE 8000
 CMD ["uvicorn", "app.main:create_app", "--factory", "--host", "0.0.0.0", "--port", "8000", "--limit-concurrency", "32", "--timeout-keep-alive", "5"]

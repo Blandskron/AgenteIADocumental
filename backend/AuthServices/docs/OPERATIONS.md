@@ -7,18 +7,19 @@ Todos los comandos de Compose parten de la raíz. Para el arranque inicial y la 
 1. `database-schema` prepara PostgreSQL y las tablas multiempresa del repositorio.
 2. `auth-db-roles` aprovisiona `auth_migrate` y `auth_runtime`. Al actualizar, transfiere al rol de migración solo la propiedad de las tablas de Django.
 3. `auth-migrate` aplica migraciones versionadas y concede acceso al rol web. Usa claves efímeras y carece del volumen de firma.
-4. `auth-service` sirve HTTP en loopback con Gunicorn como UID 10001. El entrypoint prepara permisos de los volúmenes y la imagen incluye los archivos estáticos.
+4. `tenant-integrity` aplica la migración 006 como operador del esquema, después de Django. Una referencia inconsistente o deriva detiene el arranque.
+5. `auth-service` sirve HTTP en loopback con Gunicorn como UID 10001. El entrypoint prepara permisos de los volúmenes y la imagen incluye los archivos estáticos.
 
 Si un paso falla, consulta su salida antes de reintentar:
 
 ```powershell
-docker compose -f docker/docker-compose.yml ps -a auth-db-roles auth-migrate auth-service
-docker compose -f docker/docker-compose.yml logs auth-db-roles auth-migrate auth-service
+docker compose -f docker/docker-compose.yml ps -a auth-db-roles auth-migrate tenant-integrity auth-service
+docker compose -f docker/docker-compose.yml logs auth-db-roles auth-migrate tenant-integrity auth-service
 ```
 
 Para volver a la imagen anterior, conserva los volúmenes y verifica la compatibilidad del esquema aplicado. El usuario de base de la versión anterior de Compose sigue teniendo acceso a las tablas tras el cambio de propiedad.
 
-La integridad optativa de membresías se aplica con `scripts/database/migrations/006_tenant_user_links.sql` solo después de `auth-migrate`, por un operador del esquema. No ejecutarla en `database-schema` antes de Django. Requiere respaldo, escritores detenidos, preflight y disposición explícita de cualquier referencia heredada inconsistente. La [guía SQL](../../../scripts/database/README.md#identidad-auth-y-membresías--segundo-incremento-plat-001c) detalla bloqueo, coste de la columna STORED y verificación de deriva. Ni Compose ni run_all.sql activan esa migración todavía.
+La integridad de membresías se aplica con `scripts/database/migrations/006_tenant_user_links.sql` solo después de `auth-migrate`, por `tenant-integrity`. No ejecutarla en `database-schema` antes de Django. Las instalaciones existentes requieren respaldo, escritores detenidos, preflight y disposición explícita de cualquier referencia heredada inconsistente antes de actualizar Compose. La [guía SQL](../../../scripts/database/README.md#identidad-auth-y-membresías--segundo-incremento-plat-001c) detalla bloqueo, coste de la columna STORED y verificación de deriva. `run_all.sql` aplica las restricciones compartidas previas; la referencia a Auth queda fuera de él para respetar el orden de Django.
 
 Una baja definitiva elimina membresías y asignaciones; no elimina documentos ni cambia su propietario histórico. Para suspender acceso conservando configuración, deshabilita la cuenta. Las altas normales usan la secuencia de Auth: no reasignar IDs eliminados, reiniciar esa secuencia ni importar cuentas reutilizando identificadores históricos. Al restaurar una copia, restaurar identidad y documentos coherentes y mantener la secuencia por encima de los IDs históricos; la FK no impide una reutilización manual privilegiada. No modificar tablas de Django ni ampliar permisos del rol web para aplicar este DDL. `makemigrations --check --dry-run` corresponde al rol de migración, no al rol HTTP.
 
