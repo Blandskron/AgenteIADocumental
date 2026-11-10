@@ -1,0 +1,81 @@
+# Dedicated synthetic verification only. Use --env-file .env.example -p bd-final-check.
+# No personal .env, uploads, OAuth grants or credentials are mounted.
+services:
+  postgres:
+    container_name: !reset null
+    ports: !reset []
+  database-schema:
+    container_name: !reset null
+  auth-service:
+    container_name: !reset null
+    ports: !reset []
+  rag-document-chat-service:
+    container_name: !reset null
+    ports: !reset []
+    environment:
+      GROQ_API_KEY: ""
+      OMP_NUM_THREADS: "2"
+      MKL_NUM_THREADS: "2"
+      HF_HUB_DISABLE_XET: "1"
+      HF_HUB_DISABLE_TELEMETRY: "1"
+      HF_HUB_DISABLE_IMPLICIT_TOKEN: "1"
+      HF_HUB_DOWNLOAD_TIMEOUT: "30"
+    volumes:
+      - ../scripts/release:/verification:ro
+    command: ["python", "/verification/rag_demo.py"]
+  rag-document-embedding-service:
+    container_name: !reset null
+    ports: !reset []
+    environment:
+      OMP_NUM_THREADS: "2"
+      MKL_NUM_THREADS: "2"
+      HF_HUB_DISABLE_XET: "1"
+      HF_HUB_DISABLE_TELEMETRY: "1"
+      HF_HUB_DISABLE_IMPLICIT_TOKEN: "1"
+      HF_HUB_DOWNLOAD_TIMEOUT: "30"
+    volumes: !override
+      - verification_documents:/app/documents
+      - auth_verification_keys:/app/auth_keys:ro
+  document-search-service:
+    container_name: !reset null
+    ports: !reset []
+  document-access-service:
+    container_name: !reset null
+    ports: !reset []
+    volumes: !override
+      - verification_documents:/app/documents
+      - auth_verification_keys:/app/auth_keys:ro
+  document-library-service:
+    container_name: !reset null
+    ports: !reset []
+  document-transfer-service:
+    container_name: !reset null
+    ports: !reset []
+  conversation-service:
+    container_name: !reset null
+    ports: !reset []
+  profile-service:
+    container_name: !reset null
+    ports: !reset []
+  document-export-service:
+    container_name: !reset null
+    ports: !reset []
+  google-drive-import-service:
+    container_name: !reset null
+    ports: !reset []
+    environment:
+      GOOGLE_DRIVE_ENABLED: "false"
+      GOOGLE_CLIENT_ID: ""
+      GOOGLE_CLIENT_SECRET: ""
+      GOOGLE_DRIVE_ENCRYPTION_KEYS: "{}"
+  blandskron-frontend:
+    container_name: !reset null
+    ports: !reset []
+  export-tests:
+    environment:
+      RELEASE_VERIFICATION: bd-final-check
+    volumes:
+      - ../scripts/release:/verification:ro
+
+volumes:
+  verification_documents:

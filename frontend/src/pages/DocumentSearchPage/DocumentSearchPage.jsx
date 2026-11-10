@@ -1,3 +1,4 @@
+import { ModalDialog } from "../../shared/components/ModalDialog";
 import { useDriveImport } from "../../features/google-drive-import/useDriveImport.js";
 import { DriveHistory } from "../../features/google-drive-import/DriveHistory.jsx";
 import { ImportAttemptNotice } from "../../features/google-drive-import/ImportAttemptNotice.jsx";
@@ -702,7 +703,7 @@ export function DocumentSearchPage({ activeView = appRoutes.documents, onNavigat
         {/* Modal de Creación de Carpeta */}
         {createFolderModalOpen && (
           <div className="move-document-backdrop" role="presentation" onClick={() => setCreateFolderModalOpen(false)}>
-            <section
+            <ModalDialog onClose={() => setCreateFolderModalOpen(false)}
               className="move-document-modal"
               role="dialog"
               aria-modal="true"
@@ -730,6 +731,7 @@ export function DocumentSearchPage({ activeView = appRoutes.documents, onNavigat
                 {library.error && <p role="alert">{library.error}</p>}
                 <input
                   id="new-folder-name-input"
+                  aria-label="Nombre de carpeta"
                   className="modal-input"
                   onChange={(event) => setNewFolderName(event.target.value)}
                   placeholder="Nombre de la carpeta"
@@ -770,7 +772,7 @@ export function DocumentSearchPage({ activeView = appRoutes.documents, onNavigat
                   </button>
                 </div>
               </form>
-            </section>
+            </ModalDialog>
           </div>
         )}
       </main>
@@ -783,7 +785,7 @@ function MoveDocumentModal({ document, folders, page, error, onLoadMore, isOpen,
 
   return (
     <div className="move-document-backdrop" role="presentation" onClick={onClose}>
-      <section
+      <ModalDialog onClose={onClose}
         className="move-document-modal"
         role="dialog"
         aria-modal="true"
@@ -819,7 +821,7 @@ function MoveDocumentModal({ document, folders, page, error, onLoadMore, isOpen,
             Cancelar
           </button>
         </footer>
-      </section>
+      </ModalDialog>
     </div>
   );
 }
@@ -1030,7 +1032,7 @@ function AssignDocumentModal({ document, form, isOpen, users, onChange, onClose,
 
   return (
     <div className="move-document-backdrop" role="presentation" onClick={onClose}>
-      <section
+      <ModalDialog onClose={onClose}
         className="move-document-modal"
         role="dialog"
         aria-modal="true"
@@ -1081,7 +1083,7 @@ function AssignDocumentModal({ document, form, isOpen, users, onChange, onClose,
             <button type="submit">Asignar</button>
           </footer>
         </form>
-      </section>
+      </ModalDialog>
     </div>
   );
 }

@@ -1,5 +1,7 @@
 # DocumentSearchServices
 
+> Evidencia transversal vigente: [verificación de entrega](../../docs/release/README.md) e [imágenes finales](../../docs/release/IMAGE_AUDIT.json). Runtime Python sin pip/ensurepip; comprobación del grafo durante el build, herramientas en test/audit. Los escaneos fechados anteriores conservan su valor histórico y no describen esta imagen.
+
 ## Overview
 DocumentSearchServices es un microservicio basado en FastAPI que proporciona endpoints para la búsqueda, consulta y selección de documentos y sus fragmentos (chunks). Permite búsquedas avanzadas, obtención de detalles, paginación de resultados y selección de documentos para contexto de chat, integrándose en una arquitectura de microservicios con autenticación JWT y persistencia en PostgreSQL.
 
@@ -129,7 +131,7 @@ El 5 de noviembre de 2026 se validó un arranque con volúmenes nuevos, el aprov
 
 Trivy también reportó CVE-2025-47273 por `setuptools==70.3.0` en `pip/_vendor/vendor.txt`. La copia interna de pip 26.3 incluye `pkg_resources`. La inspección no encontró el módulo `package_index` al que corresponde el aviso. [Aviso de setuptools](https://github.com/pypa/setuptools/security/advisories/GHSA-5rjg-fvgr-3xxf).
 
-Reconstruye con `docker compose -f docker/docker-compose.yml build --pull document-search-service`. Audita las versiones instaladas con `pip-audit` a partir de `pip list --format=freeze` dentro de la imagen. Usa `trivy image --scanners vuln --severity HIGH,CRITICAL docker-document-search-service` para volver a revisar el sistema base y los paquetes incluidos.
+Reconstruye con `docker compose -f docker/docker-compose.yml build --pull document-search-service`. La [auditoría transversal vigente](../../docs/release/README.md) captura el inventario con `importlib.metadata` y escanea la imagen inmutable. El grafo se valida durante el build; runtime ya no incluye `pip` ni `ensurepip`. Los resultados de los párrafos siguientes son históricos, no el estado del artefacto actual.
 
 ## Example Requests
 

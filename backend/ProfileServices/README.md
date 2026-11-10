@@ -1,5 +1,7 @@
 # ProfileServices
 
+> Evidencia transversal vigente: [verificación de entrega](../../docs/release/README.md) e [imágenes finales](../../docs/release/IMAGE_AUDIT.json). Runtime Python sin pip/ensurepip; comprobación del grafo durante el build, herramientas en test/audit. Los escaneos fechados anteriores conservan su valor histórico y no describen esta imagen.
+
 Servicio FastAPI de perfil y avatar de Blandskron Documental, publicado localmente en `http://localhost:8015`. AuthServices administra identidad, credenciales y membresías; Profile guarda contacto, presentación y avatar privado en `user_profiles` (PostgreSQL).
 
 **Estado:** cierre funcional PROFILE-008 integrado mediante PR #66, con seis checks aprobados. Perfil propio versionado, avatar privado en PostgreSQL, cliente web aislado por sesión y rol mínimo con revocación de Auth. Persisten los seguimientos explícitos de imagen PROFILE-F01/F02, integridad compartida PLAT-001 y frontend WEB-001; el proyecto completo todavía no está terminado. El [tablero](../../ROADMAP.md#profileservices) registra la integración y el trabajo siguiente.
@@ -129,7 +131,7 @@ Desde la raíz, con PostgreSQL/esquema inicializados por Compose:
 docker compose -f docker/docker-compose.yml run --build --rm --no-deps profile-tests
 docker compose -f docker/docker-compose.yml run --rm --no-deps profile-tests ruff check --no-cache app tests /profile-checks
 docker compose -f docker/docker-compose.yml run --build --rm --no-deps profile-audit
-docker compose -f docker/docker-compose.yml exec -T profile-service python -m pip check
+docker compose -f docker/docker-compose.yml run --rm --no-deps profile-tests python -m pip check
 ```
 
 La suite exige `PROFILE_TEST_DATABASE_URL` explícita, provista por el servicio `profile-tests`. No crea/migra tablas ni usa uploads reales. Las escrituras HTTP quedan dentro de savepoints y una transacción exterior; al terminar se comprueba desde otra conexión que no persiste el usuario sintético. Las pruebas de pool y statement timeout usan conexiones PostgreSQL reales. Las pruebas de mantenimiento usan archivos temporales sintéticos.
@@ -245,11 +247,11 @@ Ambos roles carecen de superusuario, creación de roles/bases, herencia, replica
 
 ### Evidencia del artefacto
 
-[IMAGE_AUDIT.json](docs/IMAGE_AUDIT.json) conserva IDs de Docker/escáner, SHA-256 del archivo exportado, base, inventario Python y hallazgos del 7 de noviembre de 2026. Se reconstruyeron las etapas con `--pull --no-cache`; tras encontrar corrección disponible, se añadió actualización de `zlib1g` desde Debian Security. La imagen final instala `1:1.3.dfsg+really1.3.1-1+deb13u1`; Trivy 0.76.2 ya no informa CVE-2026-76844 ni CVE-2026-85091, y CI exige esa versión mínima. El runtime sigue UID/GID 10008, readonly, sin uploads y sin pytest/Ruff/httpx/pip-audit. `pip check` y la auditoría del inventario Python instalado pasan sin avisos conocidos.
+[IMAGE_AUDIT.json](docs/IMAGE_AUDIT.json) conserva IDs de Docker/escáner, SHA-256 del archivo exportado, base, inventario Python y hallazgos del artefacto vigente, derivados de la auditoría transversal. El análisis inicial fue el 7 de noviembre de 2026. Se reconstruyeron las etapas con `--pull --no-cache`; tras encontrar corrección disponible, se añadió actualización de `zlib1g` desde Debian Security. La imagen final instala `1:1.3.dfsg+really1.3.1-1+deb13u1`; Trivy 0.76.2 ya no informa CVE-2026-76844 ni CVE-2026-85091, y CI exige esa versión mínima. El runtime sigue UID/GID 10008, readonly, sin uploads y sin pytest/Ruff/httpx/pip-audit. `pip check` y la auditoría del inventario Python instalado pasan sin avisos conocidos.
 
 El escaneo final de severidades HIGH/CRITICAL registra **47 coincidencias altas de Debian, correspondientes a 11 CVE distintos, cero críticos y ninguna versión corregida indicada para esos avisos del SO**. Se mantienen en PROFILE-F01/PLAT-002: reconstruir y reevaluar antes de despliegue público. No se declara la imagen libre de riesgos ni se validó explotación de cada coincidencia.
 
-Trivy registra además **CVE-2025-47273** en la declaración vendorizada `setuptools==70.3.0` de pip 26.3 e indica 78.1.1. No hay distribución setuptools instalada; sí existe la copia vendorizada de `pkg_resources`. PyPI reportaba pip 26.3 como última versión disponible. Instalar otra distribución setuptools no reemplaza esa copia. PROFILE-F02 conserva el seguimiento upstream y la reevaluación, sin supresión ni conclusión automática de falso positivo. Esta distinción explica por qué la auditoría de distribuciones instaladas y Trivy muestran resultados diferentes.
+El escaneo histórico registraba **CVE-2025-47273** en la declaración vendorizada `setuptools==70.3.0` de pip 26.3 e indicaba 78.1.1. La entrega actual retira pip y ensurepip completos del runtime; no intenta corregir esa copia instalando otro setuptools ni aplica supresiones. PROFILE-F02 se reevalúa con el artefacto final de PLAT-002. Esta distinción explica por qué la auditoría de distribuciones instaladas y el escaneo histórico mostraban resultados diferentes.
 
 Para repetir el escaneo sin montar el socket Docker (bash, desde la raíz):
 

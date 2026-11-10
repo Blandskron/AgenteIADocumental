@@ -27,6 +27,10 @@ La ingesta admite archivos de hasta 20 MiB. Drive cuenta los bytes durante la de
 
 ## Servicios activos
 
+La [verificación de entrega](docs/release/README.md) permite reproducir las regresiones y una demo integral con dos usuarios, documentos sintéticos y proveedores simulados, sin `.env` personal ni claves. Incluye evidencia de imágenes, alcance y avisos residuales. El código de esas comprobaciones vive en `scripts/release/`; `docs/` contiene solo documentación y evidencia.
+
+El arranque aplica restricciones compartidas de empresa/área/jerarquía y, después de Django, el job `tenant-integrity` vincula membresías con Auth. Antes de actualizar una instalación con datos, respalda DB/documentos/claves, detén escritores y revisa el [preflight y las condiciones de migración](scripts/database/README.md). Una inconsistencia detiene el despliegue; no se reparan ni eliminan históricos automáticamente. Despliega esquema, API y web juntos.
+
 - `backend/AuthServices`: autenticacion Django, usuarios y JWT.
 - `backend/RagDocumentChatServices`: chat RAG sobre documentos.
 - `backend/RagDocumentEmbeddingServices`: carga, extraccion, chunks y embeddings.

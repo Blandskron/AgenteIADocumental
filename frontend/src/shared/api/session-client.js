@@ -10,12 +10,12 @@ export function createSessionClient(baseUrl, sessionKey, readSession) {
   const request = createAuthorizedClient({
     baseUrl,
     getAccessToken: () => { assertCurrent(); return readSession().auth.access; },
-    refreshAccessToken: async () => {
+    refreshAccessToken: async (rejectedAccess) => {
       assertCurrent();
       if (!refreshPending) {
         refreshPending = Promise.resolve().then(() => {
           assertCurrent();
-          return readSession().refreshAccessToken();
+          return readSession().refreshAccessToken(rejectedAccess);
         }).finally(() => { refreshPending = null; });
       }
       const access = await refreshPending;

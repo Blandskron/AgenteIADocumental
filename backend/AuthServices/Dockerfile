@@ -1,4 +1,4 @@
-FROM python:3.12-slim
+FROM python:3.12-slim@sha256:5e2bdb1b0d542d5039cffb8181c65930093949194a65c365dfb1b0fe13a4fa5b
 
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
@@ -8,6 +8,7 @@ ENV DJANGO_PUBLIC_KEY_PATH=/app/verification_keys/public.pem
 WORKDIR /app
 
 RUN apt-get update \
+    && apt-get upgrade -y --no-install-recommends \
     && apt-get install -y --no-install-recommends gosu \
     && rm -rf /var/lib/apt/lists/* \
     && groupadd --gid 10001 auth \
@@ -24,6 +25,8 @@ RUN sed -i 's/\r$//' /app/entrypoint.sh \
     && DJANGO_PRIVATE_KEY_PATH="$key_dir/private.pem" DJANGO_PUBLIC_KEY_PATH="$key_dir/public.pem" \
        python manage.py collectstatic --noinput \
     && rm -r "$key_dir"
+
+RUN python -m pip check && python -m pip uninstall -y pip && rm -rf /usr/local/lib/python3.12/ensurepip
 
 EXPOSE 8001
 

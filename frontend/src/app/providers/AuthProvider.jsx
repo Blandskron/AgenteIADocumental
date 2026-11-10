@@ -2,7 +2,6 @@ import { createContext, useContext, useMemo, useRef } from "react";
 
 import { env } from "../config/env";
 import { createSessionClient } from "../../shared/api/session-client.js";
-import { createAuthorizedClient } from "../../shared/api/httpClient";
 import { useAuth } from "../../features/auth/hooks/useAuth";
 import { createProfileSessionClient } from "../../features/profile/api/session-client.js";
 import { useProfile } from "../../features/profile/hooks/useProfile.js";
@@ -15,94 +14,45 @@ export function AuthProvider({ children }) {
     ? JSON.stringify([authState.auth.sessionId, authState.currentUser?.id, authState.currentUser?.activeTenantId]) : null;
   const session = useRef(null);
   session.current = { ...authState, key: profileSessionKey };
+  function readSession() {
+    const state = session.current;
+    const auth = state.readAuthSession();
+    const user = auth?.user;
+    const key = auth?.access && user ? JSON.stringify([auth.sessionId, user.id, user.activeTenantId]) : null;
+    return { ...state, auth, key };
+  }
 
-  const chatClient = useMemo(
-    () =>
-      createAuthorizedClient({
-        baseUrl: env.ragChatBaseUrl,
-        getAccessToken: () => authState.auth?.access,
-        refreshAccessToken: authState.refreshAccessToken,
-        onUnauthorized: authState.logout,
-      }),
-    [authState.auth?.access, authState.logout, authState.refreshAccessToken],
-  );
+  const chatClient = useMemo(() => profileSessionKey
+    ? createSessionClient(env.ragChatBaseUrl, profileSessionKey, readSession) : null, [profileSessionKey]);
 
-  const documentClient = useMemo(
-    () =>
-      createAuthorizedClient({
-        baseUrl: env.ragDocumentBaseUrl,
-        getAccessToken: () => authState.auth?.access,
-        refreshAccessToken: authState.refreshAccessToken,
-        onUnauthorized: authState.logout,
-      }),
-    [authState.auth?.access, authState.logout, authState.refreshAccessToken],
-  );
+  const documentClient = useMemo(() => profileSessionKey
+    ? createSessionClient(env.ragDocumentBaseUrl, profileSessionKey, readSession) : null, [profileSessionKey]);
 
-  const documentSearchClient = useMemo(
-    () =>
-      createAuthorizedClient({
-        baseUrl: env.documentSearchBaseUrl,
-        getAccessToken: () => authState.auth?.access,
-        refreshAccessToken: authState.refreshAccessToken,
-        onUnauthorized: authState.logout,
-      }),
-    [authState.auth?.access, authState.logout, authState.refreshAccessToken],
-  );
+  const documentSearchClient = useMemo(() => profileSessionKey
+    ? createSessionClient(env.documentSearchBaseUrl, profileSessionKey, readSession) : null, [profileSessionKey]);
 
-  const documentAccessClient = useMemo(
-    () =>
-      createAuthorizedClient({
-        baseUrl: env.documentAccessBaseUrl,
-        getAccessToken: () => authState.auth?.access,
-        refreshAccessToken: authState.refreshAccessToken,
-        onUnauthorized: authState.logout,
-      }),
-    [authState.auth?.access, authState.logout, authState.refreshAccessToken],
-  );
+  const documentAccessClient = useMemo(() => profileSessionKey
+    ? createSessionClient(env.documentAccessBaseUrl, profileSessionKey, readSession) : null, [profileSessionKey]);
 
-  const documentLibraryClient = useMemo(
-    () =>
-      createAuthorizedClient({
-        baseUrl: env.documentLibraryBaseUrl,
-        getAccessToken: () => authState.auth?.access,
-        refreshAccessToken: authState.refreshAccessToken,
-        onUnauthorized: authState.logout,
-      }),
-    [authState.auth?.access, authState.logout, authState.refreshAccessToken],
-  );
+  const documentLibraryClient = useMemo(() => profileSessionKey
+    ? createSessionClient(env.documentLibraryBaseUrl, profileSessionKey, readSession) : null, [profileSessionKey]);
 
-  const documentTransferClient = useMemo(
-    () =>
-      createAuthorizedClient({
-        baseUrl: env.documentTransferBaseUrl,
-        getAccessToken: () => authState.auth?.access,
-        refreshAccessToken: authState.refreshAccessToken,
-        onUnauthorized: authState.logout,
-      }),
-    [authState.auth?.access, authState.logout, authState.refreshAccessToken],
-  );
+  const documentTransferClient = useMemo(() => profileSessionKey
+    ? createSessionClient(env.documentTransferBaseUrl, profileSessionKey, readSession) : null, [profileSessionKey]);
 
   const documentExportClient = useMemo(() => profileSessionKey
-    ? createSessionClient(env.documentExportBaseUrl, profileSessionKey, () => session.current) : null, [profileSessionKey]);
+    ? createSessionClient(env.documentExportBaseUrl, profileSessionKey, readSession) : null, [profileSessionKey]);
   const googleDriveImportClient = useMemo(() => profileSessionKey
-    ? createSessionClient(env.googleDriveImportBaseUrl, profileSessionKey, () => session.current) : null, [profileSessionKey]);
+    ? createSessionClient(env.googleDriveImportBaseUrl, profileSessionKey, readSession) : null, [profileSessionKey]);
 
-  const conversationClient = useMemo(
-    () =>
-      createAuthorizedClient({
-        baseUrl: env.conversationBaseUrl,
-        getAccessToken: () => authState.auth?.access,
-        refreshAccessToken: authState.refreshAccessToken,
-        onUnauthorized: authState.logout,
-      }),
-    [authState.auth?.access, authState.logout, authState.refreshAccessToken],
-  );
+  const conversationClient = useMemo(() => profileSessionKey
+    ? createSessionClient(env.conversationBaseUrl, profileSessionKey, readSession) : null, [profileSessionKey]);
 
   const authClient = useMemo(() => profileSessionKey
-    ? createProfileSessionClient(env.authBaseUrl, profileSessionKey, () => session.current) : null, [profileSessionKey]);
+    ? createProfileSessionClient(env.authBaseUrl, profileSessionKey, readSession) : null, [profileSessionKey]);
 
   const profileClient = useMemo(() => profileSessionKey
-    ? createProfileSessionClient(env.profileBaseUrl, profileSessionKey, () => session.current) : null, [profileSessionKey]);
+    ? createProfileSessionClient(env.profileBaseUrl, profileSessionKey, readSession) : null, [profileSessionKey]);
   const { profile, acceptProfile: setProfile, isLoading: isProfileLoading } = useProfile(profileClient);
 
   const value = useMemo(
@@ -144,7 +94,8 @@ export function AuthProvider({ children }) {
     ],
   );
 
-  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+  // A different account/tenant must not persist the previous page's local state.
+  return <AuthContext.Provider key={profileSessionKey || "signed-out"} value={value}>{children}</AuthContext.Provider>;
 }
 
 export function useAuthContext() {

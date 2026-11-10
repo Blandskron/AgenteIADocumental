@@ -41,15 +41,18 @@ VALUES (:'marker'||'-d1',:'marker'||'-a',:'marker'||'-a1','synthetic-private','s
 \ir ../checks/tenant_preflight_report.sql
 SELECT pg_temp.assert_tenant_report(:'tenant_report', :'baseline_tenant_report', '{}');
 
--- Cross-tenant relationships are still legal in today's schema, hence PLAT-001.
+-- Restore corruption is simulated only in this uncommitted admin transaction.
+SET LOCAL session_replication_role = replica;
+SELECT candidate AS missing_user FROM generate_series(2147483647,2147483000,-1) candidate
+WHERE NOT EXISTS(SELECT 1 FROM public.auth_user WHERE id=candidate) LIMIT 1 \gset
 UPDATE public.tenant_areas SET parent_area_id=:'marker'||'-b1' WHERE area_id=:'marker'||'-a2';
 UPDATE public.tenant_memberships SET area_id=:'marker'||'-b1' WHERE tenant_id=:'marker'||'-a';
 UPDATE public.documents SET owner_area_id=:'marker'||'-b1' WHERE document_id=:'marker'||'-d1';
 INSERT INTO public.documents(document_id,owner_area_id,filename,storage_path,mime_type)
 VALUES (:'marker'||'-d2',:'marker'||'-a1','synthetic-private','synthetic-private','text/plain');
 INSERT INTO public.tenant_user_groups(tenant_id,user_id,group_id)
-VALUES (:'marker'||'-a',:'user_id',:'marker'||'-g2'),(:'marker'||'-a',:'marker',:'marker'||'-g1');
-INSERT INTO public.tenant_memberships(tenant_id,user_id,role) VALUES (:'marker'||'-b',:'marker','USER');
+VALUES (:'marker'||'-a',:'user_id',:'marker'||'-g2'),(:'marker'||'-a',:'missing_user',:'marker'||'-g1');
+INSERT INTO public.tenant_memberships(tenant_id,user_id,role) VALUES (:'marker'||'-b',:'missing_user','USER');
 \ir ../checks/tenant_preflight_report.sql
 SELECT pg_temp.assert_tenant_report(:'tenant_report', :'baseline_tenant_report',
   '{"area_parent_invalid":1,"membership_area_invalid":1,"document_area_invalid":2,

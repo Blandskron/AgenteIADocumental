@@ -9,6 +9,34 @@ permissions:
   contents: read
 
 jobs:
+  release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Evitar publicar evidencia de una ejecución anterior
+        run: python3 -c 'from pathlib import Path; [Path(p).unlink(missing_ok=True) for p in ("docs/release/VERIFICATION.json", "docs/release/IMAGE_AUDIT.json")]'
+      - name: Construir entorno integral sin secretos ni datos personales
+        run: docker compose --env-file .env.example -p bd-final-check -f docker/docker-compose.yml -f docker/compose/verification.yml up -d --build --wait blandskron-frontend
+      - name: Validar servicios, integridad concurrente y recorrido documental
+        run: node scripts/release/verify.mjs
+      - name: Auditar doce imágenes finales sin supresiones
+        run: node scripts/release/audit_images.mjs --project bd-final-check
+      - name: Validar el grafo capturado sin herramientas en runtime
+        run: node scripts/release/verify_graphs.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: release-verification
+          path: docs/release/*.json
+          retention-days: 14
+      - name: Retirar únicamente el entorno sintético
+        if: always()
+        run: docker compose --env-file .env.example -p bd-final-check -f docker/docker-compose.yml -f docker/compose/verification.yml down --volumes --remove-orphans
+
   frontend:
     runs-on: ubuntu-latest
     defaults:
@@ -22,6 +50,7 @@ jobs:
           cache: npm
           cache-dependency-path: frontend/package-lock.json
       - run: npm ci
+      - run: npm audit --audit-level=low
       - run: npm test
       - run: npm run build
       - run: npx playwright install --with-deps chromium
@@ -41,6 +70,14 @@ jobs:
           from pathlib import Path
 
           services = json.loads(Path("/tmp/blandskron-compose.json").read_text())["services"]
+          assert services["auth-service"]["depends_on"]["tenant-integrity"]["condition"] == "service_completed_successfully"
+          assert services["tenant-integrity"]["depends_on"]["auth-migrate"]["condition"] == "service_completed_successfully"
+          frontend = services["blandskron-frontend"]
+          assert frontend["read_only"] is True and frontend["cap_drop"] == ["ALL"]
+          assert "no-new-privileges:true" in frontend["security_opt"]
+          assert all(name.startswith("VITE_") for name in frontend["environment"])
+          assert frontend["ports"][0]["target"] == 8080
+          assert frontend["ports"][0]["host_ip"] == "127.0.0.1"
           conversation_env = services["conversation-service"]["environment"]
           assert set(conversation_env) == {
               "APP_ENV", "APP_NAME", "LOG_LEVEL", "CORS_ORIGINS", "DATABASE_URL",
@@ -342,11 +379,11 @@ jobs:
         run: |
           docker compose -f docker/docker-compose.yml run --rm --no-deps access-db-role
           docker compose -f docker/docker-compose.yml exec -T postgres psql -U postgres -d documents_db -v ON_ERROR_STOP=1 < scripts/database/access/verify_role.sql
-          docker compose -f docker/docker-compose.yml exec -T document-access-service python -m pip --no-cache-dir check
+          docker compose -f docker/docker-compose.yml exec -T document-access-service python -c 'import importlib.util; assert importlib.util.find_spec("pip") is None'
           docker compose -f docker/docker-compose.yml exec -T document-access-service python -c 'import os, importlib.util; assert os.geteuid() == 10004; assert all(importlib.util.find_spec(name) is None for name in ("pytest", "ruff", "httpx"))'
       - name: Comprobar imagen de ConversationServices
         run: |
-          docker compose -f docker/docker-compose.yml exec -T conversation-service python -m pip --no-cache-dir check
+          docker compose -f docker/docker-compose.yml exec -T conversation-service python -c 'import importlib.util; assert importlib.util.find_spec("pip") is None'
           docker compose -f docker/docker-compose.yml exec -T conversation-service python -c 'import os; assert os.geteuid() == 10002'
       - name: Probar JWT, aislamiento y vínculos contra PostgreSQL
         run: |
@@ -354,7 +391,7 @@ jobs:
           docker compose -f docker/docker-compose.yml run --rm --no-deps conversation-tests ruff check --no-cache app tests
       - name: Validar imagen y contrato de DocumentSearchServices
         run: |
-          docker compose -f docker/docker-compose.yml exec -T document-search-service python -m pip --no-cache-dir check
+          docker compose -f docker/docker-compose.yml exec -T document-search-service python -c 'import importlib.util; assert importlib.util.find_spec("pip") is None'
           docker compose -f docker/docker-compose.yml exec -T document-search-service python -c 'import os, importlib.util; assert os.geteuid() == 10005; assert all(importlib.util.find_spec(name) is None for name in ("pytest", "ruff", "httpx"))'
           docker compose -f docker/docker-compose.yml run --build --rm --no-deps search-tests
           docker compose -f docker/docker-compose.yml run --rm --no-deps search-tests ruff check --no-cache app tests
@@ -367,7 +404,7 @@ jobs:
         run: |
           docker compose -f docker/docker-compose.yml run --rm --no-deps library-db-role
           docker compose -f docker/docker-compose.yml exec -T postgres psql -U postgres -d documents_db -v ON_ERROR_STOP=1 < scripts/database/library/verify_role.sql
-          docker compose -f docker/docker-compose.yml exec -T document-library-service python -m pip --no-cache-dir check
+          docker compose -f docker/docker-compose.yml exec -T document-library-service python -c 'import importlib.util; assert importlib.util.find_spec("pip") is None'
           docker compose -f docker/docker-compose.yml exec -T document-library-service python -c 'import os, importlib.util; assert os.geteuid() == 10006; assert all(importlib.util.find_spec(name) is None for name in ("pytest", "ruff", "httpx", "pip_audit"))'
           docker compose -f docker/docker-compose.yml run --build --rm --no-deps library-tests
           docker compose -f docker/docker-compose.yml run --rm --no-deps library-tests ruff check --no-cache app tests
@@ -376,7 +413,7 @@ jobs:
         run: |
           docker compose -f docker/docker-compose.yml run --rm --no-deps transfer-db-role
           docker compose -f docker/docker-compose.yml exec -T postgres psql -U postgres -d documents_db -v ON_ERROR_STOP=1 < scripts/database/transfer/verify_role.sql
-          docker compose -f docker/docker-compose.yml exec -T document-transfer-service python -m pip --no-cache-dir check
+          docker compose -f docker/docker-compose.yml exec -T document-transfer-service python -c 'import importlib.util; assert importlib.util.find_spec("pip") is None'
           docker compose -f docker/docker-compose.yml exec -T document-transfer-service python -c 'import os, importlib.util; assert os.geteuid() == 10007; assert all(importlib.util.find_spec(name) is None for name in ("pytest", "ruff", "httpx", "pip_audit"))'
           docker compose -f docker/docker-compose.yml exec -T postgres psql -U postgres -d documents_db -v ON_ERROR_STOP=1 < scripts/database/transfer/audit_owners.sql
           docker compose -f docker/docker-compose.yml run --build --rm --no-deps transfer-tests
@@ -388,7 +425,7 @@ jobs:
         run: |
           docker compose -f docker/docker-compose.yml run --rm --no-deps profile-db-role
           docker compose -f docker/docker-compose.yml run --rm --no-deps profile-db-role
-          docker compose -f docker/docker-compose.yml exec -T profile-service python -m pip --no-cache-dir check
+          docker compose -f docker/docker-compose.yml exec -T profile-service python -c 'import importlib.util; assert importlib.util.find_spec("pip") is None'
           docker compose -f docker/docker-compose.yml exec -T profile-service python -c 'import importlib.util, os; assert os.geteuid() == 10008; assert all(importlib.util.find_spec(name) is None for name in ("pytest", "ruff", "httpx", "pip_audit"))'
           docker compose -f docker/docker-compose.yml exec -T profile-service python -c 'import subprocess; version=subprocess.check_output(["dpkg-query","-W","-f=${Version}","zlib1g"],text=True); subprocess.check_call(["dpkg","--compare-versions",version,"ge","1:1.3.dfsg+really1.3.1-1+deb13u1"])'
           docker compose -f docker/docker-compose.yml run --build --rm --no-deps profile-tests

@@ -1,5 +1,7 @@
 # RagDocumentChatServices
 
+> Evidencia transversal vigente: [verificación de entrega](../../docs/release/README.md) e [imágenes finales](../../docs/release/IMAGE_AUDIT.json). Runtime Python sin pip/ensurepip; comprobación del grafo durante el build, herramientas en test/audit. Los escaneos fechados anteriores conservan su valor histórico y no describen esta imagen.
+
 ## Overview
 RagDocumentChatServices es un microservicio basado en FastAPI que permite realizar chat conversacional con contexto recuperado de documentos mediante técnicas RAG (Retrieval-Augmented Generation). Integra búsqueda semántica de fragmentos relevantes y generación de respuestas con LLM, soportando autenticación JWT y persistencia en PostgreSQL.
 
@@ -124,7 +126,7 @@ La búsqueda vectorial usa PyTorch CPU y pesos Safetensors. La primera consulta 
 
 ### Verificación de la imagen
 
-Reconstruye con `docker compose -f docker/docker-compose.yml build --pull rag-document-chat-service`. Usa `pip list --format=freeze` dentro de la imagen para auditar sus versiones instaladas con `pip-audit`. Para consultar el sistema base y los paquetes instalados, ejecuta `trivy image --scanners vuln --severity HIGH,CRITICAL docker-rag-document-chat-service`.
+Reconstruye con `docker compose -f docker/docker-compose.yml build --pull rag-document-chat-service`. La [auditoría transversal vigente](../../docs/release/README.md) captura el inventario con `importlib.metadata` y escanea la imagen inmutable. El grafo se valida durante el build; runtime ya no incluye `pip` ni `ensurepip`. Los resultados siguientes corresponden al artefacto histórico del 4 de noviembre, no a la entrega actual.
 
 El 4 de noviembre de 2026, `pip-audit` no reportó avisos para los paquetes instalados de la imagen `sha256:d5235e0f6b18719a4d0318e784ecb414adad44f06da927c91e2c855856e52d66`. Trivy 0.74.0 reportó nueve CVE altos únicos en Debian 13.7, sin versiones corregidas indicadas.
 

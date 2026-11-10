@@ -1,5 +1,7 @@
 # ConversationServices
 
+> Evidencia transversal vigente: [verificación de entrega](../../docs/release/README.md) e [imágenes finales](../../docs/release/IMAGE_AUDIT.json). Runtime Python sin pip/ensurepip; comprobación del grafo durante el build, herramientas en test/audit. Los escaneos fechados anteriores conservan su valor histórico y no describen esta imagen.
+
 ## Overview
 ConversationServices is a FastAPI microservice for chat conversations, messages, and document associations. It authenticates requests with AuthServices access tokens and stores data in PostgreSQL.
 

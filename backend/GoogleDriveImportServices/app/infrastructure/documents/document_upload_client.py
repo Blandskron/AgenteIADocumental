@@ -22,6 +22,7 @@ class DocumentUploadClient:
                 f"{self._base_url}/api/v1/documents/upload",
                 timeout=self._timeout,
                 deadline=deadline,
+                rejection_codes={409: {"document_relation_changed"}},
                 files={"file": (filename, content, mime_type)},
                 data={
                     "process": "false",
@@ -39,9 +40,11 @@ class DocumentUploadClient:
                 raise ValueError()
             return {"document_id": identifier, "status": value["status"]}
         except ProviderStatusError as exc:
-            if exc.status in {401, 403}:
+            if exc.status in {401, 403} or (
+                exc.status == 409 and exc.code == "document_relation_changed"
+            ):
                 raise UploadRejected(
-                    "Ingestion rejected authorization before document creation."
+                    "Ingestion rejected the request before document creation."
                 ) from None
             raise ExternalServiceError(
                 "Document upload outcome requires review."

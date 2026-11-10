@@ -161,39 +161,43 @@ class AreaRelations(unittest.TestCase):
             self.admin.execute("UPDATE documents SET owner_area_tenant_id='forged'")
 
     def test_legacy_rejection_and_drift_do_not_repair(self):
-        self.admin.execute(
-            "ALTER TABLE tenant_areas DROP CONSTRAINT tenant_areas_parent_tenant_fk"
-        )
-        self.admin.execute(
-            "ALTER TABLE tenant_user_groups DROP CONSTRAINT tenant_assignments_group_tenant_fk, DROP CONSTRAINT tenant_assignments_membership_fk"
-        )
-        self.admin.execute(
-            "UPDATE tenant_areas SET parent_area_id='foreign' WHERE area_id='child'"
-        )
-        with self.assertRaises(psycopg.Error) as e:
-            self.apply()
-        self.assertIn("preflight failed", e.exception.diag.message_primary)
-        self.assertEqual(
+        with self.admin.transaction():
             self.admin.execute(
-                "SELECT count(*) FROM pg_constraint WHERE conname LIKE 'tenant_assignments_%'"
-            ).fetchone()[0],
-            0,
-        )
-        self.assertEqual(
+                "ALTER TABLE tenant_areas DROP CONSTRAINT tenant_areas_parent_tenant_fk"
+            )
             self.admin.execute(
-                "SELECT parent_area_id FROM tenant_areas WHERE area_id='child'"
-            ).fetchone()[0],
-            "foreign",
-        )
-        self.admin.execute(
-            "UPDATE tenant_areas SET parent_area_id=NULL WHERE area_id='child'"
-        )
-        self.admin.execute(
-            "ALTER TABLE tenant_areas ADD CONSTRAINT tenant_areas_parent_tenant_fk CHECK(true)"
-        )
-        with self.assertRaises(psycopg.Error) as e:
-            self.apply()
-        self.assertIn("schema drift", e.exception.diag.message_primary)
+                "ALTER TABLE tenant_user_groups DROP CONSTRAINT tenant_assignments_group_tenant_fk, DROP CONSTRAINT tenant_assignments_membership_fk"
+            )
+            self.admin.execute("SET LOCAL session_replication_role=replica")
+            self.admin.execute(
+                "UPDATE tenant_areas SET parent_area_id='foreign' WHERE area_id='child'"
+            )
+            self.admin.execute("SET LOCAL session_replication_role=origin")
+            with self.assertRaises(psycopg.Error) as e:
+                self.apply()
+            self.assertIn("preflight failed", e.exception.diag.message_primary)
+            self.assertEqual(
+                self.admin.execute(
+                    "SELECT count(*) FROM pg_constraint WHERE conname LIKE 'tenant_assignments_%'"
+                ).fetchone()[0],
+                0,
+            )
+            self.assertEqual(
+                self.admin.execute(
+                    "SELECT parent_area_id FROM tenant_areas WHERE area_id='child'"
+                ).fetchone()[0],
+                "foreign",
+            )
+            self.admin.execute(
+                "UPDATE tenant_areas SET parent_area_id=NULL WHERE area_id='child'"
+            )
+            self.admin.execute(
+                "ALTER TABLE tenant_areas ADD CONSTRAINT tenant_areas_parent_tenant_fk CHECK(true)"
+            )
+            with self.assertRaises(psycopg.Error) as e:
+                self.apply()
+            self.assertIn("schema drift", e.exception.diag.message_primary)
+            raise psycopg.Rollback()
 
     def race(self, insert_first):
         insert = "INSERT INTO tenant_areas(area_id,tenant_id,name,parent_area_id) VALUES('new','a','new','root')"

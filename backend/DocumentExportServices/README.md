@@ -1,5 +1,7 @@
 # DocumentExportServices
 
+> Evidencia transversal vigente: [verificación de entrega](../../docs/release/README.md) e [imágenes finales](../../docs/release/IMAGE_AUDIT.json). Runtime Python sin pip/ensurepip; comprobación del grafo durante el build, herramientas en test/audit. Los escaneos fechados anteriores conservan su valor histórico y no describen esta imagen.
+
 Exporta a PDF una instantánea de pregunta, respuesta y fuentes aportada por el cliente. La identidad y las referencias se validan; el contenido no se certifica ni se recupera desde documentos, historial o LLM. No hay descargas remotas desde el renderer.
 
 **Estado:** cierre funcional EXPORT-008 integrado en el PR #72, con seis checks aprobados. El alcance residual de imágenes se conserva en EXPORT-F01/PLAT-002 y el del frontend en WEB-001. [Tablero](../../ROADMAP.md#documentexportservices).

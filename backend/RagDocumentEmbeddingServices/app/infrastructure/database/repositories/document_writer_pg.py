@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 
 from app.domain.documents import Document, DocumentNotFoundError, DocumentStatus
 from app.infrastructure.database.models import DocumentModel
-from app.shared.errors import AppError, ConflictError
+from app.shared.errors import AppError, ConflictError, DocumentRelationConflict
 
 
 class DocumentWriterPg:
@@ -55,7 +55,7 @@ class DocumentWriterPg:
             if (getattr(exc.orig, "sqlstate", None) == "23503" and
                     getattr(getattr(exc.orig, "diag", None), "constraint_name", None) in {
                         "documents_area_tenant_fk", "documents_owner_area_id_fkey", "documents_tenant_id_fkey"}):
-                raise ConflictError("La empresa o el área cambió. Recarga la sesión antes de volver a cargar.") from None
+                raise DocumentRelationConflict("La empresa o el área cambió. Recarga la sesión antes de volver a cargar.") from None
             raise
 
 

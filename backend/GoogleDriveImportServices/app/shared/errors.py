@@ -35,8 +35,9 @@ class ImportConnectionConflict(AppError):
 
 
 class ProviderStatusError(GoogleDriveError):
-    def __init__(self, status):
+    def __init__(self, status, code=None):
         self.status = status
+        self.code = code
         super().__init__("Unexpected provider status.")
 
 

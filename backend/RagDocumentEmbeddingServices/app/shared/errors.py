@@ -28,3 +28,7 @@ class PayloadTooLarge(AppError):
 
 class ConflictError(AppError):
     pass
+
+
+class DocumentRelationConflict(ConflictError):
+    """Creation rolled back because its tenant/area relation no longer exists."""

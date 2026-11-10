@@ -4,9 +4,10 @@ services:
       context: ../../frontend
       dockerfile: Dockerfile
     container_name: blandskron-frontend
-    env_file:
-      - ../../.env
     environment:
+      VITE_GOOGLE_CLIENT_ID: ${VITE_GOOGLE_CLIENT_ID:-}
+      VITE_GOOGLE_PICKER_API_KEY: ${VITE_GOOGLE_PICKER_API_KEY:-}
+      VITE_GOOGLE_PICKER_APP_ID: ${VITE_GOOGLE_PICKER_APP_ID:-}
       VITE_AUTH_BASE_URL: http://localhost:8001
       VITE_RAG_CHAT_BASE_URL: http://localhost:8002
       VITE_RAG_DOCUMENT_BASE_URL: http://localhost:8003
@@ -19,12 +20,20 @@ services:
       VITE_CONVERSATION_BASE_URL: http://localhost:8008
       VITE_PROFILE_BASE_URL: http://localhost:8015
     ports:
-      - "127.0.0.1:3000:80"
+      - "127.0.0.1:3000:8080"
+    read_only: true
+    cap_drop: ["ALL"]
+    security_opt: ["no-new-privileges:true"]
+    mem_limit: 256m
+    cpus: 1.0
+    pids_limit: 128
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,nodev,size=16777216,uid=101,gid=101,mode=0700
     healthcheck:
       test:
         [
           "CMD-SHELL",
-          "wget -qO- http://127.0.0.1/ >/dev/null && wget -qO- http://127.0.0.1/runtime-config.js | grep -q '__BLANDSKRON_CONFIG__'",
+          "wget -qO- http://127.0.0.1:8080/ >/dev/null && wget -qO- http://127.0.0.1:8080/runtime-config.js | grep -q '__BLANDSKRON_CONFIG__'",
         ]
       interval: 10s
       timeout: 5s

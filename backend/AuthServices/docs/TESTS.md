@@ -22,11 +22,11 @@ docker compose -f docker/docker-compose.yml exec -T auth-service python manage.p
 Get-Content -Raw scripts/database/auth/verify_roles.sql | docker compose -f docker/docker-compose.yml exec -T postgres psql -U postgres -d documents_db -v ON_ERROR_STOP=1
 ```
 
-La prueba SQL revierte la tabla de verificación del rol de migración y comprueba que el rol web carece de DDL permanente y de acceso directo a documentos. CI también ejecuta la prueba sobre una instalación nueva. La validación de OpenAPI terminó sin errores en la revisión de cierre. Mantiene cinco avisos distintos de inferencia de identificadores multiempresa, que el esquema representa como cadenas.
+La prueba SQL revierte la tabla de verificación del rol de migración y comprueba que el rol web carece de DDL permanente y de acceso directo a documentos. CI también ejecuta la prueba sobre una instalación nueva. La validación final de OpenAPI terminó sin errores ni avisos; `makemigrations --check --dry-run`, ejecutado como `auth_migrate`, no detectó cambios pendientes. La suite Auth actual suma 40 pruebas.
 
 ## Dependencias e imagen
 
-Reconstruye la imagen con `docker compose -f docker/docker-compose.yml build --pull auth-service`. CI verifica dependencias instaladas con `python -m pip check`. En un entorno de herramientas separado, consulta avisos con `pip-audit --disable-pip --no-deps -r backend/AuthServices/requirements.txt`.
+Reconstruye la imagen con `docker compose -f docker/docker-compose.yml build --pull auth-service`. La construcción valida dependencias con `python -m pip check` antes de retirar pip y ensurepip del runtime. CI valida también el inventario/grafo de la imagen final mediante la [verificación transversal](../../../docs/release/README.md). En un entorno de herramientas separado, consulta avisos con `pip-audit --disable-pip --no-deps -r backend/AuthServices/requirements.txt`.
 
 Para auditar también el sistema base, exporta `docker-auth-service` con `docker image save` a un archivo temporal y usa `trivy image --input <archivo> --scanners vuln --severity HIGH,CRITICAL`. Registra el identificador de imagen, los hallazgos de Debian y de Python y las versiones corregidas disponibles.
 
@@ -36,7 +36,7 @@ La auditoría del 3 de noviembre de 2026 no encontró avisos con `pip-audit` en 
 
 La prueba `scripts/database/tests/test_tenant_hierarchy.py` se ejecuta desde la imagen Auth contra una DB desechable `plat_hierarchy_*`, después del bootstrap y de `migrations/005_tenant_hierarchy.sql`. Requiere `POSTGRES_DB` y `PLAT_TEST_DATABASE` con ese nombre, `PLAT_TEST_ADMIN_PASSWORD` de prueba y las credenciales de ejemplo de `auth_runtime`. Copiar la prueba y `constraints/004_tenant_hierarchy.sql` a `/tmp/test_tenant_hierarchy.py` y `/tmp/tenant-hierarchy.sql`; ejecutar `python /tmp/test_tenant_hierarchy.py`. CI prepara y retira esa DB automáticamente.
 
-Comprueba movimientos válidos, ciclos propios/descendientes/multifila, padres de otra empresa o ausentes, identidad inmutable, conservación documental, repetibilidad y deriva. Usa logins reales, observa esperas de PostgreSQL y enfrenta movimientos opuestos en Read Committed, Repeatable Read y Serializable, también tras rollback. Verifica HTTP 409 sin datos SQL y reutilización de conexión; las fixtures corruptas nunca salen de su transacción. Esta prueba no activa la migración en el stack general ni cierra el ciclo de vida de usuarios pendiente.
+Comprueba movimientos válidos, ciclos propios/descendientes/multifila, padres de otra empresa o ausentes, identidad inmutable, conservación documental, repetibilidad y deriva. Usa logins reales, observa esperas de PostgreSQL y enfrenta movimientos opuestos en Read Committed, Repeatable Read y Serializable, también tras rollback. Verifica HTTP 409 sin datos SQL y reutilización de conexión; las fixtures corruptas nunca salen de su transacción. La entrega final activa la protección en el esquema general y valida el ciclo de vida con la suite siguiente.
 
 ## Ciclo de vida de membresías — PLAT-001C2
 

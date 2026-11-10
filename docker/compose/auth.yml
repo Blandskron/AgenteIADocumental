@@ -32,6 +32,17 @@ services:
       auth-db-roles:
         condition: service_completed_successfully
 
+  tenant-integrity:
+    image: pgvector/pgvector:pg16
+    environment:
+      PGPASSWORD: admin1234
+    volumes:
+      - ../../scripts/database:/schema:ro
+    command: ["psql", "-h", "postgres", "-U", "postgres", "-d", "documents_db", "-v", "ON_ERROR_STOP=1", "-f", "/schema/migrations/006_tenant_user_links.sql"]
+    depends_on:
+      auth-migrate:
+        condition: service_completed_successfully
+
   auth-service:
     build:
       context: ../../backend/AuthServices
@@ -64,5 +75,5 @@ services:
       timeout: 3s
       retries: 20
     depends_on:
-      auth-migrate:
+      tenant-integrity:
         condition: service_completed_successfully

@@ -2,6 +2,13 @@
 set -eu
 
 js_string() {
+  case "$1" in
+    *'
+'*) echo 'Invalid public runtime configuration.' >&2; exit 1 ;;
+  esac
+  if printf '%s' "$1" | LC_ALL=C grep -q '[[:cntrl:]]'; then
+    echo 'Invalid public runtime configuration.' >&2; exit 1
+  fi
   printf '%s' "$1" | sed 's/\\/\\\\/g; s/"/\\"/g'
 }
 
@@ -20,7 +27,7 @@ google_drive_import_base_url=$(js_string "${VITE_GOOGLE_DRIVE_IMPORT_BASE_URL:-h
 conversation_base_url=$(js_string "${VITE_CONVERSATION_BASE_URL:-http://localhost:8008}")
 profile_base_url=$(js_string "${VITE_PROFILE_BASE_URL:-http://localhost:8015}")
 
-cat > /usr/share/nginx/html/runtime-config.js <<EOF
+cat > /tmp/runtime-config.js <<EOF
 window.__BLANDSKRON_CONFIG__ = {
   VITE_GOOGLE_CLIENT_ID: "${google_client_id}",
   VITE_GOOGLE_PICKER_API_KEY: "${google_picker_api_key}",

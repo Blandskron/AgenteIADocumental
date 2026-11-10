@@ -1,16 +1,17 @@
 {
-  "card": "EXPORT-007",
-  "date_utc": "2026-11-08T17:28:25.911540+00:00",
+  "card": "EXPORT-007 / PLAT-002",
+  "source_report": "docs/release/IMAGE_AUDIT.json",
+  "date_utc": "2026-11-10T00:38:51.253Z",
   "scanner": "Trivy 0.76.2",
   "scanner_image": "aquasec/trivy@sha256:8f6bb947dbc528902e11f2f5be52f7b519f6a39d5d148f41166f2040499768fb",
   "severity_filter": [
     "HIGH",
     "CRITICAL"
   ],
-  "runtime_image_id": "sha256:fc31cbada31176a959541aa78c8032c7b8610a8644c8e19fc3ceba40267cf307",
-  "archive_sha256": "17d698e550d64bd4a31710ab69dc921f2b61f3b65303ba5bc92631ea04d47e25",
-  "scanned_config_id": "sha256:893d113aa21af25a4fda8ba6269c69789fb4c260cbbcf6186631dd7bb6cf417c",
-  "base": "FROM python:3.12-slim@sha256:5e2bdb1b0d542d5039cffb8181c65930093949194a65c365dfb1b0fe13a4fa5b AS base",
+  "runtime_image_id": "sha256:212745a93cd2bc360fd5737af5e4d7e3df4185fd14866b6c21ec4a56bfd62292",
+  "archive_sha256": "4b31017881c7effa90ce4fa4fe86c7e8595b2dbca3fd07fa21e7c0658cd472eb",
+  "saved_config_id": "sha256:3626a311a2edb55ca4d4906f3cfeb097c247cf27f2762a51060312aef1c3f1a9",
+  "scanned_config_id": "sha256:3626a311a2edb55ca4d4906f3cfeb097c247cf27f2762a51060312aef1c3f1a9",
   "os": {
     "Family": "debian",
     "Name": "13.7"
@@ -317,6 +318,7 @@
         "pyyaml>=6.0.1; extra == 'yaml'"
       ]
     },
+    "ensurepip_present": false,
     "pip_vendor_setuptools": [],
     "pip_vendor_pkg_resources_present": false,
     "os_packages": [
@@ -407,10 +409,14 @@
       "tzdata\t2026f-0+deb13u1",
       "util-linux\t2.41.5-0+deb13u1",
       "zlib1g:amd64\t1:1.3.dfsg+really1.3.1-1+deb13u1"
-    ]
+    ],
+    "native_ocr": null
   },
-  "source_hash_normalization": "UTF-8 LF for text, raw bytes for binaries",
   "build_inputs": [
+    {
+      "path": "backend/DocumentExportServices/Dockerfile",
+      "sha256": "62a9d4b9c9d8f3c8cfb3283bf42db71263c31cf3f1fcc7bfb98d86c93d740222"
+    },
     {
       "path": "backend/DocumentExportServices/app/__init__.py",
       "sha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b"
@@ -513,11 +519,11 @@
     },
     {
       "path": "backend/DocumentExportServices/app/infrastructure/pdf/fonts/NotoSans-Bold.ttf",
-      "sha256": "c976e4b1b99edc88775377fcc21692ca4bfa46b6d6ca6522bfda505b28ff9d6a"
+      "sha256": "974943a46c1c1122e2c37309350b89fe52ccb52ffc35248d57ca1735c5c96b7a"
     },
     {
       "path": "backend/DocumentExportServices/app/infrastructure/pdf/fonts/NotoSans-Regular.ttf",
-      "sha256": "b85c38ecea8a7cfb39c24e395a4007474fa5a4fc864f6ee33309eb4948d232d5"
+      "sha256": "303da55fd9f87b80fbf42d7e8a2a06ebc70a4cb1d3aa797166eed6e07f336bce"
     },
     {
       "path": "backend/DocumentExportServices/app/infrastructure/pdf/fonts/README.md",
@@ -588,15 +594,11 @@
       "sha256": "9a71b3a005918f4da7aa726e968f516cf241b0495ebe595a2e8ce7e48942c6c9"
     },
     {
-      "path": "backend/DocumentExportServices/Dockerfile",
-      "sha256": "467d5e9bf763bf057ba7f32e57d74a5636ab5fff16a188cac67a81fd0a3a706b"
-    },
-    {
       "path": "backend/DocumentExportServices/requirements.txt",
       "sha256": "d0dfb17233e44a716d6a7f629a11191ff07f5399917d4e67f13e44744aca66f0"
     }
   ],
-  "build_inputs_sha256": "c5c43a6e21b16fb2ef09997bac92139778cc4f57fe6711194fa8349228fd86e2",
+  "build_inputs_sha256": "64ba5f0c891ec2cb1bdcf10fc6f49f1ce931f92901450b5ad884ac454251e8f8",
   "findings": [
     {
       "id": "CVE-2026-76642",
@@ -604,8 +606,9 @@
       "installed": "1:2.41.5-0+deb13u1",
       "fixed": null,
       "severity": "HIGH",
-      "target": "/audit/runtime-image.tar (debian 13.7)",
-      "disposition": "EXPORT-F01: OS has no fixed version indicated; rebuild/rescan before public deployment."
+      "target": "/audit/image.tar (debian 13.7)",
+      "class": "os-pkgs",
+      "disposition": "Residual OS advisory without fix indicated; local loopback portfolio scope, rebuild/rescan before any deployment."
     },
     {
       "id": "CVE-2026-78408",
@@ -613,8 +616,9 @@
       "installed": "1:2.41.5-0+deb13u1",
       "fixed": null,
       "severity": "HIGH",
-      "target": "/audit/runtime-image.tar (debian 13.7)",
-      "disposition": "EXPORT-F01: OS has no fixed version indicated; rebuild/rescan before public deployment."
+      "target": "/audit/image.tar (debian 13.7)",
+      "class": "os-pkgs",
+      "disposition": "Residual OS advisory without fix indicated; local loopback portfolio scope, rebuild/rescan before any deployment."
     },
     {
       "id": "CVE-2026-78409",
@@ -622,8 +626,9 @@
       "installed": "1:2.41.5-0+deb13u1",
       "fixed": null,
       "severity": "HIGH",
-      "target": "/audit/runtime-image.tar (debian 13.7)",
-      "disposition": "EXPORT-F01: OS has no fixed version indicated; rebuild/rescan before public deployment."
+      "target": "/audit/image.tar (debian 13.7)",
+      "class": "os-pkgs",
+      "disposition": "Residual OS advisory without fix indicated; local loopback portfolio scope, rebuild/rescan before any deployment."
     },
     {
       "id": "CVE-2026-78410",
@@ -631,8 +636,9 @@
       "installed": "1:2.41.5-0+deb13u1",
       "fixed": null,
       "severity": "HIGH",
-      "target": "/audit/runtime-image.tar (debian 13.7)",
-      "disposition": "EXPORT-F01: OS has no fixed version indicated; rebuild/rescan before public deployment."
+      "target": "/audit/image.tar (debian 13.7)",
+      "class": "os-pkgs",
+      "disposition": "Residual OS advisory without fix indicated; local loopback portfolio scope, rebuild/rescan before any deployment."
     },
     {
       "id": "CVE-2026-54369",
@@ -640,8 +646,9 @@
       "installed": "2.3.2-2+b1",
       "fixed": null,
       "severity": "HIGH",
-      "target": "/audit/runtime-image.tar (debian 13.7)",
-      "disposition": "EXPORT-F01: OS has no fixed version indicated; rebuild/rescan before public deployment."
+      "target": "/audit/image.tar (debian 13.7)",
+      "class": "os-pkgs",
+      "disposition": "Residual OS advisory without fix indicated; local loopback portfolio scope, rebuild/rescan before any deployment."
     },
     {
       "id": "CVE-2026-76642",
@@ -649,8 +656,9 @@
       "installed": "2.41.5-0+deb13u1",
       "fixed": null,
       "severity": "HIGH",
-      "target": "/audit/runtime-image.tar (debian 13.7)",
-      "disposition": "EXPORT-F01: OS has no fixed version indicated; rebuild/rescan before public deployment."
+      "target": "/audit/image.tar (debian 13.7)",
+      "class": "os-pkgs",
+      "disposition": "Residual OS advisory without fix indicated; local loopback portfolio scope, rebuild/rescan before any deployment."
     },
     {
       "id": "CVE-2026-78408",
@@ -658,8 +666,9 @@
       "installed": "2.41.5-0+deb13u1",
       "fixed": null,
       "severity": "HIGH",
-      "target": "/audit/runtime-image.tar (debian 13.7)",
-      "disposition": "EXPORT-F01: OS has no fixed version indicated; rebuild/rescan before public deployment."
+      "target": "/audit/image.tar (debian 13.7)",
+      "class": "os-pkgs",
+      "disposition": "Residual OS advisory without fix indicated; local loopback portfolio scope, rebuild/rescan before any deployment."
     },
     {
       "id": "CVE-2026-78409",
@@ -667,8 +676,9 @@
       "installed": "2.41.5-0+deb13u1",
       "fixed": null,
       "severity": "HIGH",
-      "target": "/audit/runtime-image.tar (debian 13.7)",
-      "disposition": "EXPORT-F01: OS has no fixed version indicated; rebuild/rescan before public deployment."
+      "target": "/audit/image.tar (debian 13.7)",
+      "class": "os-pkgs",
+      "disposition": "Residual OS advisory without fix indicated; local loopback portfolio scope, rebuild/rescan before any deployment."
     },
     {
       "id": "CVE-2026-78410",
@@ -676,8 +686,9 @@
       "installed": "2.41.5-0+deb13u1",
       "fixed": null,
       "severity": "HIGH",
-      "target": "/audit/runtime-image.tar (debian 13.7)",
-      "disposition": "EXPORT-F01: OS has no fixed version indicated; rebuild/rescan before public deployment."
+      "target": "/audit/image.tar (debian 13.7)",
+      "class": "os-pkgs",
+      "disposition": "Residual OS advisory without fix indicated; local loopback portfolio scope, rebuild/rescan before any deployment."
     },
     {
       "id": "CVE-2026-76642",
@@ -685,8 +696,9 @@
       "installed": "2.41.5-0+deb13u1",
       "fixed": null,
       "severity": "HIGH",
-      "target": "/audit/runtime-image.tar (debian 13.7)",
-      "disposition": "EXPORT-F01: OS has no fixed version indicated; rebuild/rescan before public deployment."
+      "target": "/audit/image.tar (debian 13.7)",
+      "class": "os-pkgs",
+      "disposition": "Residual OS advisory without fix indicated; local loopback portfolio scope, rebuild/rescan before any deployment."
     },
     {
       "id": "CVE-2026-78408",
@@ -694,8 +706,9 @@
       "installed": "2.41.5-0+deb13u1",
       "fixed": null,
       "severity": "HIGH",
-      "target": "/audit/runtime-image.tar (debian 13.7)",
-      "disposition": "EXPORT-F01: OS has no fixed version indicated; rebuild/rescan before public deployment."
+      "target": "/audit/image.tar (debian 13.7)",
+      "class": "os-pkgs",
+      "disposition": "Residual OS advisory without fix indicated; local loopback portfolio scope, rebuild/rescan before any deployment."
     },
     {
       "id": "CVE-2026-78409",
@@ -703,8 +716,9 @@
       "installed": "2.41.5-0+deb13u1",
       "fixed": null,
       "severity": "HIGH",
-      "target": "/audit/runtime-image.tar (debian 13.7)",
-      "disposition": "EXPORT-F01: OS has no fixed version indicated; rebuild/rescan before public deployment."
+      "target": "/audit/image.tar (debian 13.7)",
+      "class": "os-pkgs",
+      "disposition": "Residual OS advisory without fix indicated; local loopback portfolio scope, rebuild/rescan before any deployment."
     },
     {
       "id": "CVE-2026-78410",
@@ -712,8 +726,9 @@
       "installed": "2.41.5-0+deb13u1",
       "fixed": null,
       "severity": "HIGH",
-      "target": "/audit/runtime-image.tar (debian 13.7)",
-      "disposition": "EXPORT-F01: OS has no fixed version indicated; rebuild/rescan before public deployment."
+      "target": "/audit/image.tar (debian 13.7)",
+      "class": "os-pkgs",
+      "disposition": "Residual OS advisory without fix indicated; local loopback portfolio scope, rebuild/rescan before any deployment."
     },
     {
       "id": "CVE-2026-76642",
@@ -721,8 +736,9 @@
       "installed": "2.41.5-0+deb13u1",
       "fixed": null,
       "severity": "HIGH",
-      "target": "/audit/runtime-image.tar (debian 13.7)",
-      "disposition": "EXPORT-F01: OS has no fixed version indicated; rebuild/rescan before public deployment."
+      "target": "/audit/image.tar (debian 13.7)",
+      "class": "os-pkgs",
+      "disposition": "Residual OS advisory without fix indicated; local loopback portfolio scope, rebuild/rescan before any deployment."
     },
     {
       "id": "CVE-2026-78408",
@@ -730,8 +746,9 @@
       "installed": "2.41.5-0+deb13u1",
       "fixed": null,
       "severity": "HIGH",
-      "target": "/audit/runtime-image.tar (debian 13.7)",
-      "disposition": "EXPORT-F01: OS has no fixed version indicated; rebuild/rescan before public deployment."
+      "target": "/audit/image.tar (debian 13.7)",
+      "class": "os-pkgs",
+      "disposition": "Residual OS advisory without fix indicated; local loopback portfolio scope, rebuild/rescan before any deployment."
     },
     {
       "id": "CVE-2026-78409",
@@ -739,8 +756,9 @@
       "installed": "2.41.5-0+deb13u1",
       "fixed": null,
       "severity": "HIGH",
-      "target": "/audit/runtime-image.tar (debian 13.7)",
-      "disposition": "EXPORT-F01: OS has no fixed version indicated; rebuild/rescan before public deployment."
+      "target": "/audit/image.tar (debian 13.7)",
+      "class": "os-pkgs",
+      "disposition": "Residual OS advisory without fix indicated; local loopback portfolio scope, rebuild/rescan before any deployment."
     },
     {
       "id": "CVE-2026-78410",
@@ -748,8 +766,9 @@
       "installed": "2.41.5-0+deb13u1",
       "fixed": null,
       "severity": "HIGH",
-      "target": "/audit/runtime-image.tar (debian 13.7)",
-      "disposition": "EXPORT-F01: OS has no fixed version indicated; rebuild/rescan before public deployment."
+      "target": "/audit/image.tar (debian 13.7)",
+      "class": "os-pkgs",
+      "disposition": "Residual OS advisory without fix indicated; local loopback portfolio scope, rebuild/rescan before any deployment."
     },
     {
       "id": "CVE-2025-69720",
@@ -757,8 +776,9 @@
       "installed": "6.5+20250216-2",
       "fixed": null,
       "severity": "HIGH",
-      "target": "/audit/runtime-image.tar (debian 13.7)",
-      "disposition": "EXPORT-F01: OS has no fixed version indicated; rebuild/rescan before public deployment."
+      "target": "/audit/image.tar (debian 13.7)",
+      "class": "os-pkgs",
+      "disposition": "Residual OS advisory without fix indicated; local loopback portfolio scope, rebuild/rescan before any deployment."
     },
     {
       "id": "CVE-2026-76642",
@@ -766,8 +786,9 @@
       "installed": "2.41.5-0+deb13u1",
       "fixed": null,
       "severity": "HIGH",
-      "target": "/audit/runtime-image.tar (debian 13.7)",
-      "disposition": "EXPORT-F01: OS has no fixed version indicated; rebuild/rescan before public deployment."
+      "target": "/audit/image.tar (debian 13.7)",
+      "class": "os-pkgs",
+      "disposition": "Residual OS advisory without fix indicated; local loopback portfolio scope, rebuild/rescan before any deployment."
     },
     {
       "id": "CVE-2026-78408",
@@ -775,8 +796,9 @@
       "installed": "2.41.5-0+deb13u1",
       "fixed": null,
       "severity": "HIGH",
-      "target": "/audit/runtime-image.tar (debian 13.7)",
-      "disposition": "EXPORT-F01: OS has no fixed version indicated; rebuild/rescan before public deployment."
+      "target": "/audit/image.tar (debian 13.7)",
+      "class": "os-pkgs",
+      "disposition": "Residual OS advisory without fix indicated; local loopback portfolio scope, rebuild/rescan before any deployment."
     },
     {
       "id": "CVE-2026-78409",
@@ -784,8 +806,9 @@
       "installed": "2.41.5-0+deb13u1",
       "fixed": null,
       "severity": "HIGH",
-      "target": "/audit/runtime-image.tar (debian 13.7)",
-      "disposition": "EXPORT-F01: OS has no fixed version indicated; rebuild/rescan before public deployment."
+      "target": "/audit/image.tar (debian 13.7)",
+      "class": "os-pkgs",
+      "disposition": "Residual OS advisory without fix indicated; local loopback portfolio scope, rebuild/rescan before any deployment."
     },
     {
       "id": "CVE-2026-78410",
@@ -793,8 +816,9 @@
       "installed": "2.41.5-0+deb13u1",
       "fixed": null,
       "severity": "HIGH",
-      "target": "/audit/runtime-image.tar (debian 13.7)",
-      "disposition": "EXPORT-F01: OS has no fixed version indicated; rebuild/rescan before public deployment."
+      "target": "/audit/image.tar (debian 13.7)",
+      "class": "os-pkgs",
+      "disposition": "Residual OS advisory without fix indicated; local loopback portfolio scope, rebuild/rescan before any deployment."
     },
     {
       "id": "CVE-2026-119373",
@@ -802,8 +826,9 @@
       "installed": "3.46.1-7+deb13u2",
       "fixed": null,
       "severity": "HIGH",
-      "target": "/audit/runtime-image.tar (debian 13.7)",
-      "disposition": "EXPORT-F01: OS has no fixed version indicated; rebuild/rescan before public deployment."
+      "target": "/audit/image.tar (debian 13.7)",
+      "class": "os-pkgs",
+      "disposition": "Residual OS advisory without fix indicated; local loopback portfolio scope, rebuild/rescan before any deployment."
     },
     {
       "id": "CVE-2026-119374",
@@ -811,8 +836,9 @@
       "installed": "3.46.1-7+deb13u2",
       "fixed": null,
       "severity": "HIGH",
-      "target": "/audit/runtime-image.tar (debian 13.7)",
-      "disposition": "EXPORT-F01: OS has no fixed version indicated; rebuild/rescan before public deployment."
+      "target": "/audit/image.tar (debian 13.7)",
+      "class": "os-pkgs",
+      "disposition": "Residual OS advisory without fix indicated; local loopback portfolio scope, rebuild/rescan before any deployment."
     },
     {
       "id": "CVE-2026-119379",
@@ -820,8 +846,9 @@
       "installed": "3.46.1-7+deb13u2",
       "fixed": null,
       "severity": "HIGH",
-      "target": "/audit/runtime-image.tar (debian 13.7)",
-      "disposition": "EXPORT-F01: OS has no fixed version indicated; rebuild/rescan before public deployment."
+      "target": "/audit/image.tar (debian 13.7)",
+      "class": "os-pkgs",
+      "disposition": "Residual OS advisory without fix indicated; local loopback portfolio scope, rebuild/rescan before any deployment."
     },
     {
       "id": "CVE-2026-16742",
@@ -829,8 +856,9 @@
       "installed": "257.13-1~deb13u1",
       "fixed": null,
       "severity": "HIGH",
-      "target": "/audit/runtime-image.tar (debian 13.7)",
-      "disposition": "EXPORT-F01: OS has no fixed version indicated; rebuild/rescan before public deployment."
+      "target": "/audit/image.tar (debian 13.7)",
+      "class": "os-pkgs",
+      "disposition": "Residual OS advisory without fix indicated; local loopback portfolio scope, rebuild/rescan before any deployment."
     },
     {
       "id": "CVE-2025-69720",
@@ -838,8 +866,9 @@
       "installed": "6.5+20250216-2",
       "fixed": null,
       "severity": "HIGH",
-      "target": "/audit/runtime-image.tar (debian 13.7)",
-      "disposition": "EXPORT-F01: OS has no fixed version indicated; rebuild/rescan before public deployment."
+      "target": "/audit/image.tar (debian 13.7)",
+      "class": "os-pkgs",
+      "disposition": "Residual OS advisory without fix indicated; local loopback portfolio scope, rebuild/rescan before any deployment."
     },
     {
       "id": "CVE-2026-16742",
@@ -847,8 +876,9 @@
       "installed": "257.13-1~deb13u1",
       "fixed": null,
       "severity": "HIGH",
-      "target": "/audit/runtime-image.tar (debian 13.7)",
-      "disposition": "EXPORT-F01: OS has no fixed version indicated; rebuild/rescan before public deployment."
+      "target": "/audit/image.tar (debian 13.7)",
+      "class": "os-pkgs",
+      "disposition": "Residual OS advisory without fix indicated; local loopback portfolio scope, rebuild/rescan before any deployment."
     },
     {
       "id": "CVE-2026-76642",
@@ -856,8 +886,9 @@
       "installed": "2.41.5-0+deb13u1",
       "fixed": null,
       "severity": "HIGH",
-      "target": "/audit/runtime-image.tar (debian 13.7)",
-      "disposition": "EXPORT-F01: OS has no fixed version indicated; rebuild/rescan before public deployment."
+      "target": "/audit/image.tar (debian 13.7)",
+      "class": "os-pkgs",
+      "disposition": "Residual OS advisory without fix indicated; local loopback portfolio scope, rebuild/rescan before any deployment."
     },
     {
       "id": "CVE-2026-78408",
@@ -865,8 +896,9 @@
       "installed": "2.41.5-0+deb13u1",
       "fixed": null,
       "severity": "HIGH",
-      "target": "/audit/runtime-image.tar (debian 13.7)",
-      "disposition": "EXPORT-F01: OS has no fixed version indicated; rebuild/rescan before public deployment."
+      "target": "/audit/image.tar (debian 13.7)",
+      "class": "os-pkgs",
+      "disposition": "Residual OS advisory without fix indicated; local loopback portfolio scope, rebuild/rescan before any deployment."
     },
     {
       "id": "CVE-2026-78409",
@@ -874,8 +906,9 @@
       "installed": "2.41.5-0+deb13u1",
       "fixed": null,
       "severity": "HIGH",
-      "target": "/audit/runtime-image.tar (debian 13.7)",
-      "disposition": "EXPORT-F01: OS has no fixed version indicated; rebuild/rescan before public deployment."
+      "target": "/audit/image.tar (debian 13.7)",
+      "class": "os-pkgs",
+      "disposition": "Residual OS advisory without fix indicated; local loopback portfolio scope, rebuild/rescan before any deployment."
     },
     {
       "id": "CVE-2026-78410",
@@ -883,8 +916,9 @@
       "installed": "2.41.5-0+deb13u1",
       "fixed": null,
       "severity": "HIGH",
-      "target": "/audit/runtime-image.tar (debian 13.7)",
-      "disposition": "EXPORT-F01: OS has no fixed version indicated; rebuild/rescan before public deployment."
+      "target": "/audit/image.tar (debian 13.7)",
+      "class": "os-pkgs",
+      "disposition": "Residual OS advisory without fix indicated; local loopback portfolio scope, rebuild/rescan before any deployment."
     },
     {
       "id": "CVE-2026-76642",
@@ -892,8 +926,9 @@
       "installed": "1:4.16.0-2+really2.41.5-0+deb13u1",
       "fixed": null,
       "severity": "HIGH",
-      "target": "/audit/runtime-image.tar (debian 13.7)",
-      "disposition": "EXPORT-F01: OS has no fixed version indicated; rebuild/rescan before public deployment."
+      "target": "/audit/image.tar (debian 13.7)",
+      "class": "os-pkgs",
+      "disposition": "Residual OS advisory without fix indicated; local loopback portfolio scope, rebuild/rescan before any deployment."
     },
     {
       "id": "CVE-2026-78408",
@@ -901,8 +936,9 @@
       "installed": "1:4.16.0-2+really2.41.5-0+deb13u1",
       "fixed": null,
       "severity": "HIGH",
-      "target": "/audit/runtime-image.tar (debian 13.7)",
-      "disposition": "EXPORT-F01: OS has no fixed version indicated; rebuild/rescan before public deployment."
+      "target": "/audit/image.tar (debian 13.7)",
+      "class": "os-pkgs",
+      "disposition": "Residual OS advisory without fix indicated; local loopback portfolio scope, rebuild/rescan before any deployment."
     },
     {
       "id": "CVE-2026-78409",
@@ -910,8 +946,9 @@
       "installed": "1:4.16.0-2+really2.41.5-0+deb13u1",
       "fixed": null,
       "severity": "HIGH",
-      "target": "/audit/runtime-image.tar (debian 13.7)",
-      "disposition": "EXPORT-F01: OS has no fixed version indicated; rebuild/rescan before public deployment."
+      "target": "/audit/image.tar (debian 13.7)",
+      "class": "os-pkgs",
+      "disposition": "Residual OS advisory without fix indicated; local loopback portfolio scope, rebuild/rescan before any deployment."
     },
     {
       "id": "CVE-2026-78410",
@@ -919,8 +956,9 @@
       "installed": "1:4.16.0-2+really2.41.5-0+deb13u1",
       "fixed": null,
       "severity": "HIGH",
-      "target": "/audit/runtime-image.tar (debian 13.7)",
-      "disposition": "EXPORT-F01: OS has no fixed version indicated; rebuild/rescan before public deployment."
+      "target": "/audit/image.tar (debian 13.7)",
+      "class": "os-pkgs",
+      "disposition": "Residual OS advisory without fix indicated; local loopback portfolio scope, rebuild/rescan before any deployment."
     },
     {
       "id": "CVE-2026-76642",
@@ -928,8 +966,9 @@
       "installed": "2.41.5-0+deb13u1",
       "fixed": null,
       "severity": "HIGH",
-      "target": "/audit/runtime-image.tar (debian 13.7)",
-      "disposition": "EXPORT-F01: OS has no fixed version indicated; rebuild/rescan before public deployment."
+      "target": "/audit/image.tar (debian 13.7)",
+      "class": "os-pkgs",
+      "disposition": "Residual OS advisory without fix indicated; local loopback portfolio scope, rebuild/rescan before any deployment."
     },
     {
       "id": "CVE-2026-78408",
@@ -937,8 +976,9 @@
       "installed": "2.41.5-0+deb13u1",
       "fixed": null,
       "severity": "HIGH",
-      "target": "/audit/runtime-image.tar (debian 13.7)",
-      "disposition": "EXPORT-F01: OS has no fixed version indicated; rebuild/rescan before public deployment."
+      "target": "/audit/image.tar (debian 13.7)",
+      "class": "os-pkgs",
+      "disposition": "Residual OS advisory without fix indicated; local loopback portfolio scope, rebuild/rescan before any deployment."
     },
     {
       "id": "CVE-2026-78409",
@@ -946,8 +986,9 @@
       "installed": "2.41.5-0+deb13u1",
       "fixed": null,
       "severity": "HIGH",
-      "target": "/audit/runtime-image.tar (debian 13.7)",
-      "disposition": "EXPORT-F01: OS has no fixed version indicated; rebuild/rescan before public deployment."
+      "target": "/audit/image.tar (debian 13.7)",
+      "class": "os-pkgs",
+      "disposition": "Residual OS advisory without fix indicated; local loopback portfolio scope, rebuild/rescan before any deployment."
     },
     {
       "id": "CVE-2026-78410",
@@ -955,8 +996,9 @@
       "installed": "2.41.5-0+deb13u1",
       "fixed": null,
       "severity": "HIGH",
-      "target": "/audit/runtime-image.tar (debian 13.7)",
-      "disposition": "EXPORT-F01: OS has no fixed version indicated; rebuild/rescan before public deployment."
+      "target": "/audit/image.tar (debian 13.7)",
+      "class": "os-pkgs",
+      "disposition": "Residual OS advisory without fix indicated; local loopback portfolio scope, rebuild/rescan before any deployment."
     },
     {
       "id": "CVE-2025-69720",
@@ -964,8 +1006,9 @@
       "installed": "6.5+20250216-2",
       "fixed": null,
       "severity": "HIGH",
-      "target": "/audit/runtime-image.tar (debian 13.7)",
-      "disposition": "EXPORT-F01: OS has no fixed version indicated; rebuild/rescan before public deployment."
+      "target": "/audit/image.tar (debian 13.7)",
+      "class": "os-pkgs",
+      "disposition": "Residual OS advisory without fix indicated; local loopback portfolio scope, rebuild/rescan before any deployment."
     },
     {
       "id": "CVE-2025-69720",
@@ -973,8 +1016,9 @@
       "installed": "6.5+20250216-2",
       "fixed": null,
       "severity": "HIGH",
-      "target": "/audit/runtime-image.tar (debian 13.7)",
-      "disposition": "EXPORT-F01: OS has no fixed version indicated; rebuild/rescan before public deployment."
+      "target": "/audit/image.tar (debian 13.7)",
+      "class": "os-pkgs",
+      "disposition": "Residual OS advisory without fix indicated; local loopback portfolio scope, rebuild/rescan before any deployment."
     },
     {
       "id": "CVE-2026-9538",
@@ -982,8 +1026,9 @@
       "installed": "5.40.1-6+deb13u1",
       "fixed": null,
       "severity": "HIGH",
-      "target": "/audit/runtime-image.tar (debian 13.7)",
-      "disposition": "EXPORT-F01: OS has no fixed version indicated; rebuild/rescan before public deployment."
+      "target": "/audit/image.tar (debian 13.7)",
+      "class": "os-pkgs",
+      "disposition": "Residual OS advisory without fix indicated; local loopback portfolio scope, rebuild/rescan before any deployment."
     },
     {
       "id": "CVE-2026-76642",
@@ -991,8 +1036,9 @@
       "installed": "2.41.5-0+deb13u1",
       "fixed": null,
       "severity": "HIGH",
-      "target": "/audit/runtime-image.tar (debian 13.7)",
-      "disposition": "EXPORT-F01: OS has no fixed version indicated; rebuild/rescan before public deployment."
+      "target": "/audit/image.tar (debian 13.7)",
+      "class": "os-pkgs",
+      "disposition": "Residual OS advisory without fix indicated; local loopback portfolio scope, rebuild/rescan before any deployment."
     },
     {
       "id": "CVE-2026-78408",
@@ -1000,8 +1046,9 @@
       "installed": "2.41.5-0+deb13u1",
       "fixed": null,
       "severity": "HIGH",
-      "target": "/audit/runtime-image.tar (debian 13.7)",
-      "disposition": "EXPORT-F01: OS has no fixed version indicated; rebuild/rescan before public deployment."
+      "target": "/audit/image.tar (debian 13.7)",
+      "class": "os-pkgs",
+      "disposition": "Residual OS advisory without fix indicated; local loopback portfolio scope, rebuild/rescan before any deployment."
     },
     {
       "id": "CVE-2026-78409",
@@ -1009,8 +1056,9 @@
       "installed": "2.41.5-0+deb13u1",
       "fixed": null,
       "severity": "HIGH",
-      "target": "/audit/runtime-image.tar (debian 13.7)",
-      "disposition": "EXPORT-F01: OS has no fixed version indicated; rebuild/rescan before public deployment."
+      "target": "/audit/image.tar (debian 13.7)",
+      "class": "os-pkgs",
+      "disposition": "Residual OS advisory without fix indicated; local loopback portfolio scope, rebuild/rescan before any deployment."
     },
     {
       "id": "CVE-2026-78410",
@@ -1018,13 +1066,16 @@
       "installed": "2.41.5-0+deb13u1",
       "fixed": null,
       "severity": "HIGH",
-      "target": "/audit/runtime-image.tar (debian 13.7)",
-      "disposition": "EXPORT-F01: OS has no fixed version indicated; rebuild/rescan before public deployment."
+      "target": "/audit/image.tar (debian 13.7)",
+      "class": "os-pkgs",
+      "disposition": "Residual OS advisory without fix indicated; local loopback portfolio scope, rebuild/rescan before any deployment."
     }
   ],
   "counts": {
-    "matches": 47,
+    "high": 47,
+    "critical": 0,
+    "fixed_available": 0,
     "unique_ids": 11,
-    "critical": 0
+    "matches": 47
   }
 }

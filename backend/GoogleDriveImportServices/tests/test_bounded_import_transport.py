@@ -241,3 +241,60 @@ def test_upload_and_processing_are_separate_bounded_requests(settings, monkeypat
     )
     assert client.process_document("synthetic", "synthetic")["status"] == "PROCESSED"
     assert len(seen) == 2
+
+
+@pytest.mark.parametrize(
+    "code", ["document_relation_changed", "unknown", None, [], {"private": "value"}]
+)
+def test_only_explicit_creation_rollback_is_a_safe_rejection(
+    settings, monkeypatch, code
+):
+    from app.shared.errors import UploadRejected
+
+    mocked_transport(monkeypatch, lambda request: wire_json({"code": code}, 409))
+    with pytest.raises(ExternalServiceError) as error:
+        DocumentUploadClient(settings).upload(
+            "synthetic", "file.txt", "text/plain", b"synthetic", {}
+        )
+    assert isinstance(error.value, UploadRejected) == (
+        code == "document_relation_changed"
+    )
+
+
+@pytest.mark.parametrize(
+    "headers,body",
+    [
+        ({}, b"invalid-json"),
+        ({}, b"x" * 32769),
+        ({"content-encoding": "gzip"}, b'{"code":"document_relation_changed"}'),
+        ({"content-length": "1"}, b'{"code":"document_relation_changed"}'),
+    ],
+)
+def test_malformed_rejection_is_uncertain_and_closes_body(
+    settings, monkeypatch, headers, body
+):
+    from app.shared.errors import UploadRejected
+
+    stream = Chunks([body])
+    mocked_transport(
+        monkeypatch, lambda request: httpx.Response(409, headers=headers, stream=stream)
+    )
+    with pytest.raises(ExternalServiceError) as error:
+        DocumentUploadClient(settings).upload(
+            "synthetic", "file.txt", "text/plain", b"synthetic", {}
+        )
+    assert not isinstance(error.value, UploadRejected)
+    assert stream.closed
+
+
+def test_success_status_cannot_masquerade_as_known_rejection(settings, monkeypatch):
+    from app.shared.errors import UploadRejected
+
+    mocked_transport(
+        monkeypatch, lambda request: wire_json({"code": "document_relation_changed"})
+    )
+    with pytest.raises(ExternalServiceError) as error:
+        DocumentUploadClient(settings).upload(
+            "synthetic", "file.txt", "text/plain", b"synthetic", {}
+        )
+    assert not isinstance(error.value, UploadRejected)

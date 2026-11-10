@@ -1,5 +1,7 @@
 # DocumentLibraryServices
 
+> Evidencia transversal vigente: [verificación de entrega](../../docs/release/README.md) e [imágenes finales](../../docs/release/IMAGE_AUDIT.json). Runtime Python sin pip/ensurepip; comprobación del grafo durante el build, herramientas en test/audit. Los escaneos fechados anteriores conservan su valor histórico y no describen esta imagen.
+
 Organiza documentos en carpetas personales, favoritos y una vista de documentos actualizados recientemente. Usa FastAPI, SQLAlchemy y el PostgreSQL compartido. El puerto local de Compose es `8006`.
 
 El servicio usa identidad JWT estricta, permisos documentales coherentes, integridad SQL, escrituras transaccionales y listados paginados. Ejecuta como usuario sin privilegios y con un rol PostgreSQL dedicado. El [tablero](../../ROADMAP.md#documentlibraryservices) es la fuente de tareas y [AGENTS.md](AGENTS.md) indica cómo intervenir el servicio.
@@ -207,7 +209,7 @@ LIB-006 prueba fronteras de nombres, IDs, metadatos UTF-8 y profundidad; cuerpos
 
 LIB-007 prueba páginas completas, parciales y vacías, desempates de fechas, límites y offsets, jerarquía, privacidad, revocación y consulta de marcadores por lote. Cuenta consultas para tamaños distintos de página. Las pruebas web ejercitan el controlador real con promesas diferidas: respuestas fuera de orden, cierre y cambio de carpeta, cambio de cliente, remontaje, doble clic, errores, favoritos no cargados y `count=0`; no requieren un proveedor externo.
 
-Las pruebas de rol usan un login real `document_library_runtime` para recorrer las trece operaciones y comprobar denegaciones de lecturas, escrituras, DDL y cambio al propietario de la función. Las operaciones de concurrencia también autentican como runtime, salvo los borrados documentales externos que simulan al servicio propietario de ese borrado. Las fixtures de permisos e integridad usan la conexión administrativa para preparar o alterar datos sintéticos. La auditoría verifica el inventario congelado antes de instalar el auditor. CI repite el job de rol, ejecuta su verificador, comprueba UID, ausencia de herramientas en runtime y `pip check`, y corre pruebas, Ruff y auditoría Python.
+Las pruebas de rol usan un login real `document_library_runtime` para recorrer las trece operaciones y comprobar denegaciones de lecturas, escrituras, DDL y cambio al propietario de la función. Las operaciones de concurrencia también autentican como runtime, salvo los borrados documentales externos que simulan al servicio propietario de ese borrado. Las fixtures de permisos e integridad usan la conexión administrativa para preparar o alterar datos sintéticos. La auditoría verifica el inventario congelado antes de instalar el auditor. CI repite el job de rol, ejecuta su verificador, comprueba UID y ausencia de herramientas en runtime, y corre pruebas, Ruff y auditoría Python. El grafo se valida durante el build antes de retirar pip/ensurepip; la [auditoría transversal](../../docs/release/README.md) conserva el inventario final.
 
 La suite conserva un aviso de deprecación del TestClient de Starlette sobre HTTPX. Es una dependencia de pruebas; revisar su migración de transporte al actualizar las herramientas, sin añadir HTTPX al runtime.
 
