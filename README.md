@@ -48,11 +48,13 @@ El arranque aplica restricciones compartidas de empresa/área/jerarquía y, desp
 
 ## Arranque local con Docker
 
+Ejecuta desde la raíz y pasa `--env-file .env` explícitamente para que Compose utilice ese archivo también al resolver sus includes.
+
 ```powershell
 if (-not (Test-Path .env)) { Copy-Item .env.example .env }
 # Configura POSTGRES_PASSWORD, DJANGO_SECRET_KEY, INITIAL_ADMIN_USERNAME,
 # INITIAL_ADMIN_PASSWORD y GROQ_API_KEY en .env. Usa secretos propios.
-docker compose -f docker/docker-compose.yml up -d --build --wait
+docker compose --env-file .env -f docker/docker-compose.yml up -d --build --wait
 ```
 
 Compose crea el administrador inicial automáticamente después de las migraciones, sin repetirlo ni restablecer su contraseña. Abre `http://localhost:3000`, inicia sesión y carga un documento de prueba. El primer uso de embeddings descarga el modelo. Por ejemplo, carga un archivo que diga «El plazo del contrato de prueba es de 97 días» y pregunta «¿Cuál es el plazo del contrato?».
@@ -152,7 +154,7 @@ En una instalación nueva, configura `INITIAL_ADMIN_USERNAME` y `INITIAL_ADMIN_P
 
 `POSTGRES_PASSWORD` es la contraseña del operador PostgreSQL y `DJANGO_SECRET_KEY` debe ser un secreto aleatorio propio. En una instalación existente conserva el valor actual de PostgreSQL: editar la variable no cambia la contraseña del volumen. No borres volúmenes para resolver una discrepancia; revisa logs y sigue una rotación explícita. Las contraseñas por rol siguen siendo configurables para la demo local; este Compose no es una configuración de producción pública.
 
-pgAdmin queda fuera del arranque habitual. Solo si lo necesitas, configura `PGADMIN_DEFAULT_EMAIL` y `PGADMIN_DEFAULT_PASSWORD` y ejecuta `docker compose -f docker/docker-compose.yml --profile tools up -d pgadmin`. No dispone de contraseña predeterminada.
+pgAdmin queda fuera del arranque habitual. Solo si lo necesitas, configura `PGADMIN_DEFAULT_EMAIL` y `PGADMIN_DEFAULT_PASSWORD` y ejecuta `docker compose --env-file .env -f docker/docker-compose.yml --profile tools up -d pgadmin`. No dispone de contraseña predeterminada.
 
 Los servicios documentales consultan la identidad vigente en Auth antes de autorizar cada operación. Una cuenta deshabilitada, contraseña cambiada o permiso retirado deja de beneficiarse de claims antiguos. Si Auth no está disponible, las operaciones protegidas responden 503. Para ejecución directa, configura `AUTH_IDENTITY_URL` (por defecto `http://127.0.0.1:8001/api/users/me/`); Compose usa la dirección interna de Auth. No hay caché de permisos ni envío por proxies/redirecciones.
 
