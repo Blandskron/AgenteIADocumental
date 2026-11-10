@@ -1,4 +1,4 @@
-import jwt as identity_fixture_jwt
+import sys
 import pytest as identity_fixture_pytest
 
 
@@ -8,7 +8,13 @@ import pytest as identity_fixture_pytest
 
 @identity_fixture_pytest.fixture(autouse=True)
 def isolated_identity_provider(monkeypatch):
+    # The standalone Groq adapter job deliberately installs no HTTP/Auth stack.
+    security = sys.modules.get("app.config.security")
+    if security is None:
+        return
+    import jwt as identity_fixture_jwt
+
     def current(token, identifier, url):
         payload = identity_fixture_jwt.decode(token, options={"verify_signature": False})
         return {"id": identifier, "groups": payload.get("groups", []), "permissions": payload.get("permissions", []), **payload}
-    monkeypatch.setattr("app.config.security.load_current_profile", current)
+    monkeypatch.setattr(security, "load_current_profile", current)
