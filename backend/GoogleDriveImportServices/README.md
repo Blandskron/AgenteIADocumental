@@ -4,7 +4,7 @@
 
 Microservicio responsable de conectar Google Drive con la biblioteca documental de Blandskron Documental.
 
-**Estado:** cierre funcional DRIVE-006/007/008 integrado en los PR #78/#79 con seis checks aprobados. Incluye identidad vigente, OAuth PKCE, diario recuperable, historial paginado y web coordinada. [Tablero](../../ROADMAP.md#googledriveimportservices), [guía para agentes](AGENTS.md), [diagnóstico histórico](docs/HISTORY.md) y [auditoría de imagen](docs/IMAGE_AUDIT.json). Google Drive sigue opcional y deshabilitado por defecto.
+**Estado:** modernización integrada, incluidos los cierres transversales. Consulta la [verificación de entrega](../../docs/release/README.md) para evidencia, alcance local y avisos residuales.
 
 ## Responsabilidad
 
@@ -224,7 +224,7 @@ docker compose -f docker/docker-compose.yml run --build --rm --no-deps drive-aud
 docker compose -f docker/docker-compose.yml config --quiet
 ```
 
-La suite exige DRIVE_TEST_DATABASE_URL sintética y DRIVE_TEST_RUNTIME_PASSWORD, provistas por drive-tests. Fuera de Compose se puede ejecutar el subconjunto sin DB con pytest -m "not postgres"; no usar el runtime de producción para instalar herramientas. pip check y pip-audit del inventario funcional actualizado aprobaron sin avisos Python; el inventario se congela antes de instalar la herramienta y excluye pip, retirado del runtime. Esto no es un escaneo SO ni prueba de ausencia de vulnerabilidades. La advertencia TestClient/httpx se conserva; CI repite la suite y la sonda. BASELINE sigue siendo histórico, sin sobrescribir su evidencia ni atribuirle resultados de esta imagen.
+La suite exige DRIVE_TEST_DATABASE_URL sintética y DRIVE_TEST_RUNTIME_PASSWORD, provistas por drive-tests. Fuera de Compose se puede ejecutar el subconjunto sin DB con pytest -m "not postgres"; no usar el runtime de producción para instalar herramientas. pip check y pip-audit del inventario funcional actualizado aprobaron sin avisos Python; el inventario se congela antes de instalar la herramienta y excluye pip, retirado del runtime. Esto no es un escaneo SO ni prueba de ausencia de vulnerabilidades. La advertencia TestClient/httpx se conserva; CI repite la suite y la sonda.
 
 ## Historial y coordinación web
 
@@ -249,7 +249,7 @@ node scripts/drive/audit_image.mjs --image <imagen-runtime> --out <directorio-pr
 docker compose -f docker/docker-compose.yml run --rm --no-deps -T drive-audit python /drive-checks/verify_runtime_dependencies.py < <directorio-privado-nuevo>/runtime.json
 ```
 
-CI repite auditoría y grafo sobre su imagen y conserva JSON siete días. Falla con crítico, corrección disponible, hallazgo no OS o mismatch del artefacto; un fallo deja evidencia para revisión. El inventario histórico BASELINE no sustituye este escaneo. Reconstruir y reevaluar antes de publicación pública: no se declara ausencia de vulnerabilidades.
+CI repite auditoría y grafo sobre su imagen y conserva JSON siete días. Falla con crítico, corrección disponible, hallazgo no OS o mismatch del artefacto; un fallo deja evidencia para revisión. Reconstruir y reevaluar antes de publicación pública: no se declara ausencia de vulnerabilidades.
 
 ## Copia y restauración
 
@@ -261,6 +261,6 @@ Restaurar primero en un entorno aislado con Google deshabilitado y sin escritura
 
 La entrega transversal actualiza la suite a 175 casos y revisa el contrato con ingesta: un 409 acotado con `code: "document_relation_changed"` confirma que no se creó documento y se registra como rechazo conocido. Un 409 desconocido, malformado, sobredimensionado o con respuesta perdida conserva revisión por resultado incierto; no permite repetir automáticamente el upload. La clasificación comparte límites y deadline del transporte. La evidencia vigente de imágenes y frontend está en la [verificación de entrega](../../docs/release/README.md); los conteos de los párrafos siguientes corresponden al cierre histórico del servicio.
 
-DRIVE-006/007/008 agrupan contrato/web, contenedor y cierre en un incremento. Validación sintética: 165 pruebas PostgreSQL/HTTP, 123 Node y 16 escenarios Chromium del conjunto, npm ci/build, Ruff, Compose, pip check/audit, instalación nueva, actualización repetida, reinicio y sonda Auth real de tres roles. La suite cubre dos dueños, permisos/revocación, state/PKCE/refresh/revoke, formatos/bytes/timeouts, fallos de upload/asociación, replay/leases, retención y privacidad de páginas. Navegador usa APIs simuladas; no es OAuth real. La evidencia de ejecución e integración se registra en ROADMAP: PR #78/#79, seis checks aprobados en CI #165.
+DRIVE-006/007/008 agrupan contrato/web, contenedor y cierre en un incremento. Validación sintética: 165 pruebas PostgreSQL/HTTP, 123 Node y 16 escenarios Chromium del conjunto, npm ci/build, Ruff, Compose, pip check/audit, instalación nueva, actualización repetida, reinicio y sonda Auth real de tres roles. La suite cubre dos dueños, permisos/revocación, state/PKCE/refresh/revoke, formatos/bytes/timeouts, fallos de upload/asociación, replay/leases, retención y privacidad de páginas. Navegador usa APIs simuladas; no es OAuth real. La evidencia de integración consta en los PR #78/#79, seis checks aprobados en CI #165.
 
-Se conserva código de mantenimiento, esquema, pruebas y BASELINE/HISTORY necesarios para operación o trazabilidad; docs solo contiene documentación/JSON, scripts mantenidos viven fuera. La revisión no habilita Google ni usa grants/documentos personales. El cierre funcional original no cerraba PLAT-001, WEB-001, PLAT-002 o DEMO-001. La entrega transversal reevalúa DRIVE-F01 y resuelve las cuatro alertas npm; el tablero registra el estado de revisión e integración.
+Se conservan mantenimiento, esquema, pruebas y evidencia de imagen vigente; docs/ contiene documentación/JSON y los scripts viven fuera. Google continúa opcional y sin grants/documentos personales en las pruebas. La entrega transversal está integrada; consulta docs/release/ para su alcance y avisos.

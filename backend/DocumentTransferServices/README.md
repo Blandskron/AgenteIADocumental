@@ -19,7 +19,7 @@ Search / Chat → flujos documentales + cola independiente del diario
 | Esquema y rol mínimo | [esquema compartido](../../scripts/database/schemas/001_documents.sql), [permisos](../../scripts/database/transfer/permissions.sql), [verificador](../../scripts/database/transfer/verify_role.sql) |
 | Consumidores web | [controlador](../../frontend/src/features/transfers/transfer-controller.js), [flujos](../../frontend/src/features/transfers/document-transfer-flows.js), [hook de Chat](../../frontend/src/features/chat/hooks/useDocumentQuestionFlow.js) |
 
-[AGENTS.md](AGENTS.md) contiene las reglas de intervención; el [tablero](../../ROADMAP.md#documenttransferservices) conserva el historial de entregas y los seguimientos. Los comandos y contratos siguientes describen la versión vigente.
+Consulta [AGENTS.md](AGENTS.md) para colaborar y la [verificación de entrega](../../docs/release/README.md) para evidencia transversal, alcance y avisos.
 
 ## Contrato HTTP
 
@@ -159,8 +159,7 @@ Desde frontend: npm ci, npm test y npm run build. La suite backend tiene 317 cas
 
 Las pruebas usan claves/datos sintéticos, rollback o limpieza por IDs/propietarios sintéticos. Drift y readiness se prueban en bases aisladas que se retiran por nombre comprobado. Requieren TRANSFER_TEST_DATABASE_URL administrativa explícita y DATABASE_URL/PGPASSWORD runtime; Compose configura ambas. No usan create_all ni migran tablas compartidas; no ejecutar en producción. La suite conserva una deprecación del adaptador de pruebas httpx de Starlette, fuera de runtime.
 
-CI valida Compose/UID/herramientas, arranque limpio, roles repetidos, auditoría, pruebas y reinicio sobre el volumen existente. La revisión de cierre comprobó un recorrido HTTP real con access/renovación de Auth, rol mínimo y dos usuarios: privacidad incluso frente a administrador, JSON, preservación documental al limpiar, SET NULL al borrar documentos, activos conservados y contadores. Se verificaron limpieza de eventos/documentos sintéticos y rollback de ambos usuarios; los consumidores aprobaron sus 60 pruebas y build. También se importaron los 30 módulos vigentes tras retirar cinco archivos y cuatro símbolos sin consumidores. Es validación funcional del servicio, no auditoría exhaustiva de seguridad, accesibilidad o recorrido visual completo de navegador. El cierre transversal del sistema sigue en el tablero.
-
+CI valida Compose/UID/herramientas, arranque limpio, roles repetidos, auditoría, pruebas y reinicio sobre el volumen existente. La revisión de cierre comprobó un recorrido HTTP real con access/renovación de Auth, rol mínimo y dos usuarios: privacidad incluso frente a administrador, JSON, preservación documental al limpiar, SET NULL al borrar documentos, activos conservados y contadores. Se verificaron limpieza de eventos/documentos sintéticos y rollback de ambos usuarios; los consumidores aprobaron sus 60 pruebas y build. También se importaron los 30 módulos vigentes tras retirar cinco archivos y cuatro símbolos sin consumidores. Es validación funcional del servicio, no auditoría exhaustiva de seguridad, accesibilidad o recorrido visual completo de navegador. El cierre transversal del sistema está integrado; la evidencia está en docs/release/.
 
 ## Verificación de dependencias e imagen
 
@@ -174,7 +173,7 @@ El 6 de noviembre de 2026 se reconstruyó con --pull y se escaneó el artefacto 
 | Python instalado | pip-audit sin avisos; setuptools no figura como distribución instalada. | Mantener auditoría del inventario realmente construido. |
 | Metadatos vendorizados | Trivy reporta CVE-2025-47273 en setuptools 70.3.0 e indica 78.1.1. pip 26.3 conserva esa declaración en _vendor/vendor.txt. | TRANSFER-F02: revisar actualización upstream y repetir escaneo. Instalar otro setuptools no sustituye esa copia ni demuestra corrección. |
 
-Los CVE distintos de Debian son CVE-2025-69720, CVE-2026-119373, CVE-2026-119374, CVE-2026-119379, CVE-2026-16742, CVE-2026-54369, CVE-2026-76642, CVE-2026-76844, CVE-2026-78408, CVE-2026-78409, CVE-2026-78410, CVE-2026-85091 y CVE-2026-9538. La suma es 50 coincidencias altas de Trivy contando el aviso vendorizado, no 50 vulnerabilidades únicas instaladas. No se validó explotación de cada aviso ni se trasladan estos conteos a otras imágenes; su reconstrucción transversal sigue en PLAT-002.
+Los CVE distintos de Debian son CVE-2025-69720, CVE-2026-119373, CVE-2026-119374, CVE-2026-119379, CVE-2026-16742, CVE-2026-54369, CVE-2026-76642, CVE-2026-76844, CVE-2026-78408, CVE-2026-78409, CVE-2026-78410, CVE-2026-85091 y CVE-2026-9538. La suma es 50 coincidencias altas de Trivy contando el aviso vendorizado, no 50 vulnerabilidades únicas instaladas. No se validó explotación de cada aviso ni se trasladan estos conteos a otras imágenes; la evidencia de la reconstrucción transversal está en docs/release/.
 
 Para reproducir el escaneo sin montar el socket Docker, construye el runtime con --pull, expórtalo mediante docker save y ejecuta Trivy sobre ese archivo; por ejemplo desde la raíz en bash:
 
@@ -186,7 +185,6 @@ docker run --rm -v "$audit_dir:/audit" -v blandskron-trivy-cache:/root/.cache/tr
 ```
 
 Usa un directorio temporal para estos artefactos y no los agregues a Git. El resultado depende de la imagen y de la base de avisos del momento. Los seguimientos son visibles; no se ocultan CVE, no se declara libre de riesgos la imagen y no se presenta esta comprobación como escaneo de secretos o auditoría exhaustiva del código.
-
 
 ## Licencia
 

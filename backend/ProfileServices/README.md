@@ -4,7 +4,7 @@
 
 Servicio FastAPI de perfil y avatar de Blandskron Documental, publicado localmente en `http://localhost:8015`. AuthServices administra identidad, credenciales y membresías; Profile guarda contacto, presentación y avatar privado en `user_profiles` (PostgreSQL).
 
-**Estado:** cierre funcional PROFILE-008 integrado mediante PR #66, con seis checks aprobados. Perfil propio versionado, avatar privado en PostgreSQL, cliente web aislado por sesión y rol mínimo con revocación de Auth. Persisten los seguimientos explícitos de imagen PROFILE-F01/F02, integridad compartida PLAT-001 y frontend WEB-001; el proyecto completo todavía no está terminado. El [tablero](../../ROADMAP.md#profileservices) registra la integración y el trabajo siguiente.
+**Estado:** modernización integrada, incluidos los cierres transversales. Consulta la [verificación de entrega](../../docs/release/README.md) para evidencia, alcance local y avisos residuales.
 
 ## Mapa para trabajar
 
@@ -266,7 +266,7 @@ Usa archivos temporales fuera de Git; los reportes dependen de la base de avisos
 
 ## Cierre del servicio
 
-PROFILE-008 revisa rutas, consumidores web, esquema, privilegios, mantenimiento y archivos. Se retiraron cuatro excepciones sin consumidores (`NotFoundError`, `ValidationError`, `ExternalServiceError`, `DatabaseError`) y dos manejadores HTTP inalcanzables. Se conservan `AppError`/`ConflictError`, los contratos probados, migraciones, preflight, herramientas de mantenimiento y evidencia. El diagnóstico histórico y las decisiones propuestas se sustituyeron por esta operación final; su trazabilidad permanece en Git y el tablero. `docs/` solo conserva evidencia documental; el código está en `app/`, `tests/` y `scripts/`.
+PROFILE-008 revisa rutas, consumidores web, esquema, privilegios, mantenimiento y archivos. Se retiraron cuatro excepciones sin consumidores (`NotFoundError`, `ValidationError`, `ExternalServiceError`, `DatabaseError`) y dos manejadores HTTP inalcanzables. Se conservan `AppError`/`ConflictError`, los contratos probados, migraciones, preflight, herramientas de mantenimiento y evidencia. El diagnóstico histórico y las decisiones propuestas se sustituyeron por esta operación final; su trazabilidad permanece en Git y los PR integrados. `docs/` solo conserva evidencia documental; el código está en `app/`, `tests/` y `scripts/`.
 
 Validación de cierre del 7 de noviembre de 2026:
 

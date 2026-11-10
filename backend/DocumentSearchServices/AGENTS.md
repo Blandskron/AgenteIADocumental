@@ -1,6 +1,6 @@
 # DocumentSearchServices
 
-Lee el [contrato HTTP](README.md) y toma la tarjeta activa del [tablero](../../ROADMAP.md#documentsearchservices).
+Lee el [README](README.md), las [reglas raíz](../../AGENTS.md) y la [verificación de entrega](../../docs/release/README.md). Delimita cada cambio en su PR y conserva los contratos vigentes.
 
 - Aplica los permisos antes de devolver resultados, conteos, fragmentos, snippets o selecciones para el chat.
 - Revisa los consumidores en `frontend/src/features/document-search` si cambias filtros, orden, paginación o campos de respuesta.

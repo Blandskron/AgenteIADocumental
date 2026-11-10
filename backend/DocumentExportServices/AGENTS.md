@@ -1,6 +1,6 @@
 # Trabajar en DocumentExportServices
 
-Lee [README.md](README.md) y [ROADMAP.md](../../ROADMAP.md#documentexportservices), además de [AGENTS raíz](../../AGENTS.md). La evidencia BASELINE es histórica: no confundirla con el contrato actual. Retoma la tarjeta en curso o elige una de Lista; entrega un incremento revisable por PR con su ID y evidencia.
+Lee el [README](README.md), las [reglas raíz](../../AGENTS.md) y la [verificación de entrega](../../docs/release/README.md). Delimita cada cambio en su PR y conserva los contratos vigentes.
 
 ## Límites del servicio
 
@@ -13,9 +13,8 @@ Lee [README.md](README.md) y [ROADMAP.md](../../ROADMAP.md#documentexportservice
 
 ## Verificación y evidencia
 
-- La línea base se midió en Windows con Python 3.12.14, repositorio sustituido y sin lifespan/PostgreSQL/Auth real. No llamar integración a esas sondas ni extrapolar su auditoría a Linux; consulta [BASELINE.json](docs/BASELINE.json).
 - Usa export-tests y export-audit según README. Mantén el worker aislado con deadline/recogida, los límites de páginas/bytes y la licencia/hashes de fuentes; valida contra glifos soportados. La suite completa exige EXPORT_TEST_DATABASE_URL explícita y esquema sintético; para pruebas sin DB usa el marcador not postgres. Agrega pruebas de cada corrección sin conservar expectativas de comportamiento inseguro como garantía. Concurrencia se prueba entre conexiones reales con limpieza verificada.
 - Para renderer, genera casos español/Unicode, fuentes y tablas extensas/multipágina; verifica texto y render PNG con Poppler. No basta con que el archivo tenga bytes o comience por %PDF.
 - Para frontend, ejecuta npm ci/test/build y las pruebas de navegador aplicables. Para Compose, ejecuta config --quiet desde raíz. Para imagen, distingue dependencias instaladas, SO y vendorizados y registra artefacto/avisos.
-- Comprueba cursor/listado y controlador web como contrato conjunto: epoch, abort, sesión estable durante refresh, object URLs en finally y reintentos con misma clave de operación. Para imagen usa audit_image.py/inspect_runtime.py; no montar credenciales o documentos, ni instalar pip/test/audit en runtime para verificarlo. Registra digest e inventario y conserva EXPORT-F01 hasta reevaluación de despliegue.
-- Actualiza README/tablero con comandos, límites y pendientes reales; pasa a En revisión, cierra al integrar. Conserva operación final, migradores y evidencia trazable; EXPORT-F01 y los seguimientos transversales continúan hasta su reevaluación explícita.
+- Comprueba cursor/listado y controlador web como contrato conjunto: epoch, abort, sesión estable durante refresh, object URLs en finally y reintentos con misma clave de operación. Para imagen usa audit_image.py/inspect_runtime.py; no montar credenciales o documentos, ni instalar pip/test/audit en runtime para verificarlo. Registra digest e inventario y reevalúa los avisos antes de otro despliegue.
+- Actualiza README y PR con comandos, contratos, resultados y limitaciones; conserva migradores y evidencia trazable.

@@ -2,6 +2,8 @@
 
 Proyecto de portafolio de Blandskron. Carga un documento, búscalo, haz una pregunta sobre su contenido y exporta la respuesta a PDF.
 
+El alcance de portafolio está completado: once microservicios y validación transversal integrados en el [PR #85](https://github.com/Blandskron/AgenteIADocumental/pull/85), con [CI de main aprobado](https://github.com/Blandskron/AgenteIADocumental/actions/runs/42732350270). La [guía de verificación](docs/release/README.md) conserva comandos reproducibles, evidencia fechada y límites de la demo local. Google Drive real y el despliegue público del stack son opcionales y requieren su propia validación.
+
 La ingesta extrae texto y genera embeddings locales en CPU. El chat recupera fragmentos de PostgreSQL con pgvector según los permisos del usuario y envía el contexto a Groq para redactar una respuesta con fuentes.
 
 ```text
@@ -70,7 +72,7 @@ La biblioteca documental usa `document_library_runtime`, `LIBRARY_DB_PASSWORD` y
 
 El historial de transferencias usa document_transfer_runtime, TRANSFER_DB_PASSWORD, UID 10007 y una función de referencia acotada. Recibe solo configuración explícita y CORS local; usa `TRANSFER_CORS_ORIGINS` y `TRANSFER_DB_POOL_*` para ajustarlos. Su healthcheck comprueba PostgreSQL y la clave pública. El historial carga páginas de 50 con Cargar más y Actualizar historial; el contador indica registros cargados. Cada limpieza retira hasta 1000 procesos terminados propios y conserva los activos; repite la acción si quedan registros. Un fallo del historial muestra un aviso y no repite ni bloquea la operación documental. [Operación y pruebas de Transfer](backend/DocumentTransferServices/README.md#operación).
 
-Profile recibe solo configuración explícita y CORS local. Valida PostgreSQL y clave pública al arrancar y en `/api/v1/health/db`; usa `PROFILE_CORS_ORIGINS`, `PROFILE_DB_POOL_*` y `PROFILE_DB_TIMEOUT_SECONDS` para ajustar operación. Los datos del perfil solo se consultan/editan con la sesión vigente del dueño, sin acceso administrativo global; las antiguas rutas `/api/v1/profiles` y por ID se retiraron. Los avatares son privados, normalizados a JPEG y guardados en PostgreSQL con control de versión. Se retiró `/static`; la web los descarga con JWT. Usa el rol `profile_runtime` y `PROFILE_DB_PASSWORD`, con comprobación booleana de identidad sin leer contraseñas directamente. Los avisos residuales de imagen se registran en PROFILE-F01/F02. [Contrato, operación y pruebas de Profile](backend/ProfileServices/README.md#contrato-actual).
+Profile recibe solo configuración explícita y CORS local. Valida PostgreSQL y clave pública al arrancar y en `/api/v1/health/db`; usa `PROFILE_CORS_ORIGINS`, `PROFILE_DB_POOL_*` y `PROFILE_DB_TIMEOUT_SECONDS` para ajustar operación. Los datos del perfil solo se consultan/editan con la sesión vigente del dueño, sin acceso administrativo global; las antiguas rutas `/api/v1/profiles` y por ID se retiraron. Los avatares son privados, normalizados a JPEG y guardados en PostgreSQL con control de versión. Se retiró `/static`; la web los descarga con JWT. Usa el rol `profile_runtime` y `PROFILE_DB_PASSWORD`, con comprobación booleana de identidad sin leer contraseñas directamente. Los avisos residuales de imagen y su disposición se registran en docs/release/. [Contrato, operación y pruebas de Profile](backend/ProfileServices/README.md#contrato-actual).
 
 Si otra instalación de PostgreSQL ocupa el puerto local 5432, configura `POSTGRES_HOST_PORT=15432` en `.env`. Los contenedores siguen conectándose a PostgreSQL por el puerto interno 5432.
 

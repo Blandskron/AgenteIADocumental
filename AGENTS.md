@@ -1,28 +1,27 @@
-# Cómo colaborar en este repositorio
+# Cómo colaborar en Blandskron Documental
 
-Este repositorio contiene Blandskron Documental, una plataforma documental de portafolio. El [tablero](ROADMAP.md) registra entregas, evidencia y trabajo autorizado. El [README](README.md) es la entrada humana; cada servicio mantiene su contrato y sus instrucciones locales.
+El [README](README.md) es la entrada humana. Cada servicio mantiene su contrato en README e instrucciones locales en AGENTS. La [verificación de entrega](docs/release/README.md) describe comprobaciones, alcance local y avisos residuales. La modernización del portafolio está integrada; los nuevos cambios se delimitan en una issue o en la descripción del PR.
 
 ## Antes de empezar
 
-1. Lee el [tablero](ROADMAP.md), el [README](README.md) y la documentación del servicio que vas a tocar.
-2. Ejecuta `git status --short` y `git branch --show-current`. Conserva los cambios existentes. La base documental está en `main`; comprueba la referencia antes de iniciar una rama.
-3. Elige una tarjeta de **Lista**. Si ya hay una en **En curso**, retómala o registra el bloqueo antes de tomar otra.
+1. Lee el README raíz y la documentación e instrucciones del componente que vas a tocar.
+2. Ejecuta `git status --short` y `git branch --show-current`; conserva los cambios existentes. Comprueba main antes de crear una rama codex/.
+3. Revisa las issues y PR abiertos antes de iniciar trabajo; retoma cambios pendientes antes de duplicarlos.
 
 ## Durante el trabajo
 
-- Usa el ID de la tarjeta en la descripción del cambio. Entrega un incremento que pueda revisarse y validarse por sí solo.
-- Reutiliza los contratos y convenciones del servicio. Si cambias un contrato, revisa sus consumidores, configuración y migraciones.
-- Usa documentos sintéticos. Mantén las claves fuera del código, ejemplos, logs y capturas. Consulta el alcance de publicación indicado en el tablero antes de preparar material para terceros.
+- Entrega incrementos revisables con objetivo, alcance y evidencia en el PR. Reutiliza contratos y convenciones; revisa consumidores, configuración y migraciones cuando cambien.
+- Usa documentos sintéticos. No guardes claves, tokens, datos personales ni credenciales en código, ejemplos, logs o capturas.
+- Código y recursos propios de Blandskron: conserva LICENSE y atribuciones de terceros. La demo se limita a desarrollo local en loopback; Google Drive es opcional.
+- docs/ contiene documentación y evidencia. El código de comprobación y mantenimiento vive en scripts/ y las pruebas en sus suites.
 
-## Operaciones Git autorizadas
+## Git autorizado
 
-- El usuario autorizó crear y eliminar ramas, hacer commits, integrar cambios y hacer push para avanzar el trabajo. Usa `codex/` para las ramas de trabajo.
-- Antes de eliminar una rama o reescribir una referencia, comprueba su destino y si contiene commits que deban conservarse. Antes de hacer push, verifica el remoto, la rama y los cambios que se enviarán.
-- La autorización sobre Git es operativa. El alcance para modificar y compartir el código y los recursos de terceros se resuelve en BD-002.
+El usuario autorizó crear/eliminar ramas, hacer commits, integrar y hacer push. Antes de eliminar o reescribir una referencia, verifica destino y commits por conservar. Antes de hacer push, verifica remoto, rama y cambios. No borres datos o recursos ajenos para limpiar el repositorio.
 
 ## Antes de cerrar
 
-- Ejecuta las comprobaciones de la tarjeta. Para frontend, usa `npm ci` y `npm run build` desde `frontend`. Para Compose, ejecuta `docker compose -f docker/docker-compose.yml config --quiet` desde la raíz con la configuración requerida por la rama.
-- Registra evidencia breve en la tarjeta, incluyendo comandos ejecutados y comprobaciones pendientes. Pásala a **En revisión**. Ciérrala cuando cumpla sus criterios de aceptación.
-- Actualiza el README si cambian comandos, variables requeridas o el recorrido de la demo.
-- Para cambios transversales usa la [verificación de entrega](docs/release/README.md): proyecto dedicado `bd-final-check`, `.env.example`, datos sintéticos y herramientas en `scripts/release/`. `docs/` conserva solo documentación/evidencia. No declares una auditoría histórica como resultado de la imagen actual ni una prueba con proveedor simulado como integración en vivo.
+- Ejecuta las comprobaciones apropiadas al cambio y registra resultados y limitaciones en el PR. Para frontend: `npm ci`, `npm test`, `npm run build` y navegador cuando corresponda. Para Compose: `docker compose -f docker/docker-compose.yml config --quiet` desde raíz con su configuración requerida.
+- Usa el proyecto sintético bd-final-check y .env.example para la verificación transversal; no montes archivos o secretos personales. Conserva migraciones y pruebas necesarias para operar instalaciones existentes.
+- Actualiza el README si cambian comandos, variables o recorrido de la demo. Valida enlaces al retirar documentación.
+- No presentes un escaneo histórico como auditoría de otra imagen, ni un proveedor simulado como integración en vivo. Conserva evidencia fechada y disposición de avisos; reconstruye y reevalúa antes de otro despliegue.
