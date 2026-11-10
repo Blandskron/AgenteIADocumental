@@ -57,6 +57,9 @@ try {
   run("real browser bootstrap login", process.execPath, ["scripts/release/browser_probe.mjs"], { env: isolatedEnv });
   compose("clean-clone postflight", ["run", "--rm", "--no-deps", "database-schema", "psql", "-h", "postgres", "-U", "postgres",
     "-d", "documents_db", "-v", "ON_ERROR_STOP=1", "-f", "/schema/tests/release_cleanup.sql"]);
+  if (run("clone remains clean after installation", "git", ["status", "--porcelain"], { cwd: clone })) throw Error("Installation modified source files");
+  compose("stop fresh synthetic installation preserving its volumes", ["stop"]);
+  run("restore original synthetic volumes and configuration", "docker", [...current, "up", "-d", "--wait", "blandskron-frontend"]);
   report.result = "passed";
 } finally {
   report.finished_utc = new Date().toISOString();
