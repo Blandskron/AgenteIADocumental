@@ -54,7 +54,7 @@ try {
   });
   await page.goto("http://localhost:3000", { timeout: 60000 });
   await page.getByLabel("Usuario").fill(process.env.INITIAL_ADMIN_USERNAME);
-  await page.getByLabel("Password", { exact: true }).fill(process.env.INITIAL_ADMIN_PASSWORD);
+  await page.getByLabel(/^(Contraseña|Password)$/).fill(process.env.INITIAL_ADMIN_PASSWORD);
   const identityResponse = page.waitForResponse(response => response.url() === "http://localhost:8001/api/users/me/" && response.status() === 200);
   await page.getByRole("button", { name: "Ingresar", exact: true }).click();
   await page.getByRole("button", { name: "synthetic-release-admin" }).waitFor({ timeout: 60000 });

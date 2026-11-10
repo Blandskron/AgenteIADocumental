@@ -1,9 +1,9 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { createTransfer, listTransfers, updateTransfer } from "../src/features/transfers/api/transfers.api.js";
-import { transferFailureUpdate } from "../src/features/transfers/lib/failure-update.js";
-import { parseResponse } from "../src/shared/api/httpClient.js";
+import { createTransfer, listTransfers, updateTransfer } from "../src/features/transfers/api/transfers.api.ts";
+import { transferFailureUpdate } from "../src/features/transfers/lib/failure-update.ts";
+import { parseResponse } from "../src/shared/api/httpClient.ts";
 
 test("failure preserves server progress and records conversation without reattaching revoked documents", () => {
   const payload = transferFailureUpdate(new Error("Error sintético"), { conversation_id: "session" });

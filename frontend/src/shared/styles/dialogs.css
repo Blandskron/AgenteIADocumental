@@ -1,0 +1,209 @@
+dialog {
+  color: var(--foreground);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow);
+  max-width: calc(100vw - 24px);
+  max-height: calc(100dvh - 24px);
+}
+dialog::backdrop {
+  background: #0c172a80;
+  backdrop-filter: blur(4px);
+}
+dialog button {
+  color: var(--foreground);
+}
+.modal-overlay,
+.move-document-backdrop,
+.document-preview-backdrop {
+  position: fixed;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  z-index: 60;
+}
+.move-document-modal {
+  width: min(560px, calc(100vw - 24px));
+  padding: 0;
+  overflow: auto;
+}
+.move-document-modal > header,
+.document-preview-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 20px 24px;
+  border-bottom: 1px solid var(--border);
+}
+.move-document-modal header p,
+.document-preview-header p {
+  margin: 0 0 4px;
+  font-size: 12px;
+  color: var(--foreground-muted);
+}
+.move-document-modal h3,
+.document-preview-header h3 {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.move-folder-list {
+  padding: 16px 24px;
+  display: grid;
+  gap: 8px;
+}
+.move-folder-list button {
+  justify-content: flex-start;
+  text-align: left;
+}
+.move-folder-list small {
+  margin-left: auto;
+  color: var(--foreground-muted);
+}
+.assign-document-form {
+  display: grid;
+  gap: 16px;
+  padding: 24px;
+}
+.assign-document-form label {
+  display: grid;
+  gap: 8px;
+}
+.assign-document-form .assign-checkbox {
+  display: flex;
+  align-items: center;
+}
+.assign-document-form footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+.document-preview-modal {
+  width: min(1100px, calc(100vw - 24px));
+  height: 85dvh;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+}
+.document-preview-actions {
+  display: flex;
+  gap: 8px;
+}
+.document-preview-frame {
+  width: 100%;
+  flex: 1;
+  min-height: 0;
+  border: 0;
+  background: var(--surface-subtle);
+}
+.document-preview-empty {
+  padding: 40px 24px;
+  text-align: center;
+  color: var(--foreground-muted);
+}
+.export-history {
+  width: min(680px, calc(100vw - 24px));
+  padding: 28px;
+  overflow: auto;
+}
+.export-history h2 {
+  margin-top: 0;
+}
+.export-history ul {
+  list-style: none;
+  padding: 0;
+}
+.export-history li {
+  padding: 16px 0;
+  border-bottom: 1px solid var(--border);
+  overflow-wrap: anywhere;
+}
+.export-history li span {
+  display: block;
+  font-size: 12px;
+  color: var(--foreground-muted);
+  margin: 6px 0;
+}
+.export-history button {
+  margin: 4px 4px 4px 0;
+}
+.export-history p {
+  color: var(--foreground-muted);
+}
+.export-history [role="alert"] {
+  color: var(--danger);
+}
+.transfer-modal {
+  width: min(520px, calc(100vw - 24px));
+  padding: 24px;
+  overflow: auto;
+}
+.transfer-modal h3 {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 0 32px 24px 0;
+}
+.transfer-close {
+  position: absolute;
+  right: 16px;
+  top: 16px;
+  border: 0;
+  background: transparent;
+  color: var(--foreground);
+  padding: 8px;
+}
+.transfer-row {
+  padding: 16px 0;
+  border-bottom: 1px solid var(--border);
+}
+.transfer-item {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+.transfer-item > div {
+  flex: 1;
+  min-width: 0;
+}
+.transfer-item strong {
+  display: block;
+  overflow-wrap: anywhere;
+}
+.transfer-item span {
+  font-size: 12px;
+  color: var(--foreground-muted);
+}
+.transfer-item b {
+  font-size: 12px;
+  color: var(--accent);
+}
+.transfer-progress {
+  height: 4px;
+  background: var(--surface-subtle);
+  border-radius: 4px;
+  margin-top: 12px;
+  overflow: hidden;
+}
+.transfer-progress span {
+  display: block;
+  background: var(--accent);
+  height: 100%;
+}
+.transfer-state {
+  color: var(--foreground-muted);
+  font-size: 12px;
+}
+.transfer-state.error {
+  color: var(--danger);
+}
+.transfer-modal > button:not(.transfer-close) {
+  min-height: 40px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-subtle);
+  color: var(--foreground);
+  padding: 8px 12px;
+  margin: 4px;
+}

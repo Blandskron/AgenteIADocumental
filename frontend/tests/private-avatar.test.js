@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { getProfilePicture, uploadProfilePicture, removeProfilePicture } from "../src/features/profile/api/profile.api.js";
-import { loadPrivateAvatar } from "../src/features/profile/api/private-avatar.js";
+import { getProfilePicture, uploadProfilePicture, removeProfilePicture } from "../src/features/profile/api/profile.api.ts";
+import { loadPrivateAvatar } from "../src/features/profile/api/private-avatar.ts";
 
 const path = "/api/v1/profile/avatar?version=7";
 const tick = () => new Promise((resolve) => setImmediate(resolve));

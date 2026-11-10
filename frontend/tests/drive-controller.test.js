@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { createDriveController } from "../src/features/google-drive-import/drive-controller.js";
-import { listGoogleDriveImports, listGoogleDriveImportFiles } from "../src/features/google-drive-import/api/google-drive-import.api.js";
+import { createDriveController } from "../src/features/google-drive-import/drive-controller.ts";
+import { listGoogleDriveImports, listGoogleDriveImportFiles } from "../src/features/google-drive-import/api/google-drive-import.api.ts";
 
 const deferred = () => { let resolve, reject; const promise = new Promise((a, b) => { resolve = a; reject = b; }); return { promise, resolve, reject }; };
 function fixture() {

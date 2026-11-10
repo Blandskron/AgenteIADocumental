@@ -1,9 +1,9 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { createExportController } from "../src/features/document-export/export-controller.js";
-import { savePdf } from "../src/features/document-export/download-pdf.js";
-import { listExports } from "../src/features/document-export/api/document-export.api.js";
-import { createSessionClient } from "../src/shared/api/session-client.js";
+import { createExportController } from "../src/features/document-export/export-controller.ts";
+import { savePdf } from "../src/features/document-export/download-pdf.ts";
+import { listExports } from "../src/features/document-export/api/document-export.api.ts";
+import { createSessionClient } from "../src/shared/api/session-client.ts";
 
 const deferred = () => { let resolve, reject; const promise = new Promise((a, b) => { resolve = a; reject = b; }); return { promise, resolve, reject }; };
 const row = (id) => ({ export_id: id, filename: `${id}.pdf`, title: id, status: "COMPLETED", file_size_bytes: 30 });

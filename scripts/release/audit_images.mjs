@@ -40,7 +40,8 @@ function inputs(folder) {
   const appFiles = folder === "AuthServices" ? [...walk("backend/AuthServices/core"), ...walk("backend/AuthServices/users"),
     "backend/AuthServices/entrypoint.sh", "backend/AuthServices/manage.py"] : folder ? walk(`backend/${folder}/app`) : [];
   const files = folder ? [`backend/${folder}/Dockerfile`, `backend/${folder}/requirements.txt`, ...appFiles]
-    : ["frontend/Dockerfile", "frontend/nginx.conf", "frontend/package.json", "frontend/package-lock.json",
+    : ["frontend/Dockerfile", "frontend/.dockerignore", "frontend/nginx.conf", "frontend/package.json", "frontend/package-lock.json",
+      "frontend/tsconfig.json", "frontend/vite.config.ts", "frontend/public/runtime-config.js", "frontend/public/blandskron.svg",
       "frontend/index.html", ...walk("frontend/docker-entrypoint.d"), ...walk("frontend/src")];
   return files.sort().map((file) => ({ path: file, sha256: hash(fs.readFileSync(path.join(root, file), "utf8").replaceAll("\r\n", "\n")) }));
 }

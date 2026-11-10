@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { createProfileController } from "../src/features/profile/model/profile-controller.js";
+import { createProfileController } from "../src/features/profile/model/profile-controller.ts";
 
 const deferred = () => { let resolve, reject; const promise = new Promise((a, b) => { resolve = a; reject = b; }); return { promise, resolve, reject }; };
 const profile = (version = 1) => ({ version, email: "synthetic@example.com", additional_info: {} });

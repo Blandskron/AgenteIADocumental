@@ -1,2 +1,4 @@
 /* Author layout classes must not reveal a closed native dialog. */
-dialog:not([open]) { display: none; }
+dialog:not([open]) {
+  display: none;
+}

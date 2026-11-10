@@ -1,5 +1,5 @@
 import { test, expect } from "@playwright/test";
-import { normalizeAuthUser } from "../../src/entities/auth/model/auth.user.js";
+import { normalizeAuthUser } from "../../src/entities/auth/model/auth.user.ts";
 
 const person = (id = 123, admin = false) => ({ id, username: `synthetic-${id}`, is_superuser: admin,
   active_tenant_id: "tenant-one", active_role: admin ? "TENANT_ADMIN" : "USER", active_permissions: ["use_chat"],
@@ -64,15 +64,15 @@ test("a late rejection from the previous account cannot log out a new login", as
   await page.goto("/profile");
   await expect.poll(() => pending).toBe(true);
   await page.locator(".sidebar-account").click();
-  await page.getByRole("menuitem", { name: "Cerrar sesion" }).click();
+  await page.getByRole("button", { name: "Cerrar sesion" }).click();
   await page.getByLabel("Usuario", { exact: true }).fill(next.username);
-  await page.getByLabel("Password", { exact: true }).fill("synthetic-password");
+  await page.getByLabel("Contraseña", { exact: true }).fill("synthetic-password");
   await page.getByRole("button", { name: "Ingresar", exact: true }).click();
   await expect(page.locator(".sidebar-account")).toContainText(next.username);
   gate.release();
   await expect.poll(async () => page.evaluate(() => JSON.parse(localStorage.getItem("blandskron.auth"))?.user?.id)).toBe(456);
   await page.locator(".sidebar-account").click();
-  await expect(page.getByRole("menuitem", { name: "Cerrar sesion" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Cerrar sesion" })).toBeVisible();
   expect(errors).toEqual([]);
 });
 

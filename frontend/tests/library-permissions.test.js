@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { listFolders } from "../src/features/document-library/api/document-library.api.js";
+import { listFolders } from "../src/features/document-library/api/document-library.api.ts";
 
 for (const [count, expected] of [[0, 0], [2, 2], [undefined, 0]]) {
   test(`folder count ${count} does not inherit a historical metadata count`, async () => {

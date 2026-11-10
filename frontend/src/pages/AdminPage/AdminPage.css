@@ -1,5 +1,5 @@
 .admin-screen {
-  height: 100vh;
+  height: 100dvh;
   overflow: hidden;
   background: var(--black);
   color: var(--text);
@@ -50,7 +50,7 @@
 .admin-alert,
 .admin-loading {
   border: 1px solid var(--line);
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   background: var(--panel);
   padding: 12px 16px;
   display: flex;
@@ -62,27 +62,27 @@
 }
 
 .admin-alert.error {
-  border-color: #ef4444;
-  background: #2c0d0d;
-  color: #fca5a5;
+  border-color: var(--danger);
+  background: var(--danger-subtle);
+  color: var(--danger);
 }
 
 [data-theme="light"] .admin-alert.error {
-  color: #b91c1c;
-  background: #fee2e2;
-  border-color: #f87171;
+  color: var(--danger);
+  background: var(--danger-subtle);
+  border-color: var(--danger);
 }
 
 .admin-alert.success {
-  border-color: #22c55e;
-  background: #06220f;
-  color: #86efac;
+  border-color: var(--success);
+  background: var(--accent-subtle);
+  color: var(--success);
 }
 
 [data-theme="light"] .admin-alert.success {
-  color: #15803d;
-  background: #dcfce7;
-  border-color: #4ade80;
+  color: var(--success);
+  background: var(--accent-subtle);
+  border-color: var(--success);
 }
 
 .admin-loading {
@@ -171,7 +171,7 @@
   width: 40px;
   height: 40px;
   border: 1px solid var(--line);
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   background: var(--panel-2);
   display: grid;
   place-items: center;
@@ -206,11 +206,11 @@
   width: 100%;
   min-height: 40px;
   border: 1px solid var(--line);
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   background: var(--panel-2);
   color: var(--text);
   padding: 0 12px;
-  outline: none;
+
   transition: all 0.2s ease;
 }
 
@@ -296,7 +296,7 @@
 
 .admin-compact-list div {
   border: 1px solid var(--line);
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   background: var(--panel-2);
   padding: 10px 12px;
   display: grid;
@@ -316,7 +316,7 @@
 
 .admin-empty {
   border: 1px dashed var(--line);
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   padding: 12px;
   margin: 0;
 }

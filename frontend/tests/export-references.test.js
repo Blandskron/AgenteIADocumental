@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { createChatMessagePdf, exportReferences } from "../src/features/document-export/api/document-export.api.js";
+import { createChatMessagePdf, exportReferences } from "../src/features/document-export/api/document-export.api.ts";
 
 test("pending messages export a snapshot without a local message reference", async () => {
   for (const messageId of [undefined, "local-pending", "blandskron-local"]) {

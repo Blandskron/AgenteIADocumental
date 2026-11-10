@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { openGoogleDrivePicker } from "../src/features/google-drive-import/google-picker.js";
+import { openGoogleDrivePicker } from "../src/features/google-drive-import/google-picker.ts";
 
 test("disabled integration cannot contact Google even with an existing connection", async () => {
   await assert.rejects(openGoogleDrivePicker({ appId: "123", clientId: "client", developerKey: "synthetic",

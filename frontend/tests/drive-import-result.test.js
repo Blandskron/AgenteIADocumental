@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { importGoogleDriveFiles } from "../src/features/google-drive-import/api/google-drive-import.api.js";
-import { getImportWarning } from "../src/features/google-drive-import/import-result.js";
+import { importGoogleDriveFiles } from "../src/features/google-drive-import/api/google-drive-import.api.ts";
+import { getImportWarning } from "../src/features/google-drive-import/import-result.ts";
 
 test("partial folder association preserves the imported document and its warning", async () => {
   const result = await importGoogleDriveFiles(async () => ({

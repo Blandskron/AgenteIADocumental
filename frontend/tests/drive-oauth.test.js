@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { webcrypto } from "node:crypto";
-import { completeDriveAuthorization, startDriveAuthorization } from "../src/features/google-drive-import/oauth-flow.js";
+import { completeDriveAuthorization, startDriveAuthorization } from "../src/features/google-drive-import/oauth-flow.ts";
 
 function browser(path = "/documents") {
   const storage = new Map();
