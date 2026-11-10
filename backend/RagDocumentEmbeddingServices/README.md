@@ -152,3 +152,7 @@ Este proyecto está licenciado bajo los términos del archivo LICENSE del reposi
 ## Conflictos de empresa y área
 
 Con las [relaciones SQL activadas por defecto](../../scripts/database/README.md#áreas-y-documentos--segundo-incremento-plat-001b), una empresa/área cambiada o inválida durante la carga devuelve 409 con `code: "document_relation_changed"`. El escritor revierte también fallos al commit y permite reutilizar la sesión; la capa de carga retira el storage recién creado y no inicia procesamiento. Solo ese código garantiza el rechazo sin documento creado; otros conflictos o fallos de compensación no llevan el marcador. Recargar la sesión antes de reenviar. No cambia el contrato de cargas globales o sin área.
+
+## Identidad vigente
+
+Antes de autorizar, el servicio valida el JWT y consulta el perfil actual de Auth en `AUTH_IDENTITY_URL` (Compose: `http://auth-service:8001/api/users/me/`; ejecución directa: loopback 8001). Usa grupos, membresías y privilegios actuales, incluidos sus alias heredados. Auth rechaza cuentas inactivas, eliminadas o con contraseña cambiada. Error de autenticación: 401; Auth indisponible o respuesta inválida: 503. No hay caché, proxies de entorno ni redirecciones del Bearer. El timeout de socket es de cinco segundos. Las pruebas unitarias simulan Auth; la verificación transversal comprueba revocación con Auth/PostgreSQL reales.

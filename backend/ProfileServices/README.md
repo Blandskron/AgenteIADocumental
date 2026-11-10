@@ -275,7 +275,7 @@ Validación de cierre del 7 de noviembre de 2026:
 - **36 módulos importados** sin ejecutar el arranque. Instalación aislada con volúmenes nuevos; sonda HTTP con JWT reales para tres usuarios/roles, fotos distintas por dueño, reemplazo/borrado, revocación y limpieza SQL de los tres perfiles sintéticos. Reaprovisionamiento y reinicio saludable sobre el mismo volumen.
 - Auditoría actualizada al artefacto final en [IMAGE_AUDIT.json](docs/IMAGE_AUDIT.json), sin cambio de los avisos residuales. Se preservan fuentes y filas heredadas; no se montaron uploads personales ni se ejecutaron IA/OAuth reales.
 
-El cierre funcional quedó integrado mediante PR #66. Permanecen PROFILE-F01/F02 (imagen), PLAT-001 (integridad compartida), PLAT-002 (reevaluación del conjunto) y WEB-001 (frontend general, incluidas cuatro alertas npm). Estos seguimientos no se cierran por finalizar Profile. El siguiente microservicio es DocumentExportServices mediante EXPORT-001; la entrega global sigue pendiente.
+El cierre funcional se integró mediante PR #66. Los seguimientos transversales posteriores (imagen, integridad y web) se integraron en PR #85; consulta `docs/release/` para la evidencia vigente y sus límites. Los resultados anteriores se conservan como históricos.
 
 ## Licencia
 

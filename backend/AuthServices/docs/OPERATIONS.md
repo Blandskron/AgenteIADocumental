@@ -1,6 +1,6 @@
 # Operación y configuración de AuthServices
 
-Todos los comandos de Compose parten de la raíz. Para el arranque inicial y la creación explícita del administrador, sigue el [README de AuthServices](../README.md).
+Todos los comandos de Compose parten de la raíz. Para el arranque inicial y la creación automática del administrador, sigue el [README de AuthServices](../README.md).
 
 ## Flujo de arranque
 
@@ -8,13 +8,14 @@ Todos los comandos de Compose parten de la raíz. Para el arranque inicial y la 
 2. `auth-db-roles` aprovisiona `auth_migrate` y `auth_runtime`. Al actualizar, transfiere al rol de migración solo la propiedad de las tablas de Django.
 3. `auth-migrate` aplica migraciones versionadas y concede acceso al rol web. Usa claves efímeras y carece del volumen de firma.
 4. `tenant-integrity` aplica la migración 006 como operador del esquema, después de Django. Una referencia inconsistente o deriva detiene el arranque.
-5. `auth-service` sirve HTTP en loopback con Gunicorn como UID 10001. El entrypoint prepara permisos de los volúmenes y la imagen incluye los archivos estáticos.
+5. `auth-bootstrap` ejecuta `bootstrap_admin` con credenciales iniciales explícitas, rol DML `auth_runtime`, bloqueo asesor transaccional y claves efímeras. No promueve cuentas existentes ni cambia contraseñas.
+6. `auth-service` sirve HTTP en loopback con Gunicorn como UID 10001. El entrypoint prepara permisos de los volúmenes y la imagen incluye los archivos estáticos.
 
 Si un paso falla, consulta su salida antes de reintentar:
 
 ```powershell
-docker compose -f docker/docker-compose.yml ps -a auth-db-roles auth-migrate tenant-integrity auth-service
-docker compose -f docker/docker-compose.yml logs auth-db-roles auth-migrate tenant-integrity auth-service
+docker compose -f docker/docker-compose.yml ps -a auth-db-roles auth-migrate tenant-integrity auth-bootstrap auth-service
+docker compose -f docker/docker-compose.yml logs auth-db-roles auth-migrate tenant-integrity auth-bootstrap auth-service
 ```
 
 Para volver a la imagen anterior, conserva los volúmenes y verifica la compatibilidad del esquema aplicado. El usuario de base de la versión anterior de Compose sigue teniendo acceso a las tablas tras el cambio de propiedad.
@@ -25,7 +26,7 @@ Una baja definitiva elimina membresías y asignaciones; no elimina documentos ni
 
 ## Entornos y secretos
 
-Compose usa `AUTH_ENV=development`. Si necesitas credenciales locales propias para los roles, exporta `AUTH_DB_RUNTIME_PASSWORD` y `AUTH_DB_MIGRATE_PASSWORD` en el proceso que ejecuta Compose. El `.env` raíz también lo leen otros servicios, por lo que estas credenciales deben quedarse fuera de ese archivo.
+Compose usa `AUTH_ENV=development`. Si necesitas credenciales locales propias para los roles, exporta `AUTH_DB_RUNTIME_PASSWORD` y `AUTH_DB_MIGRATE_PASSWORD` en el proceso que ejecuta Compose. Compose inyecta solamente las variables explícitas de cada servicio; Auth ya no carga otro `.env.example`. El `.env` raíz suministra `POSTGRES_PASSWORD`, `DJANGO_SECRET_KEY` y las credenciales iniciales; conserva los valores de instalaciones existentes al actualizar.
 
 En un despliegue separado con `AUTH_ENV=production`, inyecta las variables siguientes desde el sistema de secretos. La validación efectiva está en [core/environment.py](../core/environment.py).
 

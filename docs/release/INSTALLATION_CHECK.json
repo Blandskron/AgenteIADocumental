@@ -1,0 +1,97 @@
+{
+  "started_utc": "2026-11-10T12:52:07.382Z",
+  "source_commit": "b2dbb47b3165741de3c8ec2dbaeaec38120b2f37",
+  "steps": [
+    {
+      "label": "resolve source revision",
+      "exit_code": 0
+    },
+    {
+      "label": "clone committed source without personal files",
+      "exit_code": 0
+    },
+    {
+      "label": "checkout tested revision",
+      "exit_code": 0
+    },
+    {
+      "label": "clean clone status",
+      "exit_code": 0
+    },
+    {
+      "label": "create private synthetic configuration",
+      "exit_code": 0
+    },
+    {
+      "label": "stop only the dedicated synthetic stack",
+      "exit_code": 0
+    },
+    {
+      "label": "clean installation and automatic migrations/bootstrap",
+      "exit_code": 0
+    },
+    {
+      "label": "real embeddings, search, RAG/PDF and isolation from clean clone",
+      "exit_code": 0
+    },
+    {
+      "label": "create private lifecycle probe",
+      "exit_code": 0
+    },
+    {
+      "label": "bootstrap login/upload/change password",
+      "exit_code": 0
+    },
+    {
+      "label": "complete stop preserving fresh volumes",
+      "exit_code": 0
+    },
+    {
+      "label": "restart clean installation",
+      "exit_code": 0
+    },
+    {
+      "label": "verify preserved user, password and document",
+      "exit_code": 0
+    },
+    {
+      "label": "second startup of clean installation",
+      "exit_code": 0
+    },
+    {
+      "label": "verify no duplicates and no password reset",
+      "exit_code": 0
+    },
+    {
+      "label": "clean only owned lifecycle fixtures",
+      "exit_code": 0
+    },
+    {
+      "label": "remove disposable probe container",
+      "exit_code": 0
+    },
+    {
+      "label": "real browser bootstrap login",
+      "exit_code": 0
+    },
+    {
+      "label": "clean-clone postflight",
+      "exit_code": 0
+    },
+    {
+      "label": "clone remains clean after installation",
+      "exit_code": 0
+    },
+    {
+      "label": "stop fresh synthetic installation preserving its volumes",
+      "exit_code": 0
+    },
+    {
+      "label": "restore original synthetic volumes and configuration",
+      "exit_code": 0
+    }
+  ],
+  "volumes_preserved": true,
+  "result": "passed",
+  "finished_utc": "2026-11-10T13:02:50.927Z"
+}

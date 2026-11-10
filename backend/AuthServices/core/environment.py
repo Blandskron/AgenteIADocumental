@@ -27,7 +27,7 @@ def load_environment(environ, base_dir):
         "DJANGO_CORS_ALLOWED_ORIGINS", "" if production else "http://localhost:3000,http://127.0.0.1:3000"
     ))
     database_user = required("POSTGRES_USER", "postgres")
-    database_password = required("POSTGRES_PASSWORD", "admin1234")
+    database_password = required("POSTGRES_PASSWORD", "")
     private_key_path = Path(required("DJANGO_PRIVATE_KEY_PATH", str(base_dir / "private.pem")))
     public_key_path = Path(required("DJANGO_PUBLIC_KEY_PATH", str(base_dir / "public.pem")))
 

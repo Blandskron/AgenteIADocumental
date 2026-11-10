@@ -229,3 +229,7 @@ Los diez CVE de Debian son `CVE-2025-69720`, `CVE-2026-9538`, `CVE-2026-16742`, 
 ## Licencia
 
 Aplican los términos del [LICENSE del repositorio](../../LICENSE).
+
+## Identidad vigente
+
+Antes de autorizar, el servicio valida el JWT y consulta el perfil actual de Auth en `AUTH_IDENTITY_URL` (Compose: `http://auth-service:8001/api/users/me/`; ejecución directa: loopback 8001). Usa grupos, membresías y privilegios actuales, incluidos sus alias heredados. Auth rechaza cuentas inactivas, eliminadas o con contraseña cambiada. Error de autenticación: 401; Auth indisponible o respuesta inválida: 503. No hay caché, proxies de entorno ni redirecciones del Bearer. El timeout de socket es de cinco segundos. Las pruebas unitarias simulan Auth; la verificación transversal comprueba revocación con Auth/PostgreSQL reales.

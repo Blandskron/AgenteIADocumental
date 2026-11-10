@@ -11,10 +11,9 @@ Desde la raíz del repositorio:
 ```powershell
 if (-not (Test-Path .env)) { Copy-Item .env.example .env }
 docker compose -f docker/docker-compose.yml up -d --build --wait auth-service
-docker compose -f docker/docker-compose.yml exec auth-service python manage.py createsuperuser
 ```
 
-Crea el administrador solo en el primer arranque. Abre [Django Admin](http://localhost:8001/admin/) o [Swagger](http://localhost:8001/docs/api/schema/swagger-ui/). Para probar el flujo documental completo, sigue el [README raíz](../../README.md).
+Configura las credenciales y secretos indicados en el [README raíz](../../README.md) antes de arrancar. El job `auth-bootstrap` crea el administrador una sola vez después de las migraciones e integridad, como `auth_runtime` sin DDL ni volumen de firma. Un superusuario existente se conserva íntegro; los reinicios no restablecen su contraseña. Abre [Django Admin](http://localhost:8001/admin/) o [Swagger](http://localhost:8001/docs/api/schema/swagger-ui/). Para probar el flujo documental completo, sigue el [README raíz](../../README.md).
 
 ## Guías
 

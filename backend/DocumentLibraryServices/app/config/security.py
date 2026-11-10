@@ -1,3 +1,7 @@
+import json
+from urllib.error import HTTPError
+from urllib.request import HTTPRedirectHandler, ProxyHandler, Request as UrlRequest, build_opener
+
 from functools import lru_cache
 from pathlib import Path
 
@@ -51,7 +55,8 @@ def require_authenticated_user(
             headers={"WWW-Authenticate": "Bearer"},
         )
 
-    return payload
+    profile = load_current_profile(credentials.credentials, payload["user_id"], settings.auth_identity_url)
+    return {**payload, **profile, "user_id": payload["user_id"], "grupos": profile["groups"], "permisos": profile["permissions"]}
 
 
 def user_id(user: dict) -> str:
@@ -88,3 +93,45 @@ def is_admin_user(user: dict) -> bool:
 
 def user_groups(user: dict) -> list[str]:
     return list(user.get("groups") or user.get("grupos") or [])
+
+
+def load_current_profile(token: str, identifier: int, url: str) -> dict:
+    """Use Auth's existing identity endpoint; never authorize from stale token grants."""
+    request = UrlRequest(url, headers={"Authorization": "Bearer " + token, "Accept": "application/json"})
+    # Never forward bearer credentials through an environment proxy or a redirect.
+    opener = build_opener(ProxyHandler({}), NoIdentityRedirect())
+    try:
+        with opener.open(request, timeout=5) as response:
+            raw = response.read(1024 * 1024 + 1)
+            if len(raw) > 1024 * 1024:
+                raise ValueError()
+            profile = json.loads(raw)
+        if type(profile) is not dict or type(profile.get("id")) is not int or profile["id"] != identifier:
+            raise ValueError()
+        for name in ("is_superuser", "is_superadmin", "is_staff"):
+            if type(profile.get(name)) is not bool:
+                raise ValueError()
+        for name in ("groups", "permissions", "roles", "active_permissions"):
+            if type(profile.get(name)) is not list or any(type(value) is not str for value in profile[name]):
+                raise ValueError()
+        for name in ("active_tenant_id", "active_area_id", "active_role"):
+            if name not in profile or (profile[name] is not None and type(profile[name]) is not str):
+                raise ValueError()
+        if type(profile.get("tenant_memberships")) is not list or any(
+            type(item) is not dict or type(item.get("tenant_id")) is not str
+            or type(item.get("role")) is not str for item in profile["tenant_memberships"]
+        ):
+            raise ValueError()
+    except HTTPError as error:
+        if error.code in (401, 403):
+            raise HTTPException(status_code=401, detail="Invalid authentication token.",
+                                headers={"WWW-Authenticate": "Bearer"}) from None
+        raise HTTPException(status_code=503, detail="Auth identity verification is unavailable.") from None
+    except (OSError, ValueError, TypeError):
+        raise HTTPException(status_code=503, detail="Auth identity verification is unavailable.") from None
+    return profile
+
+
+class NoIdentityRedirect(HTTPRedirectHandler):
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        return None

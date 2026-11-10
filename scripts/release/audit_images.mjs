@@ -6,6 +6,9 @@ import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { fileURLToPath } from "node:url";
 
+const verificationEnvFile = process.env.VERIFICATION_ENV_FILE || ".env.example";
+process.loadEnvFile(verificationEnvFile);
+
 const root = fileURLToPath(new URL("../../", import.meta.url));
 const args = process.argv.slice(2), project = args[args.indexOf("--project") + 1];
 if (!args.includes("--project") || project !== "bd-final-check") throw Error("Use dedicated --project bd-final-check");
@@ -55,7 +58,7 @@ for (const [service, [folder, uid]] of Object.entries(services)) {
   const tag = `${project}-${service}`;
   const id = docker(["image", "inspect", "--format", "{{.Id}}", tag]);
   if (!/^sha256:[a-f0-9]{64}$/.test(id)) throw Error("Immutable image ID required");
-  const compose = ["compose", "--env-file", ".env.example", "-p", project, "-f", "docker/docker-compose.yml", "-f", "docker/compose/verification.yml"];
+  const compose = ["compose", "--env-file", verificationEnvFile, "-p", project, "-f", "docker/docker-compose.yml", "-f", "docker/compose/verification.yml"];
   const container = docker([...compose, "ps", "-q", service]);
   if (!container || docker(["inspect", "--format", "{{.Image}}", container]) !== id) throw Error(`Running image mismatch: ${service}`);
   const effectiveUid = folder ? Number(docker([...compose, "exec", "-T", service, "python", "-c",

@@ -17,10 +17,12 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '24'
+      - name: Prepare private synthetic installation credentials
+        run: node scripts/release/prepare_verification.mjs --github
       - name: Evitar publicar evidencia de una ejecución anterior
-        run: python3 -c 'from pathlib import Path; [Path(p).unlink(missing_ok=True) for p in ("docs/release/VERIFICATION.json", "docs/release/IMAGE_AUDIT.json")]'
+        run: python3 -c 'from pathlib import Path; [Path(p).unlink(missing_ok=True) for p in ("docs/release/VERIFICATION.json", "docs/release/IMAGE_AUDIT.json", "docs/release/INSTALLATION_CHECK.json")]'
       - name: Construir entorno integral sin secretos ni datos personales
-        run: docker compose --env-file .env.example -p bd-final-check -f docker/docker-compose.yml -f docker/compose/verification.yml up -d --build --wait blandskron-frontend
+        run: docker compose --env-file "$VERIFICATION_ENV_FILE" -p bd-final-check -f docker/docker-compose.yml -f docker/compose/verification.yml up -d --build --wait blandskron-frontend
       - name: Validar servicios, integridad concurrente y recorrido documental
         run: node scripts/release/verify.mjs
       - name: Auditar doce imágenes finales sin supresiones
@@ -35,7 +37,7 @@ jobs:
           retention-days: 14
       - name: Retirar únicamente el entorno sintético
         if: always()
-        run: docker compose --env-file .env.example -p bd-final-check -f docker/docker-compose.yml -f docker/compose/verification.yml down --volumes --remove-orphans
+        run: docker compose --env-file "$VERIFICATION_ENV_FILE" -p bd-final-check -f docker/docker-compose.yml -f docker/compose/verification.yml down --remove-orphans
 
   frontend:
     runs-on: ubuntu-latest
@@ -60,17 +62,19 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Prepare private synthetic installation credentials
+        run: node scripts/release/prepare_verification.mjs --github
       - run: cp .env.example .env
-      - run: docker compose -f docker/docker-compose.yml config --quiet
+      - run: docker compose --env-file "$VERIFICATION_ENV_FILE" -f docker/docker-compose.yml config --quiet
       - name: Comprobar montajes JWT, puertos y configuración de servicios
         run: |
-          docker compose -f docker/docker-compose.yml config --format json > /tmp/blandskron-compose.json
+          docker compose --env-file "$VERIFICATION_ENV_FILE" -f docker/docker-compose.yml config --format json > /tmp/blandskron-compose.json
           python3 - <<'PY'
           import json
           from pathlib import Path
 
           services = json.loads(Path("/tmp/blandskron-compose.json").read_text())["services"]
-          assert services["auth-service"]["depends_on"]["tenant-integrity"]["condition"] == "service_completed_successfully"
+          assert services["auth-service"]["depends_on"]["auth-bootstrap"]["condition"] == "service_completed_successfully"
           assert services["tenant-integrity"]["depends_on"]["auth-migrate"]["condition"] == "service_completed_successfully"
           frontend = services["blandskron-frontend"]
           assert frontend["read_only"] is True and frontend["cap_drop"] == ["ALL"]
@@ -81,7 +85,7 @@ jobs:
           conversation_env = services["conversation-service"]["environment"]
           assert set(conversation_env) == {
               "APP_ENV", "APP_NAME", "LOG_LEVEL", "CORS_ORIGINS", "DATABASE_URL",
-              "AUTH_JWT_PUBLIC_KEY_PATH", "AUTH_JWT_ALGORITHM", "PGPASSWORD",
+              "AUTH_JWT_PUBLIC_KEY_PATH", "AUTH_JWT_ALGORITHM", "AUTH_IDENTITY_URL", "PGPASSWORD",
           }
           assert json.loads(conversation_env["CORS_ORIGINS"]) == [
               "http://localhost:3000", "http://127.0.0.1:3000",
@@ -92,7 +96,7 @@ jobs:
           rag_chat_env = services["rag-document-chat-service"]["environment"]
           assert set(rag_chat_env) == {
               "APP_ENV", "APP_NAME", "LOG_LEVEL", "CORS_ORIGINS", "DATABASE_URL",
-              "AUTH_JWT_PUBLIC_KEY_PATH", "AUTH_JWT_ALGORITHM", "GROQ_API_KEY", "GROQ_CHAT_MODEL",
+              "AUTH_JWT_PUBLIC_KEY_PATH", "AUTH_JWT_ALGORITHM", "AUTH_IDENTITY_URL", "GROQ_API_KEY", "GROQ_CHAT_MODEL",
               "CHAT_COMPLETION_MAX_TOKENS", "CHAT_COMPLETION_TEMPERATURE", "CHAT_COMPLETION_TIMEOUT_SECONDS",
               "VECTOR_SEARCH_LIMIT", "MIN_SIMILARITY_SCORE", "PGPASSWORD",
           }
@@ -104,7 +108,7 @@ jobs:
           assert set(embedding_env) == {
               "APP_ENV", "APP_NAME", "LOG_LEVEL", "CORS_ORIGINS", "DATABASE_URL",
               "DOCUMENT_STORAGE_BASE_PATH", "MAX_CHUNK_SIZE", "CHUNK_OVERLAP",
-              "AUTH_JWT_PUBLIC_KEY_PATH", "AUTH_JWT_ALGORITHM", "PGPASSWORD",
+              "AUTH_JWT_PUBLIC_KEY_PATH", "AUTH_JWT_ALGORITHM", "AUTH_IDENTITY_URL", "PGPASSWORD",
           }
           assert json.loads(embedding_env["CORS_ORIGINS"]) == [
               "http://localhost:3000", "http://127.0.0.1:3000",
@@ -116,7 +120,7 @@ jobs:
           search_env = search["environment"]
           assert set(search_env) == {
               "APP_ENV", "APP_NAME", "LOG_LEVEL", "CORS_ORIGINS", "DATABASE_URL",
-              "AUTH_JWT_PUBLIC_KEY_PATH", "AUTH_JWT_ALGORITHM", "PGPASSWORD",
+              "AUTH_JWT_PUBLIC_KEY_PATH", "AUTH_JWT_ALGORITHM", "AUTH_IDENTITY_URL", "PGPASSWORD",
           }
           assert json.loads(search_env["CORS_ORIGINS"]) == [
               "http://localhost:3000", "http://127.0.0.1:3000",
@@ -130,7 +134,7 @@ jobs:
           assert "no-new-privileges:true" in access["security_opt"]
           assert set(access_env) == {
               "APP_ENV", "APP_NAME", "LOG_LEVEL", "CORS_ORIGINS", "DATABASE_URL",
-              "DOCUMENT_STORAGE_BASE_PATH", "AUTH_JWT_PUBLIC_KEY_PATH", "AUTH_JWT_ALGORITHM", "PGPASSWORD",
+              "DOCUMENT_STORAGE_BASE_PATH", "AUTH_JWT_PUBLIC_KEY_PATH", "AUTH_JWT_ALGORITHM", "AUTH_IDENTITY_URL", "PGPASSWORD",
           }
           assert json.loads(access_env["CORS_ORIGINS"]) == [
               "http://localhost:3000", "http://127.0.0.1:3000",
@@ -140,7 +144,7 @@ jobs:
           library_env = library["environment"]
           assert set(library_env) == {
               "APP_ENV", "APP_NAME", "LOG_LEVEL", "CORS_ORIGINS", "DATABASE_URL",
-              "AUTH_JWT_PUBLIC_KEY_PATH", "AUTH_JWT_ALGORITHM",
+              "AUTH_JWT_PUBLIC_KEY_PATH", "AUTH_JWT_ALGORITHM", "AUTH_IDENTITY_URL",
               "DB_POOL_MIN_SIZE", "DB_POOL_MAX_SIZE", "DB_TIMEOUT_SECONDS",
               "PGPASSWORD",
           }
@@ -154,7 +158,7 @@ jobs:
           transfer_env = transfer["environment"]
           assert set(transfer_env) == {
               "APP_ENV", "APP_NAME", "LOG_LEVEL", "CORS_ORIGINS", "DATABASE_URL",
-              "AUTH_JWT_PUBLIC_KEY_PATH", "AUTH_JWT_ALGORITHM",
+              "AUTH_JWT_PUBLIC_KEY_PATH", "AUTH_JWT_ALGORITHM", "AUTH_IDENTITY_URL",
               "DB_POOL_MIN_SIZE", "DB_POOL_MAX_SIZE", "DB_TIMEOUT_SECONDS",
               "PGPASSWORD",
           }
@@ -298,172 +302,174 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Prepare private synthetic installation credentials
+        run: node scripts/release/prepare_verification.mjs --github
       - run: cp .env.example .env
-      - run: docker compose -f docker/docker-compose.yml up -d --build --wait conversation-service document-search-service document-access-service document-library-service document-transfer-service profile-service document-export-service google-drive-import-service
-      - run: docker compose -f docker/docker-compose.yml run --rm --no-deps rag-chat-db-role
-      - run: docker compose -f docker/docker-compose.yml run --rm --no-deps embedding-db-role
-      - run: docker compose -f docker/docker-compose.yml exec -T postgres psql -U postgres -d documents_db -v ON_ERROR_STOP=1 < scripts/database/auth/verify_roles.sql
+      - run: docker compose --env-file "$VERIFICATION_ENV_FILE" -f docker/docker-compose.yml up -d --build --wait conversation-service document-search-service document-access-service document-library-service document-transfer-service profile-service document-export-service google-drive-import-service
+      - run: docker compose --env-file "$VERIFICATION_ENV_FILE" -f docker/docker-compose.yml run --rm --no-deps rag-chat-db-role
+      - run: docker compose --env-file "$VERIFICATION_ENV_FILE" -f docker/docker-compose.yml run --rm --no-deps embedding-db-role
+      - run: docker compose --env-file "$VERIFICATION_ENV_FILE" -f docker/docker-compose.yml exec -T postgres psql -U postgres -d documents_db -v ON_ERROR_STOP=1 < scripts/database/auth/verify_roles.sql
       - name: Validar preflight multiempresa sin modificar históricos
         run: |
-          docker compose -f docker/docker-compose.yml run --rm --no-deps database-schema psql -h postgres -U postgres -d documents_db -X -q -v ON_ERROR_STOP=1 -f /schema/tests/tenant_preflight.sql
-          docker compose -f docker/docker-compose.yml run --rm --no-deps database-schema psql -h postgres -U postgres -d documents_db -X -q -v ON_ERROR_STOP=1 -f /schema/checks/tenant_preflight.sql
+          docker compose --env-file "$VERIFICATION_ENV_FILE" -f docker/docker-compose.yml run --rm --no-deps database-schema psql -h postgres -U postgres -d documents_db -X -q -v ON_ERROR_STOP=1 -f /schema/tests/tenant_preflight.sql
+          docker compose --env-file "$VERIFICATION_ENV_FILE" -f docker/docker-compose.yml run --rm --no-deps database-schema psql -h postgres -U postgres -d documents_db -X -q -v ON_ERROR_STOP=1 -f /schema/checks/tenant_preflight.sql
 
       - name: Probar restricciones de asignaciones con logins y carreras reales
         run: |
-          docker compose -f docker/docker-compose.yml exec -T postgres psql -U postgres -d documents_db -v ON_ERROR_STOP=1 -c 'CREATE DATABASE plat_assignments_ci'
-          trap 'docker compose -f docker/docker-compose.yml exec -T postgres psql -U postgres -d documents_db -v ON_ERROR_STOP=1 -c "DROP DATABASE plat_assignments_ci WITH (FORCE)"' EXIT
-          docker compose -f docker/docker-compose.yml run --rm --no-deps database-schema psql -h postgres -U postgres -d plat_assignments_ci -v ON_ERROR_STOP=1 -f /schema/run_all.sql
-          docker compose -f docker/docker-compose.yml cp scripts/database/constraints/002_tenant_assignments.sql auth-service:/tmp/tenant-assignments.sql
-          docker compose -f docker/docker-compose.yml cp scripts/database/tests/test_tenant_assignments.py auth-service:/tmp/test_tenant_assignments.py
-          docker compose -f docker/docker-compose.yml exec -T -e PLAT_TEST_DATABASE=plat_assignments_ci -e PLAT_TEST_ADMIN_PASSWORD=admin1234 auth-service python /tmp/test_tenant_assignments.py
-          docker compose -f docker/docker-compose.yml run --rm --no-deps database-schema psql -h postgres -U postgres -d plat_assignments_ci -v ON_ERROR_STOP=1 -f /schema/run_all.sql
-          docker compose -f docker/docker-compose.yml run --rm --no-deps database-schema psql -h postgres -U postgres -d plat_assignments_ci -v ON_ERROR_STOP=1 -f /schema/migrations/003_tenant_assignments.sql
+          docker compose --env-file "$VERIFICATION_ENV_FILE" -f docker/docker-compose.yml exec -T postgres psql -U postgres -d documents_db -v ON_ERROR_STOP=1 -c 'CREATE DATABASE plat_assignments_ci'
+          trap 'docker compose --env-file "$VERIFICATION_ENV_FILE" -f docker/docker-compose.yml exec -T postgres psql -U postgres -d documents_db -v ON_ERROR_STOP=1 -c "DROP DATABASE plat_assignments_ci WITH (FORCE)"' EXIT
+          docker compose --env-file "$VERIFICATION_ENV_FILE" -f docker/docker-compose.yml run --rm --no-deps database-schema psql -h postgres -U postgres -d plat_assignments_ci -v ON_ERROR_STOP=1 -f /schema/run_all.sql
+          docker compose --env-file "$VERIFICATION_ENV_FILE" -f docker/docker-compose.yml cp scripts/database/constraints/002_tenant_assignments.sql auth-service:/tmp/tenant-assignments.sql
+          docker compose --env-file "$VERIFICATION_ENV_FILE" -f docker/docker-compose.yml cp scripts/database/tests/test_tenant_assignments.py auth-service:/tmp/test_tenant_assignments.py
+          docker compose --env-file "$VERIFICATION_ENV_FILE" -f docker/docker-compose.yml exec -T -e PLAT_TEST_DATABASE=plat_assignments_ci -e PLAT_TEST_ADMIN_PASSWORD="$POSTGRES_PASSWORD" auth-service python /tmp/test_tenant_assignments.py
+          docker compose --env-file "$VERIFICATION_ENV_FILE" -f docker/docker-compose.yml run --rm --no-deps database-schema psql -h postgres -U postgres -d plat_assignments_ci -v ON_ERROR_STOP=1 -f /schema/run_all.sql
+          docker compose --env-file "$VERIFICATION_ENV_FILE" -f docker/docker-compose.yml run --rm --no-deps database-schema psql -h postgres -U postgres -d plat_assignments_ci -v ON_ERROR_STOP=1 -f /schema/migrations/003_tenant_assignments.sql
 
       - name: Probar relaciones de áreas, documentos y conflictos HTTP
         run: |
-          docker compose -f docker/docker-compose.yml exec -T postgres psql -U postgres -d documents_db -v ON_ERROR_STOP=1 -c 'CREATE DATABASE plat_relations_ci'
-          trap 'docker compose -f docker/docker-compose.yml exec -T postgres psql -U postgres -d documents_db -v ON_ERROR_STOP=1 -c "DROP DATABASE plat_relations_ci WITH (FORCE)"' EXIT
-          docker compose -f docker/docker-compose.yml run --rm --no-deps database-schema psql -h postgres -U postgres -d plat_relations_ci -v ON_ERROR_STOP=1 -f /schema/run_all.sql
-          docker compose -f docker/docker-compose.yml run --rm --no-deps -e EMBEDDING_DB_PASSWORD=blandskron-local-embedding database-schema psql -h postgres -U postgres -d plat_relations_ci -v ON_ERROR_STOP=1 -f /schema/embedding/provision_role.sql
-          docker compose -f docker/docker-compose.yml cp scripts/database/constraints/002_tenant_assignments.sql auth-service:/tmp/tenant-assignments.sql
-          docker compose -f docker/docker-compose.yml cp scripts/database/constraints/003_tenant_area_relations.sql auth-service:/tmp/tenant-areas.sql
-          docker compose -f docker/docker-compose.yml cp scripts/database/tests/test_tenant_area_relations.py auth-service:/tmp/test_tenant_area_relations.py
-          docker compose -f docker/docker-compose.yml exec -T -e POSTGRES_DB=plat_relations_ci -e PLAT_TEST_DATABASE=plat_relations_ci -e PLAT_TEST_ADMIN_PASSWORD=admin1234 auth-service python /tmp/test_tenant_area_relations.py
-          docker compose -f docker/docker-compose.yml run --build --rm --no-deps --volume "$PWD/scripts/database/tests:/relation-checks:ro" -e PYTHONPATH=/app -e PLAT_TEST_DATABASE=plat_relations_ci -e PLAT_TEST_ADMIN_PASSWORD=admin1234 -e PLAT_TEST_AUTH_PASSWORD=blandskron-local-runtime embedding-tests python /relation-checks/test_embedding_area_relations.py
-          docker compose -f docker/docker-compose.yml run --rm --no-deps database-schema psql -h postgres -U postgres -d plat_relations_ci -v ON_ERROR_STOP=1 -f /schema/run_all.sql
-          docker compose -f docker/docker-compose.yml run --rm --no-deps database-schema psql -h postgres -U postgres -d plat_relations_ci -v ON_ERROR_STOP=1 -f /schema/migrations/004_tenant_area_relations.sql
+          docker compose --env-file "$VERIFICATION_ENV_FILE" -f docker/docker-compose.yml exec -T postgres psql -U postgres -d documents_db -v ON_ERROR_STOP=1 -c 'CREATE DATABASE plat_relations_ci'
+          trap 'docker compose --env-file "$VERIFICATION_ENV_FILE" -f docker/docker-compose.yml exec -T postgres psql -U postgres -d documents_db -v ON_ERROR_STOP=1 -c "DROP DATABASE plat_relations_ci WITH (FORCE)"' EXIT
+          docker compose --env-file "$VERIFICATION_ENV_FILE" -f docker/docker-compose.yml run --rm --no-deps database-schema psql -h postgres -U postgres -d plat_relations_ci -v ON_ERROR_STOP=1 -f /schema/run_all.sql
+          docker compose --env-file "$VERIFICATION_ENV_FILE" -f docker/docker-compose.yml run --rm --no-deps -e EMBEDDING_DB_PASSWORD=blandskron-local-embedding database-schema psql -h postgres -U postgres -d plat_relations_ci -v ON_ERROR_STOP=1 -f /schema/embedding/provision_role.sql
+          docker compose --env-file "$VERIFICATION_ENV_FILE" -f docker/docker-compose.yml cp scripts/database/constraints/002_tenant_assignments.sql auth-service:/tmp/tenant-assignments.sql
+          docker compose --env-file "$VERIFICATION_ENV_FILE" -f docker/docker-compose.yml cp scripts/database/constraints/003_tenant_area_relations.sql auth-service:/tmp/tenant-areas.sql
+          docker compose --env-file "$VERIFICATION_ENV_FILE" -f docker/docker-compose.yml cp scripts/database/tests/test_tenant_area_relations.py auth-service:/tmp/test_tenant_area_relations.py
+          docker compose --env-file "$VERIFICATION_ENV_FILE" -f docker/docker-compose.yml exec -T -e POSTGRES_DB=plat_relations_ci -e PLAT_TEST_DATABASE=plat_relations_ci -e PLAT_TEST_ADMIN_PASSWORD="$POSTGRES_PASSWORD" auth-service python /tmp/test_tenant_area_relations.py
+          docker compose --env-file "$VERIFICATION_ENV_FILE" -f docker/docker-compose.yml run --build --rm --no-deps --volume "$PWD/scripts/database/tests:/relation-checks:ro" -e PYTHONPATH=/app -e PLAT_TEST_DATABASE=plat_relations_ci -e PLAT_TEST_ADMIN_PASSWORD="$POSTGRES_PASSWORD" -e PLAT_TEST_AUTH_PASSWORD=blandskron-local-runtime embedding-tests python /relation-checks/test_embedding_area_relations.py
+          docker compose --env-file "$VERIFICATION_ENV_FILE" -f docker/docker-compose.yml run --rm --no-deps database-schema psql -h postgres -U postgres -d plat_relations_ci -v ON_ERROR_STOP=1 -f /schema/run_all.sql
+          docker compose --env-file "$VERIFICATION_ENV_FILE" -f docker/docker-compose.yml run --rm --no-deps database-schema psql -h postgres -U postgres -d plat_relations_ci -v ON_ERROR_STOP=1 -f /schema/migrations/004_tenant_area_relations.sql
 
       - name: Probar jerarquía sin ciclos con conexiones e instantáneas concurrentes
         run: |
-          docker compose -f docker/docker-compose.yml exec -T postgres psql -U postgres -d documents_db -v ON_ERROR_STOP=1 -c 'CREATE DATABASE plat_hierarchy_ci'
-          trap 'docker compose -f docker/docker-compose.yml exec -T postgres psql -U postgres -d documents_db -v ON_ERROR_STOP=1 -c "DROP DATABASE plat_hierarchy_ci WITH (FORCE)"' EXIT
-          docker compose -f docker/docker-compose.yml run --rm --no-deps database-schema psql -h postgres -U postgres -d plat_hierarchy_ci -v ON_ERROR_STOP=1 -f /schema/run_all.sql
-          docker compose -f docker/docker-compose.yml run --rm --no-deps database-schema psql -h postgres -U postgres -d plat_hierarchy_ci -v ON_ERROR_STOP=1 -f /schema/migrations/005_tenant_hierarchy.sql
-          docker compose -f docker/docker-compose.yml cp scripts/database/constraints/004_tenant_hierarchy.sql auth-service:/tmp/tenant-hierarchy.sql
-          docker compose -f docker/docker-compose.yml cp scripts/database/tests/test_tenant_hierarchy.py auth-service:/tmp/test_tenant_hierarchy.py
-          docker compose -f docker/docker-compose.yml exec -T -e POSTGRES_DB=plat_hierarchy_ci -e PLAT_TEST_DATABASE=plat_hierarchy_ci -e PLAT_TEST_ADMIN_PASSWORD=admin1234 auth-service python /tmp/test_tenant_hierarchy.py
-          docker compose -f docker/docker-compose.yml exec -T postgres psql -U postgres -d plat_hierarchy_ci -v ON_ERROR_STOP=1 -c "INSERT INTO tenants(tenant_id,name) VALUES('preserve','synthetic'); INSERT INTO tenant_areas(area_id,tenant_id,name) VALUES('preserve-area','preserve','synthetic'); INSERT INTO documents(document_id,tenant_id,owner_area_id,owner_user_id,filename,storage_path,mime_type) VALUES('preserve-document','preserve','preserve-area','historical','synthetic','synthetic','text/plain');"
+          docker compose --env-file "$VERIFICATION_ENV_FILE" -f docker/docker-compose.yml exec -T postgres psql -U postgres -d documents_db -v ON_ERROR_STOP=1 -c 'CREATE DATABASE plat_hierarchy_ci'
+          trap 'docker compose --env-file "$VERIFICATION_ENV_FILE" -f docker/docker-compose.yml exec -T postgres psql -U postgres -d documents_db -v ON_ERROR_STOP=1 -c "DROP DATABASE plat_hierarchy_ci WITH (FORCE)"' EXIT
+          docker compose --env-file "$VERIFICATION_ENV_FILE" -f docker/docker-compose.yml run --rm --no-deps database-schema psql -h postgres -U postgres -d plat_hierarchy_ci -v ON_ERROR_STOP=1 -f /schema/run_all.sql
+          docker compose --env-file "$VERIFICATION_ENV_FILE" -f docker/docker-compose.yml run --rm --no-deps database-schema psql -h postgres -U postgres -d plat_hierarchy_ci -v ON_ERROR_STOP=1 -f /schema/migrations/005_tenant_hierarchy.sql
+          docker compose --env-file "$VERIFICATION_ENV_FILE" -f docker/docker-compose.yml cp scripts/database/constraints/004_tenant_hierarchy.sql auth-service:/tmp/tenant-hierarchy.sql
+          docker compose --env-file "$VERIFICATION_ENV_FILE" -f docker/docker-compose.yml cp scripts/database/tests/test_tenant_hierarchy.py auth-service:/tmp/test_tenant_hierarchy.py
+          docker compose --env-file "$VERIFICATION_ENV_FILE" -f docker/docker-compose.yml exec -T -e POSTGRES_DB=plat_hierarchy_ci -e PLAT_TEST_DATABASE=plat_hierarchy_ci -e PLAT_TEST_ADMIN_PASSWORD="$POSTGRES_PASSWORD" auth-service python /tmp/test_tenant_hierarchy.py
+          docker compose --env-file "$VERIFICATION_ENV_FILE" -f docker/docker-compose.yml exec -T postgres psql -U postgres -d plat_hierarchy_ci -v ON_ERROR_STOP=1 -c "INSERT INTO tenants(tenant_id,name) VALUES('preserve','synthetic'); INSERT INTO tenant_areas(area_id,tenant_id,name) VALUES('preserve-area','preserve','synthetic'); INSERT INTO documents(document_id,tenant_id,owner_area_id,owner_user_id,filename,storage_path,mime_type) VALUES('preserve-document','preserve','preserve-area','historical','synthetic','synthetic','text/plain');"
           fingerprint="SELECT md5((to_jsonb(d)-'updated_at')::text) FROM documents d WHERE document_id='preserve-document'"
-          before=$(docker compose -f docker/docker-compose.yml exec -T postgres psql -U postgres -d plat_hierarchy_ci -At -c "$fingerprint")
-          docker compose -f docker/docker-compose.yml run --rm --no-deps database-schema psql -h postgres -U postgres -d plat_hierarchy_ci -v ON_ERROR_STOP=1 -f /schema/run_all.sql
-          docker compose -f docker/docker-compose.yml run --rm --no-deps database-schema psql -h postgres -U postgres -d plat_hierarchy_ci -v ON_ERROR_STOP=1 -f /schema/migrations/005_tenant_hierarchy.sql
-          after=$(docker compose -f docker/docker-compose.yml exec -T postgres psql -U postgres -d plat_hierarchy_ci -At -c "$fingerprint")
+          before=$(docker compose --env-file "$VERIFICATION_ENV_FILE" -f docker/docker-compose.yml exec -T postgres psql -U postgres -d plat_hierarchy_ci -At -c "$fingerprint")
+          docker compose --env-file "$VERIFICATION_ENV_FILE" -f docker/docker-compose.yml run --rm --no-deps database-schema psql -h postgres -U postgres -d plat_hierarchy_ci -v ON_ERROR_STOP=1 -f /schema/run_all.sql
+          docker compose --env-file "$VERIFICATION_ENV_FILE" -f docker/docker-compose.yml run --rm --no-deps database-schema psql -h postgres -U postgres -d plat_hierarchy_ci -v ON_ERROR_STOP=1 -f /schema/migrations/005_tenant_hierarchy.sql
+          after=$(docker compose --env-file "$VERIFICATION_ENV_FILE" -f docker/docker-compose.yml exec -T postgres psql -U postgres -d plat_hierarchy_ci -At -c "$fingerprint")
           test -n "$before" && test "$before" = "$after"
 
       - name: Probar ciclo de vida de usuarios y membresías con Auth real
         run: |
-          docker compose -f docker/docker-compose.yml exec -T postgres psql -U postgres -d documents_db -v ON_ERROR_STOP=1 -c 'CREATE DATABASE plat_identity_ci'
-          trap 'docker compose -f docker/docker-compose.yml exec -T postgres psql -U postgres -d documents_db -v ON_ERROR_STOP=1 -c "DROP DATABASE plat_identity_ci WITH (FORCE)"' EXIT
-          docker compose -f docker/docker-compose.yml run --rm --no-deps database-schema psql -h postgres -U postgres -d plat_identity_ci -v ON_ERROR_STOP=1 -f /schema/run_all.sql
-          docker compose -f docker/docker-compose.yml run --rm --no-deps auth-db-roles psql -h postgres -U postgres -d plat_identity_ci -v ON_ERROR_STOP=1 -f /auth-db/provision_roles.sql
-          docker compose -f docker/docker-compose.yml run --rm --no-deps -e POSTGRES_DB=plat_identity_ci auth-migrate
-          docker compose -f docker/docker-compose.yml run --rm --no-deps database-schema psql -h postgres -U postgres -d plat_identity_ci -v ON_ERROR_STOP=1 -f /schema/migrations/006_tenant_user_links.sql
-          docker compose -f docker/docker-compose.yml cp scripts/database/constraints/005_tenant_user_links.sql auth-service:/tmp/tenant-user-links.sql
-          docker compose -f docker/docker-compose.yml cp scripts/database/tests/test_tenant_user_links.py auth-service:/tmp/test_tenant_user_links.py
-          docker compose -f docker/docker-compose.yml exec -T -e POSTGRES_DB=plat_identity_ci -e PLAT_TEST_DATABASE=plat_identity_ci -e PLAT_TEST_ADMIN_PASSWORD=admin1234 auth-service python /tmp/test_tenant_user_links.py
-          docker compose -f docker/docker-compose.yml exec -T postgres psql -U postgres -d plat_identity_ci -v ON_ERROR_STOP=1 -c "INSERT INTO tenants(tenant_id,name) VALUES('preserve','synthetic'); WITH u AS (INSERT INTO auth_user(password,is_superuser,username,first_name,last_name,email,is_staff,is_active,date_joined) VALUES('!',false,'preserve','','','',false,true,now()) RETURNING id) INSERT INTO tenant_memberships(tenant_id,user_id,role) SELECT 'preserve',id::text,'USER' FROM u; INSERT INTO documents(document_id,tenant_id,owner_user_id,filename,storage_path,mime_type) SELECT 'preserve-document','preserve',user_id,'synthetic','synthetic','text/plain' FROM tenant_memberships WHERE tenant_id='preserve';"
+          docker compose --env-file "$VERIFICATION_ENV_FILE" -f docker/docker-compose.yml exec -T postgres psql -U postgres -d documents_db -v ON_ERROR_STOP=1 -c 'CREATE DATABASE plat_identity_ci'
+          trap 'docker compose --env-file "$VERIFICATION_ENV_FILE" -f docker/docker-compose.yml exec -T postgres psql -U postgres -d documents_db -v ON_ERROR_STOP=1 -c "DROP DATABASE plat_identity_ci WITH (FORCE)"' EXIT
+          docker compose --env-file "$VERIFICATION_ENV_FILE" -f docker/docker-compose.yml run --rm --no-deps database-schema psql -h postgres -U postgres -d plat_identity_ci -v ON_ERROR_STOP=1 -f /schema/run_all.sql
+          docker compose --env-file "$VERIFICATION_ENV_FILE" -f docker/docker-compose.yml run --rm --no-deps auth-db-roles psql -h postgres -U postgres -d plat_identity_ci -v ON_ERROR_STOP=1 -f /auth-db/provision_roles.sql
+          docker compose --env-file "$VERIFICATION_ENV_FILE" -f docker/docker-compose.yml run --rm --no-deps -e POSTGRES_DB=plat_identity_ci auth-migrate
+          docker compose --env-file "$VERIFICATION_ENV_FILE" -f docker/docker-compose.yml run --rm --no-deps database-schema psql -h postgres -U postgres -d plat_identity_ci -v ON_ERROR_STOP=1 -f /schema/migrations/006_tenant_user_links.sql
+          docker compose --env-file "$VERIFICATION_ENV_FILE" -f docker/docker-compose.yml cp scripts/database/constraints/005_tenant_user_links.sql auth-service:/tmp/tenant-user-links.sql
+          docker compose --env-file "$VERIFICATION_ENV_FILE" -f docker/docker-compose.yml cp scripts/database/tests/test_tenant_user_links.py auth-service:/tmp/test_tenant_user_links.py
+          docker compose --env-file "$VERIFICATION_ENV_FILE" -f docker/docker-compose.yml exec -T -e POSTGRES_DB=plat_identity_ci -e PLAT_TEST_DATABASE=plat_identity_ci -e PLAT_TEST_ADMIN_PASSWORD="$POSTGRES_PASSWORD" auth-service python /tmp/test_tenant_user_links.py
+          docker compose --env-file "$VERIFICATION_ENV_FILE" -f docker/docker-compose.yml exec -T postgres psql -U postgres -d plat_identity_ci -v ON_ERROR_STOP=1 -c "INSERT INTO tenants(tenant_id,name) VALUES('preserve','synthetic'); WITH u AS (INSERT INTO auth_user(password,is_superuser,username,first_name,last_name,email,is_staff,is_active,date_joined) VALUES('!',false,'preserve','','','',false,true,now()) RETURNING id) INSERT INTO tenant_memberships(tenant_id,user_id,role) SELECT 'preserve',id::text,'USER' FROM u; INSERT INTO documents(document_id,tenant_id,owner_user_id,filename,storage_path,mime_type) SELECT 'preserve-document','preserve',user_id,'synthetic','synthetic','text/plain' FROM tenant_memberships WHERE tenant_id='preserve';"
           fingerprint="SELECT md5(jsonb_build_object('membership',to_jsonb(m)-'updated_at','document',to_jsonb(d)-'updated_at')::text) FROM tenant_memberships m JOIN documents d ON d.owner_user_id=m.user_id WHERE m.tenant_id='preserve'"
-          before=$(docker compose -f docker/docker-compose.yml exec -T postgres psql -U postgres -d plat_identity_ci -At -c "$fingerprint")
-          docker compose -f docker/docker-compose.yml run --rm --no-deps database-schema psql -h postgres -U postgres -d plat_identity_ci -v ON_ERROR_STOP=1 -f /schema/run_all.sql
-          docker compose -f docker/docker-compose.yml run --rm --no-deps auth-db-roles psql -h postgres -U postgres -d plat_identity_ci -v ON_ERROR_STOP=1 -f /auth-db/provision_roles.sql
-          docker compose -f docker/docker-compose.yml run --rm --no-deps -e POSTGRES_DB=plat_identity_ci auth-migrate
-          docker compose -f docker/docker-compose.yml run --rm --no-deps database-schema psql -h postgres -U postgres -d plat_identity_ci -v ON_ERROR_STOP=1 -f /schema/migrations/006_tenant_user_links.sql
-          after=$(docker compose -f docker/docker-compose.yml exec -T postgres psql -U postgres -d plat_identity_ci -At -c "$fingerprint")
+          before=$(docker compose --env-file "$VERIFICATION_ENV_FILE" -f docker/docker-compose.yml exec -T postgres psql -U postgres -d plat_identity_ci -At -c "$fingerprint")
+          docker compose --env-file "$VERIFICATION_ENV_FILE" -f docker/docker-compose.yml run --rm --no-deps database-schema psql -h postgres -U postgres -d plat_identity_ci -v ON_ERROR_STOP=1 -f /schema/run_all.sql
+          docker compose --env-file "$VERIFICATION_ENV_FILE" -f docker/docker-compose.yml run --rm --no-deps auth-db-roles psql -h postgres -U postgres -d plat_identity_ci -v ON_ERROR_STOP=1 -f /auth-db/provision_roles.sql
+          docker compose --env-file "$VERIFICATION_ENV_FILE" -f docker/docker-compose.yml run --rm --no-deps -e POSTGRES_DB=plat_identity_ci auth-migrate
+          docker compose --env-file "$VERIFICATION_ENV_FILE" -f docker/docker-compose.yml run --rm --no-deps database-schema psql -h postgres -U postgres -d plat_identity_ci -v ON_ERROR_STOP=1 -f /schema/migrations/006_tenant_user_links.sql
+          after=$(docker compose --env-file "$VERIFICATION_ENV_FILE" -f docker/docker-compose.yml exec -T postgres psql -U postgres -d plat_identity_ci -At -c "$fingerprint")
           test -n "$before" && test "$before" = "$after"
 
-      - run: docker compose -f docker/docker-compose.yml exec -T postgres psql -U postgres -d documents_db -v ON_ERROR_STOP=1 < scripts/database/conversation/verify_role.sql
-      - run: docker compose -f docker/docker-compose.yml exec -T postgres psql -U postgres -d documents_db -v ON_ERROR_STOP=1 < scripts/database/rag-chat/verify_role.sql
-      - run: docker compose -f docker/docker-compose.yml exec -T postgres psql -U postgres -d documents_db -v ON_ERROR_STOP=1 < scripts/database/embedding/verify_role.sql
-      - run: docker compose -f docker/docker-compose.yml exec -T postgres psql -U postgres -d documents_db -v ON_ERROR_STOP=1 < scripts/database/search/verify_role.sql
+      - run: docker compose --env-file "$VERIFICATION_ENV_FILE" -f docker/docker-compose.yml exec -T postgres psql -U postgres -d documents_db -v ON_ERROR_STOP=1 < scripts/database/conversation/verify_role.sql
+      - run: docker compose --env-file "$VERIFICATION_ENV_FILE" -f docker/docker-compose.yml exec -T postgres psql -U postgres -d documents_db -v ON_ERROR_STOP=1 < scripts/database/rag-chat/verify_role.sql
+      - run: docker compose --env-file "$VERIFICATION_ENV_FILE" -f docker/docker-compose.yml exec -T postgres psql -U postgres -d documents_db -v ON_ERROR_STOP=1 < scripts/database/embedding/verify_role.sql
+      - run: docker compose --env-file "$VERIFICATION_ENV_FILE" -f docker/docker-compose.yml exec -T postgres psql -U postgres -d documents_db -v ON_ERROR_STOP=1 < scripts/database/search/verify_role.sql
       - name: Comprobar permisos e idempotencia de DocumentAccessServices
         run: |
-          docker compose -f docker/docker-compose.yml run --rm --no-deps access-db-role
-          docker compose -f docker/docker-compose.yml exec -T postgres psql -U postgres -d documents_db -v ON_ERROR_STOP=1 < scripts/database/access/verify_role.sql
-          docker compose -f docker/docker-compose.yml exec -T document-access-service python -c 'import importlib.util; assert importlib.util.find_spec("pip") is None'
-          docker compose -f docker/docker-compose.yml exec -T document-access-service python -c 'import os, importlib.util; assert os.geteuid() == 10004; assert all(importlib.util.find_spec(name) is None for name in ("pytest", "ruff", "httpx"))'
+          docker compose --env-file "$VERIFICATION_ENV_FILE" -f docker/docker-compose.yml run --rm --no-deps access-db-role
+          docker compose --env-file "$VERIFICATION_ENV_FILE" -f docker/docker-compose.yml exec -T postgres psql -U postgres -d documents_db -v ON_ERROR_STOP=1 < scripts/database/access/verify_role.sql
+          docker compose --env-file "$VERIFICATION_ENV_FILE" -f docker/docker-compose.yml exec -T document-access-service python -c 'import importlib.util; assert importlib.util.find_spec("pip") is None'
+          docker compose --env-file "$VERIFICATION_ENV_FILE" -f docker/docker-compose.yml exec -T document-access-service python -c 'import os, importlib.util; assert os.geteuid() == 10004; assert all(importlib.util.find_spec(name) is None for name in ("pytest", "ruff", "httpx"))'
       - name: Comprobar imagen de ConversationServices
         run: |
-          docker compose -f docker/docker-compose.yml exec -T conversation-service python -c 'import importlib.util; assert importlib.util.find_spec("pip") is None'
-          docker compose -f docker/docker-compose.yml exec -T conversation-service python -c 'import os; assert os.geteuid() == 10002'
+          docker compose --env-file "$VERIFICATION_ENV_FILE" -f docker/docker-compose.yml exec -T conversation-service python -c 'import importlib.util; assert importlib.util.find_spec("pip") is None'
+          docker compose --env-file "$VERIFICATION_ENV_FILE" -f docker/docker-compose.yml exec -T conversation-service python -c 'import os; assert os.geteuid() == 10002'
       - name: Probar JWT, aislamiento y vínculos contra PostgreSQL
         run: |
-          docker compose -f docker/docker-compose.yml run --build --rm --no-deps conversation-tests
-          docker compose -f docker/docker-compose.yml run --rm --no-deps conversation-tests ruff check --no-cache app tests
+          docker compose --env-file "$VERIFICATION_ENV_FILE" -f docker/docker-compose.yml run --build --rm --no-deps conversation-tests
+          docker compose --env-file "$VERIFICATION_ENV_FILE" -f docker/docker-compose.yml run --rm --no-deps conversation-tests ruff check --no-cache app tests
       - name: Validar imagen y contrato de DocumentSearchServices
         run: |
-          docker compose -f docker/docker-compose.yml exec -T document-search-service python -c 'import importlib.util; assert importlib.util.find_spec("pip") is None'
-          docker compose -f docker/docker-compose.yml exec -T document-search-service python -c 'import os, importlib.util; assert os.geteuid() == 10005; assert all(importlib.util.find_spec(name) is None for name in ("pytest", "ruff", "httpx"))'
-          docker compose -f docker/docker-compose.yml run --build --rm --no-deps search-tests
-          docker compose -f docker/docker-compose.yml run --rm --no-deps search-tests ruff check --no-cache app tests
+          docker compose --env-file "$VERIFICATION_ENV_FILE" -f docker/docker-compose.yml exec -T document-search-service python -c 'import importlib.util; assert importlib.util.find_spec("pip") is None'
+          docker compose --env-file "$VERIFICATION_ENV_FILE" -f docker/docker-compose.yml exec -T document-search-service python -c 'import os, importlib.util; assert os.geteuid() == 10005; assert all(importlib.util.find_spec(name) is None for name in ("pytest", "ruff", "httpx"))'
+          docker compose --env-file "$VERIFICATION_ENV_FILE" -f docker/docker-compose.yml run --build --rm --no-deps search-tests
+          docker compose --env-file "$VERIFICATION_ENV_FILE" -f docker/docker-compose.yml run --rm --no-deps search-tests ruff check --no-cache app tests
       - name: Probar identidad y permisos de DocumentAccessServices
         run: |
-          docker compose -f docker/docker-compose.yml run --build --rm --no-deps access-tests
-          docker compose -f docker/docker-compose.yml run --rm --no-deps access-tests ruff check --no-cache app tests
-          docker compose -f docker/docker-compose.yml run --build --rm --no-deps access-audit
+          docker compose --env-file "$VERIFICATION_ENV_FILE" -f docker/docker-compose.yml run --build --rm --no-deps access-tests
+          docker compose --env-file "$VERIFICATION_ENV_FILE" -f docker/docker-compose.yml run --rm --no-deps access-tests ruff check --no-cache app tests
+          docker compose --env-file "$VERIFICATION_ENV_FILE" -f docker/docker-compose.yml run --build --rm --no-deps access-audit
       - name: Probar configuración, arranque y acceso HTTP de DocumentLibraryServices
         run: |
-          docker compose -f docker/docker-compose.yml run --rm --no-deps library-db-role
-          docker compose -f docker/docker-compose.yml exec -T postgres psql -U postgres -d documents_db -v ON_ERROR_STOP=1 < scripts/database/library/verify_role.sql
-          docker compose -f docker/docker-compose.yml exec -T document-library-service python -c 'import importlib.util; assert importlib.util.find_spec("pip") is None'
-          docker compose -f docker/docker-compose.yml exec -T document-library-service python -c 'import os, importlib.util; assert os.geteuid() == 10006; assert all(importlib.util.find_spec(name) is None for name in ("pytest", "ruff", "httpx", "pip_audit"))'
-          docker compose -f docker/docker-compose.yml run --build --rm --no-deps library-tests
-          docker compose -f docker/docker-compose.yml run --rm --no-deps library-tests ruff check --no-cache app tests
-          docker compose -f docker/docker-compose.yml run --build --rm --no-deps library-audit
+          docker compose --env-file "$VERIFICATION_ENV_FILE" -f docker/docker-compose.yml run --rm --no-deps library-db-role
+          docker compose --env-file "$VERIFICATION_ENV_FILE" -f docker/docker-compose.yml exec -T postgres psql -U postgres -d documents_db -v ON_ERROR_STOP=1 < scripts/database/library/verify_role.sql
+          docker compose --env-file "$VERIFICATION_ENV_FILE" -f docker/docker-compose.yml exec -T document-library-service python -c 'import importlib.util; assert importlib.util.find_spec("pip") is None'
+          docker compose --env-file "$VERIFICATION_ENV_FILE" -f docker/docker-compose.yml exec -T document-library-service python -c 'import os, importlib.util; assert os.geteuid() == 10006; assert all(importlib.util.find_spec(name) is None for name in ("pytest", "ruff", "httpx", "pip_audit"))'
+          docker compose --env-file "$VERIFICATION_ENV_FILE" -f docker/docker-compose.yml run --build --rm --no-deps library-tests
+          docker compose --env-file "$VERIFICATION_ENV_FILE" -f docker/docker-compose.yml run --rm --no-deps library-tests ruff check --no-cache app tests
+          docker compose --env-file "$VERIFICATION_ENV_FILE" -f docker/docker-compose.yml run --build --rm --no-deps library-audit
       - name: Probar configuración y disponibilidad de DocumentTransferServices
         run: |
-          docker compose -f docker/docker-compose.yml run --rm --no-deps transfer-db-role
-          docker compose -f docker/docker-compose.yml exec -T postgres psql -U postgres -d documents_db -v ON_ERROR_STOP=1 < scripts/database/transfer/verify_role.sql
-          docker compose -f docker/docker-compose.yml exec -T document-transfer-service python -c 'import importlib.util; assert importlib.util.find_spec("pip") is None'
-          docker compose -f docker/docker-compose.yml exec -T document-transfer-service python -c 'import os, importlib.util; assert os.geteuid() == 10007; assert all(importlib.util.find_spec(name) is None for name in ("pytest", "ruff", "httpx", "pip_audit"))'
-          docker compose -f docker/docker-compose.yml exec -T postgres psql -U postgres -d documents_db -v ON_ERROR_STOP=1 < scripts/database/transfer/audit_owners.sql
-          docker compose -f docker/docker-compose.yml run --build --rm --no-deps transfer-tests
-          docker compose -f docker/docker-compose.yml run --rm --no-deps transfer-tests ruff check --no-cache app tests
-          docker compose -f docker/docker-compose.yml run --build --rm --no-deps transfer-audit
-          docker compose -f docker/docker-compose.yml restart document-transfer-service
-          docker compose -f docker/docker-compose.yml up -d --no-deps --wait document-transfer-service
+          docker compose --env-file "$VERIFICATION_ENV_FILE" -f docker/docker-compose.yml run --rm --no-deps transfer-db-role
+          docker compose --env-file "$VERIFICATION_ENV_FILE" -f docker/docker-compose.yml exec -T postgres psql -U postgres -d documents_db -v ON_ERROR_STOP=1 < scripts/database/transfer/verify_role.sql
+          docker compose --env-file "$VERIFICATION_ENV_FILE" -f docker/docker-compose.yml exec -T document-transfer-service python -c 'import importlib.util; assert importlib.util.find_spec("pip") is None'
+          docker compose --env-file "$VERIFICATION_ENV_FILE" -f docker/docker-compose.yml exec -T document-transfer-service python -c 'import os, importlib.util; assert os.geteuid() == 10007; assert all(importlib.util.find_spec(name) is None for name in ("pytest", "ruff", "httpx", "pip_audit"))'
+          docker compose --env-file "$VERIFICATION_ENV_FILE" -f docker/docker-compose.yml exec -T postgres psql -U postgres -d documents_db -v ON_ERROR_STOP=1 < scripts/database/transfer/audit_owners.sql
+          docker compose --env-file "$VERIFICATION_ENV_FILE" -f docker/docker-compose.yml run --build --rm --no-deps transfer-tests
+          docker compose --env-file "$VERIFICATION_ENV_FILE" -f docker/docker-compose.yml run --rm --no-deps transfer-tests ruff check --no-cache app tests
+          docker compose --env-file "$VERIFICATION_ENV_FILE" -f docker/docker-compose.yml run --build --rm --no-deps transfer-audit
+          docker compose --env-file "$VERIFICATION_ENV_FILE" -f docker/docker-compose.yml restart document-transfer-service
+          docker compose --env-file "$VERIFICATION_ENV_FILE" -f docker/docker-compose.yml up -d --no-deps --wait document-transfer-service
       - name: Probar configuración, disponibilidad y contrato base de ProfileServices
         run: |
-          docker compose -f docker/docker-compose.yml run --rm --no-deps profile-db-role
-          docker compose -f docker/docker-compose.yml run --rm --no-deps profile-db-role
-          docker compose -f docker/docker-compose.yml exec -T profile-service python -c 'import importlib.util; assert importlib.util.find_spec("pip") is None'
-          docker compose -f docker/docker-compose.yml exec -T profile-service python -c 'import importlib.util, os; assert os.geteuid() == 10008; assert all(importlib.util.find_spec(name) is None for name in ("pytest", "ruff", "httpx", "pip_audit"))'
-          docker compose -f docker/docker-compose.yml exec -T profile-service python -c 'import subprocess; version=subprocess.check_output(["dpkg-query","-W","-f=${Version}","zlib1g"],text=True); subprocess.check_call(["dpkg","--compare-versions",version,"ge","1:1.3.dfsg+really1.3.1-1+deb13u1"])'
-          docker compose -f docker/docker-compose.yml run --build --rm --no-deps profile-tests
-          docker compose -f docker/docker-compose.yml run --rm --no-deps profile-tests ruff check --no-cache app tests /profile-checks
-          docker compose -f docker/docker-compose.yml run --build --rm --no-deps profile-audit
-          docker compose -f docker/docker-compose.yml restart profile-service
-          docker compose -f docker/docker-compose.yml up -d --no-deps --wait profile-service
-          docker compose -f docker/docker-compose.yml cp scripts/profile/verify_auth_contract.py auth-service:/tmp/profile-auth-contract.py
+          docker compose --env-file "$VERIFICATION_ENV_FILE" -f docker/docker-compose.yml run --rm --no-deps profile-db-role
+          docker compose --env-file "$VERIFICATION_ENV_FILE" -f docker/docker-compose.yml run --rm --no-deps profile-db-role
+          docker compose --env-file "$VERIFICATION_ENV_FILE" -f docker/docker-compose.yml exec -T profile-service python -c 'import importlib.util; assert importlib.util.find_spec("pip") is None'
+          docker compose --env-file "$VERIFICATION_ENV_FILE" -f docker/docker-compose.yml exec -T profile-service python -c 'import importlib.util, os; assert os.geteuid() == 10008; assert all(importlib.util.find_spec(name) is None for name in ("pytest", "ruff", "httpx", "pip_audit"))'
+          docker compose --env-file "$VERIFICATION_ENV_FILE" -f docker/docker-compose.yml exec -T profile-service python -c 'import subprocess; version=subprocess.check_output(["dpkg-query","-W","-f=${Version}","zlib1g"],text=True); subprocess.check_call(["dpkg","--compare-versions",version,"ge","1:1.3.dfsg+really1.3.1-1+deb13u1"])'
+          docker compose --env-file "$VERIFICATION_ENV_FILE" -f docker/docker-compose.yml run --build --rm --no-deps profile-tests
+          docker compose --env-file "$VERIFICATION_ENV_FILE" -f docker/docker-compose.yml run --rm --no-deps profile-tests ruff check --no-cache app tests /profile-checks
+          docker compose --env-file "$VERIFICATION_ENV_FILE" -f docker/docker-compose.yml run --build --rm --no-deps profile-audit
+          docker compose --env-file "$VERIFICATION_ENV_FILE" -f docker/docker-compose.yml restart profile-service
+          docker compose --env-file "$VERIFICATION_ENV_FILE" -f docker/docker-compose.yml up -d --no-deps --wait profile-service
+          docker compose --env-file "$VERIFICATION_ENV_FILE" -f docker/docker-compose.yml cp scripts/profile/verify_auth_contract.py auth-service:/tmp/profile-auth-contract.py
           marker=$(python3 -c 'import uuid; print(uuid.uuid4().hex)')
           cleanup_profile_probe() {
-            docker compose -f docker/docker-compose.yml exec -T postgres psql -U postgres -d documents_db -v ON_ERROR_STOP=1 -v probe_marker="$marker" < scripts/profile/cleanup_probe.sql
+            docker compose --env-file "$VERIFICATION_ENV_FILE" -f docker/docker-compose.yml exec -T postgres psql -U postgres -d documents_db -v ON_ERROR_STOP=1 -v probe_marker="$marker" < scripts/profile/cleanup_probe.sql
           }
           trap cleanup_profile_probe EXIT
-          docker compose -f docker/docker-compose.yml exec -T -e PROFILE_PROBE_MARKER="$marker" auth-service python /tmp/profile-auth-contract.py
+          docker compose --env-file "$VERIFICATION_ENV_FILE" -f docker/docker-compose.yml exec -T -e PROFILE_PROBE_MARKER="$marker" auth-service python /tmp/profile-auth-contract.py
       - name: Probar configuración, persistencia y disponibilidad de DocumentExportServices
         run: |
-          docker compose -f docker/docker-compose.yml exec -T postgres psql -U postgres -d documents_db -v ON_ERROR_STOP=1 < scripts/database/export/audit_owners.sql
-          docker compose -f docker/docker-compose.yml run --rm --no-deps export-db-role
-          docker compose -f docker/docker-compose.yml run --rm --no-deps export-db-role
-          docker compose -f docker/docker-compose.yml exec -T postgres psql -U postgres -d documents_db -v ON_ERROR_STOP=1 < scripts/database/export/verify_role.sql
-          docker compose -f docker/docker-compose.yml exec -T document-export-service python -c 'import importlib.util, os; assert os.geteuid() == 10009; assert all(importlib.util.find_spec(name) is None for name in ("pytest", "ruff", "httpx", "pypdf", "pip_audit", "pip"))'
-          docker compose -f docker/docker-compose.yml run --build --rm --no-deps export-tests
-          docker compose -f docker/docker-compose.yml run --rm --no-deps export-tests ruff check --no-cache app tests /export-checks
-          docker compose -f docker/docker-compose.yml run --build --rm --no-deps export-audit
-          docker compose -f docker/docker-compose.yml restart document-export-service
-          docker compose -f docker/docker-compose.yml up -d --no-deps --wait document-export-service
-          docker compose -f docker/docker-compose.yml cp scripts/export/verify_auth_contract.py auth-service:/tmp/export-auth-contract.py
+          docker compose --env-file "$VERIFICATION_ENV_FILE" -f docker/docker-compose.yml exec -T postgres psql -U postgres -d documents_db -v ON_ERROR_STOP=1 < scripts/database/export/audit_owners.sql
+          docker compose --env-file "$VERIFICATION_ENV_FILE" -f docker/docker-compose.yml run --rm --no-deps export-db-role
+          docker compose --env-file "$VERIFICATION_ENV_FILE" -f docker/docker-compose.yml run --rm --no-deps export-db-role
+          docker compose --env-file "$VERIFICATION_ENV_FILE" -f docker/docker-compose.yml exec -T postgres psql -U postgres -d documents_db -v ON_ERROR_STOP=1 < scripts/database/export/verify_role.sql
+          docker compose --env-file "$VERIFICATION_ENV_FILE" -f docker/docker-compose.yml exec -T document-export-service python -c 'import importlib.util, os; assert os.geteuid() == 10009; assert all(importlib.util.find_spec(name) is None for name in ("pytest", "ruff", "httpx", "pypdf", "pip_audit", "pip"))'
+          docker compose --env-file "$VERIFICATION_ENV_FILE" -f docker/docker-compose.yml run --build --rm --no-deps export-tests
+          docker compose --env-file "$VERIFICATION_ENV_FILE" -f docker/docker-compose.yml run --rm --no-deps export-tests ruff check --no-cache app tests /export-checks
+          docker compose --env-file "$VERIFICATION_ENV_FILE" -f docker/docker-compose.yml run --build --rm --no-deps export-audit
+          docker compose --env-file "$VERIFICATION_ENV_FILE" -f docker/docker-compose.yml restart document-export-service
+          docker compose --env-file "$VERIFICATION_ENV_FILE" -f docker/docker-compose.yml up -d --no-deps --wait document-export-service
+          docker compose --env-file "$VERIFICATION_ENV_FILE" -f docker/docker-compose.yml cp scripts/export/verify_auth_contract.py auth-service:/tmp/export-auth-contract.py
           marker=$(python3 -c 'import uuid; print(uuid.uuid4().hex)')
           cleanup_export_probe() {
-            docker compose -f docker/docker-compose.yml run --rm --no-deps -T -e EXPORT_PROBE_MARKER="$marker" -e EXPORT_PROBE_ALLOW_CLEANUP=synthetic-ci export-tests python /export-checks/cleanup_probe.py
+            docker compose --env-file "$VERIFICATION_ENV_FILE" -f docker/docker-compose.yml run --rm --no-deps -T -e EXPORT_PROBE_MARKER="$marker" -e EXPORT_PROBE_ALLOW_CLEANUP=synthetic-ci export-tests python /export-checks/cleanup_probe.py
           }
           trap cleanup_export_probe EXIT
-          docker compose -f docker/docker-compose.yml exec -T -e EXPORT_PROBE_MARKER="$marker" auth-service python /tmp/export-auth-contract.py
+          docker compose --env-file "$VERIFICATION_ENV_FILE" -f docker/docker-compose.yml exec -T -e EXPORT_PROBE_MARKER="$marker" auth-service python /tmp/export-auth-contract.py
       - name: Auditar imagen y grafo runtime de DocumentExportServices
         run: |
-          image=$(docker compose -f docker/docker-compose.yml images -q document-export-service)
+          image=$(docker compose --env-file "$VERIFICATION_ENV_FILE" -f docker/docker-compose.yml images -q document-export-service)
           python3 scripts/export/audit_image.py --image "$image" --out "$RUNNER_TEMP/export-image-audit"
-          docker compose -f docker/docker-compose.yml run --rm --no-deps -T export-audit python /export-checks/verify_runtime_dependencies.py < "$RUNNER_TEMP/export-image-audit/runtime.json"
+          docker compose --env-file "$VERIFICATION_ENV_FILE" -f docker/docker-compose.yml run --rm --no-deps -T export-audit python /export-checks/verify_runtime_dependencies.py < "$RUNNER_TEMP/export-image-audit/runtime.json"
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -473,25 +479,25 @@ jobs:
           retention-days: 7
       - name: Probar runtime, identidad y OAuth simulado de Drive
         run: |
-          docker compose -f docker/docker-compose.yml run --rm --no-deps drive-db-role
-          docker compose -f docker/docker-compose.yml run --rm --no-deps drive-db-role
-          docker compose -f docker/docker-compose.yml run --build --rm --no-deps drive-tests
-          docker compose -f docker/docker-compose.yml run --rm --no-deps drive-tests ruff check --no-cache app tests /drive-checks
-          docker compose -f docker/docker-compose.yml run --build --rm --no-deps drive-audit
-          docker compose -f docker/docker-compose.yml restart google-drive-import-service
-          docker compose -f docker/docker-compose.yml up -d --no-deps --wait google-drive-import-service
-          docker compose -f docker/docker-compose.yml cp scripts/drive/verify_auth_contract.py auth-service:/tmp/drive-auth-contract.py
+          docker compose --env-file "$VERIFICATION_ENV_FILE" -f docker/docker-compose.yml run --rm --no-deps drive-db-role
+          docker compose --env-file "$VERIFICATION_ENV_FILE" -f docker/docker-compose.yml run --rm --no-deps drive-db-role
+          docker compose --env-file "$VERIFICATION_ENV_FILE" -f docker/docker-compose.yml run --build --rm --no-deps drive-tests
+          docker compose --env-file "$VERIFICATION_ENV_FILE" -f docker/docker-compose.yml run --rm --no-deps drive-tests ruff check --no-cache app tests /drive-checks
+          docker compose --env-file "$VERIFICATION_ENV_FILE" -f docker/docker-compose.yml run --build --rm --no-deps drive-audit
+          docker compose --env-file "$VERIFICATION_ENV_FILE" -f docker/docker-compose.yml restart google-drive-import-service
+          docker compose --env-file "$VERIFICATION_ENV_FILE" -f docker/docker-compose.yml up -d --no-deps --wait google-drive-import-service
+          docker compose --env-file "$VERIFICATION_ENV_FILE" -f docker/docker-compose.yml cp scripts/drive/verify_auth_contract.py auth-service:/tmp/drive-auth-contract.py
           marker=$(python3 -c 'import uuid; print(uuid.uuid4().hex)')
-          docker compose -f docker/docker-compose.yml exec -T -e DRIVE_PROBE_MARKER="$marker" auth-service python /tmp/drive-auth-contract.py
+          docker compose --env-file "$VERIFICATION_ENV_FILE" -f docker/docker-compose.yml exec -T -e DRIVE_PROBE_MARKER="$marker" auth-service python /tmp/drive-auth-contract.py
       - uses: actions/setup-node@v4
         with:
           node-version: '24'
       - name: Auditar imagen y grafo runtime de GoogleDriveImportServices
         run: |
-          image=$(docker compose -f docker/docker-compose.yml images -q google-drive-import-service)
+          image=$(docker compose --env-file "$VERIFICATION_ENV_FILE" -f docker/docker-compose.yml images -q google-drive-import-service)
           node scripts/drive/audit_image.mjs --image "$image" --out "$RUNNER_TEMP/drive-image-audit"
-          docker compose -f docker/docker-compose.yml run --rm --no-deps -T drive-audit python /drive-checks/verify_runtime_dependencies.py < "$RUNNER_TEMP/drive-image-audit/runtime.json"
-          docker compose -f docker/docker-compose.yml exec -T google-drive-import-service python -c 'import importlib.util, os, tempfile; assert os.geteuid() == 10010; assert all(importlib.util.find_spec(name) is None for name in ("pytest", "ruff", "pip_audit", "pip")); f=tempfile.TemporaryFile(); f.write(b"x" * 20971520); f.close(); assert os.stat("/tmp").st_mode & 0o777 == 0o700'
+          docker compose --env-file "$VERIFICATION_ENV_FILE" -f docker/docker-compose.yml run --rm --no-deps -T drive-audit python /drive-checks/verify_runtime_dependencies.py < "$RUNNER_TEMP/drive-image-audit/runtime.json"
+          docker compose --env-file "$VERIFICATION_ENV_FILE" -f docker/docker-compose.yml exec -T google-drive-import-service python -c 'import importlib.util, os, tempfile; assert os.geteuid() == 10010; assert all(importlib.util.find_spec(name) is None for name in ("pytest", "ruff", "pip_audit", "pip")); f=tempfile.TemporaryFile(); f.write(b"x" * 20971520); f.close(); assert os.stat("/tmp").st_mode & 0o777 == 0o700'
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -500,4 +506,4 @@ jobs:
           if-no-files-found: ignore
           retention-days: 7
       - if: failure()
-        run: docker compose -f docker/docker-compose.yml logs auth-db-roles auth-migrate auth-service conversation-db-role conversation-service rag-chat-db-role embedding-db-role search-db-role document-search-service access-db-role document-access-service library-db-role document-library-service transfer-db-role document-transfer-service profile-db-role profile-service export-db-role document-export-service drive-db-role google-drive-import-service
+        run: docker compose --env-file "$VERIFICATION_ENV_FILE" -f docker/docker-compose.yml logs auth-db-roles auth-migrate auth-service conversation-db-role conversation-service rag-chat-db-role embedding-db-role search-db-role document-search-service access-db-role document-access-service library-db-role document-library-service transfer-db-role document-transfer-service profile-db-role profile-service export-db-role document-export-service drive-db-role google-drive-import-service

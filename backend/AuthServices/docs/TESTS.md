@@ -10,7 +10,8 @@ docker compose -f docker/docker-compose.yml up -d --build --wait auth-service
 ## Suite de Auth
 
 ```powershell
-docker compose -f docker/docker-compose.yml run --rm --no-deps -T -e POSTGRES_USER=postgres -e POSTGRES_PASSWORD=admin1234 -e DJANGO_PRIVATE_KEY_PATH=/tmp/auth-test/private.pem -e DJANGO_PUBLIC_KEY_PATH=/tmp/auth-test/public.pem auth-service python manage.py test users core --noinput
+# Para regresiones con operador DB y credenciales sintéticas, sigue docs/release/README.md.
+# El runner verify.mjs ejecuta users/core, incluido bootstrap concurrente, en PostgreSQL.
 ```
 
 El operador de la base local crea una base de pruebas separada. Las claves de prueba se guardan en el contenedor efímero. La suite cubre los límites de identidad, relaciones multiempresa, JWT y contraseñas, el límite concurrente de login y la configuración.

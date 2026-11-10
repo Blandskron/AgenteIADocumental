@@ -131,3 +131,7 @@ Reconstruye con `docker compose -f docker/docker-compose.yml build --pull rag-do
 El 4 de noviembre de 2026, `pip-audit` no reportó avisos para los paquetes instalados de la imagen `sha256:d5235e0f6b18719a4d0318e784ecb414adad44f06da927c91e2c855856e52d66`. Trivy 0.74.0 reportó nueve CVE altos únicos en Debian 13.7, sin versiones corregidas indicadas.
 
 Trivy también reportó CVE-2025-47273 para `setuptools 70.3.0`, versión declarada por los metadatos internos de pip. La imagen instala `setuptools 84.2.1`. La copia interna de pip incluye `pkg_resources` y la inspección del paquete de pip no encontró `package_index`, el módulo afectado. [Aviso de PyPA](https://github.com/pypa/advisory-database/blob/main/vulns/setuptools/PYSEC-2025-49.yaml).
+
+## Identidad vigente
+
+Antes de autorizar, el servicio valida el JWT y consulta el perfil actual de Auth en `AUTH_IDENTITY_URL` (Compose: `http://auth-service:8001/api/users/me/`; ejecución directa: loopback 8001). Usa grupos, membresías y privilegios actuales, incluidos sus alias heredados. Auth rechaza cuentas inactivas, eliminadas o con contraseña cambiada. Error de autenticación: 401; Auth indisponible o respuesta inválida: 503. No hay caché, proxies de entorno ni redirecciones del Bearer. El timeout de socket es de cinco segundos. Las pruebas unitarias simulan Auth; la verificación transversal comprueba revocación con Auth/PostgreSQL reales.

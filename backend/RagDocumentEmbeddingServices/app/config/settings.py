@@ -22,6 +22,7 @@ class Settings(BaseSettings):
 
     auth_jwt_public_key_path: str = "../AuthServices/public.pem"
     auth_jwt_algorithm: str = "RS256"
+    auth_identity_url: str = "http://127.0.0.1:8001/api/users/me/"
 
     @model_validator(mode="after")
     def validate_chunk_overlap(self):

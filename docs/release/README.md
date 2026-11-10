@@ -10,21 +10,26 @@ La [validación de main](https://github.com/Blandskron/AgenteIADocumental/action
 
 Requisitos: Docker Compose reciente (soporte `!reset`/`!override`), Node 24 y acceso a los registros de imágenes y al modelo público de Hugging Face. Desde la raíz:
 
-```sh
-docker compose --env-file .env.example -p bd-final-check -f docker/docker-compose.yml -f docker/compose/verification.yml up -d --build --wait blandskron-frontend
+```powershell
+$env:VERIFICATION_ENV_FILE = node scripts/release/prepare_verification.mjs
+docker compose --env-file $env:VERIFICATION_ENV_FILE -p bd-final-check -f docker/docker-compose.yml -f docker/compose/verification.yml up -d --build --wait blandskron-frontend
 node scripts/release/verify.mjs
 node scripts/release/audit_images.mjs --project bd-final-check
 node scripts/release/verify_graphs.mjs
 ```
 
-El proyecto dedicado no publica puertos ni monta `.env`, documentos personales o credenciales Google. Usa volúmenes propios y proveedores sintéticos. La ingesta y la recuperación usan el modelo E5 real de 384 dimensiones; solamente la respuesta HTTP de Groq se sustituye por un transporte determinista que lee el contexto recuperado. La prueba comprueba login de dos usuarios, carga, OCR nativo en la suite de ingesta, indexación/reindexación, búsqueda, aislamiento, respuesta con contexto, exportación/lectura PDF y revocación. No equivale a una prueba en vivo de Groq ni de OAuth Google. Drive permanece opcional y deshabilitado.
+Para repetir la aceptación desde un clon local limpio y volúmenes nuevos, después de la suite anterior y sin otros checks simultáneos: `node scripts/release/verify_installation.mjs`. Requiere las dependencias de pruebas de frontend (`npm ci` y Chromium instalado) para comprobar también login desde la web compilada contra Auth real. Usa un puente de bytes mediante Docker sin simular las respuestas ni publicar puertos. Genera `INSTALLATION_CHECK.json`, conserva los volúmenes anteriores y nuevos y, si termina correctamente, vuelve a levantar el entorno sintético original. Una ejecución fallida conserva sus coordenadas privadas para diagnóstico; no borrar volúmenes para recuperarla.
+
+El generador parte de `.env.example` y crea un archivo temporal privado con credenciales aleatorias exclusivamente sintéticas. Conserva su ruta durante toda la ejecución y los reinicios; nunca uses otra contraseña contra el mismo volumen. Para Bash, usa `export VERIFICATION_ENV_FILE="$(node scripts/release/prepare_verification.mjs)"` y `--env-file "$VERIFICATION_ENV_FILE"`. El proyecto dedicado no publica puertos ni monta `.env`, documentos personales o credenciales Google. Usa volúmenes propios y proveedores sintéticos. La ingesta y la recuperación usan el modelo E5 real de 384 dimensiones; solamente la respuesta HTTP de Groq se sustituye por un transporte determinista que lee el contexto recuperado. La prueba comprueba login de dos usuarios, carga, OCR nativo en la suite de ingesta, indexación/reindexación, búsqueda, aislamiento, respuesta con contexto, exportación/lectura PDF y revocación. No equivale a una prueba en vivo de Groq ni de OAuth Google. Drive permanece opcional y deshabilitado.
 
 `VERIFICATION.json` registra etapas, resultado y duración; los comandos de cada etapa están en `scripts/release/verify.mjs` y los logs crudos quedan en un directorio temporal privado. La verificación SQL cubre roles mediante conexiones reales, carreras, jerarquía y ciclo de vida de membresías; las bases auxiliares se retiran incluso ante un fallo de pruebas. `--demo-only` permite repetir el recorrido tras una reconstrucción sin atribuirle las regresiones completas. `--relations-only` repite las cuatro suites SQL. No usar estos scripts contra una instancia con datos propios.
 
-Después de inspeccionar el resultado y comprobar que no quedan fixtures, retirar únicamente el entorno dedicado:
+El runner comprueba también el login del administrador generado, cambio de contraseña, parada/arranque completo y segundo arranque: deben conservar usuario, hash y documento. El postflight conserva exactamente un administrador de bootstrap y cero usuarios/documentos de prueba. No confundir ese administrador con una fixture sobrante.
 
-```sh
-docker compose --env-file .env.example -p bd-final-check -f docker/docker-compose.yml -f docker/compose/verification.yml down --volumes --remove-orphans
+Después de inspeccionar el resultado y comprobar que no quedan fixtures, retirar únicamente los contenedores dedicados conservando volúmenes:
+
+```powershell
+docker compose --env-file $env:VERIFICATION_ENV_FILE -p bd-final-check -f docker/docker-compose.yml -f docker/compose/verification.yml down --remove-orphans
 ```
 
 ## Imágenes y alcance de seguridad
