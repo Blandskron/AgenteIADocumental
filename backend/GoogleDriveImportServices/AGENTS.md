@@ -1,5 +1,7 @@
 # Trabajar en GoogleDriveImportServices
 
+Skill del componente: [documental-drive](../../.agents/skills/documental-drive/SKILL.md).
+
 Lee el [README](README.md), las [reglas raíz](../../AGENTS.md) y la [verificación de entrega](../../docs/release/README.md). Delimita cada cambio en su PR y conserva los contratos vigentes.
 
 DRIVE-002/003 establece el runtime factory y el rol drive_runtime. Conexión/historial siguen globales por usuario; el acceso exige permiso vigente de grupo del tenant activo o superusuario actual. No mantener transacciones/locks durante red. GOOGLE_DRIVE_ENABLED=false permite operar sin secretos Google; no reactivar OAuth como efecto de una migración ni declarar resueltas importaciones o coordinación web pendientes.

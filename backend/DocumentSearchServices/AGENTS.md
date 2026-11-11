@@ -1,5 +1,7 @@
 # DocumentSearchServices
 
+Skill del componente: [documental-search](../../.agents/skills/documental-search/SKILL.md).
+
 Lee el [README](README.md), las [reglas raíz](../../AGENTS.md) y la [verificación de entrega](../../docs/release/README.md). Delimita cada cambio en su PR y conserva los contratos vigentes.
 
 - Aplica los permisos antes de devolver resultados, conteos, fragmentos, snippets o selecciones para el chat.

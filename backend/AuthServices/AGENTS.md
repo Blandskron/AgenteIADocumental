@@ -1,5 +1,7 @@
 # Colaborar en AuthServices
 
+Skill del componente: [documental-auth](../../.agents/skills/documental-auth/SKILL.md).
+
 Lee el [README](README.md), las [reglas raíz](../../AGENTS.md) y la [verificación de entrega](../../docs/release/README.md). Delimita cada cambio en su PR y conserva los contratos vigentes.
 
 - Revisa `users/urls.py`, `users/views.py` y `users/serializers.py` juntos cuando cambien permisos. Confirma la separación entre administración global y por empresa.

@@ -9,7 +9,17 @@ La web usa React y TypeScript. Django administra la identidad y once servicios d
 | [Arquitectura](docs/architecture.md) | Topología, límites de confianza, secuencia de ingesta, RAG y exportación, y mapa de servicios. |
 | [Operación local](docs/operations.md) | Arranque, configuración, diagnóstico, actualización y mantenimiento. |
 | [Verificación de entrega](docs/release/README.md) | Suite sintética, evidencias fechadas, auditoría de imágenes y alcance de CI. |
+| [Backend](backend/README.md) | Inventario y documentación de los once microservicios. |
+| [Base de datos](scripts/database/README.md) | Esquema, roles, preflight y migraciones. |
+| [Skills y documentación](docs/maintainers.md) | Convenciones y rutas de trabajo para agentes. |
 | [Frontend](frontend/README.md) | Estructura, convenciones, diseño y pruebas de la interfaz. |
+
+```mermaid
+flowchart LR
+    web["Web documental"] --> backend["APIs de identidad y documentos"]
+    backend --> store["PostgreSQL, pgvector y originales"]
+    backend --> groq["Groq para respuestas con fuentes"]
+```
 
 ## Probar en local
 

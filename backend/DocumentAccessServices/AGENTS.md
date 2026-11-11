@@ -1,5 +1,7 @@
 # DocumentAccessServices
 
+Skill del componente: [documental-access](../../.agents/skills/documental-access/SKILL.md).
+
 Lee el [README](README.md), las [reglas raíz](../../AGENTS.md) y la [verificación de entrega](../../docs/release/README.md). Delimita cada cambio en su PR y conserva los contratos vigentes.
 
 - Comprueba por separado los permisos de lectura, descarga, borrado y gestión de asignaciones.

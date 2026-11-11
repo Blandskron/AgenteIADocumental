@@ -11,6 +11,7 @@ backend/AuthServices/*.pem
 backend/AuthServices/keys/*.pem
 frontend/node_modules/
 frontend/dist/
+/.release-reports/
 
 
 # Byte-compiled / optimized / DLL files

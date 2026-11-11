@@ -19,8 +19,6 @@ jobs:
           node-version: '24'
       - name: Prepare private synthetic installation credentials
         run: node scripts/release/prepare_verification.mjs --github
-      - name: Evitar publicar evidencia de una ejecución anterior
-        run: python3 -c 'from pathlib import Path; [Path(p).unlink(missing_ok=True) for p in ("docs/release/VERIFICATION.json", "docs/release/IMAGE_AUDIT.json", "docs/release/INSTALLATION_CHECK.json")]'
       - name: Construir entorno integral sin secretos ni datos personales
         run: docker compose --env-file "$VERIFICATION_ENV_FILE" -p bd-final-check -f docker/docker-compose.yml -f docker/compose/verification.yml up -d --build --wait blandskron-frontend
       - name: Validar servicios, integridad concurrente y recorrido documental
@@ -33,7 +31,8 @@ jobs:
         if: always()
         with:
           name: release-verification
-          path: docs/release/*.json
+          path: .release-reports/*.json
+          include-hidden-files: true
           retention-days: 14
       - name: Retirar únicamente el entorno sintético
         if: always()

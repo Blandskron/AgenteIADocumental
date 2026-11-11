@@ -9,7 +9,7 @@ process.loadEnvFile(verificationEnvFile);
 
 const prefix = ["compose", "--env-file", verificationEnvFile, "-p", "bd-final-check", "-f", "docker/docker-compose.yml", "-f", "docker/compose/verification.yml"];
 const folder = fs.mkdtempSync(path.join(os.tmpdir(), "bd-verification-"));
-const destination = "docs/release/VERIFICATION.json";
+const destination = ".release-reports/VERIFICATION.json";
 const demoOnly = process.argv.includes("--demo-only");
 const relationsOnly = process.argv.includes("--relations-only");
 const report = demoOnly || relationsOnly ? JSON.parse(fs.readFileSync(destination, "utf8")) : { cards: ["PLAT-001", "DEMO-001"], started_utc: new Date().toISOString(),

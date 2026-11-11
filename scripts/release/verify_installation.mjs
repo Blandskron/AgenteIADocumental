@@ -63,7 +63,9 @@ try {
   report.result = "passed";
 } finally {
   report.finished_utc = new Date().toISOString();
-  fs.writeFileSync(path.join(root, "docs/release/INSTALLATION_CHECK.json"), JSON.stringify(report, null, 2) + "\n");
+  const output = path.join(root, ".release-reports");
+  fs.mkdirSync(output, { recursive: true });
+  fs.writeFileSync(path.join(output, "INSTALLATION_CHECK.json"), JSON.stringify(report, null, 2) + "\n");
   // Private recovery coordinates, not credentials. No personal data were copied.
   fs.writeFileSync(path.join(workspace, "recovery.json"), JSON.stringify({ clone, envFile, freshVolumes }));
   console.log(`Private recovery coordinates: ${path.join(workspace, "recovery.json")}`);

@@ -38,7 +38,7 @@ docker compose --env-file .env -f docker/docker-compose.yml --profile tools up -
 3. Revisa las migraciones aplicables. La migración de embeddings de 1536 a 384 dimensiones retira los vectores heredados y conserva los originales. Reindexa antes de habilitar chat. Para el antiguo volumen JWT compartido, sigue la guía de Auth. Para PDFs heredados, sigue la migración revisada de Exportación.
 4. Actualiza esquema, API y web de forma coordinada. Revisa los healthchecks y prueba con datos sintéticos.
 
-[Esquema y preflight](../scripts/database/README.md) · [Integridad de carpetas](../backend/DocumentLibraryServices/README.md#integridad-y-migración-de-carpetas) · [Claves JWT](../backend/AuthServices/docs/OPERATIONS.md#actualización-desde-el-volumen-jwt-compartido) · [Migración de PDF](../backend/DocumentExportServices/README.md#migración-revisada-de-pdfs-heredados)
+[Esquema y preflight](../scripts/database/README.md) · [Integridad de carpetas](../backend/DocumentLibraryServices/docs/REFERENCE.md#integridad-y-migración-de-carpetas) · [Claves JWT](../backend/AuthServices/docs/OPERATIONS.md#actualización-desde-el-volumen-jwt-compartido) · [Migración de PDF](../backend/DocumentExportServices/docs/REFERENCE.md#migración-revisada-de-pdfs-heredados)
 
 ## Procesamiento y prueba funcional
 

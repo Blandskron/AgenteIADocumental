@@ -1,5 +1,7 @@
 # Colaborar en el esquema compartido
 
+Skill de cambios SQL: [documental-database](../../.agents/skills/documental-database/SKILL.md).
+
 Lee el [README](README.md), las [reglas raíz](../../AGENTS.md) y la [verificación de entrega](../../docs/release/README.md). Delimita cada cambio en su PR y conserva los contratos vigentes.
 
 - Antes de imponer una relación revisa todos los escritores, los modelos no gestionados de Auth, lectores/helper roles y acciones de borrado. Una comprobación HTTP no sustituye una restricción concurrente de PostgreSQL.
