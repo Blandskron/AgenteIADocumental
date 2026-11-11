@@ -1,14 +1,20 @@
 # Verificación de la entrega
 
-Esta carpeta contiene documentación y evidencia JSON; el código de verificación vive en `scripts/release/`. Los contratos y la operación de cada servicio siguen en su README.
+El código de verificación vive en [`scripts/release/`](../../scripts/release). Para arrancar y actualizar el stack, consulta la [guía de operación](../operations.md).
 
-La implementación transversal se integró en el [PR #85](https://github.com/Blandskron/AgenteIADocumental/pull/85), con los [siete jobs de CI aprobados](https://github.com/Blandskron/AgenteIADocumental/actions/runs/42730424304), incluido el recorrido integral y la auditoría de imágenes construidas en CI. Los JSON versionados identifican los artefactos locales y su fecha; los artefactos de esa ejecución identifican las imágenes de CI. No son un escaneo nuevo de un despliegue posterior.
+## Evidencia del 10 de noviembre de 2026
+
+| Registro | Alcance |
+| --- | --- |
+| [Verificación local](VERIFICATION.json) | 88 etapas aprobadas sobre `a7ecca1`: contratos, roles, relaciones SQL y recorrido HTTP integral. |
+| [Instalación desde clon limpio](INSTALLATION_CHECK.json) | 22 etapas aprobadas sobre `b2dbb47`: volúmenes nuevos, persistencia tras reiniciar y login de la web compilada contra Auth real. |
+| [Auditoría local de imágenes](IMAGE_AUDIT.json) | 12 imágenes identificadas por ID, 11 grafos Python validados, cero avisos CRITICAL y cero correcciones disponibles reportadas. El JSON conserva los avisos HIGH del SO y su disposición para la demo local. |
+
+Los resultados corresponden a las revisiones e imágenes identificadas en cada registro. Para la evidencia generada por GitHub Actions, consulta los artefactos de la ejecución correspondiente al commit. [Workflow de validación](../../.github/workflows/validate.yml) · [CI de la integración transversal](https://github.com/Blandskron/AgenteIADocumental/actions/runs/42730424304) · [CI de main tras esa integración](https://github.com/Blandskron/AgenteIADocumental/actions/runs/42732350270)
 
 ## Reproducir sin datos personales
 
-La [validación de main](https://github.com/Blandskron/AgenteIADocumental/actions/runs/42732350270) también aprobó después de integrar la implementación. Los planes y diagnósticos de modernización se retiraron al completar ese alcance; los contratos, instrucciones de mantenimiento y evidencia reproducible siguen vigentes.
-
-Requisitos: Docker Compose reciente (soporte `!reset`/`!override`), Node 24 y acceso a los registros de imágenes y al modelo público de Hugging Face. Desde la raíz:
+Necesitas Docker Compose con soporte de `!reset` y `!override`, Node 24 y acceso a los registros de imágenes y al modelo público de Hugging Face. Ejecuta desde la raíz.
 
 ```powershell
 $env:VERIFICATION_ENV_FILE = node scripts/release/prepare_verification.mjs
@@ -42,6 +48,6 @@ Las imágenes Python validan el grafo durante la construcción y retiran `pip` y
 
 ## Frontend y actualización
 
-Desde `frontend`: `npm ci`, `npm test`, `npm audit --audit-level=low`, `npm run build`, `npx playwright install chromium` y `npm run test:browser`. Las pruebas de navegador usan contratos HTTP simulados; el recorrido de servicios anterior comprueba persistencia real. Los diálogos nativos mantienen foco/Escape y la sesión descarta respuestas de cuentas/empresas anteriores. La imagen web usa UID 101, raíz de solo lectura y configuración pública en un tmpfs privado; solo recibe variables públicas explícitas.
+El frontend mantiene sus comandos de verificación en su [guía de desarrollo](../../frontend/README.md#verificación). Las pruebas de navegador usan contratos HTTP simulados. El recorrido integral comprueba persistencia real y el verificador de clon comprueba el login web contra Auth. La imagen web usa UID 101, raíz de solo lectura y configuración pública en un tmpfs privado.
 
-Para actualizar instalaciones existentes, realizar copia coherente de PostgreSQL, documentos y claves, detener escritores y revisar el preflight antes de aplicar el esquema. No borrar ni reasignar datos heredados para pasar restricciones. El nuevo arranque aplica integridad compartida y, después de Django, `tenant-integrity`; una referencia inconsistente detiene el despliegue. Ver la [guía SQL](../../scripts/database/README.md) y la [operación de Auth](../../backend/AuthServices/docs/OPERATIONS.md). Desplegar API/esquema/web juntos.
+Para probar una actualización con datos existentes, sigue el preflight, la copia de seguridad y el orden de despliegue de la [guía de operación](../operations.md#actualizar-una-instalación-existente).
