@@ -40,6 +40,10 @@ jobs:
 
   frontend:
     runs-on: ubuntu-latest
+    container:
+      # Keep the preinstalled browser revision aligned with @playwright/test in frontend/package-lock.json.
+      image: mcr.microsoft.com/playwright:v1.65.0-noble@sha256:6e3fb709361521eb27161606e6da6d2674e5e89fa16516cb37d6fdd91372273d
+      options: --user 1001 --init
     defaults:
       run:
         working-directory: frontend
@@ -57,7 +61,6 @@ jobs:
       - run: npm run format:check
       - run: npm test
       - run: npm run build
-      - run: npx playwright install --with-deps chromium
       - run: npm run test:browser
 
   compose:

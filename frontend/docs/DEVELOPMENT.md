@@ -37,6 +37,8 @@ Las pruebas de navegador usan identidad y documentos sintéticos y contratos HTT
 
 Los comandos `dev` y `preview` escuchan en `127.0.0.1` de forma predeterminada, conforme al alcance local del proyecto. Playwright sirve `dist/` con `vite preview` en loopback: ejecuta `npm run build` antes de las pruebas de navegador. `npm run format` aplica el formato de código de `src/`.
 
+El job de frontend de CI usa la imagen oficial de Playwright con los navegadores preinstalados. Si cambia la versión de `@playwright/test` en el lockfile, actualiza la etiqueta y el digest de la imagen en el [workflow de validación](../../.github/workflows/validate.yml).
+
 ## Design System
 
 `shared/styles/tokens.css` define superficies, texto, acento, estados, foco, radios, espacios y elevación para ambos temas. Los estilos se distribuyen en primitivas, navegación, chat, documentos, integraciones y diálogos. Perfil y administración mantienen sus hojas locales y consumen los mismos tokens.
