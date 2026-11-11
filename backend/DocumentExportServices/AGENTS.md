@@ -1,5 +1,7 @@
 # Trabajar en DocumentExportServices
 
+Skill del componente: [documental-export](../../.agents/skills/documental-export/SKILL.md).
+
 Lee el [README](README.md), las [reglas raíz](../../AGENTS.md) y la [verificación de entrega](../../docs/release/README.md). Delimita cada cambio en su PR y conserva los contratos vigentes.
 
 ## Límites del servicio

@@ -1,29 +1,33 @@
 # AuthServices
 
-> Evidencia transversal vigente: [verificación de entrega](../../docs/release/README.md) e [imágenes finales](../../docs/release/IMAGE_AUDIT.json). Runtime Python sin pip/ensurepip; comprobación del grafo durante el build, herramientas en test/audit. Los escaneos fechados anteriores conservan su valor histórico y no describen esta imagen.
+Identidad, sesión JWT RS256, usuarios y administración de membresías de empresa.
 
-AuthServices autentica usuarios y emite JWT RS256 para el frontend y los servicios documentales de Blandskron. También administra identidades globales y membresías de empresa mediante Django REST Framework.
+## Recorrido
+
+```mermaid
+flowchart LR
+    web["Navegador"] -->|"Login y refresh"| auth["Django REST Framework"]
+    auth -->|"JWT RS256"| web
+    services["Servicios consumidores"] -->|"Identidad vigente"| auth
+    auth --> db[("Usuarios y membresías en PostgreSQL")]
+```
 
 ## Arranque local
 
-Desde la raíz del repositorio:
+Configura el entorno según el [README del proyecto](../../README.md#probar-en-local) y ejecuta desde la raíz.
 
 ```powershell
-if (-not (Test-Path .env)) { Copy-Item .env.example .env }
-docker compose -f docker/docker-compose.yml up -d --build --wait auth-service
+docker compose --env-file .env -f docker/docker-compose.yml up -d --build --wait auth-service
 ```
 
-Configura las credenciales y secretos indicados en el [README raíz](../../README.md) antes de arrancar. El job `auth-bootstrap` crea el administrador una sola vez después de las migraciones e integridad, como `auth_runtime` sin DDL ni volumen de firma. Un superusuario existente se conserva íntegro; los reinicios no restablecen su contraseña. Abre [Django Admin](http://localhost:8001/admin/) o [Swagger](http://localhost:8001/docs/api/schema/swagger-ui/). Para probar el flujo documental completo, sigue el [README raíz](../../README.md).
+Puerto local **8001**.
+
+El bootstrap crea el administrador después de las migraciones y conserva cualquier superusuario existente. [Django Admin](http://localhost:8001/admin/) · [Swagger](http://localhost:8001/docs/api/schema/swagger-ui/)
 
 ## Guías
 
-- [Contrato de API](docs/API.md) para sesión, perfil, claims y administración.
-- [Operación y configuración](docs/OPERATIONS.md) para arranque, migraciones, roles de base, secretos, rotación y auditoría.
-- [Pruebas](docs/TESTS.md) para la suite de Auth, OpenAPI, permisos de PostgreSQL y revisión de dependencias.
-Consulta [AGENTS.md](AGENTS.md) para colaborar y la [verificación de entrega](../../docs/release/README.md) para evidencia transversal, alcance y avisos.
-
-Las rutas y serializadores viven en `users/`. Las rutas de Swagger, ReDoc y OpenAPI están en [core/openapi.py](core/openapi.py). `docs/` contiene las guías escritas. Django gestiona las tablas de identidad y sesión. El esquema multiempresa vive en [scripts/database](../../scripts/database/) y se mapea con modelos no gestionados.
-
-El seguimiento de integridad compartida PLAT-001 dispone de un [preflight y mapa de escritores](../../scripts/database/README.md). Incluye diagnóstico de solo lectura y restricciones activadas por defecto, validadas con carreras SQL. Los conflictos HTTP conocidos se describen en la guía de API; los conteos y el recorrido transversal están en la evidencia de entrega.
-
-La migración 006 añade el ciclo de vida de membresías: se ejecuta después de las migraciones Django, conserva el `user_id` textual y elimina membresías/asignaciones al borrar la cuenta, manteniendo documentos históricos. Deshabilitar conserva la configuración. Consulta la [operación SQL](../../scripts/database/README.md#identidad-auth-y-membresías--segundo-incremento-plat-001c) antes de aplicarla; Compose la aplica con tenant-integrity después de Django.
+- [Contrato de API y JWT](docs/API.md).
+- [Operación, claves y migraciones](docs/OPERATIONS.md).
+- [Pruebas de Auth y PostgreSQL](docs/TESTS.md).
+- [Instrucciones del componente](AGENTS.md) y [skill documental-auth](../../.agents/skills/documental-auth/SKILL.md).
+- [Mapa del backend](../README.md) y [verificación de entrega](../../docs/release/README.md).

@@ -12,7 +12,7 @@ process.loadEnvFile(verificationEnvFile);
 const root = fileURLToPath(new URL("../../", import.meta.url));
 const args = process.argv.slice(2), project = args[args.indexOf("--project") + 1];
 if (!args.includes("--project") || project !== "bd-final-check") throw Error("Use dedicated --project bd-final-check");
-const destination = path.resolve(args.includes("--out") ? args[args.indexOf("--out") + 1] : "docs/release/IMAGE_AUDIT.json");
+const destination = path.resolve(args.includes("--out") ? args[args.indexOf("--out") + 1] : ".release-reports/IMAGE_AUDIT.json");
 const scanner = "aquasec/trivy@sha256:8f6bb947dbc528902e11f2f5be52f7b519f6a39d5d148f41166f2040499768fb";
 const services = {
   "auth-service": ["AuthServices", 10001], "conversation-service": ["ConversationServices", 10002],

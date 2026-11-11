@@ -1,5 +1,7 @@
 # Colaborar en DocumentTransferServices
 
+Skill del componente: [documental-transfer](../../.agents/skills/documental-transfer/SKILL.md).
+
 Lee el [README](README.md), las [reglas raíz](../../AGENTS.md) y la [verificación de entrega](../../docs/release/README.md). Delimita cada cambio en su PR y conserva los contratos vigentes.
 
 - El servicio registra un diario del cliente, no transfiere archivos ni acredita su entrega. No conviertas eventos en permisos o auditoría autoritativa.

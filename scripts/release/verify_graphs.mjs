@@ -5,7 +5,7 @@ import { spawnSync } from "node:child_process";
 const verificationEnvFile = process.env.VERIFICATION_ENV_FILE || ".env.example";
 process.loadEnvFile(verificationEnvFile);
 
-const filename = "docs/release/IMAGE_AUDIT.json";
+const filename = ".release-reports/IMAGE_AUDIT.json";
 const report = JSON.parse(fs.readFileSync(filename, "utf8"));
 const images = report.images.filter((image) => image.inventory);
 if (!report.finished_utc || images.length !== 11 || report.requires_review.length) throw Error("Complete the image audit first.");

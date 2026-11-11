@@ -1,6 +1,6 @@
 # Cómo colaborar en Blandskron Documental
 
-El [README](README.md) es la entrada humana. Cada servicio mantiene su contrato en README e instrucciones locales en AGENTS. La [verificación de entrega](docs/release/README.md) describe comprobaciones, alcance local y avisos residuales. La modernización del portafolio está integrada; los nuevos cambios se delimitan en una issue o en la descripción del PR.
+El [README](README.md) es la entrada humana. Los README presentan el mapa de cada ámbito. Los detalles viven en docs/ y las reglas locales en AGENTS.md. El [índice de mantenimiento](docs/maintainers.md) enlaza las skills por ámbito. Usa [documental-project](.agents/skills/documental-project/SKILL.md) para cambios transversales. La [verificación de entrega](docs/release/README.md) describe comprobaciones, alcance local y avisos residuales. Delimita cada cambio en una issue o en la descripción del PR.
 
 ## Antes de empezar
 
@@ -13,7 +13,7 @@ El [README](README.md) es la entrada humana. Cada servicio mantiene su contrato 
 - Entrega incrementos revisables con objetivo, alcance y evidencia en el PR. Reutiliza contratos y convenciones; revisa consumidores, configuración y migraciones cuando cambien.
 - Usa documentos sintéticos. No guardes claves, tokens, datos personales ni credenciales en código, ejemplos, logs o capturas.
 - Código y recursos propios de Blandskron: conserva LICENSE y atribuciones de terceros. La demo se limita a desarrollo local en loopback; Google Drive es opcional.
-- docs/ contiene documentación y evidencia. El código de comprobación y mantenimiento vive en scripts/ y las pruebas en sus suites.
+- docs/ contiene documentación Markdown. Los reportes generados van a .release-reports/ o a los artefactos de CI. El código de comprobación y mantenimiento vive en scripts/ y las pruebas en sus suites.
 
 ## Git autorizado
 
