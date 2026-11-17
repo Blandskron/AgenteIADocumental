@@ -1,9 +1,11 @@
-# Contribuir
+# Contribuir a Blandskron Documental
 
-Antes de implementar, revisa las issues y PR abiertos y describe el problema concreto y el alcance. La primera versión se centra en instalación, autenticación, carga/búsqueda/RAG y PDF; las nuevas funcionalidades no forman parte del cierre.
+Puedes contribuir reportando errores, proponiendo mejoras o enviando cambios de código y documentación.
 
-Lee README.md, AGENTS.md y el contrato del servicio afectado. Trabaja en una rama independiente, usa documentos sintéticos y conserva migraciones y compatibilidad con instalaciones existentes. No incluyas secretos ni datos personales.
+1. Revisa las [issues](https://github.com/Blandskron/AgenteIADocumental/issues) y los [pull requests](https://github.com/Blandskron/AgenteIADocumental/pulls) abiertos. Describe el problema, los pasos para reproducirlo cuando corresponda y el alcance del cambio. Para informar una vulnerabilidad, sigue la [política de seguridad](SECURITY.md).
+2. Lee el [README](README.md), las [reglas del repositorio](AGENTS.md) y la documentación del componente. Trabaja en una rama independiente, usa documentos sintéticos y conserva la compatibilidad con instalaciones existentes. Mantén los secretos y los datos personales fuera de las contribuciones.
+3. Abre un pull request dirigido a `main`. Describe el comportamiento anterior, el cambio y cómo lo verificaste. Enlaza la issue si existe e incluye las limitaciones de las pruebas.
 
-El PR debe explicar el comportamiento anterior y nuevo, aportar pruebas pertinentes y declarar las limitaciones. La [verificación de entrega](docs/release/README.md) describe el entorno aislado; nunca ejecutes fixtures contra datos propios. Para la web: `npm ci`, `npm test`, `npm run build` y pruebas de navegador cuando corresponda.
+La [verificación de entrega](docs/release/README.md) describe cómo probar con datos sintéticos en un entorno aislado. Para cambios de frontend, ejecuta `npm ci`, `npm test` y `npm run build`, más las pruebas de navegador que correspondan al recorrido afectado.
 
-La licencia actual reserva derechos. No presupongas una licencia Open Source ni cambies LICENSE o atribuciones; la decisión y la aceptación de contribuciones requieren confirmación del titular.
+El código y la documentación del proyecto se distribuyen bajo la [licencia MIT](LICENSE). Respeta las licencias y los avisos de autoría de los recursos de terceros.
