@@ -1,27 +1,36 @@
+@font-face {
+  font-family: Inter;
+  src: url("/fonts/inter-variable.woff2") format("woff2");
+  font-weight: 100 900;
+  font-display: swap;
+}
+
 :root {
   color-scheme: light;
-  --background: #f5f7fb;
+  --brand-purple: #4a148c;
+  --brand-deep: #2e0b59;
+  --background: #f5f3f8;
   --surface: #ffffff;
-  --surface-subtle: #edf1f6;
-  --surface-hover: #e4eaf2;
-  --navigation: #eef2f7;
-  --foreground: #172435;
-  --foreground-muted: #526176;
-  --foreground-subtle: #606f82;
-  --border: #d3dce7;
-  --border-strong: #8291a5;
-  --accent: #086c62;
-  --accent-subtle: #d8f2eb;
-  --primary: #0b7067;
+  --surface-subtle: #f2edf7;
+  --surface-hover: #ebe0f5;
+  --navigation: #f8f5fb;
+  --foreground: #090909;
+  --foreground-muted: #534a61;
+  --foreground-subtle: #645a72;
+  --border: #ded4e7;
+  --border-strong: #897799;
+  --accent: var(--brand-purple);
+  --accent-subtle: #eee3fa;
+  --primary: var(--brand-purple);
   --primary-foreground: #ffffff;
   --danger: #b42337;
   --danger-subtle: #fce8ec;
   --success: #176e4b;
   --warning: #815508;
-  --focus: #1267d3;
-  --radius-sm: 8px;
-  --radius-md: 12px;
-  --radius-lg: 20px;
+  --focus: #6a27af;
+  --radius-sm: 10px;
+  --radius-md: 16px;
+  --radius-lg: 24px;
   --space-1: 4px;
   --space-2: 8px;
   --space-3: 12px;
@@ -29,11 +38,18 @@
   --space-6: 24px;
   --space-8: 32px;
   --space-12: 48px;
-  --shadow-sm: 0 2px 6px #182c4410;
-  --shadow: 0 16px 48px #182c441a;
+  --shadow-sm: 0 4px 12px #2e0b590c;
+  --shadow: 0 16px 42px #2e0b5917, 0 2px 8px #2e0b5908;
+  --glass: #ffffffa6;
+  --glass-strong: #fcfaffed;
+  --glass-line: #ffffffd9;
+  --glass-shadow: inset 0 1px 0 #fff, var(--shadow);
+  --glass-blur: blur(22px) saturate(135%);
+  --canvas-glow: #cdb2f18a;
+  --canvas-edge: #e1cdf891;
+  --canvas-line: #4a148c08;
   --duration: 160ms;
-  font-family:
-    "Segoe UI Variable", "Segoe UI", Inter, ui-sans-serif, system-ui, sans-serif;
+  font-family: Inter, "Segoe UI", ui-sans-serif, system-ui, sans-serif;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
@@ -51,9 +67,6 @@
   --white: var(--foreground);
   --aqua: var(--accent);
   --aqua-2: var(--accent);
-  --glass: var(--surface);
-  --glass-strong: var(--surface);
-  --glass-line: var(--border);
   --soft-text: var(--foreground-muted);
   --sidebar-hover: var(--surface-hover);
   --sidebar-border: var(--border);
@@ -64,25 +77,47 @@
 }
 [data-theme="dark"] {
   color-scheme: dark;
-  --background: #101720;
-  --surface: #192330;
-  --surface-subtle: #202d3d;
-  --surface-hover: #2b3c50;
-  --navigation: #141e2a;
-  --foreground: #edf3fa;
-  --foreground-muted: #b1bfd1;
-  --foreground-subtle: #9aaec5;
-  --border: #34465b;
-  --border-strong: #6a809a;
-  --accent: #75e0ca;
-  --accent-subtle: #203e3b;
-  --primary: #75e0ca;
-  --primary-foreground: #102b28;
+  --background: #121017;
+  --surface: #211a2a;
+  --surface-subtle: #2a2135;
+  --surface-hover: #3a2a4b;
+  --navigation: #1b1623;
+  --foreground: #f8f5fb;
+  --foreground-muted: #d2c6dc;
+  --foreground-subtle: #b8a9c5;
+  --border: #493c59;
+  --border-strong: #8a739e;
+  --accent: #d8b5ff;
+  --accent-subtle: #39234c;
+  --primary: #d8b5ff;
+  --primary-foreground: var(--brand-deep);
   --danger: #ff9caf;
   --danger-subtle: #442531;
   --success: #84deac;
   --warning: #f5cf82;
-  --focus: #8dbfff;
+  --focus: #e0c3ff;
   --shadow-sm: 0 2px 8px #0002;
-  --shadow: 0 20px 56px #0005;
+  --shadow: 0 18px 50px #09050d66, 0 2px 8px #09050d40;
+  --glass: #251b32ab;
+  --glass-strong: #281f34ed;
+  --glass-line: #c49ce342;
+  --glass-shadow: inset 0 1px 0 #ecd7ff17, var(--shadow);
+  --canvas-glow: #4a148c69;
+  --canvas-edge: #623a865e;
+  --canvas-line: #dbc9ef09;
+}
+
+@media (prefers-reduced-transparency: reduce),
+  (prefers-contrast: more),
+  (forced-colors: active) {
+  :root,
+  [data-theme="dark"] {
+    --glass: var(--surface);
+    --glass-strong: var(--surface);
+    --glass-line: var(--border-strong);
+    --glass-blur: none;
+    --canvas-glow: transparent;
+    --canvas-edge: transparent;
+    --canvas-line: transparent;
+  }
 }

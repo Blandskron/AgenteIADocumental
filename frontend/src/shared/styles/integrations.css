@@ -1,9 +1,22 @@
+.applications-heading,
+.application-detail-hero {
+  padding: clamp(18px, 3vw, 30px);
+  margin-bottom: 24px;
+  border: 1px solid var(--glass-line);
+  border-radius: var(--radius-lg);
+  background: linear-gradient(
+    110deg,
+    var(--glass-strong),
+    var(--accent-subtle)
+  );
+  box-shadow: var(--glass-shadow);
+}
 .applications-heading h1 {
   margin: 0 0 12px;
 }
 .applications-heading p {
   color: var(--foreground-muted);
-  margin-bottom: 32px;
+  margin: 0;
 }
 .applications-grid {
   display: grid;
@@ -18,7 +31,8 @@
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
   color: var(--foreground);
-  background: var(--surface);
+  background: var(--glass-strong);
+  box-shadow: var(--shadow-sm);
   text-align: left;
 }
 .application-row:hover {
@@ -79,7 +93,8 @@
 .application-import-panel {
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
-  background: var(--surface);
+  background: var(--glass-strong);
+  box-shadow: var(--shadow-sm);
   padding: 24px;
   margin: 24px 0;
 }

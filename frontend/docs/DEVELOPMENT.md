@@ -24,6 +24,7 @@ La modernización introduce contratos TypeScript estrictos, alias `@/`, carga po
 
 ```powershell
 npm ci
+npm run audit:dependencies
 npm run lint
 npm run typecheck
 npm run format:check
@@ -43,6 +44,10 @@ El job de frontend de CI usa la imagen oficial de Playwright con los navegadores
 
 `shared/styles/tokens.css` define superficies, texto, acento, estados, foco, radios, espacios y elevación para ambos temas. Los estilos se distribuyen en primitivas, navegación, chat, documentos, integraciones y diálogos. Perfil y administración mantienen sus hojas locales y consumen los mismos tokens.
 
+El diseño Floating Glass usa el púrpura Blandskron `#4A148C` y el púrpura profundo `#2E0B59`. Los contenedores principales usan las superficies translúcidas, los bordes iluminados y la elevación de los tokens `--glass*`. Los controles de lectura y edición usan superficies de mayor opacidad. Las preferencias de menor transparencia, mayor contraste y colores forzados activan superficies sólidas. La interfaz respeta la preferencia de movimiento reducido.
+
+El símbolo y el logotipo horizontal provienen de la guía de marca de Blandskron. Inter 4.1 se sirve desde el repositorio y conserva su aviso de licencia. [Inter](https://github.com/rsms/inter/tree/v4.1) · [SIL Open Font License](../public/fonts/OFL-Inter.txt)
+
 Usa `Button` para nuevas acciones y `IconButton` para controles con iconos y nombre accesible. `ModalDialog` centraliza foco, Escape, contención y restitución al disparador; los formularios pueden indicar `initialFocusRef`. Las vistas de selección por URL usan navegación y estado actual anunciado, sin fingir un widget de pestañas.
 
 Context conserva sesión y tema. El tema valida el valor almacenado y usa la preferencia del sistema al entrar por primera vez. La sesión distingue credenciales renovadas de identidad/tenant; no agregues JWT a las dependencias de un editor ni traslades borradores a un store global.
@@ -50,6 +55,8 @@ Context conserva sesión y tema. El tema valida el valor almacenado y usa la pre
 Los clientes HTTP distinguen JSON y blobs por tipos; los adaptadores de cada endpoint mantienen DTO y normalización, con las validaciones de formato existentes. TypeScript no sustituye la validación de datos externos ni la autorización del servidor.
 
 ## Dependencias y alcance
+
+`npm run audit:dependencies` ejecuta la auditoría de npm y bloquea los hallazgos nuevos. Admite temporalmente GHSA-fc5q-39xc-vjpf para la copia transitiva de `picomatch` 4.0.7 y su cadena actual de Vite y TypeScript ESLint. La aplicación recibe texto y documentos, mientras que los patrones glob de compilación y lint se definen en el repositorio. La imagen final distribuye los archivos compilados con Nginx. Cuando se publique una versión corregida compatible, actualiza el lockfile y retira la excepción. [Aviso de picomatch](https://github.com/advisories/GHSA-fc5q-39xc-vjpf)
 
 Las incorporaciones son herramientas de desarrollo: TypeScript/tipos, ESLint, Prettier y axe. `minimatch` está fijado por override a una versión corregida de la línea 11 para las herramientas de desarrollo, por [GHSA-g3hv-75wg-m249](https://github.com/advisories/GHSA-g3hv-75wg-m249); el lockfile y las comprobaciones se validan con esa resolución. No se añadió un framework de estilos, routing ni estado.
 

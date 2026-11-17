@@ -369,10 +369,19 @@ for (const theme of ["light", "dark"])
       const errors = await prepare(page, { theme });
       await page.goto(route);
       await expect(page.locator("main")).toBeVisible();
-      if (route === "/profile")
-        await expect(page.getByLabel("Nombre Completo")).toHaveValue(
-          "Usuario de prueba",
-        );
+      if (route === "/profile") {
+        const name = page.getByLabel("Nombre Completo");
+        await expect(name).toHaveValue("Usuario de prueba");
+        expect(
+          await name.evaluate((input) => {
+            const icon = input.parentElement.querySelector("svg");
+            const textLeft =
+              input.getBoundingClientRect().left +
+              Number.parseFloat(getComputedStyle(input).paddingLeft);
+            return textLeft > icon.getBoundingClientRect().right;
+          }),
+        ).toBe(true);
+      }
       if (route === "/admin")
         await expect(
           page.getByRole("combobox", { name: "Empresa activa", exact: true }),

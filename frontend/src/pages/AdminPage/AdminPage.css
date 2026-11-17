@@ -18,6 +18,15 @@
   grid-template-columns: 40px minmax(0, 1fr);
   gap: 12px;
   align-items: center;
+  padding: 16px 20px;
+  border: 1px solid var(--glass-line);
+  border-radius: var(--radius-lg);
+  background: linear-gradient(
+    110deg,
+    var(--glass-strong),
+    var(--accent-subtle)
+  );
+  box-shadow: var(--glass-shadow);
 }
 
 .admin-page-title h1,
@@ -97,8 +106,8 @@
 
 .admin-tenant-bar {
   border: 1px solid var(--line);
-  border-radius: 12px;
-  background: var(--panel);
+  border-radius: var(--radius-md);
+  background: var(--glass-strong);
   padding: 18px 20px;
   display: grid;
   grid-template-columns: minmax(260px, 380px) minmax(0, 1fr);
@@ -145,13 +154,13 @@
 
 .admin-panel {
   border: 1px solid var(--line);
-  border-radius: 12px;
-  background: var(--panel);
+  border-radius: var(--radius-lg);
+  background: var(--glass-strong);
   padding: 22px;
   display: grid;
   gap: 18px;
   align-content: start;
-  box-shadow: var(--shadow);
+  box-shadow: var(--glass-shadow);
 }
 
 .admin-panel.featured {

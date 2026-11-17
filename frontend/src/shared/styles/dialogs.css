@@ -1,14 +1,15 @@
 dialog {
   color: var(--foreground);
-  background: var(--surface);
+  background: var(--glass-strong);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
-  box-shadow: var(--shadow);
+  box-shadow: var(--glass-shadow);
+  backdrop-filter: var(--glass-blur);
   max-width: calc(100vw - 24px);
   max-height: calc(100dvh - 24px);
 }
 dialog::backdrop {
-  background: #0c172a80;
+  background: #1b092d8a;
   backdrop-filter: blur(4px);
 }
 dialog button {

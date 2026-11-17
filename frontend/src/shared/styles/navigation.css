@@ -1,32 +1,59 @@
 .app-shell {
   height: 100dvh;
   display: grid;
-  grid-template-columns: 264px minmax(0, 1fr);
-  background: var(--background);
+  grid-template-columns: 266px minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr);
+  gap: 14px;
+  padding: 14px;
 }
 .app-shell.sidebar-collapsed {
-  grid-template-columns: 64px minmax(0, 1fr);
+  grid-template-columns: 68px minmax(0, 1fr);
 }
 .app-shell > main {
   min-width: 0;
   min-height: 0;
+  height: 100%;
+  border: 1px solid var(--glass-line);
+  border-radius: 28px;
+  background: var(--glass);
+  box-shadow: var(--glass-shadow);
+  backdrop-filter: var(--glass-blur);
+}
+.app-shell > main:focus {
+  outline: none;
+}
+.app-shell > main:target:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: -3px;
 }
 .sidebar {
-  height: 100dvh;
+  position: relative;
+  z-index: 2;
+  height: 100%;
   display: flex;
   flex-direction: column;
-  background: var(--navigation);
-  border-right: 1px solid var(--border);
+  background: var(--glass-strong);
+  border: 1px solid var(--glass-line);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--glass-shadow);
+  backdrop-filter: var(--glass-blur);
   min-width: 0;
   overflow: hidden;
 }
 .sidebar-top {
-  min-height: 80px;
-  padding: 20px 12px;
+  min-height: 78px;
+  padding: 14px 12px;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 8px;
+}
+.sidebar-top .brand {
+  flex: 0 1 200px;
+  min-width: 0;
+  padding: 9px 10px;
+  border-radius: var(--radius-sm);
+  background: var(--brand-deep);
 }
 .sidebar-top .icon-button {
   width: 32px;
@@ -55,10 +82,20 @@
 .sidebar-nav-item.active {
   color: var(--accent);
   background: var(--accent-subtle);
+  border-color: var(--border);
 }
 .sidebar-nav-item:hover {
   color: var(--foreground);
   background: var(--surface-hover);
+}
+.sidebar-nav-item.sidebar-new-chat {
+  margin-bottom: 8px;
+  color: var(--primary-foreground);
+  background: var(--primary);
+  box-shadow: var(--shadow-sm);
+}
+.sidebar-nav-item.sidebar-new-chat:hover {
+  background: color-mix(in srgb, var(--primary), var(--foreground) 12%);
 }
 .history-label {
   color: var(--foreground-subtle);
@@ -186,14 +223,15 @@
   position: absolute;
   bottom: calc(100% + 8px);
   left: 0;
-  width: 250px;
+  width: min(232px, 72vw);
   padding: 6px;
   display: grid;
   gap: 4px;
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
-  background: var(--surface);
-  box-shadow: var(--shadow);
+  background: var(--glass-strong);
+  box-shadow: var(--glass-shadow);
+  backdrop-filter: var(--glass-blur);
   z-index: 30;
 }
 .sidebar-profile-menu button {
@@ -235,6 +273,9 @@
 .sidebar.collapsed {
   overflow: visible;
 }
+.sidebar.collapsed .sidebar-profile-menu {
+  left: calc(100% + 14px);
+}
 .skip-link {
   position: fixed;
   top: 8px;
@@ -252,21 +293,20 @@
 }
 .workspace-menu {
   position: fixed;
-  top: 12px;
-  left: 12px;
+  top: 16px;
+  left: 16px;
   z-index: 40;
   box-shadow: var(--shadow-sm);
 }
 .navigation-drawer {
   padding: 0;
-  margin: 0;
+  margin: 8px;
   width: min(300px, 88vw);
   max-width: none;
-  height: 100dvh;
+  height: calc(100dvh - 16px);
   max-height: none;
-  border: 0;
-  border-right: 1px solid var(--border);
-  border-radius: 0 var(--radius-lg) var(--radius-lg) 0;
+  border: 1px solid var(--glass-line);
+  border-radius: var(--radius-lg);
 }
 .navigation-drawer .sidebar {
   border: 0;
@@ -275,13 +315,11 @@
   .app-shell,
   .app-shell.sidebar-collapsed {
     grid-template-columns: minmax(0, 1fr);
+    padding: 8px;
   }
   .app-shell > main {
-    padding-top: 64px;
-  }
-  .profile-screen,
-  .admin-screen {
-    height: 100dvh;
+    padding-top: 54px;
+    border-radius: var(--radius-lg);
   }
   .sidebar-nav-item,
   .sidebar-account,

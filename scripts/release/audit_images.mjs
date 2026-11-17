@@ -44,9 +44,13 @@ function inputs(service, folder) {
     : folder ? [`backend/${folder}/Dockerfile`, `backend/${folder}/requirements.txt`, ...appFiles,
       ...(folder.startsWith("RagDocument") ? ["docker/models/e5/Dockerfile"] : [])]
     : ["frontend/Dockerfile", "frontend/.dockerignore", "frontend/nginx.conf", "frontend/package.json", "frontend/package-lock.json",
-      "frontend/tsconfig.json", "frontend/vite.config.ts", "frontend/public/runtime-config.js", "frontend/public/blandskron.svg",
+      "frontend/tsconfig.json", "frontend/vite.config.ts", ...walk("frontend/public"),
       "frontend/index.html", ...walk("frontend/docker-entrypoint.d"), ...walk("frontend/src")];
-  return files.sort().map((file) => ({ path: file, sha256: hash(fs.readFileSync(path.join(root, file), "utf8").replaceAll("\r\n", "\n")) }));
+  return files.sort().map((file) => {
+    const bytes = fs.readFileSync(path.join(root, file));
+    const content = /\.(?:png|jpe?g|gif|ico|ttf|woff2?)$/i.test(file) ? bytes : bytes.toString("utf8").replaceAll("\r\n", "\n");
+    return { path: file, sha256: hash(content) };
+  });
 }
 const work = args.includes("--work") ? fs.realpathSync(args[args.indexOf("--work") + 1]) : fs.mkdtempSync(path.join(os.tmpdir(), "bd-release-audit-"));
 // Windows may spell TEMP with an 8.3 alias; compare directory identity, not spelling.
@@ -55,7 +59,7 @@ const parentIdentity = fs.statSync(path.dirname(work), { bigint: true });
 if (!tempIdentity.ino || tempIdentity.dev !== parentIdentity.dev || tempIdentity.ino !== parentIdentity.ino
   || !path.basename(work).startsWith("bd-release-audit-")) throw Error("Owned temporary audit directory required");
 const report = args.includes("--resume") ? JSON.parse(fs.readFileSync(destination, "utf8")) : { card: "PLAT-002", date_utc: new Date().toISOString(), scanner_image: scanner,
-  severity_filter: ["HIGH", "CRITICAL"], source_normalization: "UTF-8 LF", images: [], requires_review: [] };
+  severity_filter: ["HIGH", "CRITICAL"], source_normalization: "UTF-8 LF for text, raw bytes for binary assets", images: [], requires_review: [] };
 if (report.card !== "PLAT-002" || report.scanner_image !== scanner) throw Error("Incompatible audit evidence");
 const inspector = fs.readFileSync(path.join(root, "scripts/release/inspect_runtime.py"));
 for (const [service, [folder, uid]] of Object.entries(services)) {

@@ -1,7 +1,7 @@
 import type { PageProps } from "@/app/router/useAppRouter.ts";
 import type { Message } from "@/entities/conversation/model/types.ts";
 import { useSidebarState } from "@/shared/hooks/useSidebarState.ts";
-import { X } from "lucide-react";
+import { FileDown, MessageSquare, X } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import { useAuthContext } from "@/app/providers/AuthProvider.tsx";
@@ -162,18 +162,26 @@ export function ChatPage({ onNavigate }: PageProps) {
         tabIndex={-1}
         className={`chat blandskron-screen ${isStarterState ? "starter-state" : ""}`.trim()}
       >
-        <button
-          type="button"
-          className="export-history-trigger"
-          onClick={() => {
-            setExportsOpen(true);
-            pdfExports.controller.refresh();
-          }}
-        >
-          Mis PDFs
-        </button>
-        <div className="chat-local-header">
-          <h2>{activeConversation?.title || "Conversación"}</h2>
+        <header className="chat-local-header">
+          <div className="chat-header-title">
+            <MessageSquare size={17} aria-hidden="true" />
+            <span>
+              {isStarterState
+                ? "Chat documental"
+                : activeConversation?.title || "Conversación"}
+            </span>
+          </div>
+          <button
+            type="button"
+            className="export-history-trigger"
+            onClick={() => {
+              setExportsOpen(true);
+              pdfExports.controller.refresh();
+            }}
+          >
+            <FileDown size={16} aria-hidden="true" />
+            Mis PDFs
+          </button>
           {activeConversation?.selectedDocuments?.length > 0 && (
             <div
               className="selected-documents-chip"
@@ -192,7 +200,7 @@ export function ChatPage({ onNavigate }: PageProps) {
               </button>
             </div>
           )}
-        </div>
+        </header>
 
         <ChatMessages
           onPrompt={chat.setQuestion}
