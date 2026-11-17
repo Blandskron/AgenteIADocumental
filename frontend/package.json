@@ -4,6 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "audit:dependencies": "node scripts/audit-dependencies.mjs",
     "test": "node --import ./tests/register-alias.js --test tests/*.test.js",
     "test:browser": "playwright test",
     "dev": "vite --host 127.0.0.1 --port 3000",

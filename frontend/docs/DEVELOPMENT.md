@@ -24,6 +24,7 @@ La modernización introduce contratos TypeScript estrictos, alias `@/`, carga po
 
 ```powershell
 npm ci
+npm run audit:dependencies
 npm run lint
 npm run typecheck
 npm run format:check
@@ -54,6 +55,8 @@ Context conserva sesión y tema. El tema valida el valor almacenado y usa la pre
 Los clientes HTTP distinguen JSON y blobs por tipos; los adaptadores de cada endpoint mantienen DTO y normalización, con las validaciones de formato existentes. TypeScript no sustituye la validación de datos externos ni la autorización del servidor.
 
 ## Dependencias y alcance
+
+`npm run audit:dependencies` ejecuta la auditoría de npm y bloquea los hallazgos nuevos. Admite temporalmente GHSA-fc5q-39xc-vjpf para la copia transitiva de `picomatch` 4.0.7 y su cadena actual de Vite y TypeScript ESLint. La aplicación recibe texto y documentos, mientras que los patrones glob de compilación y lint se definen en el repositorio. La imagen final distribuye los archivos compilados con Nginx. Cuando se publique una versión corregida compatible, actualiza el lockfile y retira la excepción. [Aviso de picomatch](https://github.com/advisories/GHSA-fc5q-39xc-vjpf)
 
 Las incorporaciones son herramientas de desarrollo: TypeScript/tipos, ESLint, Prettier y axe. `minimatch` está fijado por override a una versión corregida de la línea 11 para las herramientas de desarrollo, por [GHSA-g3hv-75wg-m249](https://github.com/advisories/GHSA-g3hv-75wg-m249); el lockfile y las comprobaciones se validan con esa resolución. No se añadió un framework de estilos, routing ni estado.
 
