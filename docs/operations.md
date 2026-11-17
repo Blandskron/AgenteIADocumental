@@ -76,9 +76,13 @@ docker compose @compose up -d --build --wait
 
 ## Procesamiento y prueba funcional
 
-Los scripts de procesamiento directo requieren el entorno Python del servicio de ingesta, la conexión de base de datos y acceso al almacenamiento documental. Consulta el [contrato de ingesta](../backend/RagDocumentEmbeddingServices/README.md) antes de ejecutarlos.
+Los scripts de procesamiento directo requieren el entorno Python del servicio de ingesta, la conexión de base de datos y acceso al almacenamiento documental. En una ejecución fuera de Docker, prepara la revisión del modelo en `E5_MODEL_DIR` antes de procesar documentos. [Contrato de ingesta](../backend/RagDocumentEmbeddingServices/README.md)
 
 ```powershell
+$env:E5_MODEL_DIR = Join-Path $env:LOCALAPPDATA 'blandskron-models/multilingual-e5-small'
+$modelFiles = @('1_Pooling/config.json', 'config.json', 'modules.json', 'sentence_bert_config.json',
+    'special_tokens_map.json', 'tokenizer_config.json', 'tokenizer.json', 'sentencepiece.bpe.model', 'model.safetensors')
+hf download intfloat/multilingual-e5-small @modelFiles --revision 614241f622f53c4eeff9890bdc4f31cfecc418b3 --local-dir $env:E5_MODEL_DIR
 python scripts/process_pending_documents.py --limit 10
 python scripts/reindex_documents.py --all --limit 100
 ```

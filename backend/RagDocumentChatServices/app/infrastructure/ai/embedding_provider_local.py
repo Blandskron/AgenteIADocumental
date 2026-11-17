@@ -1,4 +1,5 @@
 from functools import lru_cache
+from os import environ
 
 from sentence_transformers import SentenceTransformer
 
@@ -7,7 +8,7 @@ from app.shared.errors import ExternalServiceError
 @lru_cache(maxsize=1)
 def _load_model() -> SentenceTransformer:
     return SentenceTransformer(
-        "/opt/e5-model",
+        environ.get("E5_MODEL_DIR", "/opt/e5-model"),
         device="cpu",
         local_files_only=True,
         model_kwargs={"use_safetensors": True},
