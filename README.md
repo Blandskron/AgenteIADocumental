@@ -1,6 +1,6 @@
 # Blandskron Documental
 
-Aplicación de portafolio para cargar y organizar documentos, buscar por contenido y hacer preguntas con fuentes. La interfaz permite revisar los fragmentos recuperados, guardar conversaciones y exportar una respuesta a PDF.
+Aplicación de código abierto para la gestión y consulta documental, desarrollada por Blandskron. Permite cargar y organizar documentos, buscar por contenido y hacer preguntas con respuestas que citan sus fuentes. Desde la interfaz puedes revisar los fragmentos recuperados, guardar conversaciones y exportar respuestas a PDF.
 
 La web usa React y TypeScript. Django administra la identidad y once servicios de aplicación en total cubren el recorrido documental. La ingesta y el chat calculan embeddings en CPU. PostgreSQL con pgvector almacena los vectores y el chat envía a Groq la pregunta y el contexto recuperado según los permisos vigentes.
 
@@ -23,9 +23,11 @@ flowchart LR
 
 ## Probar en local
 
-Necesitas Docker con Compose compatible con `include`. Desde la raíz, en PowerShell, crea el archivo de configuración si aún no existe.
+Necesitas Git y Docker con Compose compatible con `include`. Clona el repositorio y, desde su raíz, crea el archivo de configuración en PowerShell si aún no existe.
 
 ```powershell
+git clone https://github.com/Blandskron/AgenteIADocumental.git
+cd AgenteIADocumental
 if (-not (Test-Path .env)) { Copy-Item .env.example .env }
 ```
 
@@ -43,4 +45,10 @@ Compose publica los puertos en loopback para desarrollo local. Google Drive es o
 
 ## Colaboración
 
-Consulta las [reglas de colaboración](AGENTS.md), las [pautas de contribución](CONTRIBUTING.md), el [canal de reporte de vulnerabilidades](SECURITY.md) y la [licencia](LICENSE). El proyecto conserva su licencia con reserva de derechos.
+Usa las [issues del repositorio](https://github.com/Blandskron/AgenteIADocumental/issues) para reportar errores y proponer mejoras. Para preparar un cambio, sigue las [pautas de contribución](CONTRIBUTING.md) y las [instrucciones para colaboradores](AGENTS.md). Para hallazgos de seguridad, sigue el [procedimiento de reporte privado](SECURITY.md).
+
+## Licencia y atribuciones
+
+El código y la documentación propios de Blandskron se publican bajo la [licencia MIT](LICENSE) (© 2026 Blandskron). Puedes usarlos, modificarlos y redistribuirlos, incluso con fines comerciales, conservando los avisos de copyright y licencia.
+
+Los componentes de terceros se rigen por sus propias licencias. Las fuentes Noto Sans incluidas para la exportación a PDF se distribuyen bajo la [SIL Open Font License 1.1](backend/DocumentExportServices/app/infrastructure/pdf/fonts/LICENSE.txt).
