@@ -400,11 +400,8 @@ export function AdminPage({ onNavigate }: PageProps) {
               <Menu size={18} />
             </IconButton>
             <div>
-              <h1>Administracion</h1>
-              <p>
-                Gestiona empresas, areas, usuarios, grupos y permisos con el
-                mismo estilo del perfil.
-              </p>
+              <h1>Administración</h1>
+              <p>Gestiona empresas, áreas, usuarios, grupos y permisos.</p>
             </div>
           </header>
 

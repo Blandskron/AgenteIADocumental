@@ -439,6 +439,7 @@ function ProfileEditor({ onNavigate }: PageProps) {
                               />
                               <button
                                 type="button"
+                                className="btn-flat-secondary"
                                 onClick={removeAvatar}
                                 disabled={
                                   isSaving ||

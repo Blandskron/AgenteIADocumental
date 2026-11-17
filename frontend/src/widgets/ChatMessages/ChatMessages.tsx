@@ -3,7 +3,14 @@ import type {
   Conversation,
 } from "@/entities/conversation/model/types.ts";
 import type { useExports } from "@/features/document-export/useExports.ts";
-import { FileSearch, FileText, ListChecks, Loader2 } from "lucide-react";
+import { brandSymbolUrl } from "@/shared/components/Brand/Brand.tsx";
+import {
+  ArrowUpRight,
+  FileSearch,
+  FileText,
+  ListChecks,
+  Loader2,
+} from "lucide-react";
 import type { RefObject } from "react";
 interface ChatMessagesProps {
   conversations?: Conversation[];
@@ -19,7 +26,6 @@ interface ChatMessagesProps {
   syncError?: string;
   onPrompt?: (prompt: string) => void;
 }
-const iaIconUrl = "/blandskron.svg";
 
 import { Message } from "@/features/chat/ui/Message.tsx";
 
@@ -70,6 +76,9 @@ export function ChatMessages({
       )}
       {isStarterState && (
         <div className="blandskron-home-grid">
+          <div className="chat-brand-symbol" aria-hidden="true">
+            <img src={brandSymbolUrl} alt="" />
+          </div>
           <h1>Tus documentos, con respuestas claras</h1>
           <p className="starter-description">
             Consulta tu biblioteca o adjunta un archivo. Cada respuesta se apoya
@@ -82,7 +91,9 @@ export function ChatMessages({
                 onPrompt?.("Resume los puntos principales de mis documentos.")
               }
             >
-              <FileText size={18} /> Resumir un documento
+              <FileText className="prompt-icon" size={18} />
+              <span>Resumir un documento</span>
+              <ArrowUpRight className="prompt-arrow" size={16} />
             </button>
             <button
               type="button"
@@ -92,7 +103,9 @@ export function ChatMessages({
                 )
               }
             >
-              <ListChecks size={18} /> Identificar obligaciones
+              <ListChecks className="prompt-icon" size={18} />
+              <span>Identificar obligaciones</span>
+              <ArrowUpRight className="prompt-arrow" size={16} />
             </button>
             <button
               type="button"
@@ -102,7 +115,9 @@ export function ChatMessages({
                 )
               }
             >
-              <FileSearch size={18} /> Consultar con fuentes
+              <FileSearch className="prompt-icon" size={18} />
+              <span>Consultar con fuentes</span>
+              <ArrowUpRight className="prompt-arrow" size={16} />
             </button>
           </div>
         </div>
@@ -134,7 +149,7 @@ export function ChatMessages({
       {isBusy && (
         <article className="message assistant">
           <div className="avatar" aria-hidden="true">
-            <img src={iaIconUrl} alt="" />
+            <img src={brandSymbolUrl} alt="" />
           </div>
           <div className="bubble typing" role="status">
             <Loader2 size={18} />

@@ -4,8 +4,6 @@ import { LockKeyhole, UserRound } from "lucide-react";
 import type { FormEvent } from "react";
 import { useState } from "react";
 
-import { Brand } from "@/shared/components/Brand/Brand.tsx";
-
 export function LoginForm({
   error,
   isSubmitting,
@@ -39,11 +37,9 @@ export function LoginForm({
       className="login-card"
       onSubmit={handleSubmit}
     >
-      <Brand subtitle="Tu conocimiento, conectado" className="login-brand" />
       <div className="login-heading">
-        <p className="eyebrow">ESPACIO DOCUMENTAL</p>
         <h1>Bienvenido de nuevo</h1>
-        <p>Accede a tus documentos y encuentra respuestas con fuentes.</p>
+        <p>Ingresa con las credenciales de tu espacio.</p>
       </div>
 
       <label>

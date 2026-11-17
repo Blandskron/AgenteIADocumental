@@ -104,7 +104,7 @@ export function Sidebar({
         ]
       : []),
     ...(isAdmin
-      ? [{ route: appRoutes.admin, label: "Administracion", icon: Building2 }]
+      ? [{ route: appRoutes.admin, label: "Administración", icon: Building2 }]
       : []),
   ];
 
@@ -160,11 +160,11 @@ export function Sidebar({
         </IconButton>
       </div>
 
-      <nav className="sidebar-nav" aria-label="Navegacion principal">
+      <nav className="sidebar-nav" aria-label="Navegación principal">
         {navItems.map((item) => (
           <button
             aria-current={activeRoute === item.route ? "page" : undefined}
-            className={`sidebar-nav-item ${activeRoute === item.route && !item.isNewChat ? "active" : ""}`}
+            className={`sidebar-nav-item ${item.isNewChat ? "sidebar-new-chat" : ""} ${activeRoute === item.route && !item.isNewChat ? "active" : ""}`.trim()}
             key={`${item.route}-${item.label}`}
             onClick={() => {
               if (item.isNewChat) onCreateConversation?.();

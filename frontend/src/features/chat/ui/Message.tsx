@@ -1,6 +1,6 @@
 import type { Message as ChatMessage } from "@/entities/conversation/model/types.ts";
+import { brandSymbolUrl } from "@/shared/components/Brand/Brand.tsx";
 import { FileDown, Loader2, MessageSquare } from "lucide-react";
-const iaIconUrl = "/blandskron.svg";
 
 import { SourceList } from "./SourceList";
 
@@ -21,7 +21,7 @@ export function Message({
     <article className={`message ${message.role}`}>
       <div className="avatar" aria-hidden="true">
         {isAssistant ? (
-          <img src={iaIconUrl} alt="" />
+          <img src={brandSymbolUrl} alt="" />
         ) : (
           <MessageSquare size={18} />
         )}

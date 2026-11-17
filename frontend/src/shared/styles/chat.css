@@ -9,17 +9,25 @@
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 10px;
-  padding: 12px 32px;
+  justify-content: space-between;
+  gap: 8px 16px;
+  padding: 12px 24px;
   border-bottom: 1px solid var(--border);
+  background: var(--glass);
 }
-.chat-local-header h2 {
-  font-size: 15px;
-  margin: 0;
-  color: var(--foreground-muted);
+.chat-header-title {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  color: var(--accent);
+  font-weight: 650;
 }
-.starter-state .chat-local-header {
-  display: none;
+.chat-header-title span {
+  overflow-wrap: anywhere;
+}
+.chat-local-header .selected-documents-chip {
+  flex: 1 0 100%;
 }
 .messages {
   flex: 1;
@@ -31,7 +39,7 @@
   gap: 24px;
 }
 .starter-state .messages {
-  justify-content: center;
+  gap: 16px;
 }
 .blandskron-home-grid {
   width: min(760px, 100%);
@@ -39,9 +47,29 @@
   text-align: center;
 }
 .blandskron-home-grid h1 {
-  font-size: clamp(26px, 3vw, 40px);
-  letter-spacing: -0.045em;
+  font-size: clamp(27px, 4.2vw, 52px);
+  letter-spacing: -0.06em;
+  line-height: 1.08;
+  text-wrap: balance;
   margin: 0 0 16px;
+}
+.chat-brand-symbol {
+  display: grid;
+  place-items: center;
+  width: 66px;
+  height: 66px;
+  margin: 0 auto 22px;
+  padding: 13px;
+  border: 1px solid #d4a1ff62;
+  border-radius: 22px;
+  background: linear-gradient(145deg, var(--brand-purple), var(--brand-deep));
+  box-shadow:
+    inset 0 1px #fff3,
+    0 10px 28px #4a148c42;
+}
+.chat-brand-symbol img {
+  display: block;
+  width: 100%;
 }
 .starter-description {
   margin: 0 auto;
@@ -56,22 +84,36 @@
   gap: 12px;
 }
 .blandskron-prompt-actions button {
+  position: relative;
   display: grid;
-  gap: 20px;
+  gap: 14px;
   justify-items: start;
   text-align: left;
   padding: 20px;
   min-height: 112px;
-  background: var(--surface);
+  background: var(--glass-strong);
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
   color: var(--foreground);
   font-size: 13px;
+  font-weight: 600;
+  box-shadow: var(--shadow-sm);
 }
-.blandskron-prompt-actions button svg {
+.prompt-icon {
+  box-sizing: content-box;
+  padding: 9px;
+  border-radius: 12px;
+  background: var(--accent-subtle);
   color: var(--accent);
 }
+.prompt-arrow {
+  position: absolute;
+  top: 18px;
+  right: 18px;
+  color: var(--foreground-subtle);
+}
 .blandskron-prompt-actions button:hover {
+  background: var(--surface-hover);
   border-color: var(--accent);
   box-shadow: var(--shadow-sm);
 }
@@ -95,15 +137,19 @@
   width: 24px;
   height: 24px;
 }
+.message.assistant .avatar {
+  background: var(--brand-deep);
+}
 .bubble {
   min-width: 0;
   padding: 20px 24px;
   border: 1px solid var(--border);
-  background: var(--surface);
+  background: var(--glass-strong);
   border-radius: 0 var(--radius-md) var(--radius-md);
+  box-shadow: var(--shadow-sm);
 }
 .message.user .bubble {
-  background: var(--surface-subtle);
+  background: var(--accent-subtle);
 }
 .message-meta {
   color: var(--foreground-muted);
@@ -187,8 +233,9 @@
   display: flex;
   gap: 8px;
   align-items: flex-end;
-  background: var(--surface);
-  box-shadow: var(--shadow-sm);
+  background: var(--glass-strong);
+  box-shadow: var(--glass-shadow);
+  backdrop-filter: var(--glass-blur);
 }
 .composer-box:focus-within {
   border-color: var(--accent);
@@ -283,10 +330,21 @@
   min-height: 28px;
 }
 .export-history-trigger {
-  align-self: flex-end;
-  margin: 16px 24px 0;
   min-height: 36px;
-  font-size: 12px;
+  margin-left: auto;
+  font-size: 13px;
+}
+.message-history-controls {
+  width: min(900px, 100%);
+  margin-inline: auto;
+  text-align: center;
+}
+.message-history-controls button {
+  padding: 8px 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--glass-strong);
+  color: var(--accent);
 }
 @media (max-width: 760px) {
   .messages {
@@ -306,7 +364,18 @@
     align-items: center;
     gap: 12px;
     min-height: 48px;
-    padding: 12px 16px;
+    padding: 8px 12px;
+  }
+  .prompt-arrow {
+    position: static;
+    margin-left: auto;
+  }
+  .chat-brand-symbol {
+    width: 50px;
+    height: 50px;
+    margin-bottom: 14px;
+    padding: 9px;
+    border-radius: 16px;
   }
   .bubble {
     padding: 14px;
@@ -323,6 +392,6 @@
     font-size: 10px;
   }
   .chat-local-header {
-    padding: 12px 16px;
+    padding: 10px 12px;
   }
 }

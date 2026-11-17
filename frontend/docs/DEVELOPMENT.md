@@ -43,6 +43,10 @@ El job de frontend de CI usa la imagen oficial de Playwright con los navegadores
 
 `shared/styles/tokens.css` define superficies, texto, acento, estados, foco, radios, espacios y elevación para ambos temas. Los estilos se distribuyen en primitivas, navegación, chat, documentos, integraciones y diálogos. Perfil y administración mantienen sus hojas locales y consumen los mismos tokens.
 
+El diseño Floating Glass usa el púrpura Blandskron `#4A148C` y el púrpura profundo `#2E0B59`. Los contenedores principales usan las superficies translúcidas, los bordes iluminados y la elevación de los tokens `--glass*`. Los controles de lectura y edición usan superficies de mayor opacidad. Las preferencias de menor transparencia, mayor contraste y colores forzados activan superficies sólidas. La interfaz respeta la preferencia de movimiento reducido.
+
+El símbolo y el logotipo horizontal provienen de la guía de marca de Blandskron. Inter 4.1 se sirve desde el repositorio y conserva su aviso de licencia. [Inter](https://github.com/rsms/inter/tree/v4.1) · [SIL Open Font License](../public/fonts/OFL-Inter.txt)
+
 Usa `Button` para nuevas acciones y `IconButton` para controles con iconos y nombre accesible. `ModalDialog` centraliza foco, Escape, contención y restitución al disparador; los formularios pueden indicar `initialFocusRef`. Las vistas de selección por URL usan navegación y estado actual anunciado, sin fingir un widget de pestañas.
 
 Context conserva sesión y tema. El tema valida el valor almacenado y usa la preferencia del sistema al entrar por primera vez. La sesión distingue credenciales renovadas de identidad/tenant; no agregues JWT a las dependencias de un editor ni traslades borradores a un store global.
