@@ -24,6 +24,7 @@ const services = {
   "document-transfer-service": ["DocumentTransferServices", 10007], "profile-service": ["ProfileServices", 10008],
   "document-export-service": ["DocumentExportServices", 10009],
   "google-drive-import-service": ["GoogleDriveImportServices", 10010], "blandskron-frontend": [null, 101],
+  "postgres": [null, 70],
 };
 function docker(argv, input) {
   const result = spawnSync("docker", argv, { input, encoding: "utf8", maxBuffer: 128 * 1024 * 1024, shell: false });
@@ -31,7 +32,7 @@ function docker(argv, input) {
   return result.stdout.trim();
 }
 const hash = (data) => createHash("sha256").update(data).digest("hex");
-function inputs(folder) {
+function inputs(service, folder) {
   const walk = (directory) => fs.readdirSync(path.join(root, directory), { withFileTypes: true }).flatMap((entry) => {
     if (["__pycache__", "node_modules", "dist", ".git"].includes(entry.name) || entry.name.endsWith(".pyc")) return [];
     const name = `${directory}/${entry.name}`;
@@ -39,7 +40,9 @@ function inputs(folder) {
   });
   const appFiles = folder === "AuthServices" ? [...walk("backend/AuthServices/core"), ...walk("backend/AuthServices/users"),
     "backend/AuthServices/entrypoint.sh", "backend/AuthServices/manage.py"] : folder ? walk(`backend/${folder}/app`) : [];
-  const files = folder ? [`backend/${folder}/Dockerfile`, `backend/${folder}/requirements.txt`, ...appFiles]
+  const files = service === "postgres" ? walk("docker/postgres")
+    : folder ? [`backend/${folder}/Dockerfile`, `backend/${folder}/requirements.txt`, ...appFiles,
+      ...(folder.startsWith("RagDocument") ? ["docker/models/e5/Dockerfile"] : [])]
     : ["frontend/Dockerfile", "frontend/.dockerignore", "frontend/nginx.conf", "frontend/package.json", "frontend/package-lock.json",
       "frontend/tsconfig.json", "frontend/vite.config.ts", "frontend/public/runtime-config.js", "frontend/public/blandskron.svg",
       "frontend/index.html", ...walk("frontend/docker-entrypoint.d"), ...walk("frontend/src")];
@@ -62,12 +65,14 @@ for (const [service, [folder, uid]] of Object.entries(services)) {
   const compose = ["compose", "--env-file", verificationEnvFile, "-p", project, "-f", "docker/docker-compose.yml", "-f", "docker/compose/verification.yml"];
   const container = docker([...compose, "ps", "-q", service]);
   if (!container || docker(["inspect", "--format", "{{.Image}}", container]) !== id) throw Error(`Running image mismatch: ${service}`);
-  const effectiveUid = folder ? Number(docker([...compose, "exec", "-T", service, "python", "-c",
+  const effectiveUid = service === "postgres"
+    ? Number(docker([...compose, "exec", "-T", service, "awk", "/^Uid:/{print $2}", "/proc/1/status"]))
+    : folder ? Number(docker([...compose, "exec", "-T", service, "python", "-c",
     "print(next(line.split()[1] for line in open('/proc/1/status') if line.startswith('Uid:')))"]))
     : Number(docker([...compose, "exec", "-T", service, "id", "-u"]));
   if (effectiveUid !== uid) report.requires_review.push(`${service}: unexpected effective PID1 user`);
   const previous = report.images.find((entry) => entry.service === service);
-  const currentInputs = inputs(folder);
+  const currentInputs = inputs(service, folder);
   if (previous?.image_id === id) {
     if (JSON.stringify(previous.build_inputs) !== JSON.stringify(currentInputs)) throw Error(`Sources changed without rebuilding ${service}`);
     console.log(JSON.stringify({ service, reused_verified_image: id }));
@@ -90,7 +95,7 @@ for (const [service, [folder, uid]] of Object.entries(services)) {
     if (Object.keys(inventory.packages).some((name) => ["pip", "pytest", "ruff", "pip-audit"].includes(name.toLowerCase()))) {
       report.requires_review.push(`${service}: unexpected installer/test/audit distribution`);
     }
-  } else {
+  } else if (service !== "postgres") {
     const user = docker(["run", "--rm", "--network", "none", "--entrypoint", "id", id, "-u"]);
     if (Number(user) !== uid) report.requires_review.push(`${service}: unexpected runtime user`);
   }

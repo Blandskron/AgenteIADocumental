@@ -1,6 +1,12 @@
 services:
+  e5-model:
+    build:
+      context: ../models/e5
+    scale: 0
+
   document-storage:
-    image: pgvector/pgvector:pg16
+    image: ${COMPOSE_PROJECT_NAME}-postgres
+    pull_policy: never
     environment:
       DOCUMENT_UID: ${EMBEDDING_UID:-10004}
       DOCUMENT_GID: ${EMBEDDING_GID:-10004}
@@ -10,7 +16,8 @@ services:
     entrypoint: ["sh", "/prepare_documents.sh"]
 
   rag-chat-db-role:
-    image: pgvector/pgvector:pg16
+    image: ${COMPOSE_PROJECT_NAME}-postgres
+    pull_policy: never
     environment:
       PGPASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
       RAG_CHAT_DB_PASSWORD: ${RAG_CHAT_DB_PASSWORD:-blandskron-local-rag-chat}
@@ -25,6 +32,8 @@ services:
     build:
       context: ../../backend/RagDocumentChatServices
       dockerfile: Dockerfile
+      additional_contexts:
+        e5_model: service:e5-model
     container_name: rag-document-chat-service
     environment:
       APP_ENV: ${APP_ENV:-local}
@@ -76,7 +85,8 @@ services:
         condition: service_healthy
 
   embedding-db-role:
-    image: pgvector/pgvector:pg16
+    image: ${COMPOSE_PROJECT_NAME}-postgres
+    pull_policy: never
     environment:
       PGPASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
       EMBEDDING_DB_PASSWORD: ${EMBEDDING_DB_PASSWORD:-blandskron-local-embedding}
@@ -91,6 +101,8 @@ services:
     build:
       context: ../../backend/RagDocumentEmbeddingServices
       dockerfile: Dockerfile
+      additional_contexts:
+        e5_model: service:e5-model
     container_name: rag-document-embedding-service
     user: "${EMBEDDING_UID:-10004}:${EMBEDDING_GID:-10004}"
     environment:
@@ -142,7 +154,8 @@ services:
         condition: service_healthy
 
   search-db-role:
-    image: pgvector/pgvector:pg16
+    image: ${COMPOSE_PROJECT_NAME}-postgres
+    pull_policy: never
     environment:
       PGPASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
       SEARCH_DB_PASSWORD: ${SEARCH_DB_PASSWORD:-blandskron-local-search}
@@ -201,7 +214,8 @@ services:
         condition: service_healthy
 
   access-db-role:
-    image: pgvector/pgvector:pg16
+    image: ${COMPOSE_PROJECT_NAME}-postgres
+    pull_policy: never
     environment:
       PGPASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
       ACCESS_DB_PASSWORD: ${ACCESS_DB_PASSWORD:-blandskron-local-access}
@@ -275,7 +289,8 @@ services:
         condition: service_healthy
 
   library-db-role:
-    image: pgvector/pgvector:pg16
+    image: ${COMPOSE_PROJECT_NAME}-postgres
+    pull_policy: never
     environment:
       PGPASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
       LIBRARY_DB_PASSWORD: ${LIBRARY_DB_PASSWORD:-blandskron-local-library}
@@ -347,7 +362,8 @@ services:
         condition: service_healthy
 
   transfer-db-role:
-    image: pgvector/pgvector:pg16
+    image: ${COMPOSE_PROJECT_NAME}-postgres
+    pull_policy: never
     environment:
       PGPASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
       TRANSFER_DB_PASSWORD: ${TRANSFER_DB_PASSWORD:-blandskron-local-transfer}
@@ -420,7 +436,8 @@ services:
         condition: service_healthy
 
   drive-db-role:
-    image: pgvector/pgvector:pg16
+    image: ${COMPOSE_PROJECT_NAME}-postgres
+    pull_policy: never
     environment:
       PGPASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
       DRIVE_DB_PASSWORD: ${DRIVE_DB_PASSWORD:-blandskron-local-drive}

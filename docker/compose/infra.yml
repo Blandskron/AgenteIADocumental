@@ -1,24 +1,27 @@
 services:
   postgres:
-    image: pgvector/pgvector:pg16
+    build:
+      context: ../postgres
     container_name: rag-documents-postgres
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
       POSTGRES_DB: documents_db
+      POSTGRES_INITDB_ARGS: --locale=C.UTF-8 --locale-provider=icu --icu-locale=en-US
     ports:
       - "127.0.0.1:${POSTGRES_HOST_PORT:-5432}:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ../../scripts/database:/docker-entrypoint-initdb.d:ro
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -d documents_db"]
+      test: ["CMD", "pg_isready", "-h", "127.0.0.1", "-U", "postgres", "-d", "documents_db"]
       interval: 10s
       timeout: 5s
       retries: 5
 
   database-schema:
-    image: pgvector/pgvector:pg16
+    image: ${COMPOSE_PROJECT_NAME}-postgres
+    pull_policy: never
     container_name: rag-documents-database-schema
     environment:
       PGPASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
@@ -34,24 +37,8 @@ services:
       postgres:
         condition: service_healthy
 
-  pgadmin:
-    profiles: ["tools"]
-    image: dpage/pgadmin4:8
-    container_name: rag-documents-pgadmin
-    environment:
-      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_DEFAULT_EMAIL:-admin@example.invalid}
-      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_DEFAULT_PASSWORD:-}
-    ports:
-      - "127.0.0.1:5050:80"
-    volumes:
-      - pgadmin_data:/var/lib/pgadmin
-      - ../pgadmin/servers.json:/pgadmin4/servers.json:ro
-    depends_on:
-      database-schema:
-        condition: service_completed_successfully
-
 volumes:
   postgres_data:
-  pgadmin_data:
+    name: ${POSTGRES_DATA_VOLUME:-${COMPOSE_PROJECT_NAME}_postgres_data}
   auth_signing_keys:
   auth_verification_keys:

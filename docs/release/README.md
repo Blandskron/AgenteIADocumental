@@ -16,19 +16,24 @@ Los resultados corresponden a las revisiones e imágenes identificadas en cada r
 
 ## Reproducir sin datos personales
 
-Necesitas Docker Compose con soporte de `!reset` y `!override`, Node 24 y acceso a los registros de imágenes y al modelo público de Hugging Face. Ejecuta desde la raíz.
+Necesitas Docker Compose con soporte de `!reset`, `!override` y `additional_contexts`, Node 24 y acceso a los registros, las fuentes de construcción y el modelo público. Ejecuta desde la raíz.
 
 ```powershell
 $env:VERIFICATION_ENV_FILE = node scripts/release/prepare_verification.mjs
 docker compose --env-file $env:VERIFICATION_ENV_FILE -p bd-final-check -f docker/docker-compose.yml -f docker/compose/verification.yml up -d --build --wait blandskron-frontend
 node scripts/release/verify.mjs
+node scripts/release/verify_postgres_upgrade.mjs
 node scripts/release/audit_images.mjs --project bd-final-check
 node scripts/release/verify_graphs.mjs
 ```
 
 Para repetir la aceptación desde un clon local limpio y volúmenes nuevos, después de la suite anterior y sin otros checks simultáneos: `node scripts/release/verify_installation.mjs`. Requiere las dependencias de pruebas de frontend (`npm ci` y Chromium instalado) para comprobar también login desde la web compilada contra Auth real. Usa un puente de bytes mediante Docker sin simular las respuestas ni publicar puertos. Genera `.release-reports/INSTALLATION_CHECK.json`, conserva los volúmenes anteriores y nuevos y, si termina correctamente, vuelve a levantar el entorno sintético original. Una ejecución fallida conserva sus coordenadas privadas para diagnóstico; no borrar volúmenes para recuperarla.
 
-El generador parte de `.env.example` y crea un archivo temporal privado con credenciales aleatorias exclusivamente sintéticas. Conserva su ruta durante toda la ejecución y los reinicios; nunca uses otra contraseña contra el mismo volumen. Para Bash, usa `export VERIFICATION_ENV_FILE="$(node scripts/release/prepare_verification.mjs)"` y `--env-file "$VERIFICATION_ENV_FILE"`. El proyecto dedicado no publica puertos ni monta `.env`, documentos personales o credenciales Google. Usa volúmenes propios y proveedores sintéticos. La ingesta y la recuperación usan el modelo E5 real de 384 dimensiones; solamente la respuesta HTTP de Groq se sustituye por un transporte determinista que lee el contexto recuperado. La prueba comprueba login de dos usuarios, carga, OCR nativo en la suite de ingesta, indexación/reindexación, búsqueda, aislamiento, respuesta con contexto, exportación/lectura PDF y revocación. No equivale a una prueba en vivo de Groq ni de OAuth Google. Drive permanece opcional y deshabilitado.
+El generador parte de `.env.example` y crea un archivo temporal con credenciales sintéticas. Conserva su ruta durante los reinicios y elige un `POSTGRES_DATA_VOLUME` sintético nuevo si ya existe un volumen anterior de la evaluación. Para Bash, usa `export VERIFICATION_ENV_FILE="$(node scripts/release/prepare_verification.mjs)"` y `--env-file "$VERIFICATION_ENV_FILE"`. El proyecto dedicado usa volúmenes de prueba, carece de puertos publicados y mantiene Drive deshabilitado.
+
+La suite genera embeddings reales de 384 dimensiones desde el modelo incluido en las imágenes. La prueba inicial ejecuta ambos proveedores con la red desactivada. El recorrido comprueba login de dos usuarios, carga, OCR, indexación, reindexación, búsqueda, aislamiento, respuesta con contexto, exportación, lectura PDF y revocación. Usa un transporte Groq determinista. OAuth Google se prueba con respuestas sintéticas en la suite de Drive.
+
+La prueba de actualización crea dos clústeres desechables sin red. Comprueba el rechazo del volumen anterior, restaura una copia lógica a PostgreSQL 16 y verifica acceso con un rol restaurado, conservación de los datos y reconstrucción del índice pgvector.
 
 `.release-reports/VERIFICATION.json` registra etapas, resultado y duración; los comandos de cada etapa están en `scripts/release/verify.mjs` y los logs crudos quedan en un directorio temporal privado. La verificación SQL cubre roles mediante conexiones reales, carreras, jerarquía y ciclo de vida de membresías; las bases auxiliares se retiran incluso ante un fallo de pruebas. `--demo-only` permite repetir el recorrido tras una reconstrucción sin atribuirle las regresiones completas. `--relations-only` repite las cuatro suites SQL. No usar estos scripts contra una instancia con datos propios.
 
@@ -42,7 +47,7 @@ docker compose --env-file $env:VERIFICATION_ENV_FILE -p bd-final-check -f docker
 
 ## Imágenes y alcance de seguridad
 
-`.release-reports/IMAGE_AUDIT.json` conserva las doce imágenes de aplicación, UID efectivo, inventario de paquetes, entradas de construcción normalizadas a UTF-8/LF, ID inmutable, hash del archivo y config efectivamente escaneada. El escáner Trivy está fijado por digest; no recibe el socket Docker, configuración privada ni archivos de usuarios. La lectura del archivo usa su propietario, sin red ni capabilities. `--resume --work <temporal-propio>` puede reutilizar evidencia solo si coinciden imagen y fuentes. No se aplican supresiones.
+`.release-reports/IMAGE_AUDIT.json` conserva las doce imágenes de aplicación y la de PostgreSQL, junto con UID efectivo, inventario Python donde corresponde, entradas de construcción, ID inmutable, hash del archivo y configuración escaneada. El escáner Trivy está fijado por digest y recibe los archivos exportados de las imágenes. La lectura del archivo usa su propietario, sin red ni capabilities. `--resume --work <temporal-propio>` puede reutilizar evidencia solo si coinciden imagen y fuentes.
 
 El criterio automatizado rechaza críticos, avisos con versión corregida, hallazgos ajenos al SO, instaladores/herramientas de prueba en runtime, UID incorrecto y discrepancias del artefacto. Los avisos HIGH del SO sin corrección indicada se conservan individualmente con disposición explícita para esta demo local en loopback. Esto no significa ausencia de vulnerabilidades ni aprobación para exponer el stack a Internet. Antes de otro despliegue, reconstruye las imágenes, repite la auditoría y reevalúa los avisos con la base de vulnerabilidades vigente.
 

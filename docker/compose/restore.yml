@@ -1,0 +1,7 @@
+# Isolated restore into a new PostgreSQL volume. See docs/operations.md.
+services:
+  postgres:
+    ports: !reset []
+    network_mode: none
+    volumes: !override
+      - postgres_data:/var/lib/postgresql/data
