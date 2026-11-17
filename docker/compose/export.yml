@@ -1,6 +1,7 @@
 services:
   export-db-role:
-    image: pgvector/pgvector:pg16
+    image: ${COMPOSE_PROJECT_NAME}-postgres
+    pull_policy: never
     environment:
       PGPASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
       EXPORT_DB_PASSWORD: ${EXPORT_DB_PASSWORD:-blandskron-local-export}

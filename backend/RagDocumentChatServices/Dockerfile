@@ -30,6 +30,7 @@ CMD ["python", "-m", "pytest", "-q", "-p", "no:cacheprovider", "tests"]
 FROM base AS runtime
 
 RUN python -m pip check && python -m pip uninstall -y pip && rm -rf /usr/local/lib/python3.12/ensurepip
+COPY --from=e5_model /model /opt/e5-model
 
 USER 10003:10003
 EXPOSE 8000

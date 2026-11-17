@@ -23,7 +23,7 @@ flowchart LR
 
 ## Probar en local
 
-Necesitas Git y Docker con Compose compatible con `include`. Clona el repositorio y, desde su raíz, crea el archivo de configuración en PowerShell si aún no existe.
+Necesitas Git y Docker con Compose compatible con `include` y `additional_contexts`. Clona el repositorio y, desde su raíz, crea el archivo de configuración en PowerShell si aún no existe.
 
 ```powershell
 git clone https://github.com/Blandskron/AgenteIADocumental.git
@@ -37,8 +37,10 @@ Edita `.env` y configura `POSTGRES_PASSWORD`, `DJANGO_SECRET_KEY`, `INITIAL_ADMI
 docker compose --env-file .env -f docker/docker-compose.yml up -d --build --wait
 ```
 
+La construcción inicial descarga y verifica el modelo E5 de aproximadamente 471 MB. Si actualizas una instalación que usaba la imagen PostgreSQL anterior, sigue la guía de migración antes del arranque. [Operación y migración](docs/operations.md#migrar-la-imagen-de-postgresql)
+
 1. Abre [la aplicación local](http://localhost:3000) e inicia sesión con el administrador inicial.
-2. Carga un archivo de texto sintético que diga «El plazo del contrato de prueba es de 97 días». El primer uso descarga el modelo de embeddings.
+2. Carga un archivo de texto sintético que diga «El plazo del contrato de prueba es de 97 días». La ingesta calcula los embeddings localmente con los archivos incluidos en la imagen.
 3. Busca el documento, selecciónalo y pregunta «¿Cuál es el plazo del contrato?». Abre una fuente de la respuesta y exporta el mensaje a PDF. Puedes volver a descargarlo desde **Mis PDFs**.
 
 Compose publica los puertos en loopback para desarrollo local. Google Drive es opcional y arranca deshabilitado. Para ejecutar el recorrido integral con Groq simulado y sin credenciales personales, sigue la [guía de verificación](docs/release/README.md).
@@ -51,4 +53,4 @@ Usa las [issues del repositorio](https://github.com/Blandskron/AgenteIADocumenta
 
 El código y la documentación propios de Blandskron se publican bajo la [licencia MIT](LICENSE) (© 2026 Blandskron). Puedes usarlos, modificarlos y redistribuirlos, incluso con fines comerciales, conservando los avisos de copyright y licencia.
 
-Los componentes de terceros se rigen por sus propias licencias. Las fuentes Noto Sans incluidas para la exportación a PDF se distribuyen bajo la [SIL Open Font License 1.1](backend/DocumentExportServices/app/infrastructure/pdf/fonts/LICENSE.txt).
+Los componentes de terceros se rigen por sus propias licencias. Noto Sans usa [SIL Open Font License 1.1](backend/DocumentExportServices/app/infrastructure/pdf/fonts/LICENSE.txt). Las imágenes de ingesta y chat incluyen la licencia MIT y la ficha del modelo multilingual-e5-small. [Ficha de E5](https://huggingface.co/intfloat/multilingual-e5-small/tree/614241f622f53c4eeff9890bdc4f31cfecc418b3)

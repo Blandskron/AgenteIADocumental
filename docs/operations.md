@@ -13,7 +13,7 @@ La instalación soportada usa Docker Compose y publica web, APIs y PostgreSQL en
 | `POSTGRES_HOST_PORT` | Si el puerto local 5432 está ocupado, usa por ejemplo `15432`. Los servicios mantienen 5432 dentro de Compose. |
 | `EMBEDDING_UID`, `EMBEDDING_GID`, `ACCESS_UID`, `ACCESS_GID` | En un directorio documental existente, configura el UID/GID para que ambos servicios puedan acceder con los permisos actuales. El inicializador asigna propietario en un directorio nuevo vacío y conserva los archivos y permisos existentes. |
 | `GOOGLE_DRIVE_ENABLED`, `DRIVE_DB_PASSWORD` | Drive arranca deshabilitado. Conserva disponibilidad e historial autorizado y devuelve 503 en operaciones con el proveedor. Para habilitar OAuth, consulta el contrato de Drive y aprovisiona su rol de base de datos. |
-| pgAdmin | Perfil `tools`. Configura `PGADMIN_DEFAULT_EMAIL` y `PGADMIN_DEFAULT_PASSWORD` antes de activarlo. |
+| `POSTGRES_DATA_VOLUME` | Selecciona el volumen PostgreSQL tras una restauración. El valor predeterminado conserva el nombre asociado al proyecto de Compose. |
 
 Consulta la plantilla de entorno y los contratos para las contraseñas por rol, CORS, pools y montajes. [Plantilla de entorno](../.env.example) · [Mapa de servicios](architecture.md#mapa-de-servicios) · [OAuth de Google Drive](../backend/GoogleDriveImportServices/README.md)
 
@@ -25,10 +25,10 @@ docker compose --env-file .env -f docker/docker-compose.yml logs --tail 100 auth
 
 Si el arranque falla, identifica primero el job que terminó con error. El orden principal de identidad es PostgreSQL saludable → esquema compartido → roles Auth → migraciones Django → integridad de membresías → bootstrap → Auth. Los jobs de rol y preparación de almacenamiento habilitan a sus consumidores. [Agregador de Compose](../docker/docker-compose.yml) · [Arranque de Auth](../docker/compose/auth.yml)
 
-Para iniciar pgAdmin de forma opcional:
+Para abrir una sesión SQL local con la herramienta incluida en la imagen:
 
 ```powershell
-docker compose --env-file .env -f docker/docker-compose.yml --profile tools up -d pgadmin
+docker compose --env-file .env -f docker/docker-compose.yml exec postgres psql -U postgres -d documents_db
 ```
 
 ## Actualizar una instalación existente
@@ -39,6 +39,40 @@ docker compose --env-file .env -f docker/docker-compose.yml --profile tools up -
 4. Actualiza esquema, API y web de forma coordinada. Revisa los healthchecks y prueba con datos sintéticos.
 
 [Esquema y preflight](../scripts/database/README.md) · [Integridad de carpetas](../backend/DocumentLibraryServices/docs/REFERENCE.md#integridad-y-migración-de-carpetas) · [Claves JWT](../backend/AuthServices/docs/OPERATIONS.md#actualización-desde-el-volumen-jwt-compartido) · [Migración de PDF](../backend/DocumentExportServices/docs/REFERENCE.md#migración-revisada-de-pdfs-heredados)
+
+## Migrar la imagen de PostgreSQL
+
+El cambio de Debian a Alpine conserva PostgreSQL 16 y reconstruye los índices con la colación ICU del destino. La imagen detecta el directorio de datos anterior y detiene el arranque. Para migrar, detén los escritores y guarda una copia privada de los originales y de los volúmenes de claves JWT. Conserva la clave de cifrado de Drive si usas esa integración. El procedimiento siguiente copia los roles del clúster y la base `documents_db`. Si agregaste otras bases o tablespaces, incluye sus respaldos y verifica cómo restaurarlos antes de continuar.
+
+Desde PowerShell, en la raíz, usa el contenedor antiguo existente. Si ya fue reemplazado, vuelve a la revisión anterior y levanta únicamente su servicio PostgreSQL sobre el volumen original antes de respaldar.
+
+```powershell
+$compose = @('--env-file', '.env', '-f', 'docker/docker-compose.yml')
+docker compose @compose stop
+docker start rag-documents-postgres
+$backup = New-Item -ItemType Directory -Path (Join-Path $env:LOCALAPPDATA ("documental-backup-" + [Guid]::NewGuid()))
+docker exec rag-documents-postgres mkdir -m 700 /tmp/documental-backup
+docker exec rag-documents-postgres pg_dumpall -U postgres --roles-only -f /tmp/documental-backup/roles.sql
+docker exec rag-documents-postgres pg_dump -U postgres -Fc -f /tmp/documental-backup/documents.dump documents_db
+docker cp rag-documents-postgres:/tmp/documental-backup/. $backup.FullName
+docker stop rag-documents-postgres
+```
+
+Comprueba que ambos archivos se copiaron y conserva la carpeta privada. El archivo de roles contiene verificadores de contraseñas. Define en `.env` un `POSTGRES_DATA_VOLUME` nuevo y vacío. Mantén las credenciales PostgreSQL y de los roles coordinadas con las que usaba la instalación anterior. El perfil de restauración arranca PostgreSQL de forma aislada y deja que el respaldo cree el esquema y los índices.
+
+```powershell
+$restore = $compose + @('-f', 'docker/compose/restore.yml')
+docker compose @restore up -d --build --wait postgres
+docker compose @restore cp $backup.FullName postgres:/tmp/documental-backup
+docker compose @restore cp scripts/database/tools/restore_postgres16.sh postgres:/tmp/restore-postgres16.sh
+docker compose @restore exec -T postgres sh /tmp/restore-postgres16.sh /tmp/documental-backup
+```
+
+Si la restauración devuelve un error, detén el procedimiento y conserva ambos volúmenes. Cuando termine correctamente, vuelve a la configuración normal y valida inicio de sesión, documentos existentes e índices. Mantén el volumen anterior hasta completar las pruebas. Para volver a la revisión anterior, detén el stack y vuelve a indicar el volumen original, junto con su copia coherente de originales y claves cuando corresponda.
+
+```powershell
+docker compose @compose up -d --build --wait
+```
 
 ## Procesamiento y prueba funcional
 

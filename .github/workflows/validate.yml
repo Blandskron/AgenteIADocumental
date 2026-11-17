@@ -23,7 +23,7 @@ jobs:
         run: docker compose --env-file "$VERIFICATION_ENV_FILE" -p bd-final-check -f docker/docker-compose.yml -f docker/compose/verification.yml up -d --build --wait blandskron-frontend
       - name: Validar servicios, integridad concurrente y recorrido documental
         run: node scripts/release/verify.mjs
-      - name: Auditar doce imágenes finales sin supresiones
+      - name: Auditar las imágenes finales de aplicación y PostgreSQL
         run: node scripts/release/audit_images.mjs --project bd-final-check
       - name: Validar el grafo capturado sin herramientas en runtime
         run: node scripts/release/verify_graphs.mjs
@@ -33,7 +33,7 @@ jobs:
           name: release-verification
           path: .release-reports/*.json
           include-hidden-files: true
-          retention-days: 14
+          retention-days: 90
       - name: Retirar únicamente el entorno sintético
         if: always()
         run: docker compose --env-file "$VERIFICATION_ENV_FILE" -p bd-final-check -f docker/docker-compose.yml -f docker/compose/verification.yml down --remove-orphans
@@ -267,24 +267,24 @@ jobs:
 
   postgres:
     runs-on: ubuntu-latest
-    services:
-      postgres:
-        image: pgvector/pgvector:pg16
-        env:
-          POSTGRES_PASSWORD: test
-          POSTGRES_DB: documents_test
-        ports: [5432:5432]
-        options: >-
-          --health-cmd "pg_isready -U postgres -d documents_test"
-          --health-interval 5s
-          --health-timeout 5s
-          --health-retries 10
     steps:
       - uses: actions/checkout@v4
+      - run: node scripts/release/prepare_verification.mjs --github
       - name: Validar la migración y su segundo arranque
         run: |
-          docker cp scripts/database/migrations/001_local_embeddings.sql "${{ job.services.postgres.id }}:/tmp/blandskron-local-embeddings.sql"
-          docker exec -i "${{ job.services.postgres.id }}" psql -U postgres -d documents_test -v ON_ERROR_STOP=1 < scripts/database/tests/local_embeddings.sql
+          compose=(docker compose --env-file "$VERIFICATION_ENV_FILE" -p bd-final-check -f docker/docker-compose.yml -f docker/compose/verification.yml)
+          trap '"${compose[@]}" down --remove-orphans' EXIT
+          "${compose[@]}" up -d --build --wait postgres
+          "${compose[@]}" exec -T postgres createdb -U postgres documents_test
+          "${compose[@]}" cp scripts/database/migrations/001_local_embeddings.sql postgres:/tmp/blandskron-local-embeddings.sql
+          "${compose[@]}" exec -T postgres psql -U postgres -d documents_test -v ON_ERROR_STOP=1 < scripts/database/tests/local_embeddings.sql
+          node scripts/release/verify_postgres_upgrade.mjs
+      - uses: actions/upload-artifact@v4
+        with:
+          name: postgres-upgrade
+          path: .release-reports/POSTGRES_UPGRADE.json
+          include-hidden-files: true
+          retention-days: 90
 
   rag-groq:
     runs-on: ubuntu-latest

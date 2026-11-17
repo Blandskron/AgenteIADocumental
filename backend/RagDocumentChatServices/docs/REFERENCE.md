@@ -122,7 +122,7 @@ Este proyecto está licenciado bajo los términos del archivo LICENSE del reposi
 
 Configura `GROQ_API_KEY` en el `.env` local. `GROQ_CHAT_MODEL` usa `openai/gpt-oss-20b` por defecto. Estas variables son del backend.
 
-La búsqueda vectorial usa PyTorch CPU y pesos Safetensors. La primera consulta vectorial descarga el modelo a la caché del usuario del contenedor. Para probar el chat completo, indexa un documento de ejemplo con el servicio de ingesta. [Revisión fijada de multilingual-e5-small](https://huggingface.co/intfloat/multilingual-e5-small/tree/614241f622f53c4eeff9890bdc4f31cfecc418b3).
+La búsqueda vectorial usa PyTorch CPU y pesos Safetensors. Compose construye la imagen con los archivos del modelo verificados por SHA-256 y el proceso los lee localmente. Para probar el chat completo, indexa un documento sintético con el servicio de ingesta. [Revisión fijada de multilingual-e5-small](https://huggingface.co/intfloat/multilingual-e5-small/tree/614241f622f53c4eeff9890bdc4f31cfecc418b3)
 
 ### Verificación de la imagen
 
