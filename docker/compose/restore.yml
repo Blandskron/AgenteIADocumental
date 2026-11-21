@@ -5,3 +5,4 @@ services:
     network_mode: none
     volumes: !override
       - postgres_data:/var/lib/postgresql/data
+      - runtime_secrets:/run/blandskron-secrets:ro

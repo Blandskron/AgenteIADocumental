@@ -6,14 +6,20 @@
 services:
   studio-db-role:
     image: ${COMPOSE_PROJECT_NAME}-postgres
-    profiles: ["studio"]
     pull_policy: never
+    profiles: ["studio"]
     environment:
-      PGPASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+      PGPASSWORD: ${POSTGRES_PASSWORD:-}
       STUDIO_DB_PASSWORD: ${STUDIO_DB_PASSWORD:-blandskron-local-studio}
     volumes:
       - ../../scripts/database/studio:/studio-db:ro
-    command: ["psql", "-h", "postgres", "-U", "postgres", "-d", "documents_db", "-v", "ON_ERROR_STOP=1", "-f", "/studio-db/provision_role.sql"]
+      - runtime_secrets:/run/blandskron-secrets:ro
+    command:
+      [
+        "sh",
+        "-c",
+        "export PGPASSWORD=\"$${PGPASSWORD:-$$(cat /run/blandskron-secrets/postgres_password)}\" && exec psql -h postgres -U postgres -d documents_db -v ON_ERROR_STOP=1 -f /studio-db/provision_role.sql",
+      ]
     depends_on:
       database-schema:
         condition: service_completed_successfully

@@ -1,0 +1,4 @@
+# Root Compose entrypoint for one-command local installation:
+#   docker compose up -d --build
+include:
+  - docker/docker-compose.yml

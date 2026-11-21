@@ -2,6 +2,7 @@ import base64
 import hashlib
 import json
 import os
+from pathlib import Path
 import re
 
 from cryptography.fernet import Fernet, InvalidToken
@@ -79,7 +80,14 @@ class SecretsCipher:
     @classmethod
     def from_environ(cls, environ: dict[str, str] | None = None) -> "SecretsCipher | None":
         env = os.environ if environ is None else environ
-        raw_secret = env.get("SECRETS_ENCRYPTION_KEY", "")
+        raw_secret = env.get("SECRETS_ENCRYPTION_KEY", "").strip()
+        if not raw_secret:
+            secret_file = Path(env.get("SECRETS_ENCRYPTION_KEY_FILE", "/run/blandskron-secrets/secrets_encryption_key"))
+            try:
+                if secret_file.is_file():
+                    raw_secret = secret_file.read_text(encoding="utf-8").strip()
+            except OSError:
+                raw_secret = ""
         if not raw_secret:
             return None
         key_id = env.get("SECRETS_KEY_ID", "v1").strip() or "v1"
