@@ -102,3 +102,4 @@ class CookieSessionLogoutView(APIView):
         response.delete_cookie(ACCESS_COOKIE_NAME, path="/", samesite="Lax")
         response.delete_cookie(REFRESH_COOKIE_NAME, path="/", samesite="Lax")
         return response
+

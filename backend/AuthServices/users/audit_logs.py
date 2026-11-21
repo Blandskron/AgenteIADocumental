@@ -118,3 +118,4 @@ class AuditLogListView(APIView):
             {"total": total, "limit": limit, "offset": offset, "items": items},
             status=status.HTTP_200_OK,
         )
+

@@ -130,3 +130,4 @@ def sm2_review(card: FlashcardState, quality: int) -> FlashcardState:
         interval = max(1, round(card.interval_days * card.ease_factor))
     ef = max(1.3, card.ease_factor + (0.1 - (5 - q) * (0.08 + (5 - q) * 0.02)))
     return card.model_copy(update={"repetitions": reps, "interval_days": interval, "ease_factor": round(ef, 4)})
+

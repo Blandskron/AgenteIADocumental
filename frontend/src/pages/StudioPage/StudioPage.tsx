@@ -2,6 +2,7 @@ import type { PageProps } from "@/app/router/useAppRouter.ts";
 import { useAuthContext } from "@/app/providers/AuthProvider.tsx";
 import { appRoutes } from "@/app/router/routes.ts";
 import { SafeMarkdown } from "@/features/chat/ui/SafeMarkdown.tsx";
+import { OfflineFlashcardDeck } from "@/features/studio/OfflineFlashcardDeck.tsx";
 import { useSidebarState } from "@/shared/hooks/useSidebarState.ts";
 import { AppShell } from "@/shared/layouts/AppShell.tsx";
 import { Sidebar } from "@/widgets/Sidebar/Sidebar.tsx";
@@ -203,14 +204,17 @@ export function StudioPage({ onNavigate }: PageProps) {
             </section>
           </div>
         ) : (
-          <section className="settings-ai-card">
-            <h2>Mis artefactos</h2>
-            <p className="settings-ai-meta">
-              Los artefactos generados se versionan automáticamente en{" "}
-              <code>studio.artifacts</code> y se marcan <code>STALE</code> si
-              cambia o se elimina una fuente.
-            </p>
-          </section>
+          <div className="settings-ai-grid">
+            <section className="settings-ai-card">
+              <h2>Mis artefactos</h2>
+              <p className="settings-ai-meta">
+                Los artefactos generados se versionan automáticamente en{" "}
+                <code>studio.artifacts</code> y se marcan <code>STALE</code> si
+                cambia o se elimina una fuente.
+              </p>
+            </section>
+            <OfflineFlashcardDeck />
+          </div>
         )}
       </main>
     </AppShell>

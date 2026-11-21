@@ -77,3 +77,4 @@ def test_quiz_validator_and_offline_sm2_spaced_repetition():
     assert r2.repetitions == 2 and r2.interval_days == 6
     r_fail = sm2_review(r2, 1)
     assert r_fail.repetitions == 0 and r_fail.interval_days == 1
+

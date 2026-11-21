@@ -99,3 +99,4 @@ class HardeningSessionAndAuditTests(APITestCase):
         self.assertEqual(refresh_resp.status_code, 200)
         self.assertTrue(refresh_resp.data["authenticated"])
         self.assertTrue(refresh_resp.cookies[ACCESS_COOKIE_NAME]["httponly"])
+

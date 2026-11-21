@@ -1,6 +1,6 @@
 # Roadmap de Evolución — Blandskron Documental (Etapa 2) — COMPLETADO
 
-> **Estado: 29 / 29 tareas terminadas (100 %).** Todas las fases planificadas para llevar **Blandskron Documental** al siguiente nivel (higiene técnica, configuración web de IA Groq, motor RAG híbrido HNSW+FTS+RRF, importación segura Markdown/ZIP, Knowledge Studio P0/P1 y hardening de auditoría y sesión HttpOnly) están implementadas y verificadas.
+> **Estado: 37 / 37 tareas terminadas (100 %).** Todas las fases planificadas (Fases 0–5 + Fase 6 de expansión operativa y extensibilidad) están implementadas y verificadas.
 
 **Fecha de cierre de etapa:** 2026-11-21
 
@@ -16,7 +16,8 @@
 | **Fase 3** | Ingesta idempotente y fuentes Markdown/ZIP (Opción O1) | 4 | 0 | 0 | 4 |
 | **Fase 4** | Knowledge Studio P0 (artefactos con citas verificadas) | 6 | 0 | 0 | 6 |
 | **Fase 5** | Hardening de seguridad y extensiones P1+ bajo demanda | 5 | 0 | 0 | 5 |
-| **Total** | | **29** | **0** | **0** | **29** |
+| **Fase 6** | Expansión operativa, visor de auditoría, OpenAI-compatible/Ollama, MCP y API Studio | 8 | 0 | 0 | 8 |
+| **Total** | | **37** | **0** | **0** | **37** |
 
 ---
 
@@ -33,3 +34,12 @@
   - `R5-03`: Visualizaciones deterministas en `KnowledgeStudioServices` (`sanitize_mermaid_diagram`, grafo desde `[[wikilinks]]`, series de gráficos exclusivamente desde celdas verificadas).
   - `R5-04`: Validador estricto de quizzes citados (`filter_valid_quiz_questions`) y motor SM-2 offline sin telemetría (`sm2_review`).
   - `R5-05`: ADR formal de extensibilidad OpenAI-compatible / Ollama / MCP de solo lectura ([docs/ADR_EXTENSIBILITY_LLM_MCP.md](docs/ADR_EXTENSIBILITY_LLM_MCP.md)).
+- **Fase 6 (`R6-01`–`R6-08`) — `terminada`:**
+  - `R6-01`: Integración de `record_audit_log()` persistente en las mutaciones de `ai_integrations.py` (sin exponer claves).
+  - `R6-02`: Visor administrativo `/admin/audit` (`AuditLogsPage.tsx`, `audit-logs.api.ts`) con filtro por acción y enlace en `Sidebar`.
+  - `R6-03`: Adaptador `OpenAICompatibleLLMProvider` con allowlist estricta anti-SSRF (`validate_provider_base_url`) y suite de pruebas.
+  - `R6-04`: Entrypoint HTTP FastAPI en `KnowledgeStudioServices/app/main.py` acotado por `STUDIO_ENABLED` (templates, validación de groundedness, CSV, Mermaid, grafo, series verificadas y SM-2).
+  - `R6-05`: Router `ReadOnlyMcpDispatcher` autenticado estrictamente con el usuario de la plataforma y auditoría `mcp.*`.
+  - `R6-06`: Overlay opcional Docker Compose `docker/compose/ollama.yml` (`--profile local-llm`) sin alterar el stack base.
+  - `R6-07`: Componente interactivo `OfflineFlashcardDeck` (SM-2 100 % local en el navegador) integrado en `/studio` + tests unitarios.
+  - `R6-08`: Target `make eval-studio`, índice en `docs/maintainers.md` y validación integral.
