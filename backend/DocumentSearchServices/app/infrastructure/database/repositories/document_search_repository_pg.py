@@ -162,14 +162,8 @@ class DocumentSearchRepositoryPg:
         snippet = null()
         if query:
             ts_query = func.websearch_to_tsquery("spanish", query)
-            headline = func.ts_headline(
-                "spanish",
-                chunk.chunk_content,
-                ts_query,
-                "MaxWords=45, MinWords=15, StartSel=**, StopSel=**, ShortWord=2",
-            )
             snippet = (
-                select(headline)
+                select(chunk.chunk_content)
                 .where(
                     matches_document,
                     or_(

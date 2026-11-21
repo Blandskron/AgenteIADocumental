@@ -80,25 +80,29 @@ class VectorRepositoryPgVector:
         if not clean_query:
             return vector_results[:limit]
 
-        ts_query = func.websearch_to_tsquery("spanish", clean_query)
-        fts_rank = func.ts_rank_cd(DocumentEmbeddingModel.content_tsv, ts_query).label("fts_rank")
-        fts_stmt = self._session.query(
-            DocumentEmbeddingModel.chunk_id,
-            DocumentEmbeddingModel.document_id,
-            DocumentEmbeddingModel.chunk_index,
-            DocumentEmbeddingModel.chunk_content,
-            DocumentEmbeddingModel.metadata_.label("chunk_metadata"),
-            fts_rank,
-        ).join(DocumentModel, DocumentEmbeddingModel.document_id == DocumentModel.document_id)
-        fts_stmt = self._apply_access_filter(fts_stmt)
-        if document_ids:
-            fts_stmt = fts_stmt.filter(DocumentEmbeddingModel.document_id.in_(document_ids))
-        fts_rows = (
-            fts_stmt.filter(DocumentEmbeddingModel.content_tsv.op("@@")(ts_query))
-            .order_by(fts_rank.desc())
-            .limit(candidate_limit)
-            .all()
-        )
+        try:
+            with self._session.begin_nested():
+                ts_query = func.websearch_to_tsquery("spanish", clean_query)
+                fts_rank = func.ts_rank_cd(DocumentEmbeddingModel.content_tsv, ts_query).label("fts_rank")
+                fts_stmt = self._session.query(
+                    DocumentEmbeddingModel.chunk_id,
+                    DocumentEmbeddingModel.document_id,
+                    DocumentEmbeddingModel.chunk_index,
+                    DocumentEmbeddingModel.chunk_content,
+                    DocumentEmbeddingModel.metadata_.label("chunk_metadata"),
+                    fts_rank,
+                ).join(DocumentModel, DocumentEmbeddingModel.document_id == DocumentModel.document_id)
+                fts_stmt = self._apply_access_filter(fts_stmt)
+                if document_ids:
+                    fts_stmt = fts_stmt.filter(DocumentEmbeddingModel.document_id.in_(document_ids))
+                fts_rows = (
+                    fts_stmt.filter(DocumentEmbeddingModel.content_tsv.op("@@")(ts_query))
+                    .order_by(fts_rank.desc())
+                    .limit(candidate_limit)
+                    .all()
+                )
+        except Exception:
+            return vector_results[:limit]
         fts_results = [
             SearchResult(
                 document_id=str(row.document_id),

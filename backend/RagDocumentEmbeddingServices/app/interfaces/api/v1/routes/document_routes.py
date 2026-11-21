@@ -30,21 +30,22 @@ def upload_document(
     file: UploadFile = File(...),
     metadata: str | None = Form(default=None),
     process: bool = Form(default=True),
-    idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
     current_user: dict = Depends(require_upload_user),
     use_case: UploadDocument = Depends(get_upload_document),
+    idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
 ) -> DocumentUploadResponse:
     document_metadata = {
         **parse_metadata(metadata),
         **build_document_access_metadata(current_user),
     }
+    clean_key = idempotency_key if isinstance(idempotency_key, str) else None
     document = use_case.execute(
         filename=file.filename or "document",
         mime_type=detect_mime_type(file),
         file=file.file,
         metadata=document_metadata,
         process=process,
-        idempotency_key=idempotency_key,
+        idempotency_key=clean_key,
     )
     return DocumentUploadResponse(
         document_id=document.document_id,
