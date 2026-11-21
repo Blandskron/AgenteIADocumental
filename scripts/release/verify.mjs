@@ -12,6 +12,7 @@ const folder = fs.mkdtempSync(path.join(os.tmpdir(), "bd-verification-"));
 const destination = ".release-reports/VERIFICATION.json";
 const demoOnly = process.argv.includes("--demo-only");
 const relationsOnly = process.argv.includes("--relations-only");
+const skipRelations = process.argv.includes("--skip-relations");
 const report = demoOnly || relationsOnly ? JSON.parse(fs.readFileSync(destination, "utf8")) : { cards: ["PLAT-001", "DEMO-001"], started_utc: new Date().toISOString(),
   source_commit: spawnSync("git", ["rev-parse", "HEAD"], { encoding: "utf8" }).stdout.trim(), steps: [] };
 if (demoOnly) {
@@ -63,7 +64,7 @@ for (const service of ["conversation-tests", "rag-chat-tests", "embedding-tests"
   await check(`${service} Ruff`, ["run", "--rm", "--no-deps", service, "ruff", "check", "--no-cache", "app", "tests"]);
 }
 }
-if (!demoOnly) {
+if (!demoOnly && !skipRelations) {
 for (const [kind, script] of [["assignments", "test_tenant_assignments.py"], ["relations", "test_tenant_area_relations.py"], ["hierarchy", "test_tenant_hierarchy.py"], ["identity", "test_tenant_user_links.py"]]) {
   const db = `plat_${kind}_release`;
   const admin = (query) => ["exec", "-T", "postgres", "psql", "-U", "postgres", "-d", "documents_db", "-v", "ON_ERROR_STOP=1", "-c", query];
