@@ -56,11 +56,16 @@ CREATE TABLE IF NOT EXISTS document_embeddings (
     document_id TEXT NOT NULL REFERENCES documents(document_id) ON DELETE CASCADE,
     chunk_index INTEGER NOT NULL,
     chunk_content TEXT NOT NULL,
+    content_tsv tsvector GENERATED ALWAYS AS (to_tsvector('spanish', COALESCE(chunk_content, ''))) STORED,
     embedding vector(384) NOT NULL,
     embedding_model TEXT NOT NULL DEFAULT 'intfloat/multilingual-e5-small',
     metadata JSONB NOT NULL DEFAULT '{}'::jsonb,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+ALTER TABLE document_embeddings
+    ADD COLUMN IF NOT EXISTS content_tsv tsvector
+        GENERATED ALWAYS AS (to_tsvector('spanish', COALESCE(chunk_content, ''))) STORED;
 
 CREATE TABLE IF NOT EXISTS document_folders (
     folder_id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,

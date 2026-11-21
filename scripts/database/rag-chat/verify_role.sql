@@ -37,7 +37,7 @@ FROM public.conversation_messages LIMIT 0;
 SELECT integration_id, tenant_id, provider, status, config, secrets_encrypted, updated_at
 FROM public.tenant_integrations LIMIT 0;
 SELECT document_id, owner_user_id, tenant_id, metadata FROM public.documents LIMIT 0;
-SELECT chunk_id, document_id, chunk_index, chunk_content, embedding, metadata
+SELECT chunk_id, document_id, chunk_index, chunk_content, content_tsv, embedding, metadata
 FROM public.document_embeddings LIMIT 0;
 SELECT document_id, assigned_to_user_id, assigned_by_user_id, status
 FROM public.document_assignments LIMIT 0;

@@ -26,7 +26,7 @@ $$;
 
 SELECT document_id, tenant_id, owner_user_id, filename, mime_type, status, metadata, processed_at, created_at, updated_at
 FROM public.documents LIMIT 0;
-SELECT chunk_id, document_id, chunk_index, chunk_content, created_at
+SELECT chunk_id, document_id, chunk_index, chunk_content, content_tsv, created_at
 FROM public.document_embeddings LIMIT 0;
 SELECT document_id, assigned_to_user_id, assigned_by_user_id, status
 FROM public.document_assignments LIMIT 0;

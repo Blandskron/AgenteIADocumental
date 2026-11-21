@@ -22,7 +22,7 @@ $$;
 
 GRANT SELECT (document_id, tenant_id, owner_user_id, filename, mime_type, status, metadata, processed_at, created_at, updated_at)
     ON public.documents TO document_search_runtime;
-GRANT SELECT (chunk_id, document_id, chunk_index, chunk_content, created_at)
+GRANT SELECT (chunk_id, document_id, chunk_index, chunk_content, content_tsv, created_at)
     ON public.document_embeddings TO document_search_runtime;
 GRANT SELECT (document_id, assigned_to_user_id, assigned_by_user_id, status)
     ON public.document_assignments TO document_search_runtime;

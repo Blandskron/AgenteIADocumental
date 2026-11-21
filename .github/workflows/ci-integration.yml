@@ -57,6 +57,7 @@ jobs:
           done
           "${compose[@]}" run --rm --no-deps database-schema psql -h postgres -U postgres -d documents_db -X -q -v ON_ERROR_STOP=1 -f /schema/tests/tenant_preflight.sql
           "${compose[@]}" run --rm --no-deps database-schema psql -h postgres -U postgres -d documents_db -X -q -v ON_ERROR_STOP=1 -f /schema/tests/tenant_integrations_permissions.sql
+          "${compose[@]}" run --rm --no-deps database-schema psql -h postgres -U postgres -d documents_db -X -q -v ON_ERROR_STOP=1 -f /schema/tests/hnsw_and_fts_indexes.sql
           "${compose[@]}" run --rm --no-deps database-schema psql -h postgres -U postgres -d documents_db -X -q -v ON_ERROR_STOP=1 -f /schema/checks/tenant_preflight.sql
       - name: Probar restricciones de asignaciones con logins y carreras reales
         run: |

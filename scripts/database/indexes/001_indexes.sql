@@ -13,16 +13,36 @@ CREATE INDEX IF NOT EXISTS documents_tenant_area_idx
 CREATE INDEX IF NOT EXISTS documents_metadata_gin_idx
     ON documents USING GIN (metadata);
 
+CREATE INDEX IF NOT EXISTS documents_filename_trgm_idx
+    ON documents USING GIN (filename gin_trgm_ops);
+
 CREATE INDEX IF NOT EXISTS document_embeddings_document_id_idx
     ON document_embeddings (document_id);
 
 CREATE INDEX IF NOT EXISTS document_embeddings_metadata_gin_idx
     ON document_embeddings USING GIN (metadata);
 
+CREATE INDEX IF NOT EXISTS document_embeddings_content_tsv_gin_idx
+    ON document_embeddings USING GIN (content_tsv);
+
+DO $$
+BEGIN
+    IF EXISTS (
+        SELECT 1 FROM pg_indexes
+        WHERE schemaname = 'public'
+          AND tablename = 'document_embeddings'
+          AND indexname = 'document_embeddings_embedding_cosine_idx'
+          AND indexdef NOT ILIKE '%USING hnsw%'
+    ) THEN
+        DROP INDEX public.document_embeddings_embedding_cosine_idx;
+    END IF;
+END
+$$;
+
 CREATE INDEX IF NOT EXISTS document_embeddings_embedding_cosine_idx
     ON document_embeddings
-    USING ivfflat (embedding vector_cosine_ops)
-    WITH (lists = 100);
+    USING hnsw (embedding vector_cosine_ops)
+    WITH (m = 16, ef_construction = 64);
 
 CREATE UNIQUE INDEX IF NOT EXISTS tenants_tax_id_unique
     ON tenants (tax_id)
