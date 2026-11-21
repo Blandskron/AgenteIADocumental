@@ -1,7 +1,8 @@
 # FEATURE_BENCHMARK — Knowledge Studio vs. conceptos de NotebookLM y OSS
 
-Planificación pura (sin implementación). Fecha de consulta: **2026-11-21**.
-Auditoría de código base: commit `055a85d` (ver `/workspace/docs/plans/core-rag/CURRENT_STATE_AUDIT.md` para el mapa completo del repositorio).
+> Estado: benchmark de planificación (2026-11-21). El alcance adoptado (P0 en Fase 4; P1 en Fase 5; descartes explícitos) se rastrea en [roadmap.md](../../../roadmap.md).
+
+Auditoría de código base: commit `055a85d` (ver [CURRENT_STATE_AUDIT.md](../core-rag/CURRENT_STATE_AUDIT.md) para el mapa completo del repositorio).
 
 ## 1. Posición oficial sobre NotebookLM
 
@@ -18,9 +19,9 @@ Auditoría de código base: commit `055a85d` (ver `/workspace/docs/plans/core-ra
 |---|---|---|---|
 | **Open WebUI** | Chat RAG self-hosted con documentos, modo offline; demuestra demanda de "studio" local | MIT, muy activo | Patrón de jobs locales + citas; no reutilizamos código |
 | **RAGFlow** (InfiniFlow) | Plantillas de chunking por tipo de documento, motor de "deep document understanding", tablas de extracción | Apache-2.0, activo | Valida plantillas de ingesta/artefacto; pesado (requiere Elasticsearch/Infinity) → incompatible con nuestro modo base simple |
-| **Danswer / Onyx** | Conectores multi-fuente con permisos espejo | MIT/Comercial | Referencia para "Fuentes y conectores" (PROMPT 1), no para artefactos |
+| **Danswer / Onyx** | Conectores multi-fuente con permisos espejo | MIT/Comercial | Referencia para "Fuentes y conectores" (Fase 3), no para artefactos |
 | **Quivr** | "Cerebro" personal con colecciones | Licencia cambiante (verificar en cada release) | Señal de producto, no de arquitectura |
-| **txtai** | Embeddings + grafos relacionales embebidos en un proceso Python | Apache-2.0 | Candidato a evaluar en PoC GraphRAG (PROMPT 1), no necesario para Studio P0 |
+| **txtai** | Embeddings + grafos relacionales embebidos en un proceso Python | Apache-2.0 | Referencia futura para grafos embebidos, no necesario para Studio P0 |
 | **Mermaid + remark/rehype** | Render de diagramas/Markdown en cliente con sanitización | MIT | Base propuesta para visualización sin IA de imágenes |
 | **reactflow (XYFlow)**, **Recharts**, **D3** | Mapas interactivos, gráficos numéricos | MIT | Render propio determinista desde datos estructurados |
 | **python-pptx**, **openpyxl**, **reportlab** | Export PPTX/XLSX/PDF server-side sin red | MIT/MIT/BSD-3 (reportlab también comercial) | reportlab **ya está** en DocumentExportServices → reutilizable |
@@ -39,8 +40,8 @@ Evidencia de código (rutas reales):
 | Búsqueda vectorial pgvector con filtro de acceso | `backend/DocumentSearchServices/app/application/documents/use_cases/search_documents.py`, `build_chat_context.py` | Selección de fuentes para artefactos pasa por el mismo control de acceso |
 | Biblioteca con carpetas/permisos empresa-área | `backend/DocumentLibraryServices/app/application/use_cases/manage_library.py` | Las "colecciones" de Studio **no duplican originales**: referencias id+versión |
 | Export PDF atómico con sha256, caducidad, capacidad e idempotencia | `backend/DocumentExportServices/app/application/use_cases/manage_exports.py` (`create_chat_pdf_export`, `download`, `export_status`) | Contrato excelente para **copiar el patrón**, pero hoy está acoplado a `source_type="chat_message"` y renderer único `ChatPdfRenderer`; ver ADR §4 |
-| Ingesta con extracción de contenido y chunks | `backend/RagDocumentEmbeddingServices/app/application/documents/use_cases/upload_document.py`, `extract_document_content.py` | Fuentes de Studio = documentos ya ingeridos; Markdown/ZIP entra por PROMPT 1 P1 |
-| Importación Drive con credenciales cifradas (TokenCipher) | `backend/GoogleDriveImportServices/app/infrastructure/google/token_cipher.py` | Reutilizado por configuración Groq (PROMPT 1); Studio no gestiona secretos propios |
+| Ingesta con extracción de contenido y chunks | `backend/RagDocumentEmbeddingServices/app/application/documents/use_cases/upload_document.py`, `extract_document_content.py` | Fuentes de Studio = documentos ya ingeridos; Markdown/ZIP entra en Fase 3 (`R3-01`–`R3-04`) |
+| Importación Drive con credenciales cifradas (TokenCipher) | `backend/GoogleDriveImportServices/app/infrastructure/google/token_cipher.py` | Reutilizado por configuración Groq (Fase 1, `R1-02`); Studio no gestiona secretos propios |
 | Frontend Feature-Sliced (`entities/features/pages/shared/widgets`) | `frontend/src/*` | Studio es un *feature slice* + páginas nuevas, no una app aparte |
 
 Brechas detectadas (necesarias para Studio y hoy inexistentes):

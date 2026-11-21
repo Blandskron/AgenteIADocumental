@@ -1,7 +1,8 @@
 # PRODUCT_SPEC — Knowledge Studio
 
-Módulo propio de la plataforma Blandskron. Planificación (2026-11-21); no implica aprobación de implementación.
-Depende del plan **Groq Settings (PROMPT 1, `docs/plans/core-rag/GROQ_SETTINGS_DESIGN.md`)** para credenciales LLM y de **DocumentSearch/Library/Access** para permisos. No introduce dependencias de NotebookLM, Obsidian ni servicios externos obligatorios.
+> Estado: especificación de planificación (2026-11-21). Alcance adoptado en [roadmap.md](../../../roadmap.md): **P0** en Fase 4 (`R4-01`–`R4-06`), **P1** evaluable en Fase 5 (`R5-03`–`R5-04`) y elementos multimedia descartados.
+
+Depende del plan **Groq Settings ([GROQ_SETTINGS_DESIGN.md](../core-rag/GROQ_SETTINGS_DESIGN.md), Fase 1)** para credenciales LLM y de **DocumentSearch/Library/Access** para permisos. No introduce dependencias de NotebookLM, Obsidian ni servicios externos obligatorios.
 
 ## 1. Problema del usuario
 
@@ -34,7 +35,7 @@ Recorrido verificable (ruta UI propuesta dentro del frontend Feature-Sliced exis
 - **Vacío**: explicación + acción única ("Crear colección", "Generar primer artefacto").
 - **Loading**: job con progreso por pasos y ETA estimada; cancelable.
 - **Fallo**: causa legible (p. ej. "Groq no configurado", "Las fuentes superan el presupuesto de contexto: reduce la selección o usa resumen por secciones"), acciones reintentar/ajustar/cancelar. Sin clave en mensajes.
-- **Degradado honesto**: sin Groq configurado → las funciones de generación muestran banner "Configura un proveedor de IA en Configuración > IA"; las funciones NO-LLM (ver tabla de evidencia guardada, mapas manuales, práctica de quizzes guardados) siguen operativas. Embeddings locales y búsqueda nunca dependen de Groq (invariante PROMPT 1).
+- **Degradado honesto**: sin Groq configurado → las funciones de generación muestran banner "Configura un proveedor de IA en Configuración > IA"; las funciones NO-LLM (ver tabla de evidencia guardada, mapas manuales, práctica de quizzes guardados) siguen operativas. Embeddings locales y búsqueda nunca dependen de Groq (invariante de Fase 1 / [GROQ_SETTINGS_DESIGN.md](../core-rag/GROQ_SETTINGS_DESIGN.md)).
 
 ### 3.3 Editor ligero
 Artefactos guardados son editables en Markdown con editor simple (textarea + preview, sin WYSIWYG completo). Reglas:
@@ -52,7 +53,7 @@ Tiempo hasta primer artefacto; tasa de finalización de jobs (done/failed/cancel
 | 1 | Resúmenes inteligentes (ejecutivo/secciones/comparativo) | NotebookLM summaries | Alto (todos los perfiles) | Baja-media | Tokens Groq | Ninguna (Groq ya es provider del chat) | Context builder de `RagDocumentChatServices`, búsqueda de `DocumentSearchServices` | Sí, obligatorias | Medio → validado con groundedness | **P0** |
 | 2 | Reportes estructurados plantillados (informe, memo, guía, glosario, FAQ, minuta, riesgos) | Study guide / report | Alto | Media (plantillas+schemas) | Tokens | Ninguna | Ídem + `DocumentExportServices` (patrón) | Sí | Medio | **P0** |
 | 3 | Tabla de evidencia y comparación + CSV | Data table | Alto (analista/abogado) | Media | Bajo | Ninguna | Chunks existentes | Sí (celda→fragmento) | Bajo-medio (validación schema) | **P0** |
-| 4 | Tareas propuestas con revisión humana | (no existe en NLM; valor propio) | Alto equipos | Media | Bajo | Ninguna; gestores externos solo MCP opt. (PROMPT 3) | Conversaciones como fuente | Sí | Medio; mitigado por aprob. humana | **P0** |
+| 4 | Tareas propuestas con revisión humana | (no existe en NLM; valor propio) | Alto equipos | Media | Bajo | Ninguna; gestores externos solo vía ADR MCP futuro (`R5-05`) | Conversaciones como fuente | Sí | Medio; mitigado por aprob. humana | **P0** |
 | 5 | Quizzes + flashcards | Flashcards/quiz | Alto educativo+legal | Media | Tokens | Ninguna | Plantillas + almacenamiento local | Sí (explicación citada) | Medio (respuesta única verificada por schema) | **P1** |
 | 6 | Mapas mentales/conceptuales | Mind map | Medio | Media-alta | Bajo | Ninguna | Nuevo slice frontend reactflow/Mermaid | Enlaces a docs | Bajo (estructura, no hechos nuevos) | **P1** |
 | 7 | Diagramas, cronologías, charts | – | Medio | Media | Bajo | Ninguna | Render cliente determinista | Procedencia por dato |charts: bajo si datos citados | **P1** |
@@ -71,17 +72,17 @@ Tiempo hasta primer artefacto; tasa de finalización de jobs (done/failed/cancel
 - Prompt injection documental: los chunks viajan siempre como *data* en el bloque de contexto con instrucciones del sistema separadas (extiende `_system_prompt` de Groq provider); las plantillas prohiben ejecutar instrucciones contenidas en fuentes; los artefactos se renderizan en frontend con sanitización (Markdown→DOM con rehype-sanitize; SVG solo tras saneado; Mermaid `securityLevel: 'strict'`).
 - Exportaciones seguras: sin macros (OOXML generado programáticamente, nunca plantillas con VBA), nombres de archivo slugificados (patrón `_slug` en exports), límites MAX_PDF y capacidad heredados del módulo de exports.
 - Auditoría: eventos `artifact.created/exported/deleted`, `job.finished` con ids, nunca contenido ni secretos.
-- Nada de Studio escribe en sistemas externos; las tareas propuestas son datos locales hasta que un humano las aprueba; la acción externa (MCP) es otro producto (PROMPT 3) con confirmación interactiva.
+- Nada de Studio escribe en sistemas externos; las tareas propuestas son datos locales hasta que un humano las aprueba; cualquier acción externa futura (MCP, `R5-05`) requiere confirmación interactiva auditada.
 
 ## 6. Historias de uso (fixtures sintéticos, sin sesgo educativo exclusivo)
 
 1. **Estudiante**: sube apuntes PDF → colección "Tema 4" → guía de estudio + quiz de 10 preguntas con explicación citada → practica offline; exporta la guía a PDF antes del examen.
-2. **Investigador**: 30 artículos Markdown (vía importación PROMPT 1) → tabla de evidencia (método, muestra, resultado, año) filtrable → mapa conceptual de autores→hallazgos → informe comparativo con `[n]` por afirmación.
+2. **Investigador**: 30 artículos Markdown (vía importación Markdown/ZIP de Fase 3) → tabla de evidencia (método, muestra, resultado, año) filtrable → mapa conceptual de autores→hallazgos → informe comparativo con `[n]` por afirmación.
 3. **Abogado**: contrato + anexos + correos → minutas con cláusulas citadas por página → tabla de plazos/obligaciones → lista de tareas propuestas ("solicitar anexo 3") que **solo** se convierte en acción externa si el usuario la confirma vía MCP.
 4. **Analista**: informes trimestrales → extracción de métricas a tabla con unidad y procedencia por celda → gráfico de líneas generado **desde la tabla verificada** (nunca desde texto libre) → memo ejecutivo.
 5. **Equipo de empresa**: actas de reuniones → FAQ interna + glosario compartido por área → tareas con responsable explícito vs inferido (badges distintos) → export CSV al gestor que ya usan.
 
 ## 7. Integraciones futuras sin acoplamiento
 
-- **MCP (PROMPT 3)**: herramientas de solo lectura propuestas (`studio.list_artifacts`, `studio.get_artifact`, `studio.generate_draft`) derivan permisos del **token del usuario autenticado en la plataforma**, jamás del cliente MCP; las herramientas de escritura (crear tarea en gestor externo) quedan fuera hasta tener confirmación interactiva auditada.
-- **GraphRAG (PROMPT 1)**: los mapas conceptuales P1 usan enlaces explícitos/wikilinks y tablas de evidencia; si el benchmark GraphRAG resulta favorable, el grafo alimenta "Relaciones" y la expansión multi-hop de contexto de las plantillas, sin cambiar esquemas de artefacto (la procedencia ya está diseñada en `ARTIFACT_SCHEMAS.md`).
+- **MCP (`R5-05` en [roadmap.md](../../../roadmap.md))**: herramientas de solo lectura propuestas (`studio.list_artifacts`, `studio.get_artifact`, `studio.generate_draft`) derivan permisos del **token del usuario autenticado en la plataforma**, jamás del cliente MCP; las herramientas de escritura (crear tarea en gestor externo) quedan fuera hasta tener confirmación interactiva auditada.
+- **Grafos / enlaces explícitos (`R3-02` / `R5-03`)**: los mapas conceptuales P1 usan enlaces explícitos/`[[wikilinks]]` y tablas de evidencia; una eventual expansión multi-hop futura no cambia los esquemas de artefacto (la procedencia ya está diseñada en [ARTIFACT_SCHEMAS.md](ARTIFACT_SCHEMAS.md)).

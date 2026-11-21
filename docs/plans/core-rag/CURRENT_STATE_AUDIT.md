@@ -1,5 +1,7 @@
 # Auditoria del estado actual — nucleo RAG, Groq, fuentes y grafos
 
+> Estado: auditoría base de planificación (2026-11-21). Las decisiones ejecutables y su seguimiento vivo están consolidados en [roadmap.md](../../../roadmap.md).
+
 Fecha de auditoria: 2026-11-21. Base: rama `main` del repositorio `Blandskron/AgenteIADocumental`, commit local `055a85d` ("Merge pull request #96 from Blandskron/codex/floating-glass-ui"). Todo hallazgo cita ruta y, cuando aporta valor, metodo/linea. Esta auditoria precede a cualquier propuesta de cambio; no modifica codigo.
 
 ## 1. Inventario real verificado

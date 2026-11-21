@@ -1,6 +1,6 @@
 # Diseño — Configuracion de IA (Groq) desde la web
 
-Estado: propuesta de planificacion (no implementada). Depende de hallazgos de `CURRENT_STATE_AUDIT.md`. Fecha: 2026-11-21.
+> Estado: propuesta de diseño adoptada en [roadmap.md](../../../roadmap.md) (Fase 1: `R1-01`–`R1-05`). Depende de hallazgos de [CURRENT_STATE_AUDIT.md](CURRENT_STATE_AUDIT.md). Fecha: 2026-11-21.
 
 ## 1. Objetivo y no objetivos
 
@@ -118,6 +118,6 @@ Secretos que siguen siendo necesarios en `.env` al arrancar (no prometer lo cont
 - El puerto interno `LLMProvider` (ya existe como protocolo en `app/application/chat/ports/llm_provider.py`) es el punto de extension: un factory por `provider` reemplaza el import directo de `GroqLLMProvider` en `dependencies.py`.
 - Modelos locales (Ollama) quedan fuera: requieren otra topologia de Compose y otra politica de costes; registrar como candidato P2+ con su propio ADR.
 
-## 10. Tareas identificadas (detalle en BACKLOG.md)
+## 10. Tareas identificadas (seguimiento en `roadmap.md`)
 
-P0: cipher compartido + migracion tabla; endpoints Auth; prueba de credenciales; resolutor de config en chat con precedencia; UI Configuracion > IA; tests de independencia E5; docs/operaciones. Criterios de aceptación y pruebas en `BACKLOG.md`.
+P0: migración de `tenant_integrations` (`R1-01`); cipher compartido y permiso Django `manage_ai_settings` (`R1-02`); endpoints Auth y prueba de credenciales (`R1-03`); resolutor de config en chat con precedencia y tests de independencia E5 (`R1-04`); UI `Configuración > IA` y documentación operativa (`R1-05`). Criterios de aceptación y seguimiento vivo en [roadmap.md](../../../roadmap.md).

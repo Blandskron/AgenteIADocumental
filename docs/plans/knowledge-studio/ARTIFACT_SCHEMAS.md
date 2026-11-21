@@ -1,6 +1,8 @@
 # ARTIFACT_SCHEMAS — formatos de datos de Knowledge Studio
 
-Esquemas lógicos (se materializarían con pydantic v2 + JSON Schema versionado). 2026-11-21. Solo diseño; sin migraciones aplicadas. Convención: todos los ids son UUIDv7; todo artefacto pertenece a `(tenant_id, owner_id, visibility{private|area|company}, area_id?)`.
+> Estado: especificación de esquemas lógicos (2026-11-21). Los esquemas P0 (`summary`, `report`, `evidence_table`, `tasks`) se implementan en Fase 4 (`R4-03`) de [roadmap.md](../../../roadmap.md); los esquemas P1 (`mindmap`, `timeline`, `chart`, `quiz`, `flashcards`) quedan diferidos a Fase 5.
+
+Esquemas lógicos (se materializarían con pydantic v2 + JSON Schema versionado). Solo diseño; sin migraciones aplicadas. Convención: todos los ids son UUIDv7; todo artefacto pertenece a `(tenant_id, owner_id, visibility{private|area|company}, area_id?)`.
 
 ## 0. Envelope común `ArtifactContent`
 
@@ -80,7 +82,7 @@ Invariantes: celda numérica SIN cita ⇒ se marca `unverified: true` y el gráf
     "status":"proposed|accepted|rejected|done",
     "citations":[5], "external_action": null } ] }
 ```
-`external_action` solo puede rellenarse tras confirmación humana explícita vía MCP (PROMPT 3) y guarda `{system, tool, payload_hash, confirmed_by, confirmed_at, result_status}` — nunca credenciales ni payloads sensibles completos.
+`external_action` solo puede rellenarse tras confirmación humana explícita vía una integración futura (ADR MCP `R5-05` en [roadmap.md](../../../roadmap.md)) y guarda `{system, tool, payload_hash, confirmed_by, confirmed_at, result_status}` — nunca credenciales ni payloads sensibles completos.
 
 ### 3.5 Quiz (`kind=quiz`)
 ```jsonc
@@ -103,7 +105,7 @@ El generador rechaza quizzes con >1 correcta o con explicación sin cita (fallba
              "origin":"explicit_link|extracted|human",           // extracted ⇒ confianza requerida
              "confidence": 0.0-1.0?, "citations":[7]?}] }
 ```
-Distinguir de GraphRAG (PROMPT 1): este grafo es **de presentación/negocio del artefacto**; si existiera grafo canónico, los nodos `entity` guardarían `graph_node_id` para no duplicar identidades. Export: JSON canónico + SVG/PNG render-client.
+Distinguir de un grafo canónico futuro: este grafo es **de presentación/negocio del artefacto**; si existiera grafo canónico, los nodos `entity` guardarían `graph_node_id` para no duplicar identidades. Export: JSON canónico + SVG/PNG render-client.
 
 ### 3.8 Cronología / diagrama / gráfico
 - `timeline`: `events[{date|date_range, label, precision:"exact|month|year|approx", citations[]}]` — fechas no ancladas se marcan `approx`.

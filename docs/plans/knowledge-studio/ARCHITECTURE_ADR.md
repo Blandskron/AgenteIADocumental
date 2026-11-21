@@ -1,6 +1,6 @@
 # ARCHITECTURE_ADR — Knowledge Studio
 
-ADR de planificación (2026-11-21). Estado propuesto: **Accepted-pendiente-de-revisión**. No modifica código, Compose ni dependencias.
+> Estado: ADR de planificación (2026-11-21). Decisiones P0 incorporadas en [roadmap.md](../../../roadmap.md) (Fase 4: `R4-01`–`R4-06`), tras madurar el núcleo RAG en Fases 0–3. No modifica código, Compose ni dependencias por sí solo.
 
 ## Contexto (evidencia del repositorio, commit 055a85d)
 
@@ -14,8 +14,8 @@ ADR de planificación (2026-11-21). Estado propuesto: **Accepted-pendiente-de-re
 **Opciones**: (a) extender `RagDocumentChatServices`; (b) servicio nuevo `KnowledgeStudioServices`; (c) híbrido: servicio nuevo delgado + reutilización de librerías/contratos existentes.
 
 **Elegida: (c) híbrido**, con servicio nuevo `backend/KnowledgeStudioServices/` que:
-- Reutiliza el **patrón de proveedor LLM y formateo de citas** extrayendo/invocando los mismos contratos usados por el chat (puerto `llm_provider`, formato `[Fuente N] document_id/chunk_index`); si la extracción a paquete compartido viola `AGENTS.md` (servicios autónomos), se duplica solo el adaptador fino, nunca el sistema de prompts → **un único catálogo de prompts/plantillas versionado en Studio** para evitar dos sistemas de prompts (regla de coordinación PROMPT 1/3).
-- NO toca embeddings: la vectorización sigue en `RagDocumentEmbeddingServices` (invariante PROMPT 1: clave Groq no puede romper indexación).
+- Reutiliza el **patrón de proveedor LLM y formateo de citas** extrayendo/invocando los mismos contratos usados por el chat (puerto `llm_provider`, formato `[Fuente N] document_id/chunk_index`); si la extracción a paquete compartido viola `AGENTS.md` (servicios autónomos), se duplica solo el adaptador fino, nunca el sistema de prompts → **un único catálogo de prompts/plantillas versionado en Studio** para evitar dos sistemas de prompts.
+- NO toca embeddings: la vectorización sigue en `RagDocumentEmbeddingServices` (invariante de Fase 1: clave Groq no puede romper indexación).
 - Consulta acceso vía `DocumentAccessServices` y búsqueda vía `DocumentSearchServices` igual que hace el chat hoy.
 
 Justificación costo/beneficio: (a) sobrecarga un servicio con responsabilidades de ciclo de vida de artefactos (versiones, editor, retención) ajenas al chat; (b) puro obligaría a reimplementar retrieval y provider desde cero. (c) mantiene el acoplamiento en contratos estrechos y verificables.
@@ -58,12 +58,12 @@ flowchart LR
   FE[frontend /studio] -->|JWT RS256| KS[KnowledgeStudioServices]
   KS -->|verifica acceso ANTES de recuperar| DA[DocumentAccessServices]
   KS -->|chunks filtrados| DS[DocumentSearchServices]
-  KS -->|prompt+contexto citable| GROQ[Groq API\ncredencial via Settings PROMPT 1]
+  KS -->|prompt+contexto citable| GROQ[Groq API\ncredencial via Settings Fase 1]
   KS -->|jobs/artefactos/versiones| PG[(PostgreSQL\npgvector)]
   KS -->|export MD/PDF/CSV| EX[DocumentExportServices]
   PG -.->|cola SKIP LOCKED| WK[studio worker]
   WK --> GROQ
-  MCP[MCP server PROMPT 3 opt.] -->|token usuario, permisos plataforma| KS
+  MCP[MCP server R5-05 opt.] -->|token usuario, permisos plataforma| KS
 ```
 
 ### Secuencia de generación
@@ -110,7 +110,7 @@ sequenceDiagram
 - Tablas nuevas en esquema propio `studio.*` → dump/restore independiente; borrar esquema revierte el 100%.
 - Si la cola en BD no escala, migrar a broker externo es aditivo (misma tabla de trabajo como log).
 
-## Contratos compartidos con PROMPT 1 y PROMPT 3
+## Contratos compartidos con otras fases del roadmap
 
-- **PROMPT 1 (Groq Settings)**: Studio lee credenciales/modelo exclusivamente vía el resolvedor de configuración por tenant definido allí; prohibido leer `.env` propio o localStorage. Los flags de desactivación (Obsidian/GraphRAG) no afectan a Studio P0 salvo la expansión multi-hop opcional.
-- **PROMPT 3 (MCP)**: superficie mínima de solo lectura; autorización derivada SIEMPRE del usuario autenticado en la plataforma; auditoría compartida (misma tabla de eventos de auditoría, prefijo `mcp.`); mismo catálogo de plantillas/prompts — ni Studio ni MCP definen prompts propios.
+- **Fase 1 — Groq Settings ([GROQ_SETTINGS_DESIGN.md](../core-rag/GROQ_SETTINGS_DESIGN.md))**: Studio lee credenciales/modelo exclusivamente vía el resolvedor de configuración por tenant definido allí; prohibido leer `.env` propio o localStorage. Los flags de desactivación de conectores no afectan a Studio P0.
+- **Fase 5 — MCP futuro (`R5-05` en [roadmap.md](../../../roadmap.md))**: superficie mínima de solo lectura; autorización derivada SIEMPRE del usuario autenticado en la plataforma; auditoría compartida (misma tabla de eventos de auditoría, prefijo `mcp.`); mismo catálogo de plantillas/prompts — ni Studio ni MCP definen prompts propios.
