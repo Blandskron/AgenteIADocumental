@@ -64,3 +64,9 @@ class BootstrapAdminTests(TransactionTestCase):
                 results = list(pool.map(lambda _: initialize(), range(2)))
         self.assertEqual(User.objects.filter(is_superuser=True).count(), 1)
         self.assertEqual(sum("created" in result for result in results), 1)
+
+    def test_allows_deferred_web_setup_when_explicitly_enabled(self):
+        with patch.dict("os.environ", {"ALLOW_WEB_SETUP": "true"}, clear=True):
+            output = self.run_command()
+        self.assertIn("web registration", output)
+        self.assertFalse(User.objects.exists())

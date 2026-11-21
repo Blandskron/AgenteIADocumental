@@ -1,18 +1,34 @@
 services:
+  secrets-init:
+    build:
+      context: ../postgres
+    environment:
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-}
+      DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY:-}
+      SECRETS_ENCRYPTION_KEY: ${SECRETS_ENCRYPTION_KEY:-}
+    volumes:
+      - runtime_secrets:/run/blandskron-secrets
+      - ../scripts/init_secrets.sh:/init_secrets.sh:ro
+    entrypoint: ["sh", "/init_secrets.sh"]
+
   postgres:
     build:
       context: ../postgres
     container_name: rag-documents-postgres
     environment:
       POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+      POSTGRES_PASSWORD_FILE: /run/blandskron-secrets/postgres_password
       POSTGRES_DB: documents_db
       POSTGRES_INITDB_ARGS: --locale=C.UTF-8 --locale-provider=icu --icu-locale=en-US
     ports:
       - "127.0.0.1:${POSTGRES_HOST_PORT:-5432}:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+      - runtime_secrets:/run/blandskron-secrets:ro
       - ../../scripts/database:/docker-entrypoint-initdb.d:ro
+    depends_on:
+      secrets-init:
+        condition: service_completed_successfully
     healthcheck:
       test: ["CMD", "pg_isready", "-h", "127.0.0.1", "-U", "postgres", "-d", "documents_db"]
       interval: 10s
@@ -24,14 +40,15 @@ services:
     pull_policy: never
     container_name: rag-documents-database-schema
     environment:
-      PGPASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+      PGPASSWORD: ${POSTGRES_PASSWORD:-}
     volumes:
       - ../../scripts/database:/schema:ro
+      - runtime_secrets:/run/blandskron-secrets:ro
     command:
       [
         "sh",
         "-c",
-        "psql -h postgres -U postgres -d documents_db -v ON_ERROR_STOP=1 -f /schema/run_all.sql",
+        "export PGPASSWORD=\"$${PGPASSWORD:-$$(cat /run/blandskron-secrets/postgres_password)}\" && exec psql -h postgres -U postgres -d documents_db -v ON_ERROR_STOP=1 -f /schema/run_all.sql",
       ]
     depends_on:
       postgres:
@@ -42,3 +59,4 @@ volumes:
     name: ${POSTGRES_DATA_VOLUME:-${COMPOSE_PROJECT_NAME}_postgres_data}
   auth_signing_keys:
   auth_verification_keys:
+  runtime_secrets:

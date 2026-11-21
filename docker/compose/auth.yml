@@ -3,12 +3,18 @@ services:
     image: ${COMPOSE_PROJECT_NAME}-postgres
     pull_policy: never
     environment:
-      PGPASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+      PGPASSWORD: ${POSTGRES_PASSWORD:-}
       AUTH_DB_RUNTIME_PASSWORD: ${AUTH_DB_RUNTIME_PASSWORD:-blandskron-local-runtime}
       AUTH_DB_MIGRATE_PASSWORD: ${AUTH_DB_MIGRATE_PASSWORD:-blandskron-local-migrate}
     volumes:
       - ../../scripts/database/auth:/auth-db:ro
-    command: ["psql", "-h", "postgres", "-U", "postgres", "-d", "documents_db", "-v", "ON_ERROR_STOP=1", "-f", "/auth-db/provision_roles.sql"]
+      - runtime_secrets:/run/blandskron-secrets:ro
+    command:
+      [
+        "sh",
+        "-c",
+        "export PGPASSWORD=\"$${PGPASSWORD:-$$(cat /run/blandskron-secrets/postgres_password)}\" && exec psql -h postgres -U postgres -d documents_db -v ON_ERROR_STOP=1 -f /auth-db/provision_roles.sql",
+      ]
     depends_on:
       database-schema:
         condition: service_completed_successfully
@@ -19,7 +25,7 @@ services:
       dockerfile: Dockerfile
     environment:
       AUTH_ENV: development
-      DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY:?Set DJANGO_SECRET_KEY in .env}
+      DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY:-}
       POSTGRES_HOST: postgres
       POSTGRES_PORT: 5432
       POSTGRES_DB: documents_db
@@ -28,6 +34,8 @@ services:
       DJANGO_PRIVATE_KEY_PATH: /tmp/auth-migrate/private.pem
       DJANGO_PUBLIC_KEY_PATH: /tmp/auth-migrate/public.pem
     user: "10001:10001"
+    volumes:
+      - runtime_secrets:/run/blandskron-secrets:ro
     command: ["sh", "-c", "python manage.py migrate --noinput && python manage.py grant_auth_runtime"]
     depends_on:
       auth-db-roles:
@@ -37,10 +45,16 @@ services:
     image: ${COMPOSE_PROJECT_NAME}-postgres
     pull_policy: never
     environment:
-      PGPASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+      PGPASSWORD: ${POSTGRES_PASSWORD:-}
     volumes:
       - ../../scripts/database:/schema:ro
-    command: ["psql", "-h", "postgres", "-U", "postgres", "-d", "documents_db", "-v", "ON_ERROR_STOP=1", "-f", "/schema/migrations/006_tenant_user_links.sql"]
+      - runtime_secrets:/run/blandskron-secrets:ro
+    command:
+      [
+        "sh",
+        "-c",
+        "export PGPASSWORD=\"$${PGPASSWORD:-$$(cat /run/blandskron-secrets/postgres_password)}\" && exec psql -h postgres -U postgres -d documents_db -v ON_ERROR_STOP=1 -f /schema/migrations/006_tenant_user_links.sql",
+      ]
     depends_on:
       auth-migrate:
         condition: service_completed_successfully
@@ -52,7 +66,7 @@ services:
     user: "10001:10001"
     environment:
       AUTH_ENV: development
-      DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY:?Set DJANGO_SECRET_KEY in .env}
+      DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY:-}
       POSTGRES_HOST: postgres
       POSTGRES_PORT: 5432
       POSTGRES_DB: documents_db
@@ -63,6 +77,9 @@ services:
       INITIAL_ADMIN_USERNAME: ${INITIAL_ADMIN_USERNAME:-}
       INITIAL_ADMIN_PASSWORD: ${INITIAL_ADMIN_PASSWORD:-}
       INITIAL_ADMIN_EMAIL: ${INITIAL_ADMIN_EMAIL:-}
+      ALLOW_WEB_SETUP: ${ALLOW_WEB_SETUP:-true}
+    volumes:
+      - runtime_secrets:/run/blandskron-secrets:ro
     command: ["python", "manage.py", "bootstrap_admin"]
     depends_on:
       tenant-integrity:
@@ -75,7 +92,7 @@ services:
     container_name: blandskron-auth-service
     environment:
       AUTH_ENV: development
-      DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY:?Set DJANGO_SECRET_KEY in .env}
+      DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY:-}
       POSTGRES_HOST: postgres
       POSTGRES_PORT: 5432
       POSTGRES_DB: documents_db
@@ -93,6 +110,7 @@ services:
     volumes:
       - auth_signing_keys:/app/signing_keys
       - auth_verification_keys:/app/verification_keys
+      - runtime_secrets:/run/blandskron-secrets:ro
     healthcheck:
       test:
         [

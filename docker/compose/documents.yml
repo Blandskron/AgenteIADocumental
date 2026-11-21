@@ -19,11 +19,12 @@ services:
     image: ${COMPOSE_PROJECT_NAME}-postgres
     pull_policy: never
     environment:
-      PGPASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+      PGPASSWORD: ${POSTGRES_PASSWORD:-}
       RAG_CHAT_DB_PASSWORD: ${RAG_CHAT_DB_PASSWORD:-blandskron-local-rag-chat}
     volumes:
       - ../../scripts/database/rag-chat:/rag-chat-db:ro
-    command: ["psql", "-h", "postgres", "-U", "postgres", "-d", "documents_db", "-v", "ON_ERROR_STOP=1", "-f", "/rag-chat-db/provision_role.sql"]
+      - runtime_secrets:/run/blandskron-secrets:ro
+    command: ["sh", "-c", "export PGPASSWORD=\"$${PGPASSWORD:-$$(cat /run/blandskron-secrets/postgres_password)}\" && exec psql -h postgres -U postgres -d documents_db -v ON_ERROR_STOP=1 -f /rag-chat-db/provision_role.sql"]
     depends_on:
       database-schema:
         condition: service_completed_successfully
@@ -59,6 +60,7 @@ services:
       - "127.0.0.1:8002:8000"
     volumes:
       - auth_verification_keys:/app/auth_keys:ro
+      - runtime_secrets:/run/blandskron-secrets:ro
     healthcheck:
       test:
         [
@@ -82,7 +84,7 @@ services:
     environment:
       DATABASE_URL: postgresql+psycopg://rag_chat_runtime@postgres:5432/documents_db
       PGPASSWORD: ${RAG_CHAT_DB_PASSWORD:-blandskron-local-rag-chat}
-      RAG_CHAT_TEST_DATABASE_URL: postgresql+psycopg://postgres:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}@postgres:5432/documents_db
+      RAG_CHAT_TEST_DATABASE_URL: postgresql+psycopg://postgres:${POSTGRES_PASSWORD:-}@postgres:5432/documents_db
     depends_on:
       rag-document-chat-service:
         condition: service_healthy
@@ -91,11 +93,12 @@ services:
     image: ${COMPOSE_PROJECT_NAME}-postgres
     pull_policy: never
     environment:
-      PGPASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+      PGPASSWORD: ${POSTGRES_PASSWORD:-}
       EMBEDDING_DB_PASSWORD: ${EMBEDDING_DB_PASSWORD:-blandskron-local-embedding}
     volumes:
       - ../../scripts/database/embedding:/embedding-db:ro
-    command: ["psql", "-h", "postgres", "-U", "postgres", "-d", "documents_db", "-v", "ON_ERROR_STOP=1", "-f", "/embedding-db/provision_role.sql"]
+      - runtime_secrets:/run/blandskron-secrets:ro
+    command: ["sh", "-c", "export PGPASSWORD=\"$${PGPASSWORD:-$$(cat /run/blandskron-secrets/postgres_password)}\" && exec psql -h postgres -U postgres -d documents_db -v ON_ERROR_STOP=1 -f /embedding-db/provision_role.sql"]
     depends_on:
       database-schema:
         condition: service_completed_successfully
@@ -151,7 +154,7 @@ services:
     environment:
       DATABASE_URL: postgresql+psycopg://embedding_runtime@postgres:5432/documents_db
       PGPASSWORD: ${EMBEDDING_DB_PASSWORD:-blandskron-local-embedding}
-      EMBEDDING_TEST_DATABASE_URL: postgresql+psycopg://postgres:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}@postgres:5432/documents_db
+      EMBEDDING_TEST_DATABASE_URL: postgresql+psycopg://postgres:${POSTGRES_PASSWORD:-}@postgres:5432/documents_db
     depends_on:
       rag-document-embedding-service:
         condition: service_healthy
@@ -160,11 +163,12 @@ services:
     image: ${COMPOSE_PROJECT_NAME}-postgres
     pull_policy: never
     environment:
-      PGPASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+      PGPASSWORD: ${POSTGRES_PASSWORD:-}
       SEARCH_DB_PASSWORD: ${SEARCH_DB_PASSWORD:-blandskron-local-search}
     volumes:
       - ../../scripts/database/search:/search-db:ro
-    command: ["psql", "-h", "postgres", "-U", "postgres", "-d", "documents_db", "-v", "ON_ERROR_STOP=1", "-f", "/search-db/provision_role.sql"]
+      - runtime_secrets:/run/blandskron-secrets:ro
+    command: ["sh", "-c", "export PGPASSWORD=\"$${PGPASSWORD:-$$(cat /run/blandskron-secrets/postgres_password)}\" && exec psql -h postgres -U postgres -d documents_db -v ON_ERROR_STOP=1 -f /search-db/provision_role.sql"]
     depends_on:
       database-schema:
         condition: service_completed_successfully
@@ -211,7 +215,7 @@ services:
     environment:
       DATABASE_URL: postgresql+psycopg://document_search_runtime@postgres:5432/documents_db
       PGPASSWORD: ${SEARCH_DB_PASSWORD:-blandskron-local-search}
-      SEARCH_TEST_DATABASE_URL: postgresql+psycopg://postgres:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}@postgres:5432/documents_db
+      SEARCH_TEST_DATABASE_URL: postgresql+psycopg://postgres:${POSTGRES_PASSWORD:-}@postgres:5432/documents_db
     depends_on:
       document-search-service:
         condition: service_healthy
@@ -220,11 +224,12 @@ services:
     image: ${COMPOSE_PROJECT_NAME}-postgres
     pull_policy: never
     environment:
-      PGPASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+      PGPASSWORD: ${POSTGRES_PASSWORD:-}
       ACCESS_DB_PASSWORD: ${ACCESS_DB_PASSWORD:-blandskron-local-access}
     volumes:
       - ../../scripts/database/access:/access-db:ro
-    command: ["psql", "-h", "postgres", "-U", "postgres", "-d", "documents_db", "-v", "ON_ERROR_STOP=1", "-f", "/access-db/provision_role.sql"]
+      - runtime_secrets:/run/blandskron-secrets:ro
+    command: ["sh", "-c", "export PGPASSWORD=\"$${PGPASSWORD:-$$(cat /run/blandskron-secrets/postgres_password)}\" && exec psql -h postgres -U postgres -d documents_db -v ON_ERROR_STOP=1 -f /access-db/provision_role.sql"]
     depends_on:
       database-schema:
         condition: service_completed_successfully
@@ -286,7 +291,7 @@ services:
     environment:
       DATABASE_URL: postgresql+psycopg://document_access_runtime@postgres:5432/documents_db
       PGPASSWORD: ${ACCESS_DB_PASSWORD:-blandskron-local-access}
-      ACCESS_TEST_DATABASE_URL: postgresql+psycopg://postgres:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}@postgres:5432/documents_db
+      ACCESS_TEST_DATABASE_URL: postgresql+psycopg://postgres:${POSTGRES_PASSWORD:-}@postgres:5432/documents_db
     depends_on:
       document-access-service:
         condition: service_healthy
@@ -295,11 +300,12 @@ services:
     image: ${COMPOSE_PROJECT_NAME}-postgres
     pull_policy: never
     environment:
-      PGPASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+      PGPASSWORD: ${POSTGRES_PASSWORD:-}
       LIBRARY_DB_PASSWORD: ${LIBRARY_DB_PASSWORD:-blandskron-local-library}
     volumes:
       - ../../scripts/database/library:/library-db:ro
-    command: ["psql", "-h", "postgres", "-U", "postgres", "-d", "documents_db", "-v", "ON_ERROR_STOP=1", "-f", "/library-db/provision_role.sql"]
+      - runtime_secrets:/run/blandskron-secrets:ro
+    command: ["sh", "-c", "export PGPASSWORD=\"$${PGPASSWORD:-$$(cat /run/blandskron-secrets/postgres_password)}\" && exec psql -h postgres -U postgres -d documents_db -v ON_ERROR_STOP=1 -f /library-db/provision_role.sql"]
     depends_on:
       database-schema:
         condition: service_completed_successfully
@@ -357,7 +363,7 @@ services:
     environment:
       DATABASE_URL: postgresql+psycopg://document_library_runtime@postgres:5432/documents_db
       PGPASSWORD: ${LIBRARY_DB_PASSWORD:-blandskron-local-library}
-      LIBRARY_TEST_DATABASE_URL: postgresql+psycopg://postgres:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}@postgres:5432/documents_db
+      LIBRARY_TEST_DATABASE_URL: postgresql+psycopg://postgres:${POSTGRES_PASSWORD:-}@postgres:5432/documents_db
     volumes:
       - ../../scripts/database:/database-scripts:ro
     depends_on:
@@ -368,11 +374,12 @@ services:
     image: ${COMPOSE_PROJECT_NAME}-postgres
     pull_policy: never
     environment:
-      PGPASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+      PGPASSWORD: ${POSTGRES_PASSWORD:-}
       TRANSFER_DB_PASSWORD: ${TRANSFER_DB_PASSWORD:-blandskron-local-transfer}
     volumes:
       - ../../scripts/database/transfer:/transfer-db:ro
-    command: ["psql", "-h", "postgres", "-U", "postgres", "-d", "documents_db", "-v", "ON_ERROR_STOP=1", "-f", "/transfer-db/provision_role.sql"]
+      - runtime_secrets:/run/blandskron-secrets:ro
+    command: ["sh", "-c", "export PGPASSWORD=\"$${PGPASSWORD:-$$(cat /run/blandskron-secrets/postgres_password)}\" && exec psql -h postgres -U postgres -d documents_db -v ON_ERROR_STOP=1 -f /transfer-db/provision_role.sql"]
     depends_on:
       database-schema:
         condition: service_completed_successfully
@@ -430,7 +437,7 @@ services:
     environment:
       DATABASE_URL: postgresql+psycopg://document_transfer_runtime@postgres:5432/documents_db
       PGPASSWORD: ${TRANSFER_DB_PASSWORD:-blandskron-local-transfer}
-      TRANSFER_TEST_DATABASE_URL: postgresql+psycopg://postgres:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}@postgres:5432/documents_db
+      TRANSFER_TEST_DATABASE_URL: postgresql+psycopg://postgres:${POSTGRES_PASSWORD:-}@postgres:5432/documents_db
     volumes:
       - ../../scripts/database/transfer:/transfer-db:ro
       - ../../scripts/database:/database-scripts:ro
@@ -442,11 +449,12 @@ services:
     image: ${COMPOSE_PROJECT_NAME}-postgres
     pull_policy: never
     environment:
-      PGPASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+      PGPASSWORD: ${POSTGRES_PASSWORD:-}
       DRIVE_DB_PASSWORD: ${DRIVE_DB_PASSWORD:-blandskron-local-drive}
     volumes:
       - ../../scripts/database/drive:/drive-db:ro
-    command: ["psql", "-h", "postgres", "-U", "postgres", "-d", "documents_db", "-v", "ON_ERROR_STOP=1", "-f", "/drive-db/provision_role.sql"]
+      - runtime_secrets:/run/blandskron-secrets:ro
+    command: ["sh", "-c", "export PGPASSWORD=\"$${PGPASSWORD:-$$(cat /run/blandskron-secrets/postgres_password)}\" && exec psql -h postgres -U postgres -d documents_db -v ON_ERROR_STOP=1 -f /drive-db/provision_role.sql"]
     depends_on:
       database-schema:
         condition: service_completed_successfully
@@ -510,9 +518,9 @@ services:
       context: ../../backend/GoogleDriveImportServices
       target: test
     environment:
-      DRIVE_TEST_DATABASE_URL: postgresql+psycopg://postgres:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}@postgres:5432/documents_db
+      DRIVE_TEST_DATABASE_URL: postgresql+psycopg://postgres:${POSTGRES_PASSWORD:-}@postgres:5432/documents_db
       DRIVE_TEST_RUNTIME_PASSWORD: ${DRIVE_DB_PASSWORD:-blandskron-local-drive}
-      PGPASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+      PGPASSWORD: ${POSTGRES_PASSWORD:-}
     volumes:
       - ../../scripts/database/drive:/drive-db:ro
       - ../../scripts/drive:/drive-checks:ro

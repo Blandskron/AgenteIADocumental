@@ -1,6 +1,7 @@
 import base64
 import hashlib
 import json
+from pathlib import Path
 import re
 from dataclasses import dataclass
 from datetime import datetime
@@ -31,6 +32,13 @@ class EffectiveGroqConfig:
 
 def _build_keyring(settings: Settings) -> dict[str, Fernet]:
     secret = (settings.secrets_encryption_key or "").strip()
+    if not secret:
+        secret_file = Path("/run/blandskron-secrets/secrets_encryption_key")
+        try:
+            if secret_file.is_file():
+                secret = secret_file.read_text(encoding="utf-8").strip()
+        except OSError:
+            secret = ""
     if not secret:
         return {}
     key_id = (settings.secrets_key_id or "v1").strip() or "v1"

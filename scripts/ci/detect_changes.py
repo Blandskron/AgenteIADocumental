@@ -128,6 +128,7 @@ SERVICE_SCRIPT_PREFIXES = {
 
 GLOBAL_INFRA_PREFIXES = (
     ".github/workflows/",
+    "compose.yaml",
     "docker/docker-compose.yml",
     "docker/compose/",
     ".env.example",

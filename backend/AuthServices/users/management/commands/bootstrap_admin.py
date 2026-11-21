@@ -24,6 +24,10 @@ class Command(BaseCommand):
         username = os.environ.get("INITIAL_ADMIN_USERNAME", "")
         password = os.environ.get("INITIAL_ADMIN_PASSWORD", "")
         email = os.environ.get("INITIAL_ADMIN_EMAIL", "")
+        allow_web_setup = os.environ.get("ALLOW_WEB_SETUP", "").strip().lower() in {"1", "true", "yes"}
+        if not username and not password and allow_web_setup:
+            self.stdout.write("No INITIAL_ADMIN_* provided; awaiting initial web registration.")
+            return
         if not username or username != username.strip() or not password:
             raise CommandError("Set INITIAL_ADMIN_USERNAME and INITIAL_ADMIN_PASSWORD for the first installation.")
         username = users.normalize_username(username)
