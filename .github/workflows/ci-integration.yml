@@ -45,7 +45,7 @@ jobs:
             cache_args=(-f docker/compose/ci-cache.yml)
           fi
           compose=(docker compose --env-file "$VERIFICATION_ENV_FILE" -f docker/docker-compose.yml "${cache_args[@]}")
-          "${compose[@]}" up -d --build --wait postgres database-schema auth-service
+          "${compose[@]}" up -d --build --wait auth-service
           for role in conversation-db-role rag-chat-db-role embedding-db-role search-db-role access-db-role library-db-role transfer-db-role profile-db-role export-db-role drive-db-role; do
             "${compose[@]}" run --rm --no-deps "$role"
           done

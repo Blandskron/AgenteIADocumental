@@ -167,7 +167,7 @@ def compute_scopes(files: list[str], force_all: bool) -> dict[str, object]:
             "postgres": True,
             "rag_groq": True,
             "database": True,
-            "services": BACKEND_SERVICES,
+            "services": [],
         }
 
     def any_starts(*prefixes: str) -> bool:
@@ -177,11 +177,12 @@ def compute_scopes(files: list[str], force_all: bool) -> dict[str, object]:
         return any(f.endswith(".md") for f in files)
 
     global_infra = any_starts(*GLOBAL_INFRA_PREFIXES)
+    sql_or_pg = any_starts("scripts/database/", "docker/postgres/")
     compose = global_infra or any_starts("docker/", "backend/AuthServices/Dockerfile")
-    database = global_infra or any_starts("scripts/database/", "docker/postgres/")
-    auth = global_infra or database or any_starts("backend/AuthServices/")
+    database = sql_or_pg
+    auth = global_infra or sql_or_pg or any_starts("backend/AuthServices/")
     frontend = global_infra or any_starts("frontend/")
-    postgres = global_infra or database or any_starts("scripts/release/verify_postgres_upgrade.mjs")
+    postgres = sql_or_pg or any_starts("scripts/release/verify_postgres_upgrade.mjs")
     rag_groq = global_infra or any_starts("backend/RagDocumentChatServices/")
     docs = any_is_md() or any_starts("docs/", "scripts/ci/check_docs_links.py")
 
@@ -190,8 +191,7 @@ def compute_scopes(files: list[str], force_all: bool) -> dict[str, object]:
         prefixes = (f"{svc['dir']}/",) + SERVICE_SCRIPT_PREFIXES.get(svc["name"], ())
         if any_starts(*prefixes):
             selected_services.append(svc)
-    # Schema-wide changes validate core auth/data-bearing services quickly; full 10-service matrix runs in ci-integration.
-    if database and not selected_services:
+    if sql_or_pg and not selected_services:
         selected_services = [
             svc for svc in BACKEND_SERVICES if svc["name"] in ("conversation", "search", "access", "library")
         ]

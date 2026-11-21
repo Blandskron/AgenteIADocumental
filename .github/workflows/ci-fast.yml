@@ -354,9 +354,6 @@ jobs:
           "${compose[@]}" exec -T postgres createdb -U postgres documents_test
           "${compose[@]}" cp scripts/database/migrations/001_local_embeddings.sql postgres:/tmp/blandskron-local-embeddings.sql
           "${compose[@]}" exec -T postgres psql -U postgres -d documents_test -v ON_ERROR_STOP=1 < scripts/database/tests/local_embeddings.sql
-          "${compose[@]}" run --rm --no-deps database-schema psql -h postgres -U postgres -d documents_db -X -q -v ON_ERROR_STOP=1 -f /schema/run_all.sql
-          "${compose[@]}" run --rm --no-deps database-schema psql -h postgres -U postgres -d documents_db -X -q -v ON_ERROR_STOP=1 -f /schema/tests/tenant_preflight.sql
-          "${compose[@]}" run --rm --no-deps database-schema psql -h postgres -U postgres -d documents_db -X -q -v ON_ERROR_STOP=1 -f /schema/checks/tenant_preflight.sql
           node scripts/release/verify_postgres_upgrade.mjs
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: always()
@@ -402,10 +399,9 @@ jobs:
           fi
           compose=(docker compose --env-file "$VERIFICATION_ENV_FILE" -f docker/docker-compose.yml "${cache_args[@]}")
           trap '"${compose[@]}" down --remove-orphans' EXIT
-          if [ "$NEEDS_AUTH" = "true" ]; then
-            "${compose[@]}" up -d --build --wait postgres database-schema auth-service
-          else
-            "${compose[@]}" up -d --build --wait postgres database-schema
+          "${compose[@]}" up -d --build --wait auth-service
+          if [ "$ROLE_SERVICE" = "export-db-role" ]; then
+            "${compose[@]}" run --rm --no-deps profile-db-role
           fi
           "${compose[@]}" run --rm --no-deps "$ROLE_SERVICE"
           "${compose[@]}" run --build --rm --no-deps "$TEST_SERVICE"
