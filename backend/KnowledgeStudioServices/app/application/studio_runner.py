@@ -84,7 +84,7 @@ def execute_studio_job(
         )
 
     last_errors: list[str] | None = None
-    for attempt in range(2):  # Initial attempt + at most 1 bounded repair
+    for _attempt in range(2):  # Initial attempt + at most 1 bounded repair
         if is_cancelled and is_cancelled():
             return StudioJobResult(status="CANCELLED", cache_fingerprint=fingerprint)
         raw_payload = generate_json(request, chunks, last_errors)

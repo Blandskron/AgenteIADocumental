@@ -43,7 +43,7 @@ def test_studio_api_endpoints_when_enabled(monkeypatch: pytest.MonkeyPatch) -> N
 
     graph = client.post(
         "/api/v1/studio/graph",
-        json={"documents": [{"id": "d1", "title": "Guia", "wikilinks": ["Politica"]}]},
+        json={"documents": [{"document_id": "d1", "title": "Guia", "wikilinks": ["Politica"]}]},
     )
     assert graph.status_code == 200
     assert len(graph.json()["edges"]) == 1
@@ -55,8 +55,6 @@ def test_studio_api_endpoints_when_enabled(monkeypatch: pytest.MonkeyPatch) -> N
                 "card_id": "c1",
                 "front": "Plazo?",
                 "back": "97 dias",
-                "citation_doc_id": "d1",
-                "citation_quote": "97 dias",
             },
             "quality": 5,
         },

@@ -1,4 +1,5 @@
 from django.db import migrations, models
+import django.db.models.deletion
 import django.utils.timezone
 import users.models
 
@@ -14,6 +15,16 @@ class Migration(migrations.Migration):
             name="AuditLog",
             fields=[
                 ("audit_id", models.TextField(default=users.models.make_uuid, primary_key=True, serialize=False)),
+                (
+                    "tenant",
+                    models.ForeignKey(
+                        blank=True,
+                        db_column="tenant_id",
+                        null=True,
+                        on_delete=django.db.models.deletion.SET_NULL,
+                        to="users.tenant",
+                    ),
+                ),
                 ("actor_user_id", models.TextField(blank=True, null=True)),
                 ("action", models.TextField()),
                 ("resource_type", models.TextField()),

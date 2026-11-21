@@ -59,7 +59,7 @@ def build_concept_graph_from_wikilinks(documents: list[dict]) -> dict:
     edges: list[dict] = []
     seen_nodes: set[str] = set()
     for doc in documents:
-        doc_id = str(doc.get("document_id") or "")
+        doc_id = str(doc.get("document_id") or doc.get("id") or "")
         label = str(doc.get("title") or doc.get("filename") or doc_id)
         if doc_id and doc_id not in seen_nodes:
             seen_nodes.add(doc_id)

@@ -11,7 +11,8 @@ def test_factory_builds_groq_provider_by_default() -> None:
     provider = build_llm_provider(
         LLMProviderConfig(provider="groq", api_key="", model="openai/gpt-oss-20b")
     )
-    assert type(provider) is GroqLLMProvider
+    assert isinstance(provider, GroqLLMProvider)
+    assert not isinstance(provider, OpenAICompatibleLLMProvider)
 
 
 def test_factory_builds_openai_compatible_and_enforces_ssrf() -> None:

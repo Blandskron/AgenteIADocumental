@@ -6,6 +6,7 @@ from django.db import connection
 from rest_framework.test import APITestCase
 
 from users.models import (
+    AuditLog,
     Tenant,
     TenantArea,
     TenantGroup,
@@ -30,6 +31,7 @@ class GroqIntegrationApiTests(APITestCase):
         TenantGroupPermission,
         TenantUserGroup,
         TenantIntegration,
+        AuditLog,
     )
 
     @classmethod
