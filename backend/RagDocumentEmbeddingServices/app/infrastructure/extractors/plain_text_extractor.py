@@ -4,7 +4,7 @@ from app.shared.utils import normalize_text
 
 
 class PlainTextExtractor:
-    supported_mime_types = {"text/plain", "text/markdown", "text/csv"}
+    supported_mime_types = {"text/plain", "text/csv"}
 
     def extract(self, file_path: str) -> str:
         path = Path(file_path)

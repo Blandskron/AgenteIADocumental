@@ -23,6 +23,7 @@ class SearchSimilarChunks:
             limit=self._limit,
             min_score=self._min_score,
             document_ids=document_ids,
+            query_text=question,
         )
 
     def get_document_context(

@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, File, Form, UploadFile
+from fastapi import APIRouter, Depends, File, Form, Header, UploadFile
 
 from app.application.documents.ports.document_reader import DocumentReader
 from app.application.documents.use_cases.ingest_existing_document import IngestExistingDocument
@@ -30,6 +30,7 @@ def upload_document(
     file: UploadFile = File(...),
     metadata: str | None = Form(default=None),
     process: bool = Form(default=True),
+    idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
     current_user: dict = Depends(require_upload_user),
     use_case: UploadDocument = Depends(get_upload_document),
 ) -> DocumentUploadResponse:
@@ -43,6 +44,7 @@ def upload_document(
         file=file.file,
         metadata=document_metadata,
         process=process,
+        idempotency_key=idempotency_key,
     )
     return DocumentUploadResponse(
         document_id=document.document_id,

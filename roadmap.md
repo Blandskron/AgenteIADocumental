@@ -3,7 +3,7 @@
 > Documento vivo de ejecución para llevar **Blandskron Documental** al siguiente nivel: plataforma documental inteligente, configurable desde la web, con recuperación híbrida de alta precisión y generación de artefactos verificables con evidencia.
 
 **Última actualización:** 2026-11-21  
-**Estado actual:** **Fase 0 y Fase 1 completadas + `R2-01`, `R2-02` terminadas (11 / 29 tareas terminadas)** — En curso: **Fase 2 (Motor RAG híbrido, búsqueda moderna y UX de chat)**.
+**Estado actual:** **Fases 0, 1 y 2 completadas + `R3-01`, `R3-02` terminadas (16 / 29 tareas terminadas)** — En curso: **Fase 3 (Importación Markdown/ZIP)**.
 
 ---
 
@@ -21,11 +21,11 @@
 | --- | --- | ---: | ---: | ---: | ---: |
 | **Fase 0** | Higiene técnica, historial único y base de evaluación | 4 | 0 | 0 | 4 |
 | **Fase 1** | Configuración de IA (Groq) desde la web y degradación honesta | 5 | 0 | 0 | 5 |
-| **Fase 2** | Motor RAG híbrido, búsqueda moderna y UX de chat | 5 | 3 | 0 | 2 |
-| **Fase 3** | Ingesta idempotente y fuentes Markdown/ZIP (Opción O1) | 4 | 4 | 0 | 0 |
+| **Fase 2** | Motor RAG híbrido, búsqueda moderna y UX de chat | 5 | 0 | 0 | 5 |
+| **Fase 3** | Ingesta idempotente y fuentes Markdown/ZIP (Opción O1) | 4 | 2 | 0 | 2 |
 | **Fase 4** | Knowledge Studio P0 (artefactos con citas verificadas) | 6 | 6 | 0 | 0 |
 | **Fase 5** | Hardening de seguridad y extensiones P1+ bajo demanda | 5 | 5 | 0 | 0 |
-| **Total** | | **29** | **18** | **0** | **11** |
+| **Total** | | **29** | **13** | **0** | **16** |
 
 ---
 
@@ -53,23 +53,16 @@
   - `R1-04`: `GroqConfigResolver` dinámico por tenant en `RagDocumentChatServices` (DB → `.env` → `not_configured`), TTL + invalidación por `updated_at`, y `provider_status` tipificado.
   - `R1-05`: Vista web `Configuración IA` (`/settings/ai`), mensajes de degradación honesta en Chat, wiring de `SECRETS_ENCRYPTION_KEY` en Compose y actualización de `README.md`, `.env.example` y `docs/operations.md` (más retirada de planes obsoletos ya ejecutados en `docs/plans/core-rag/`).
 
+- **Fase 2 (`R2-01`–`R2-05`) — `terminada`:**
+  - `R2-01`: Chunking estructural respetando páginas (`[page N]`), encabezados Markdown/DOCX, párrafos y oraciones, con `metadata.page` y `metadata.section`.
+  - `R2-02`: Migración SQL a índice vectorial `HNSW (vector_cosine_ops)`, columna generada `content_tsv tsvector` + índice GIN y trigram en `documents.filename`.
+  - `R2-03`: Recuperación híbrida (`vector + FTS + RRF`) en `RagDocumentChatServices` y búsqueda FTS indexada con `ts_headline` en `DocumentSearchServices`.
+  - `R2-04`: Blindaje anti prompt-injection en `GroqLLMProvider` con delimitadores `<document_context>` / `<user_question>` y citas obligatorias `[Fuente N]`.
+  - `R2-05`: Renderizado `SafeMarkdown` (sin `innerHTML`, anti-XSS), chips `[Fuente N]` clicables enlazados a `SourceList` y soporte SSE opcional (`?stream=true`) en `/api/v1/chat/ask`.
+
 ---
 
 ## 3. Plan activo pendiente
-
-### Fase 2 — Motor RAG híbrido, búsqueda moderna y UX de chat
-
-> Objetivo: dar un salto tangible en precisión de recuperación, velocidad de búsqueda y experiencia de lectura/verificación de respuestas.
-
-| ID | Estado | Prioridad | Ámbito | Tarea y criterio de terminado |
-| --- | --- | --- | --- | --- |
-| `R2-01` | `terminada` | P0 | `RagDocumentEmbeddingServices` | **Chunking estructural y metadatos de página/sección.** Mejorar `CreateDocumentEmbeddings` para trocear respetando límites de secciones, párrafos y oraciones (manteniendo `MAX_CHUNK_SIZE` y `CHUNK_OVERLAP`), y refactorizar `PdfExtractor` / `DocxExtractor` para emitir `metadata.page` y `metadata.section` estructurados en cada chunk. **Done:** tests unitarios y mejora verificable en `S1`–`S2`. |
-| `R2-02` | `terminada` | P0 | `scripts/database/` | **Índices HNSW para pgvector y Full-Text Search (`tsvector` GIN).** Crear migración SQL que reemplace `ivfflat` por `HNSW` (`vector_cosine_ops`) en `document_embeddings` y añada columna generada `content_tsv tsvector` + índice GIN (y trigram para `documents.filename`). **Done:** migración probada en BD limpia y en restauración PostgreSQL (`verify_postgres_upgrade.mjs`). |
-| `R2-03` | `pendiente` | P0 | `RagDocumentChatServices`, `DocumentSearchServices` | **Recuperación híbrida (vector + FTS + RRF) y modernización de búsqueda.** Combinar distancia coseno pgvector + `ts_rank_cd` mediante Reciprocal Rank Fusion en `RagDocumentChatServices`, y reemplazar `ILIKE '%query%'` en `DocumentSearchServices` por búsqueda FTS indexada con snippets resaltados (y opción de modo semántico/híbrido). **Done:** mejora demostrada sobre el harness `R0-04` (especialmente códigos, cifras y términos exactos) manteniendo intacto `_apply_access_filter`. |
-| `R2-04` | `pendiente` | P0 | `RagDocumentChatServices` | **Blindaje anti prompt-injection y citas estructuradas en chat.** Separar explícitamente el contexto documental con delimitadores de datos no confiables en `GroqLLMProvider`, reforzar `_system_prompt` para prohibir seguir instrucciones embebidas en documentos y exigir referencias verificables `[Fuente N]` sin alucinar información faltante. **Done:** suite adversarial `S4` aprobada con 0 ejecuciones de inyección. |
-| `R2-05` | `pendiente` | P1 | `frontend/`, `RagDocumentChatServices` | **Chat con Markdown sanitizado, citas clicables y streaming SSE.** Añadir renderizado Markdown seguro en `Message.tsx` (sin HTML crudo, sanitizado contra XSS), convertir referencias `[Fuente N]` en controles interactivos que resalten/abran el fragmento y página en `SourceList` / vista previa, y habilitar streaming SSE opcional en `/api/v1/chat/ask` con fallback síncrono. **Done:** tests unitarios + Playwright + verificación XSS y accesibilidad. |
-
----
 
 ### Fase 3 — Ingesta idempotente y fuentes Markdown/ZIP (Opción O1)
 
@@ -77,8 +70,8 @@
 
 | ID | Estado | Prioridad | Ámbito | Tarea y criterio de terminado |
 | --- | --- | --- | --- | --- |
-| `R3-01` | `pendiente` | P0 | `RagDocumentEmbeddingServices`, `scripts/database/` | **Idempotencia de carga y metadatos de origen normalizados.** Calcular `content_sha256` al ingerir, soportar cabecera/clave `Idempotency-Key` en `POST /api/v1/documents/upload` para evitar duplicados en reintentos, y estandarizar `metadata.source = {kind, path_rel, sha256, imported_via, batch_id}`. **Done:** subir dos veces con misma clave/hash devuelve el recurso sin duplicar originales ni chunks. |
-| `R3-02` | `pendiente` | P1 | `RagDocumentEmbeddingServices` | **Extractor `MarkdownNormalizer`.** Parsear frontmatter YAML (título, `tags`, `aliases`, propiedades) a `metadata` sin contaminar los embeddings, extraer enlaces `[[wikilinks]]`, enlaces `.md` y tags `#etiqueta` como relaciones estructuradas en metadatos, y filtrar archivos internos `.obsidian/`. **Done:** tests sobre vault sintética `S3` verificando extracción limpia y trazabilidad. |
+| `R3-01` | `terminada` | P0 | `RagDocumentEmbeddingServices`, `scripts/database/` | **Idempotencia de carga y metadatos de origen normalizados.** Calcular `content_sha256` al ingerir, soportar cabecera/clave `Idempotency-Key` en `POST /api/v1/documents/upload` para evitar duplicados en reintentos, y estandarizar `metadata.source = {kind, path_rel, sha256, imported_via, batch_id}`. **Done:** subir dos veces con misma clave/hash devuelve el recurso sin duplicar originales ni chunks. |
+| `R3-02` | `terminada` | P1 | `RagDocumentEmbeddingServices` | **Extractor `MarkdownNormalizer`.** Parsear frontmatter YAML (título, `tags`, `aliases`, propiedades) a `metadata` sin contaminar los embeddings, extraer enlaces `[[wikilinks]]`, enlaces `.md` y tags `#etiqueta` como relaciones estructuradas en metadatos, y filtrar archivos internos `.obsidian/`. **Done:** tests sobre vault sintética `S3` verificando extracción limpia y trazabilidad. |
 | `R3-03` | `pendiente` | P1 | `RagDocumentEmbeddingServices` | **Importación segura por lote (`.zip` / múltiples `.md`).** Nuevo endpoint de importación por lote con límites defensivos estrictos (tamaño descomprimido máximo, ratio anti zip-bomb, tope de archivos, rechazo de symlinks y `../`), detección de renombres por `content_sha256` y resumen por archivo (`creados`, `reutilizados`, `rechazados`). **Done:** todos los casos maliciosos de `S4` rechazados con error tipificado; 0 duplicados en reimportación. |
 | `R3-04` | `pendiente` | P1 | `frontend/` | **UI `Aplicaciones > Importar Markdown / ZIP`.** Añadir tarjeta en `ApplicationsPage` siguiendo el patrón UX de Google Drive: selector de `.zip` o carpeta Markdown, progreso por lote, desglose de creados/reutilizados/rechazados y errores por archivo. **Done:** tests unitarios + Playwright + accesibilidad. |
 

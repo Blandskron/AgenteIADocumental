@@ -6,6 +6,33 @@ from app.domain.embeddings import SearchResult
 from app.infrastructure.database.models import DocumentAssignmentModel, DocumentEmbeddingModel, DocumentModel
 from app.infrastructure.database.types import Vector
 
+RRF_K = 60
+
+
+def fuse_reciprocal_rank(
+    vector_results: list[SearchResult],
+    fts_results: list[SearchResult],
+    limit: int,
+    k: int = RRF_K,
+) -> list[SearchResult]:
+    """Combines vector and FTS rankings using Reciprocal Rank Fusion (RRF)."""
+    if not fts_results:
+        return vector_results[:limit]
+    if not vector_results:
+        return fts_results[:limit]
+
+    rrf_scores: dict[str, float] = {}
+    items: dict[str, SearchResult] = {}
+    for rank, item in enumerate(vector_results, start=1):
+        rrf_scores[item.chunk_id] = rrf_scores.get(item.chunk_id, 0.0) + 1.0 / (k + rank)
+        items.setdefault(item.chunk_id, item)
+    for rank, item in enumerate(fts_results, start=1):
+        rrf_scores[item.chunk_id] = rrf_scores.get(item.chunk_id, 0.0) + 1.0 / (k + rank)
+        items.setdefault(item.chunk_id, item)
+
+    ordered_ids = sorted(rrf_scores, key=lambda cid: rrf_scores[cid], reverse=True)[:limit]
+    return [items[cid] for cid in ordered_ids]
+
 
 class VectorRepositoryPgVector:
     def __init__(self, session: Session, current_user: dict) -> None:
@@ -18,7 +45,9 @@ class VectorRepositoryPgVector:
         limit: int,
         min_score: float = 0.0,
         document_ids: list[str] | None = None,
+        query_text: str | None = None,
     ) -> list[SearchResult]:
+        candidate_limit = max(limit * 3, limit)
         query_vector_param = bindparam("query_vector", query_vector, type_=Vector(384))
         distance = DocumentEmbeddingModel.embedding.op("<=>")(query_vector_param)
         score = (literal(1.0) - distance).label("score")
@@ -33,8 +62,8 @@ class VectorRepositoryPgVector:
         statement = self._apply_access_filter(statement)
         if document_ids:
             statement = statement.filter(DocumentEmbeddingModel.document_id.in_(document_ids))
-        rows = statement.filter(score >= min_score).order_by(distance.asc()).limit(limit).all()
-        return [
+        vector_rows = statement.filter(score >= min_score).order_by(distance.asc()).limit(candidate_limit).all()
+        vector_results = [
             SearchResult(
                 document_id=str(row.document_id),
                 chunk_id=str(row.chunk_id),
@@ -44,8 +73,45 @@ class VectorRepositoryPgVector:
                 filename=(row.chunk_metadata or {}).get("filename"),
                 metadata=row.chunk_metadata or {},
             )
-            for row in rows
+            for row in vector_rows
         ]
+
+        clean_query = (query_text or "").strip()
+        if not clean_query:
+            return vector_results[:limit]
+
+        ts_query = func.websearch_to_tsquery("spanish", clean_query)
+        fts_rank = func.ts_rank_cd(DocumentEmbeddingModel.content_tsv, ts_query).label("fts_rank")
+        fts_stmt = self._session.query(
+            DocumentEmbeddingModel.chunk_id,
+            DocumentEmbeddingModel.document_id,
+            DocumentEmbeddingModel.chunk_index,
+            DocumentEmbeddingModel.chunk_content,
+            DocumentEmbeddingModel.metadata_.label("chunk_metadata"),
+            fts_rank,
+        ).join(DocumentModel, DocumentEmbeddingModel.document_id == DocumentModel.document_id)
+        fts_stmt = self._apply_access_filter(fts_stmt)
+        if document_ids:
+            fts_stmt = fts_stmt.filter(DocumentEmbeddingModel.document_id.in_(document_ids))
+        fts_rows = (
+            fts_stmt.filter(DocumentEmbeddingModel.content_tsv.op("@@")(ts_query))
+            .order_by(fts_rank.desc())
+            .limit(candidate_limit)
+            .all()
+        )
+        fts_results = [
+            SearchResult(
+                document_id=str(row.document_id),
+                chunk_id=str(row.chunk_id),
+                chunk_index=row.chunk_index,
+                content=row.chunk_content,
+                score=float(row.fts_rank),
+                filename=(row.chunk_metadata or {}).get("filename"),
+                metadata=row.chunk_metadata or {},
+            )
+            for row in fts_rows
+        ]
+        return fuse_reciprocal_rank(vector_results, fts_results, limit=limit)
 
     def get_document_chunks(
         self,

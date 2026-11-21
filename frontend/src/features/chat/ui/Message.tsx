@@ -1,7 +1,9 @@
 import type { Message as ChatMessage } from "@/entities/conversation/model/types.ts";
 import { brandSymbolUrl } from "@/shared/components/Brand/Brand.tsx";
 import { FileDown, Loader2, MessageSquare } from "lucide-react";
+import { useState } from "react";
 
+import { SafeMarkdown } from "./SafeMarkdown";
 import { SourceList } from "./SourceList";
 
 export function Message({
@@ -16,6 +18,9 @@ export function Message({
   onExportPdf?: () => void;
 }) {
   const isAssistant = message.role === "assistant";
+  const [activeSourceIndex, setActiveSourceIndex] = useState<number | null>(
+    null,
+  );
 
   return (
     <article className={`message ${message.role}`}>
@@ -30,7 +35,17 @@ export function Message({
         <div className="message-meta">
           {isAssistant ? "Blandskron Documental" : "Tu"}
         </div>
-        <div className="message-text">{message.content}</div>
+        <div className="message-text">
+          {isAssistant ? (
+            <SafeMarkdown
+              content={message.content}
+              sourceCount={message.sources?.length || 0}
+              onCitationClick={(index) => setActiveSourceIndex(index)}
+            />
+          ) : (
+            message.content
+          )}
+        </div>
         {isAssistant && onExportPdf && (
           <div className="message-actions">
             <button
@@ -45,7 +60,11 @@ export function Message({
             </button>
           </div>
         )}
-        <SourceList sources={message.sources} />
+        <SourceList
+          sources={message.sources}
+          activeSourceIndex={activeSourceIndex}
+          onSelectSource={setActiveSourceIndex}
+        />
       </div>
     </article>
   );

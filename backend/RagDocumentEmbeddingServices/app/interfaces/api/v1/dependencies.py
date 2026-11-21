@@ -14,6 +14,7 @@ from app.infrastructure.database.repositories.document_writer_pg import Document
 from app.infrastructure.database.repositories.vector_repository_pgvector import VectorRepositoryPgVector
 from app.infrastructure.extractors.docx_extractor import DocxExtractor
 from app.infrastructure.extractors.image_ocr_extractor import ImageOcrExtractor
+from app.infrastructure.extractors.markdown_normalizer import MarkdownNormalizerExtractor
 from app.infrastructure.extractors.pdf_extractor import PdfExtractor
 from app.infrastructure.extractors.plain_text_extractor import PlainTextExtractor
 from app.infrastructure.storage.document_path_resolver import LocalDocumentPathResolver
@@ -40,7 +41,13 @@ def build_ingest_existing_document(session: Session, settings: Settings) -> Inge
     document_writer = DocumentWriterPg(session)
     vector_repository = VectorRepositoryPgVector(session)
     embedding_provider = build_embedding_provider()
-    extractors = [PdfExtractor(), DocxExtractor(), PlainTextExtractor(), ImageOcrExtractor()]
+    extractors = [
+        PdfExtractor(),
+        DocxExtractor(),
+        MarkdownNormalizerExtractor(),
+        PlainTextExtractor(),
+        ImageOcrExtractor(),
+    ]
 
     return IngestExistingDocument(
         document_reader=document_reader,
