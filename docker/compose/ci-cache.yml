@@ -1,0 +1,131 @@
+# CI-only BuildKit GitHub Actions layer cache override.
+# Never required for local development; keeps docker/docker-compose.yml clean.
+services:
+  postgres:
+    build:
+      cache_from: ["type=gha,scope=postgres"]
+      cache_to: ["type=gha,mode=max,scope=postgres"]
+  e5-model:
+    build:
+      cache_from: ["type=gha,scope=e5-model"]
+      cache_to: ["type=gha,mode=max,scope=e5-model"]
+  auth-migrate:
+    build:
+      cache_from: ["type=gha,scope=auth"]
+      cache_to: ["type=gha,mode=max,scope=auth"]
+  auth-bootstrap:
+    build:
+      cache_from: ["type=gha,scope=auth"]
+      cache_to: ["type=gha,mode=max,scope=auth"]
+  auth-service:
+    build:
+      cache_from: ["type=gha,scope=auth"]
+      cache_to: ["type=gha,mode=max,scope=auth"]
+  rag-document-chat-service:
+    build:
+      cache_from: ["type=gha,scope=rag-chat"]
+      cache_to: ["type=gha,mode=max,scope=rag-chat"]
+  rag-chat-tests:
+    build:
+      cache_from: ["type=gha,scope=rag-chat"]
+      cache_to: ["type=gha,mode=max,scope=rag-chat"]
+  rag-document-embedding-service:
+    build:
+      cache_from: ["type=gha,scope=embedding"]
+      cache_to: ["type=gha,mode=max,scope=embedding"]
+  embedding-tests:
+    build:
+      cache_from: ["type=gha,scope=embedding"]
+      cache_to: ["type=gha,mode=max,scope=embedding"]
+  document-search-service:
+    build:
+      cache_from: ["type=gha,scope=search"]
+      cache_to: ["type=gha,mode=max,scope=search"]
+  search-tests:
+    build:
+      cache_from: ["type=gha,scope=search"]
+      cache_to: ["type=gha,mode=max,scope=search"]
+  document-access-service:
+    build:
+      cache_from: ["type=gha,scope=access"]
+      cache_to: ["type=gha,mode=max,scope=access"]
+  access-tests:
+    build:
+      cache_from: ["type=gha,scope=access"]
+      cache_to: ["type=gha,mode=max,scope=access"]
+  access-audit:
+    build:
+      cache_from: ["type=gha,scope=access"]
+      cache_to: ["type=gha,mode=max,scope=access"]
+  document-library-service:
+    build:
+      cache_from: ["type=gha,scope=library"]
+      cache_to: ["type=gha,mode=max,scope=library"]
+  library-tests:
+    build:
+      cache_from: ["type=gha,scope=library"]
+      cache_to: ["type=gha,mode=max,scope=library"]
+  library-audit:
+    build:
+      cache_from: ["type=gha,scope=library"]
+      cache_to: ["type=gha,mode=max,scope=library"]
+  document-transfer-service:
+    build:
+      cache_from: ["type=gha,scope=transfer"]
+      cache_to: ["type=gha,mode=max,scope=transfer"]
+  transfer-tests:
+    build:
+      cache_from: ["type=gha,scope=transfer"]
+      cache_to: ["type=gha,mode=max,scope=transfer"]
+  transfer-audit:
+    build:
+      cache_from: ["type=gha,scope=transfer"]
+      cache_to: ["type=gha,mode=max,scope=transfer"]
+  conversation-service:
+    build:
+      cache_from: ["type=gha,scope=conversation"]
+      cache_to: ["type=gha,mode=max,scope=conversation"]
+  conversation-tests:
+    build:
+      cache_from: ["type=gha,scope=conversation"]
+      cache_to: ["type=gha,mode=max,scope=conversation"]
+  profile-service:
+    build:
+      cache_from: ["type=gha,scope=profile"]
+      cache_to: ["type=gha,mode=max,scope=profile"]
+  profile-tests:
+    build:
+      cache_from: ["type=gha,scope=profile"]
+      cache_to: ["type=gha,mode=max,scope=profile"]
+  profile-audit:
+    build:
+      cache_from: ["type=gha,scope=profile"]
+      cache_to: ["type=gha,mode=max,scope=profile"]
+  document-export-service:
+    build:
+      cache_from: ["type=gha,scope=export"]
+      cache_to: ["type=gha,mode=max,scope=export"]
+  export-tests:
+    build:
+      cache_from: ["type=gha,scope=export"]
+      cache_to: ["type=gha,mode=max,scope=export"]
+  export-audit:
+    build:
+      cache_from: ["type=gha,scope=export"]
+      cache_to: ["type=gha,mode=max,scope=export"]
+  google-drive-import-service:
+    build:
+      cache_from: ["type=gha,scope=drive"]
+      cache_to: ["type=gha,mode=max,scope=drive"]
+  drive-tests:
+    build:
+      cache_from: ["type=gha,scope=drive"]
+      cache_to: ["type=gha,mode=max,scope=drive"]
+  drive-audit:
+    build:
+      cache_from: ["type=gha,scope=drive"]
+      cache_to: ["type=gha,mode=max,scope=drive"]
+  blandskron-frontend:
+    build:
+      cache_from: ["type=gha,scope=frontend"]
+      cache_to: ["type=gha,mode=max,scope=frontend"]

@@ -1,0 +1,470 @@
+name: CI Rápido
+
+on:
+  pull_request:
+    branches: [develop, main]
+  push:
+    branches: [develop]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-fast-${{ github.event_name == 'pull_request' && format('pr-{0}', github.event.pull_request.number) || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  detect-changes:
+    name: Detectar cambios
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      docs: ${{ steps.scope.outputs.docs }}
+      compose: ${{ steps.scope.outputs.compose }}
+      auth: ${{ steps.scope.outputs.auth }}
+      frontend: ${{ steps.scope.outputs.frontend }}
+      postgres: ${{ steps.scope.outputs.postgres }}
+      rag_groq: ${{ steps.scope.outputs.rag_groq }}
+      database: ${{ steps.scope.outputs.database }}
+      has_services: ${{ steps.scope.outputs.has_services }}
+      services: ${{ steps.scope.outputs.services }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+      - name: Calcular ámbitos afectados
+        id: scope
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          BASE_BRANCH: ${{ github.base_ref }}
+          PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          PUSH_BEFORE: ${{ github.event.before }}
+          HEAD_SHA: ${{ github.sha }}
+        run: |
+          if [ "$EVENT_NAME" = "workflow_dispatch" ] || [ "$BASE_BRANCH" = "main" ]; then
+            python3 scripts/ci/detect_changes.py --force-all
+          elif [ "$EVENT_NAME" = "pull_request" ]; then
+            python3 scripts/ci/detect_changes.py --base "$PR_BASE_SHA" --head "$PR_HEAD_SHA"
+          else
+            python3 scripts/ci/detect_changes.py --base "$PUSH_BEFORE" --head "$HEAD_SHA"
+          fi
+
+  docs-links:
+    name: Enlaces de documentación
+    needs: [detect-changes]
+    if: needs.detect-changes.outputs.docs == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Verificar enlaces relativos Markdown
+        run: python3 scripts/ci/check_docs_links.py
+
+  compose-contract:
+    name: Contrato Docker Compose
+    needs: [detect-changes]
+    if: needs.detect-changes.outputs.compose == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: '24'
+      - name: Prepare private synthetic installation credentials
+        run: node scripts/release/prepare_verification.mjs --github
+      - run: cp .env.example .env
+      - run: docker compose --env-file "$VERIFICATION_ENV_FILE" -f docker/docker-compose.yml config --quiet
+      - name: Comprobar montajes JWT, puertos y configuración de servicios
+        run: |
+          docker compose --env-file "$VERIFICATION_ENV_FILE" -f docker/docker-compose.yml config --format json > /tmp/blandskron-compose.json
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+
+          services = json.loads(Path("/tmp/blandskron-compose.json").read_text())["services"]
+          assert services["auth-service"]["depends_on"]["auth-bootstrap"]["condition"] == "service_completed_successfully"
+          assert services["tenant-integrity"]["depends_on"]["auth-migrate"]["condition"] == "service_completed_successfully"
+          frontend = services["blandskron-frontend"]
+          assert frontend["read_only"] is True and frontend["cap_drop"] == ["ALL"]
+          assert "no-new-privileges:true" in frontend["security_opt"]
+          assert all(name.startswith("VITE_") for name in frontend["environment"])
+          assert frontend["ports"][0]["target"] == 8080
+          assert frontend["ports"][0]["host_ip"] == "127.0.0.1"
+          conversation_env = services["conversation-service"]["environment"]
+          assert set(conversation_env) == {
+              "APP_ENV", "APP_NAME", "LOG_LEVEL", "CORS_ORIGINS", "DATABASE_URL",
+              "AUTH_JWT_PUBLIC_KEY_PATH", "AUTH_JWT_ALGORITHM", "AUTH_IDENTITY_URL", "PGPASSWORD",
+          }
+          assert json.loads(conversation_env["CORS_ORIGINS"]) == [
+              "http://localhost:3000", "http://127.0.0.1:3000",
+          ]
+          assert conversation_env["DATABASE_URL"] == (
+              "postgresql+psycopg://conversation_runtime@postgres:5432/documents_db"
+          )
+          rag_chat_env = services["rag-document-chat-service"]["environment"]
+          assert set(rag_chat_env) == {
+              "APP_ENV", "APP_NAME", "LOG_LEVEL", "CORS_ORIGINS", "DATABASE_URL",
+              "AUTH_JWT_PUBLIC_KEY_PATH", "AUTH_JWT_ALGORITHM", "AUTH_IDENTITY_URL", "GROQ_API_KEY", "GROQ_CHAT_MODEL",
+              "CHAT_COMPLETION_MAX_TOKENS", "CHAT_COMPLETION_TEMPERATURE", "CHAT_COMPLETION_TIMEOUT_SECONDS",
+              "VECTOR_SEARCH_LIMIT", "MIN_SIMILARITY_SCORE", "PGPASSWORD",
+          }
+          assert json.loads(rag_chat_env["CORS_ORIGINS"]) == [
+              "http://localhost:3000", "http://127.0.0.1:3000",
+          ]
+          assert rag_chat_env["DATABASE_URL"] == "postgresql+psycopg://rag_chat_runtime@postgres:5432/documents_db"
+          embedding_env = services["rag-document-embedding-service"]["environment"]
+          assert set(embedding_env) == {
+              "APP_ENV", "APP_NAME", "LOG_LEVEL", "CORS_ORIGINS", "DATABASE_URL",
+              "DOCUMENT_STORAGE_BASE_PATH", "MAX_CHUNK_SIZE", "CHUNK_OVERLAP",
+              "AUTH_JWT_PUBLIC_KEY_PATH", "AUTH_JWT_ALGORITHM", "AUTH_IDENTITY_URL", "PGPASSWORD",
+          }
+          assert json.loads(embedding_env["CORS_ORIGINS"]) == [
+              "http://localhost:3000", "http://127.0.0.1:3000",
+          ]
+          assert embedding_env["DATABASE_URL"] == "postgresql+psycopg://embedding_runtime@postgres:5432/documents_db"
+          search = services["document-search-service"]
+          assert search["environment"]["DATABASE_URL"] == "postgresql+psycopg://document_search_runtime@postgres:5432/documents_db"
+          assert search["depends_on"]["search-db-role"]["condition"] == "service_completed_successfully"
+          search_env = search["environment"]
+          assert set(search_env) == {
+              "APP_ENV", "APP_NAME", "LOG_LEVEL", "CORS_ORIGINS", "DATABASE_URL",
+              "AUTH_JWT_PUBLIC_KEY_PATH", "AUTH_JWT_ALGORITHM", "AUTH_IDENTITY_URL", "PGPASSWORD",
+          }
+          assert json.loads(search_env["CORS_ORIGINS"]) == [
+              "http://localhost:3000", "http://127.0.0.1:3000",
+          ]
+          access = services["document-access-service"]
+          access_env = access["environment"]
+          assert access_env["DATABASE_URL"] == "postgresql+psycopg://document_access_runtime@postgres:5432/documents_db"
+          assert access["depends_on"]["access-db-role"]["condition"] == "service_completed_successfully"
+          assert access["user"] == "10004:10004"
+          assert access["cap_drop"] == ["ALL"]
+          assert "no-new-privileges:true" in access["security_opt"]
+          assert set(access_env) == {
+              "APP_ENV", "APP_NAME", "LOG_LEVEL", "CORS_ORIGINS", "DATABASE_URL",
+              "DOCUMENT_STORAGE_BASE_PATH", "AUTH_JWT_PUBLIC_KEY_PATH", "AUTH_JWT_ALGORITHM", "AUTH_IDENTITY_URL", "PGPASSWORD",
+          }
+          assert json.loads(access_env["CORS_ORIGINS"]) == [
+              "http://localhost:3000", "http://127.0.0.1:3000",
+          ]
+          assert "health/db" in " ".join(access["healthcheck"]["test"])
+          library = services["document-library-service"]
+          library_env = library["environment"]
+          assert set(library_env) == {
+              "APP_ENV", "APP_NAME", "LOG_LEVEL", "CORS_ORIGINS", "DATABASE_URL",
+              "AUTH_JWT_PUBLIC_KEY_PATH", "AUTH_JWT_ALGORITHM", "AUTH_IDENTITY_URL",
+              "DB_POOL_MIN_SIZE", "DB_POOL_MAX_SIZE", "DB_TIMEOUT_SECONDS",
+              "PGPASSWORD",
+          }
+          assert json.loads(library_env["CORS_ORIGINS"]) == ["http://localhost:3000", "http://127.0.0.1:3000"]
+          assert "health/db" in " ".join(library["healthcheck"]["test"])
+          assert library_env["DATABASE_URL"] == "postgresql+psycopg://document_library_runtime@postgres:5432/documents_db"
+          assert library["depends_on"]["library-db-role"]["condition"] == "service_completed_successfully"
+          assert library["cap_drop"] == ["ALL"]
+          assert "no-new-privileges:true" in library["security_opt"]
+          transfer = services["document-transfer-service"]
+          transfer_env = transfer["environment"]
+          assert set(transfer_env) == {
+              "APP_ENV", "APP_NAME", "LOG_LEVEL", "CORS_ORIGINS", "DATABASE_URL",
+              "AUTH_JWT_PUBLIC_KEY_PATH", "AUTH_JWT_ALGORITHM", "AUTH_IDENTITY_URL",
+              "DB_POOL_MIN_SIZE", "DB_POOL_MAX_SIZE", "DB_TIMEOUT_SECONDS",
+              "PGPASSWORD",
+          }
+          assert json.loads(transfer_env["CORS_ORIGINS"]) == ["http://localhost:3000", "http://127.0.0.1:3000"]
+          assert "health/db" in " ".join(transfer["healthcheck"]["test"])
+          export = services["document-export-service"]
+          assert set(export["environment"]) == {
+              "APP_ENV", "APP_NAME", "LOG_LEVEL", "CORS_ORIGINS", "DATABASE_URL", "PGPASSWORD",
+              "AUTH_JWT_PUBLIC_KEY_PATH", "AUTH_JWT_ALGORITHM",
+              "DB_POOL_MIN_SIZE", "DB_POOL_MAX_SIZE", "DB_TIMEOUT_SECONDS",
+          }
+          assert json.loads(export["environment"]["CORS_ORIGINS"]) == ["http://localhost:3000", "http://127.0.0.1:3000"]
+          assert "health/db" in " ".join(export["healthcheck"]["test"])
+          assert export["environment"]["DATABASE_URL"] == "postgresql+psycopg://export_runtime@postgres:5432/documents_db"
+          assert export["depends_on"]["export-db-role"]["condition"] == "service_completed_successfully"
+          assert export["read_only"] is True and export["cap_drop"] == ["ALL"]
+          assert "no-new-privileges:true" in export["security_opt"]
+          assert all(volume.get("target") != "/app/exports" for volume in export.get("volumes", []))
+          drive = services["google-drive-import-service"]
+          assert drive["environment"]["DATABASE_URL"] == "postgresql+psycopg://drive_runtime@postgres:5432/documents_db"
+          assert drive["environment"]["GOOGLE_DRIVE_ENABLED"] == "false"
+          assert drive["read_only"] is True
+          assert drive["cap_drop"] == ["ALL"]
+          assert "no-new-privileges:true" in drive["security_opt"]
+          assert drive["pids_limit"] == 128
+          assert "size=67108864" in drive["tmpfs"][0]
+          assert json.loads(drive["environment"]["CORS_ORIGINS"]) == ["http://localhost:3000", "http://127.0.0.1:3000"]
+          assert drive["depends_on"]["drive-db-role"]["condition"] == "service_completed_successfully"
+          assert "health/db" in " ".join(drive["healthcheck"]["test"])
+          assert "GROQ_API_KEY" not in drive["environment"]
+          assert "DJANGO_SECRET_KEY" not in drive["environment"]
+          profile = services["profile-service"]
+          profile_env = profile["environment"]
+          assert set(profile_env) == {
+              "APP_ENV", "APP_NAME", "LOG_LEVEL", "CORS_ORIGINS", "DATABASE_URL", "PGPASSWORD",
+              "AUTH_JWT_PUBLIC_KEY_PATH", "AUTH_JWT_ALGORITHM",
+              "DB_POOL_MIN_SIZE", "DB_POOL_MAX_SIZE", "DB_TIMEOUT_SECONDS",
+          }
+          assert json.loads(profile_env["CORS_ORIGINS"]) == ["http://localhost:3000", "http://127.0.0.1:3000"]
+          assert "health/db" in " ".join(profile["healthcheck"]["test"])
+          assert profile["read_only"] is True
+          assert profile_env["DATABASE_URL"] == "postgresql+psycopg://profile_runtime@postgres:5432/documents_db"
+          assert profile["depends_on"]["profile-db-role"]["condition"] == "service_completed_successfully"
+          assert services["profile-db-role"]["depends_on"]["auth-service"]["condition"] == "service_healthy"
+          assert len(profile["volumes"]) == 1 and profile["volumes"][0]["source"] == "auth_verification_keys"
+          assert profile["cap_drop"] == ["ALL"]
+          assert transfer_env["DATABASE_URL"] == "postgresql+psycopg://document_transfer_runtime@postgres:5432/documents_db"
+          assert transfer["depends_on"]["transfer-db-role"]["condition"] == "service_completed_successfully"
+          assert transfer["cap_drop"] == ["ALL"]
+          assert "no-new-privileges:true" in transfer["security_opt"]
+          for name, service in services.items():
+              mounts = {volume["source"]: volume for volume in service.get("volumes", [])}
+              assert all(port.get("host_ip") == "127.0.0.1" for port in service.get("ports", [])), name
+              if name == "auth-service":
+                  assert {"auth_signing_keys", "auth_verification_keys"} <= mounts.keys()
+                  continue
+              assert "auth_signing_keys" not in mounts and "auth_keys" not in mounts, name
+              if service.get("environment", {}).get("AUTH_JWT_PUBLIC_KEY_PATH") == "/app/auth_keys/public.pem":
+                  assert mounts["auth_verification_keys"]["read_only"], name
+          PY
+
+  auth-fast:
+    name: Auth (Django y OpenAPI)
+    needs: [detect-changes]
+    if: needs.detect-changes.outputs.auth == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: backend/AuthServices
+    env:
+      POSTGRES_HOST: 127.0.0.1
+      POSTGRES_PASSWORD: test
+      POSTGRES_DB: documents_test
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: test
+          POSTGRES_DB: documents_test
+        ports: [5432:5432]
+        options: >-
+          --health-cmd "pg_isready -U postgres -d documents_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: backend/AuthServices/requirements.txt
+      - run: python -m pip install -r requirements.txt
+      - run: python -m pip check
+      - run: python manage.py collectstatic --noinput
+      - run: python manage.py check
+      - run: python manage.py makemigrations --check --dry-run
+      - run: python manage.py spectacular --validate --file /tmp/auth-openapi.yaml
+      - run: python manage.py test users core --noinput
+      - name: Verificar el usuario de la imagen Auth
+        run: |
+          docker build -t blandskron-auth-ci .
+          docker run --rm --network none blandskron-auth-ci python -c 'import os; assert os.geteuid() == 10001'
+
+  frontend-fast:
+    name: Frontend (calidad, build y Playwright)
+    needs: [detect-changes]
+    if: needs.detect-changes.outputs.frontend == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    container:
+      # Keep the preinstalled browser revision aligned with @playwright/test in frontend/package-lock.json.
+      image: mcr.microsoft.com/playwright:v1.65.0-noble@sha256:6e3fb709361521eb27161606e6da6d2674e5e89fa16516cb37d6fdd91372273d
+      options: --user 1001 --init
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+      - run: npm run audit:dependencies
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm run format:check
+      - run: npm test
+      - run: npm run build
+      - run: npm run test:browser
+
+  rag-groq-fast:
+    name: Contrato Groq (simulado)
+    needs: [detect-changes]
+    if: needs.detect-changes.outputs.rag_groq == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    defaults:
+      run:
+        working-directory: backend/RagDocumentChatServices
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: backend/RagDocumentChatServices/requirements.txt
+      - name: Probar el contrato de Groq con transporte HTTP simulado
+        run: |
+          python -m pip install -r <(grep -hE '^(openai|pytest)==' requirements.txt requirements-test.txt)
+          python -m pytest -q tests/test_groq_provider.py
+
+  postgres-upgrade:
+    name: PostgreSQL y migración local
+    needs: [detect-changes]
+    if: needs.detect-changes.outputs.postgres == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: '24'
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+        if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+      - run: node scripts/release/prepare_verification.mjs --github
+      - name: Validar migración, preflight y segundo arranque
+        env:
+          USE_GHA_CACHE: ${{ github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository }}
+        run: |
+          cache_args=()
+          if [ "$USE_GHA_CACHE" = "true" ]; then
+            export COMPOSE_BAKE=true
+            cache_args=(-f docker/compose/ci-cache.yml)
+          fi
+          compose=(docker compose --env-file "$VERIFICATION_ENV_FILE" -p bd-final-check -f docker/docker-compose.yml -f docker/compose/verification.yml "${cache_args[@]}")
+          trap '"${compose[@]}" down --remove-orphans' EXIT
+          "${compose[@]}" up -d --build --wait postgres
+          "${compose[@]}" exec -T postgres createdb -U postgres documents_test
+          "${compose[@]}" cp scripts/database/migrations/001_local_embeddings.sql postgres:/tmp/blandskron-local-embeddings.sql
+          "${compose[@]}" exec -T postgres psql -U postgres -d documents_test -v ON_ERROR_STOP=1 < scripts/database/tests/local_embeddings.sql
+          "${compose[@]}" run --rm --no-deps database-schema psql -h postgres -U postgres -d documents_db -X -q -v ON_ERROR_STOP=1 -f /schema/run_all.sql
+          "${compose[@]}" run --rm --no-deps database-schema psql -h postgres -U postgres -d documents_db -X -q -v ON_ERROR_STOP=1 -f /schema/tests/tenant_preflight.sql
+          "${compose[@]}" run --rm --no-deps database-schema psql -h postgres -U postgres -d documents_db -X -q -v ON_ERROR_STOP=1 -f /schema/checks/tenant_preflight.sql
+          node scripts/release/verify_postgres_upgrade.mjs
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with:
+          name: postgres-upgrade
+          path: .release-reports/POSTGRES_UPGRADE.json
+          include-hidden-files: true
+          if-no-files-found: ignore
+          retention-days: 30
+
+  backend-services-fast:
+    name: Servicio (${{ matrix.service.name }})
+    needs: [detect-changes]
+    if: needs.detect-changes.outputs.has_services == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        service: ${{ fromJson(needs.detect-changes.outputs.services) }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: '24'
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+        if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+      - run: node scripts/release/prepare_verification.mjs --github
+      - run: cp .env.example .env
+      - name: Ejecutar tests, ruff y auditoría del servicio afectado
+        env:
+          USE_GHA_CACHE: ${{ github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository }}
+          ROLE_SERVICE: ${{ matrix.service.role_service }}
+          TEST_SERVICE: ${{ matrix.service.test_service }}
+          AUDIT_SERVICE: ${{ matrix.service.audit_service }}
+          NEEDS_AUTH: ${{ matrix.service.needs_auth }}
+          EXTRA_RUFF: ${{ matrix.service.extra_ruff_paths }}
+        run: |
+          cache_args=()
+          if [ "$USE_GHA_CACHE" = "true" ]; then
+            export COMPOSE_BAKE=true
+            cache_args=(-f docker/compose/ci-cache.yml)
+          fi
+          compose=(docker compose --env-file "$VERIFICATION_ENV_FILE" -f docker/docker-compose.yml "${cache_args[@]}")
+          trap '"${compose[@]}" down --remove-orphans' EXIT
+          if [ "$NEEDS_AUTH" = "true" ]; then
+            "${compose[@]}" up -d --build --wait postgres database-schema auth-service
+          else
+            "${compose[@]}" up -d --build --wait postgres database-schema
+          fi
+          "${compose[@]}" run --rm --no-deps "$ROLE_SERVICE"
+          "${compose[@]}" run --build --rm --no-deps "$TEST_SERVICE"
+          if [ -n "$EXTRA_RUFF" ]; then
+            "${compose[@]}" run --rm --no-deps "$TEST_SERVICE" ruff check --no-cache app tests "$EXTRA_RUFF"
+          else
+            "${compose[@]}" run --rm --no-deps "$TEST_SERVICE" ruff check --no-cache app tests
+          fi
+          if [ -n "$AUDIT_SERVICE" ]; then
+            "${compose[@]}" run --build --rm --no-deps "$AUDIT_SERVICE"
+          fi
+
+  ci-fast-gate:
+    name: ci-fast-gate
+    needs:
+      - detect-changes
+      - docs-links
+      - compose-contract
+      - auth-fast
+      - frontend-fast
+      - rag-groq-fast
+      - postgres-upgrade
+      - backend-services-fast
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Verificar resultado consolidado de CI Rápido
+        env:
+          DETECT_RESULT: ${{ needs.detect-changes.result }}
+          DOCS_RESULT: ${{ needs.docs-links.result }}
+          COMPOSE_RESULT: ${{ needs.compose-contract.result }}
+          AUTH_RESULT: ${{ needs.auth-fast.result }}
+          FRONTEND_RESULT: ${{ needs.frontend-fast.result }}
+          RAG_GROQ_RESULT: ${{ needs.rag-groq-fast.result }}
+          POSTGRES_RESULT: ${{ needs.postgres-upgrade.result }}
+          SERVICES_RESULT: ${{ needs.backend-services-fast.result }}
+        run: |
+          python3 - <<'PY'
+          import os, sys
+
+          if os.environ["DETECT_RESULT"] != "success":
+              print(f"detect-changes failed: {os.environ['DETECT_RESULT']}", file=sys.stderr)
+              sys.exit(1)
+
+          checks = {
+              "docs-links": os.environ["DOCS_RESULT"],
+              "compose-contract": os.environ["COMPOSE_RESULT"],
+              "auth-fast": os.environ["AUTH_RESULT"],
+              "frontend-fast": os.environ["FRONTEND_RESULT"],
+              "rag-groq-fast": os.environ["RAG_GROQ_RESULT"],
+              "postgres-upgrade": os.environ["POSTGRES_RESULT"],
+              "backend-services-fast": os.environ["SERVICES_RESULT"],
+          }
+          failed = {name: status for name, status in checks.items() if status not in ("success", "skipped")}
+          for name, status in checks.items():
+              print(f"  {name}: {status}")
+          if failed:
+              print(f"CI Rápido falló en: {failed}", file=sys.stderr)
+              sys.exit(1)
+          print("CI Rápido aprobado.")
+          PY
