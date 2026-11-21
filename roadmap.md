@@ -23,12 +23,12 @@ Todas las tareas de este roadmap se marcan exclusivamente con uno de estos tres 
 | Fase | Enfoque | Total | Pendiente | En progreso | Terminada |
 | --- | --- | ---: | ---: | ---: | ---: |
 | **Fase 0** | Higiene técnica, historial único y base de evaluación | 4 | 0 | 0 | 4 |
-| **Fase 1** | Configuración de IA (Groq) desde la web y degradación honesta | 5 | 4 | 0 | 1 |
+| **Fase 1** | Configuración de IA (Groq) desde la web y degradación honesta | 5 | 3 | 0 | 2 |
 | **Fase 2** | Motor RAG híbrido, búsqueda moderna y UX de chat | 5 | 5 | 0 | 0 |
 | **Fase 3** | Ingesta idempotente y fuentes Markdown/ZIP (Opción O1) | 4 | 4 | 0 | 0 |
 | **Fase 4** | Knowledge Studio P0 (artefactos con citas verificadas) | 6 | 6 | 0 | 0 |
 | **Fase 5** | Hardening de seguridad y extensiones P1+ bajo demanda | 5 | 5 | 0 | 0 |
-| **Total** | | **29** | **24** | **0** | **5** |
+| **Total** | | **29** | **23** | **0** | **6** |
 
 ---
 
@@ -92,7 +92,7 @@ Al revisar directamente el código fuente y los esquemas SQL, aparecieron mejora
 | ID | Estado | Prioridad | Ámbito | Tarea y criterio de terminado |
 | --- | --- | --- | --- | --- |
 | `R1-01` | `terminada` | P0 | `scripts/database/` | **Migración SQL aditiva en `tenant_integrations` y permisos de roles.** Añadir columnas `secrets_encrypted TEXT` y `updated_by_user_id TEXT`, mantener compatibilidad reversible y otorgar privilegios mínimos a `auth` (escritura/lectura) y `rag_chat_runtime` (solo lectura de fila activa). **Done:** migración idempotente + test SQL de permisos y aislamiento multi-tenant. |
-| `R1-02` | `pendiente` | P0 | `AuthServices`, `GoogleDriveImportServices` | **Cifrado autenticado en reposo (`secrets1.`) y permiso `manage_ai_settings`.** Reutilizar el patrón `TokenCipher` (Fernet + llavero versionado con `SECRETS_ENCRYPTION_KEY`, `SECRETS_KEY_ID`, `SECRETS_PREVIOUS_KEYS`, rechazo de secretos de ejemplo) y crear migración Django en `AuthServices` para sembrar el permiso `manage_ai_settings` (asignable a `TENANT_ADMIN`, implícito en superadmin `*`). **Done:** tests de cifrado, rotación, rechazo de clave débil y autorización. |
+| `R1-02` | `terminada` | P0 | `AuthServices`, `GoogleDriveImportServices` | **Cifrado autenticado en reposo (`secrets1.`) y permiso `manage_ai_settings`.** Reutilizar el patrón `TokenCipher` (Fernet + llavero versionado con `SECRETS_ENCRYPTION_KEY`, `SECRETS_KEY_ID`, `SECRETS_PREVIOUS_KEYS`, rechazo de secretos de ejemplo) y crear migración Django en `AuthServices` para sembrar el permiso `manage_ai_settings` (asignable a `TENANT_ADMIN`, implícito en superadmin `*`). **Done:** tests de cifrado, rotación, rechazo de clave débil y autorización. |
 | `R1-03` | `pendiente` | P0 | `AuthServices` | **Endpoints DRF de gestión y prueba de Groq.** Implementar `GET/PATCH /api/integrations/groq/`, `PUT/DELETE /api/integrations/groq/credentials/`, `GET /api/integrations/groq/models/` y `POST /api/integrations/groq/test/` (validación real mínima de 1 token sin datos documentales, timeout 10s, rate-limit por usuario, huella SHA-256 corta sin exponer nunca la clave, auditoría estructurada). **Done:** suite DRF con pruebas de autorización 403 cross-tenant, rate-limit y cero fugas en respuestas/logs. |
 | `R1-04` | `pendiente` | P0 | `RagDocumentChatServices` | **Resolución dinámica de credenciales Groq y estados explícitos de proveedor.** Reemplazar el `lru_cache` rígido del proveedor LLM por resolución por petición con TTL corto (30–60s) e invalidación por `updated_at`: precedencia DB (`tenant_integrations`) → `.env` → `not_configured`. Propagar estados tipificados (`ok`, `not_configured`, `auth_error`, `rate_limited`, `provider_error`) en lugar del fallback opaco. **Done:** tests con proveedor simulado, prueba de cambio en caliente sin reinicio y test de regresión que demuestra independencia total de `LocalEmbeddingProvider`. |
 | `R1-05` | `pendiente` | P0 | `frontend/`, `docs/` | **Vista `Configuración > IA` (`/settings/ai`) y banner de estado en Chat.** Crear feature `features/settings-ai` visible solo con `manage_ai_settings` (formulario sin `localStorage`, huella corta, selector de modelos desde backend, botón Probar conexión, Revocar, bloque informativo de E5 local) y mejorar mensajes de chat cuando el proveedor no está configurado o está limitado. Actualizar `README.md`, `.env.example` y `docs/operations.md`. **Done:** `npm test`, `npm run build` y pruebas Playwright con mocks en temas claro/oscuro y verificación de accesibilidad axe. |
