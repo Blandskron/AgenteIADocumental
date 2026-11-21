@@ -27,3 +27,4 @@ class AnswerSource:
 class ChatAnswer:
     answer: str
     sources: list[AnswerSource]
+    provider_status: str = "ok"

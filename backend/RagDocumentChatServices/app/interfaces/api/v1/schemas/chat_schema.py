@@ -26,3 +26,4 @@ class ChatSourceResponse(BaseModel):
 class ChatAskResponse(BaseModel):
     answer: str
     sources: list[ChatSourceResponse]
+    provider_status: str = "ok"
