@@ -33,6 +33,11 @@ const ProfilePage = lazy(() =>
     default: module.ProfilePage,
   })),
 );
+const SettingsAIPage = lazy(() =>
+  import("@/pages/SettingsAIPage/SettingsAIPage.tsx").then((module) => ({
+    default: module.SettingsAIPage,
+  })),
+);
 
 export function App() {
   return (
@@ -52,12 +57,16 @@ function AppContent() {
     hasTenantPermission(currentUser, "use_google_drive") ||
     hasTenantPermission(currentUser, "use_sharepoint");
   const canAdmin = isTenantAdmin(currentUser);
+  const canManageAiSettings =
+    currentUser?.isSuperuser ||
+    hasTenantPermission(currentUser, "manage_ai_settings");
   const denied =
     (route === appRoutes.chat && !canUseChat) ||
     ((route === appRoutes.applications ||
       route === appRoutes.googleDriveApplication) &&
       !canUseIntegrations) ||
-    (route === appRoutes.admin && !canAdmin);
+    (route === appRoutes.admin && !canAdmin) ||
+    (route === appRoutes.settingsAi && !canManageAiSettings);
 
   useEffect(() => {
     if (isAuthenticated && denied) {
@@ -101,6 +110,10 @@ function AppContent() {
 
   if (route === appRoutes.admin) {
     return <AdminPage onNavigate={navigate} />;
+  }
+
+  if (route === appRoutes.settingsAi) {
+    return <SettingsAIPage onNavigate={navigate} />;
   }
 
   return <ChatPage onNavigate={navigate} />;

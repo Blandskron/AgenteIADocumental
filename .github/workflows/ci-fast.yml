@@ -110,6 +110,7 @@ jobs:
               "AUTH_JWT_PUBLIC_KEY_PATH", "AUTH_JWT_ALGORITHM", "AUTH_IDENTITY_URL", "GROQ_API_KEY", "GROQ_CHAT_MODEL",
               "CHAT_COMPLETION_MAX_TOKENS", "CHAT_COMPLETION_TEMPERATURE", "CHAT_COMPLETION_TIMEOUT_SECONDS",
               "VECTOR_SEARCH_LIMIT", "MIN_SIMILARITY_SCORE", "PGPASSWORD",
+              "SECRETS_ENCRYPTION_KEY", "SECRETS_KEY_ID", "SECRETS_PREVIOUS_KEYS",
           }
           assert json.loads(rag_chat_env["CORS_ORIGINS"]) == [
               "http://localhost:3000", "http://127.0.0.1:3000",

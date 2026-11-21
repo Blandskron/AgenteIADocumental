@@ -11,7 +11,9 @@ class ValidationError(AppError):
 
 
 class ExternalServiceError(AppError):
-    pass
+    def __init__(self, message: str, provider_status: str = "provider_error") -> None:
+        super().__init__(message)
+        self.provider_status = provider_status
 
 
 class DatabaseError(AppError):

@@ -62,8 +62,12 @@ class AskDocumentChat:
                 history=history,
                 mode=mode,
             )
-        except ExternalServiceError:
-            return ChatAnswer(answer=ASSISTANT_ERROR_ANSWER, sources=[])
+        except ExternalServiceError as exc:
+            return ChatAnswer(
+                answer=ASSISTANT_ERROR_ANSWER,
+                sources=[],
+                provider_status=exc.provider_status,
+            )
 
         sources = [
             AnswerSource(

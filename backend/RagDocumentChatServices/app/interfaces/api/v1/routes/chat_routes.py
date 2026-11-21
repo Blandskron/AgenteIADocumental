@@ -29,4 +29,5 @@ def ask(
             )
             for source in answer.sources
         ],
+        provider_status=answer.provider_status,
     )

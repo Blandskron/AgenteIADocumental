@@ -85,6 +85,9 @@ services:
       DJANGO_CORS_ALLOWED_ORIGINS: http://localhost:3000,http://127.0.0.1:3000
       DJANGO_PRIVATE_KEY_PATH: /app/signing_keys/private.pem
       DJANGO_PUBLIC_KEY_PATH: /app/verification_keys/public.pem
+      SECRETS_ENCRYPTION_KEY: ${SECRETS_ENCRYPTION_KEY:-}
+      SECRETS_KEY_ID: ${SECRETS_KEY_ID:-v1}
+      SECRETS_PREVIOUS_KEYS: ${SECRETS_PREVIOUS_KEYS:-}
     ports:
       - "127.0.0.1:8001:8001"
     volumes:

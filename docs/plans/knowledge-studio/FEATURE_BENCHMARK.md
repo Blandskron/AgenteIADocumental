@@ -2,7 +2,7 @@
 
 > Estado: benchmark de planificación (2026-11-21). El alcance adoptado (P0 en Fase 4; P1 en Fase 5; descartes explícitos) se rastrea en [roadmap.md](../../../roadmap.md).
 
-Auditoría de código base: commit `055a85d` (ver [CURRENT_STATE_AUDIT.md](../core-rag/CURRENT_STATE_AUDIT.md) para el mapa completo del repositorio).
+Referencia de evolución y seguimiento de implementación en [roadmap.md](../../../roadmap.md).
 
 ## 1. Posición oficial sobre NotebookLM
 

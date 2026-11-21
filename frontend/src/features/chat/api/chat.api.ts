@@ -10,6 +10,7 @@ interface SourceDto {
 interface ChatAskResponseDto {
   answer?: string;
   sources?: SourceDto[];
+  provider_status?: string;
 }
 function normalizeSource(source: SourceDto = {}) {
   return {
@@ -27,6 +28,7 @@ function normalizeChatAskResponse(payload: ChatAskResponseDto = {}) {
     sources: Array.isArray(payload.sources)
       ? payload.sources.map(normalizeSource)
       : [],
+    providerStatus: payload.provider_status || "ok",
   };
 }
 

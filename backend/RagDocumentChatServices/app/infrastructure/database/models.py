@@ -81,3 +81,15 @@ class ConversationMessageModel(Base):
     role: Mapped[str] = mapped_column(Text, nullable=False)
     content: Mapped[str] = mapped_column(Text, nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class TenantIntegrationModel(Base):
+    __tablename__ = "tenant_integrations"
+
+    integration_id: Mapped[str] = mapped_column(Text, primary_key=True, server_default=FetchedValue())
+    tenant_id: Mapped[str] = mapped_column(Text, nullable=False)
+    provider: Mapped[str] = mapped_column(Text, nullable=False)
+    status: Mapped[str] = mapped_column(Text, nullable=False)
+    config: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False, default=dict)
+    secrets_encrypted: Mapped[str | None] = mapped_column(Text)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
