@@ -36,3 +36,4 @@ jobs:
             .release-reports/SCREENSHOTS_REPORT.json
           if-no-files-found: ignore
           retention-days: 14
+

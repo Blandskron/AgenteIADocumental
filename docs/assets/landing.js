@@ -75,3 +75,4 @@
     if (event.target === lightbox) lightbox.close();
   });
 })();
+

@@ -23,3 +23,4 @@ El reporte de pantallas capturadas u omitidas se guarda en `.release-reports/SCR
 
 1. En **Settings → Pages** del repositorio en GitHub, selecciona **Deploy from a branch** → rama `main`, carpeta **`/ (root)`**.
 2. La landing `/index.html` usa exclusivamente rutas relativas (`docs/assets/landing.css`, `docs/assets/landing.js`, `frontend/public/blandskron-symbol.png`, `docs/assets/screenshots/*.webp`), por lo que funciona directamente bajo `https://blandskron.github.io/AgenteIADocumental/`.
+
