@@ -96,4 +96,14 @@ Con el stack de desarrollo activo y una clave de Groq, la prueba de PowerShell 7
 ./scripts/smoke_documental.ps1 -Credential (Get-Credential)
 ```
 
-Para desarrollar sin Compose, consulta el README del servicio y configura el rol de base de datos y, cuando corresponda, `AUTH_JWT_PUBLIC_KEY_PATH` y `AUTH_IDENTITY_URL` con Auth activo. Para desarrollar solo la interfaz, ejecuta `npm ci` y `npm run dev` desde `frontend/`. En Linux/macOS (o WSL/Git Bash), el [Makefile](../Makefile) de la raíz agrupa atajos equivalentes para los once servicios (`make help`, `make up`, `make compose-config`, `make run-<servicio>`, `make check-docs`, `make test-services` y `make verify`). [Mapa de servicios](architecture.md#mapa-de-servicios) · [Frontend](../frontend/README.md)
+Para desarrollar sin Compose, consulta el README del servicio y configura el rol de base de datos y, cuando corresponda, `AUTH_JWT_PUBLIC_KEY_PATH` y `AUTH_IDENTITY_URL` con Auth activo. Para desarrollar solo la interfaz, ejecuta `npm ci` y `npm run dev` desde `frontend/`. En Linux/macOS (o WSL/Git Bash), el [Makefile](../Makefile) de la raíz agrupa atajos equivalentes para los once servicios (`make help`, `make up`, `make compose-config`, `make run-<servicio>`, `make check-docs`, `make test-services`, `make eval-rag-matrix` y `make verify`). [Mapa de servicios](architecture.md#mapa-de-servicios) · [Frontend](../frontend/README.md)
+
+## Resiliencia, solución de problemas y desinstalación segura
+
+- **Caída temporal de PostgreSQL:** los servicios FastAPI exponen `/api/v1/health/db` y reconectan mediante `pool_pre_ping`; si un contenedor queda `unhealthy`, revisa `docker compose logs postgres` y reinicia con `docker compose up -d`.
+- **Caída de Groq o cuota agotada:** el chat devuelve un estado tipificado (`rate_limited`, `auth_error`, `provider_error`) sin bloquear la búsqueda ni la biblioteca. Puedes cambiar a **Ollama local** en `/settings/ai` sin reiniciar servicios.
+- **Ollama no accesible o memoria insuficiente:** verifica que levantaste el perfil `--profile local-llm` (`docker compose -f compose.yaml -f docker/compose/ollama.yml --profile local-llm ps`). Si un modelo de 7B excede la RAM disponible, selecciona un modelo más ligero del catálogo autorizado (`gemma2:2b` o `qwen2.5:3b`).
+- **Desinstalación sin pérdida accidental de datos:**
+  - `docker compose down` detiene y elimina contenedores conservando los volúmenes `postgres_data`, `runtime_secrets`, `auth_signing_keys`, `auth_verification_keys`, `ollama_models` y la carpeta `./documents`.
+  - Solo usa `docker compose down -v` si deseas borrar permanentemente la base de datos y los secretos locales.
+- **Medición de latencias en ejecución real:** con el stack activo, ejecuta `python3 scripts/eval/benchmark_local_budget.py` para registrar mediciones reales en `.release-reports/PERFORMANCE_BUDGET.json`.
