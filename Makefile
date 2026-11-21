@@ -52,7 +52,7 @@ COMPOSE_TEST_SERVICES := \
 	docker-build docker-up docker-up-infra docker-up-documents \
 	run-auth run-chat run-embedding run-search run-access run-library \
 	run-transfer run-conversation run-profile run-export run-drive run-frontend \
-	install lint check-docs \
+	install lint check-docs eval-baseline \
 	test test-auth test-services test-frontend build-frontend \
 	process-pending reindex \
 	verify-prepare verify verify-relations verify-postgres-upgrade verify-images verify-graphs verify-down
@@ -156,6 +156,9 @@ run-frontend: ## Ejecuta el frontend React/Vite en desarrollo
 
 check-docs: ## Valida enlaces Markdown relativos en raíz y docs/
 	$(PYTHON) scripts/ci/check_docs_links.py
+
+eval-baseline: ## Ejecuta el harness sintético S1-S5 y genera .release-reports/EVAL_BASELINE.json
+	$(PYTHON) scripts/eval/run_eval_baseline.py
 
 lint: ## Ejecuta ruff sobre todos los servicios backend y scripts Python
 	ruff check \
