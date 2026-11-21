@@ -164,3 +164,4 @@ def test_typed_provider_statuses_and_local_embedding_independence(monkeypatch):
     assert ok_answer.answer == "OK"
     assert len(ok_answer.sources) == 1
     assert len(retrieval_calls) == 5
+

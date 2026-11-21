@@ -170,3 +170,4 @@ _default_resolver = GroqConfigResolver()
 
 def get_groq_config_resolver() -> GroqConfigResolver:
     return _default_resolver
+
