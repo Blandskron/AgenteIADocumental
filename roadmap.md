@@ -22,13 +22,13 @@ Todas las tareas de este roadmap se marcan exclusivamente con uno de estos tres 
 
 | Fase | Enfoque | Total | Pendiente | En progreso | Terminada |
 | --- | --- | ---: | ---: | ---: | ---: |
-| **Fase 0** | Higiene técnica, historial único y base de evaluación | 4 | 3 | 0 | 1 |
+| **Fase 0** | Higiene técnica, historial único y base de evaluación | 4 | 2 | 0 | 2 |
 | **Fase 1** | Configuración de IA (Groq) desde la web y degradación honesta | 5 | 5 | 0 | 0 |
 | **Fase 2** | Motor RAG híbrido, búsqueda moderna y UX de chat | 5 | 5 | 0 | 0 |
 | **Fase 3** | Ingesta idempotente y fuentes Markdown/ZIP (Opción O1) | 4 | 4 | 0 | 0 |
 | **Fase 4** | Knowledge Studio P0 (artefactos con citas verificadas) | 6 | 6 | 0 | 0 |
 | **Fase 5** | Hardening de seguridad y extensiones P1+ bajo demanda | 5 | 5 | 0 | 0 |
-| **Total** | | **29** | **28** | **0** | **1** |
+| **Total** | | **29** | **27** | **0** | **2** |
 
 ---
 
@@ -79,7 +79,7 @@ Al revisar directamente el código fuente y los esquemas SQL, aparecieron mejora
 | ID | Estado | Prioridad | Ámbito | Tarea y criterio de terminado |
 | --- | --- | --- | --- | --- |
 | `R0-01` | `terminada` | P0 | `docs/plans/`, `docs/` | **Depurar referencias rotas en `docs/plans/` y enlazar `roadmap.md`.** Anotar explícitamente el estado histórico/propuesta de los planes, eliminar o marcar enlaces rotos (`GRAPHRAG_EVALUATION.md`, `BACKLOG.md`, `PROMPT 3`) y referenciar `roadmap.md` desde `docs/maintainers.md`. **Done:** cero enlaces rotos en `docs/`. |
-| `R0-02` | `pendiente` | P1 | `Makefile`, `docs/operations.md` | **Actualizar `Makefile` para reflejar los 11 servicios y el flujo real de desarrollo/verificación.** Incorporar targets coherentes con `docker/docker-compose.yml`, lint/test por servicio y verificación sintética (`bd-final-check`). **Done:** targets probados y alineados con `docs/operations.md`. |
+| `R0-02` | `terminada` | P1 | `Makefile`, `docs/operations.md` | **Actualizar `Makefile` para reflejar los 11 servicios y el flujo real de desarrollo/verificación.** Incorporar targets coherentes con `docker/docker-compose.yml`, lint/test por servicio y verificación sintética (`bd-final-check`). **Done:** targets probados y alineados con `docs/operations.md`. |
 | `R0-03` | `pendiente` | P0 | `RagDocumentChatServices`, `ConversationServices`, `scripts/database/` | **Consolidar fuente de verdad del historial de chat.** Evaluar y migrar la lectura de contexto conversacional de `RagDocumentChatServices` hacia `conversation_messages` (con permiso de lectura acotado al propietario y compatibilidad hacia atrás con `chat_messages` si existen datos previos). **Done:** una sola fuente de historial verificada con tests de aislamiento por usuario. |
 | `R0-04` | `pendiente` | P0 | `scripts/`, `tests/fixtures/` | **Crear corpus sintético de evaluación (`S1`–`S5`) y harness reproducible.** Incluir acta sintética (`S1`), informes numéricos comparativos (`S2`), notas Markdown con wikilinks (`S3`), casos adversariales de prompt-injection/path-traversal/zip-bomb (`S4`) y ruido OCR (`S5`), más script en `scripts/` que ejecute métricas base y emita reporte JSON en `.release-reports/`. **Done:** línea base medida y repetible sin datos personales. |
 
