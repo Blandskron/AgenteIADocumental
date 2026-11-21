@@ -124,3 +124,4 @@ class ManageAISettingsPermissionTests(TestCase):
 
         self.assertTrue(user_can_manage_ai_settings(regular_user, tenant_id=tenant.tenant_id))
         self.assertFalse(user_can_manage_ai_settings(regular_user, tenant_id="other-tenant-id"))
+

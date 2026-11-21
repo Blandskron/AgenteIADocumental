@@ -91,3 +91,4 @@ class SecretsCipher:
                 raise ValueError("SECRETS_PREVIOUS_KEYS must be a JSON object.")
             previous = parsed
         return cls(raw_secret, key_id=key_id, previous=previous)
+

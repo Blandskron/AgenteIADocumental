@@ -57,3 +57,4 @@ class Migration(migrations.Migration):
             reverse_code=remove_manage_ai_settings_permission,
         ),
     ]
+
