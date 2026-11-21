@@ -182,3 +182,4 @@ class GroqIntegrationApiTests(APITestCase):
         settings_resp = self.client.get("/api/integrations/groq/")
         self.assertEqual(settings_resp.data["status"], "connected")
         self.assertEqual(settings_resp.data["last_check"]["result"], "ok")
+
