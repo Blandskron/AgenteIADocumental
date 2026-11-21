@@ -12,3 +12,4 @@ ALTER TABLE public.tenant_integrations
     ADD COLUMN IF NOT EXISTS updated_by_user_id TEXT;
 
 COMMIT;
+
