@@ -96,10 +96,7 @@ export function useChat({
 
     const friendly = providerStatusMessage(payload.providerStatus);
     addMessage(
-      createAssistantMessage(
-        friendly || payload.answer,
-        payload.sources || [],
-      ),
+      createAssistantMessage(friendly || payload.answer, payload.sources || []),
     );
   }
 

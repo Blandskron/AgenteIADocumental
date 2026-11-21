@@ -67,7 +67,9 @@ export function SettingsAIPage({ onNavigate }: PageProps) {
         }
       }
     } catch (caught) {
-      setError(toError(caught).message || "No se pudo cargar la configuración de IA.");
+      setError(
+        toError(caught).message || "No se pudo cargar la configuración de IA.",
+      );
     } finally {
       setLoading(false);
     }
@@ -81,7 +83,9 @@ export function SettingsAIPage({ onNavigate }: PageProps) {
     event.preventDefault();
     const trimmed = apiKeyInput.trim();
     if (!trimmed) {
-      setError("Ingresa una clave API de Groq o usa «Revocar clave» para eliminarla.");
+      setError(
+        "Ingresa una clave API de Groq o usa «Revocar clave» para eliminarla.",
+      );
       return;
     }
     setBusy(true);
@@ -91,9 +95,13 @@ export function SettingsAIPage({ onNavigate }: PageProps) {
       const updated = await putGroqCredentials(authClient, trimmed);
       setApiKeyInput("");
       applySettings(updated);
-      setNotice("Clave cifrada y guardada. Ejecuta «Probar conexión» para validar el modelo.");
+      setNotice(
+        "Clave cifrada y guardada. Ejecuta «Probar conexión» para validar el modelo.",
+      );
     } catch (caught) {
-      setError(toError(caught).message || "No se pudo guardar la clave de Groq.");
+      setError(
+        toError(caught).message || "No se pudo guardar la clave de Groq.",
+      );
     } finally {
       setBusy(false);
     }
@@ -116,7 +124,9 @@ export function SettingsAIPage({ onNavigate }: PageProps) {
       applySettings(updated);
       setNotice("Parámetros de generación actualizados.");
     } catch (caught) {
-      setError(toError(caught).message || "No se pudieron actualizar los parámetros.");
+      setError(
+        toError(caught).message || "No se pudieron actualizar los parámetros.",
+      );
     } finally {
       setBusy(false);
     }
@@ -127,19 +137,28 @@ export function SettingsAIPage({ onNavigate }: PageProps) {
     setError(null);
     setNotice(null);
     try {
-      const result = await testGroqConnection(authClient, modelInput.trim() || undefined);
+      const result = await testGroqConnection(
+        authClient,
+        modelInput.trim() || undefined,
+      );
       if (result.models && result.models.length > 0) {
         setAvailableModels(result.models);
       }
       if (result.result === "ok") {
-        setNotice(`Conexión verificada correctamente con el modelo ${result.model}.`);
+        setNotice(
+          `Conexión verificada correctamente con el modelo ${result.model}.`,
+        );
       } else {
-        setError(result.reason || `La prueba devolvió estado: ${result.result}.`);
+        setError(
+          result.reason || `La prueba devolvió estado: ${result.result}.`,
+        );
       }
       const refreshed = await getGroqSettings(authClient);
       applySettings(refreshed);
     } catch (caught) {
-      setError(toError(caught).message || "Error al probar la conexión con Groq.");
+      setError(
+        toError(caught).message || "Error al probar la conexión con Groq.",
+      );
     } finally {
       setBusy(false);
     }
@@ -154,7 +173,9 @@ export function SettingsAIPage({ onNavigate }: PageProps) {
       setApiKeyInput("");
       setAvailableModels([]);
       applySettings(updated);
-      setNotice("Clave revocada. El chat volverá a .env o modo degradado; los embeddings locales siguen operativos.");
+      setNotice(
+        "Clave revocada. El chat volverá a .env o modo degradado; los embeddings locales siguen operativos.",
+      );
     } catch (caught) {
       setError(toError(caught).message || "No se pudo revocar la clave.");
     } finally {
@@ -178,14 +199,24 @@ export function SettingsAIPage({ onNavigate }: PageProps) {
         />
       }
     >
-      <main id="main-content" tabIndex={-1} className="settings-ai-page blandskron-screen">
+      <main
+        id="main-content"
+        tabIndex={-1}
+        className="settings-ai-page blandskron-screen"
+      >
         <header className="settings-ai-header">
           <div>
             <h1>Configuración de IA</h1>
-            <p>Administra el proveedor de generación (Groq) de tu empresa sin editar archivos ni reiniciar servicios.</p>
+            <p>
+              Administra el proveedor de generación (Groq) de tu empresa sin
+              editar archivos ni reiniciar servicios.
+            </p>
           </div>
           {settings && (
-            <span className={`settings-ai-badge status-${settings.status}`} role="status">
+            <span
+              className={`settings-ai-badge status-${settings.status}`}
+              role="status"
+            >
               {STATUS_LABELS[settings.status] || settings.status}
             </span>
           )}
@@ -194,7 +225,10 @@ export function SettingsAIPage({ onNavigate }: PageProps) {
         {loading && <PageState title="Cargando configuración de IA…" loading />}
 
         {!loading && error && (
-          <div className="settings-ai-alert settings-ai-alert-error" role="alert">
+          <div
+            className="settings-ai-alert settings-ai-alert-error"
+            role="alert"
+          >
             {error}
           </div>
         )}
@@ -206,27 +240,44 @@ export function SettingsAIPage({ onNavigate }: PageProps) {
 
         {!loading && settings && (
           <div className="settings-ai-grid">
-            <section className="settings-ai-card" aria-labelledby="groq-credentials-heading">
+            <section
+              className="settings-ai-card"
+              aria-labelledby="groq-credentials-heading"
+            >
               <div className="settings-ai-card-title">
                 <KeyRound size={18} aria-hidden="true" />
-                <h2 id="groq-credentials-heading">Proveedor Groq (Generación)</h2>
+                <h2 id="groq-credentials-heading">
+                  Proveedor Groq (Generación)
+                </h2>
               </div>
 
               {!settings.encryption_ready && (
                 <p className="settings-ai-hint">
-                  Define <code>SECRETS_ENCRYPTION_KEY</code> en el entorno del servidor para habilitar el guardado cifrado.
+                  Define <code>SECRETS_ENCRYPTION_KEY</code> en el entorno del
+                  servidor para habilitar el guardado cifrado.
                 </p>
               )}
 
               <p className="settings-ai-meta">
                 Huella actual:{" "}
-                <strong>{settings.key_fingerprint ? `•••• ${settings.key_fingerprint}` : "Sin clave guardada"}</strong>
+                <strong>
+                  {settings.key_fingerprint
+                    ? `•••• ${settings.key_fingerprint}`
+                    : "Sin clave guardada"}
+                </strong>
                 {settings.last_check?.at && (
-                  <> · Última verificación: <span>{settings.last_check.result}</span></>
+                  <>
+                    {" "}
+                    · Última verificación:{" "}
+                    <span>{settings.last_check.result}</span>
+                  </>
                 )}
               </p>
 
-              <form onSubmit={handleSaveCredentials} className="settings-ai-form">
+              <form
+                onSubmit={handleSaveCredentials}
+                className="settings-ai-form"
+              >
                 <label htmlFor="groq-api-key-input">Clave API de Groq</label>
                 <input
                   id="groq-api-key-input"
@@ -234,13 +285,21 @@ export function SettingsAIPage({ onNavigate }: PageProps) {
                   autoComplete="new-password"
                   autoCapitalize="off"
                   spellCheck={false}
-                  placeholder={settings.configured ? "•••••••• (escribir para reemplazar)" : "gsk_..."}
+                  placeholder={
+                    settings.configured
+                      ? "•••••••• (escribir para reemplazar)"
+                      : "gsk_..."
+                  }
                   value={apiKeyInput}
                   onChange={(e) => setApiKeyInput(e.target.value)}
                   disabled={busy}
                 />
                 <div className="settings-ai-actions">
-                  <button type="submit" className="btn-primary" disabled={busy || !settings.encryption_ready}>
+                  <button
+                    type="submit"
+                    className="btn-primary"
+                    disabled={busy || !settings.encryption_ready}
+                  >
                     Guardar clave
                   </button>
                   <button
@@ -265,7 +324,10 @@ export function SettingsAIPage({ onNavigate }: PageProps) {
               </form>
             </section>
 
-            <section className="settings-ai-card" aria-labelledby="groq-model-heading">
+            <section
+              className="settings-ai-card"
+              aria-labelledby="groq-model-heading"
+            >
               <div className="settings-ai-card-title">
                 <ShieldCheck size={18} aria-hidden="true" />
                 <h2 id="groq-model-heading">Modelo y parámetros</h2>
@@ -322,7 +384,9 @@ export function SettingsAIPage({ onNavigate }: PageProps) {
                         min={5}
                         max={180}
                         value={timeoutSeconds}
-                        onChange={(e) => setTimeoutSeconds(Number(e.target.value))}
+                        onChange={(e) =>
+                          setTimeoutSeconds(Number(e.target.value))
+                        }
                         disabled={busy}
                       />
                     </label>
@@ -337,17 +401,24 @@ export function SettingsAIPage({ onNavigate }: PageProps) {
               </form>
             </section>
 
-            <section className="settings-ai-card settings-ai-local-card" aria-labelledby="local-e5-heading">
+            <section
+              className="settings-ai-card settings-ai-local-card"
+              aria-labelledby="local-e5-heading"
+            >
               <div className="settings-ai-card-title">
                 <Cpu size={18} aria-hidden="true" />
-                <h2 id="local-e5-heading">Vectorización e indexación (local)</h2>
+                <h2 id="local-e5-heading">
+                  Vectorización e indexación (local)
+                </h2>
               </div>
               <p>
                 Los embeddings se calculan localmente en CPU con{" "}
-                <code>intfloat/multilingual-e5-small</code> (384 dimensiones, sin coste de API).
+                <code>intfloat/multilingual-e5-small</code> (384 dimensiones,
+                sin coste de API).
               </p>
               <p className="settings-ai-meta">
-                Revocar o modificar la clave de Groq no interrumpe la carga, indexación, búsqueda ni biblioteca documental.
+                Revocar o modificar la clave de Groq no interrumpe la carga,
+                indexación, búsqueda ni biblioteca documental.
               </p>
             </section>
           </div>
@@ -356,4 +427,3 @@ export function SettingsAIPage({ onNavigate }: PageProps) {
     </AppShell>
   );
 }
-

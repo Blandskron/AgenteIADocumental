@@ -21,7 +21,10 @@ El usuario autorizó crear/eliminar ramas, hacer commits, integrar y hacer push.
 
 ## Antes de cerrar
 
-- Ejecuta las comprobaciones apropiadas al cambio y registra resultados y limitaciones en el PR. Para frontend: `npm ci`, `npm test`, `npm run build` y navegador cuando corresponda. Para Compose: `docker compose -f docker/docker-compose.yml config --quiet` desde raíz con su configuración requerida.
+- Ejecuta las comprobaciones apropiadas al cambio y registra resultados y limitaciones en el PR:
+  - **Frontend:** `npm run format`, `npm run lint`, `npm run typecheck`, `npm run format:check`, `npm test`, `npm run build` y navegador cuando corresponda.
+  - **Backend Python:** verifica sintaxis e imports sin usar (`ruff check` o análisis AST), y en tests Django de `AuthServices` que consulten modelos `managed = False` (`Tenant*`, `TenantIntegration`) crea y elimina esas tablas compartidas con `connection.schema_editor()` en `setUpClass`/`tearDownClass`.
+  - **Compose y documentación:** `docker compose --env-file ... -f docker/docker-compose.yml config --quiet`, sincroniza las aserciones de variables de entorno en `.github/workflows/ci-fast.yml` si cambian variables de servicios, y ejecuta `python3 scripts/ci/check_docs_links.py`.
 - Usa el proyecto sintético bd-final-check y .env.example para la verificación transversal; no montes archivos o secretos personales. Conserva migraciones y pruebas necesarias para operar instalaciones existentes.
 - Actualiza el README si cambian comandos, variables o recorrido de la demo. Valida enlaces al retirar documentación.
 - No presentes un escaneo histórico como auditoría de otra imagen, ni un proveedor simulado como integración en vivo. Conserva evidencia fechada y disposición de avisos; reconstruye y reevalúa antes de otro despliegue.
