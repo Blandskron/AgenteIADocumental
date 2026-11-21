@@ -3,13 +3,16 @@ import { useAuthContext } from "@/app/providers/AuthProvider.tsx";
 import { appRoutes } from "@/app/router/routes.ts";
 import {
   deleteGroqCredentials,
+  getActiveAIProvider,
   getGroqSettings,
   listGroqModels,
   patchGroqSettings,
   putGroqCredentials,
+  setActiveAIProvider,
   testGroqConnection,
   type GroqSettings,
 } from "@/features/settings-ai/api/settings-ai.api.ts";
+import { OllamaConfigPanel } from "@/features/settings-ai/ui/OllamaConfigPanel.tsx";
 import { PageState } from "@/shared/components/PageState.tsx";
 import { useSidebarState } from "@/shared/hooks/useSidebarState.ts";
 import { AppShell } from "@/shared/layouts/AppShell.tsx";
@@ -30,6 +33,9 @@ export function SettingsAIPage({ onNavigate }: PageProps) {
   const { authClient, currentUser, logout } = useAuthContext();
   const [sidebarOpen, setSidebarOpen] = useSidebarState();
   const [settings, setSettings] = useState<GroqSettings | null>(null);
+  const [activeProvider, setActiveProvider] = useState<"groq" | "ollama">(
+    "groq",
+  );
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -54,8 +60,15 @@ export function SettingsAIPage({ onNavigate }: PageProps) {
     setLoading(true);
     setError(null);
     try {
-      const data = await getGroqSettings(authClient);
+      const [data, providerState] = await Promise.all([
+        getGroqSettings(authClient),
+        getActiveAIProvider(authClient).catch(() => ({
+          active_provider: "groq" as const,
+          available_providers: ["groq", "ollama"] as Array<"groq" | "ollama">,
+        })),
+      ]);
       applySettings(data);
+      setActiveProvider(providerState.active_provider);
       if (data.configured) {
         try {
           const modelsResp = await listGroqModels(authClient);
@@ -208,18 +221,62 @@ export function SettingsAIPage({ onNavigate }: PageProps) {
           <div>
             <h1>Configuración de IA</h1>
             <p>
-              Administra el proveedor de generación (Groq) de tu empresa sin
-              editar archivos ni reiniciar servicios.
+              Elige entre Groq en la nube u Ollama local sin editar archivos ni
+              reiniciar servicios.
             </p>
           </div>
-          {settings && (
-            <span
-              className={`settings-ai-badge status-${settings.status}`}
-              role="status"
+          <div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
+            <button
+              type="button"
+              className={
+                activeProvider === "groq" ? "btn-primary" : "btn-secondary"
+              }
+              disabled={busy}
+              onClick={() => {
+                setBusy(true);
+                setError(null);
+                void setActiveAIProvider(authClient, "groq")
+                  .then((res) => {
+                    setActiveProvider(res.active_provider);
+                    setNotice("Proveedor activo cambiado a Groq.");
+                  })
+                  .catch((caught) => setError(toError(caught).message))
+                  .finally(() => setBusy(false));
+              }}
             >
-              {STATUS_LABELS[settings.status] || settings.status}
-            </span>
-          )}
+              Groq (Nube)
+            </button>
+            <button
+              type="button"
+              className={
+                activeProvider === "ollama" ? "btn-primary" : "btn-secondary"
+              }
+              disabled={busy}
+              onClick={() => {
+                setBusy(true);
+                setError(null);
+                void setActiveAIProvider(authClient, "ollama")
+                  .then((res) => {
+                    setActiveProvider(res.active_provider);
+                    setNotice(
+                      "Proveedor activo cambiado a Ollama local (sin envío a terceros).",
+                    );
+                  })
+                  .catch((caught) => setError(toError(caught).message))
+                  .finally(() => setBusy(false));
+              }}
+            >
+              Ollama (Local)
+            </button>
+            {settings && activeProvider === "groq" && (
+              <span
+                className={`settings-ai-badge status-${settings.status}`}
+                role="status"
+              >
+                {STATUS_LABELS[settings.status] || settings.status}
+              </span>
+            )}
+          </div>
         </header>
 
         {loading && <PageState title="Cargando configuración de IA…" loading />}
@@ -238,7 +295,15 @@ export function SettingsAIPage({ onNavigate }: PageProps) {
           </div>
         )}
 
-        {!loading && settings && (
+        {!loading && activeProvider === "ollama" && (
+          <OllamaConfigPanel
+            authClient={authClient}
+            onNotice={setNotice}
+            onError={setError}
+          />
+        )}
+
+        {!loading && activeProvider === "groq" && settings && (
           <div className="settings-ai-grid">
             <section
               className="settings-ai-card"

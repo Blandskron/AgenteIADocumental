@@ -12,6 +12,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.config.settings import Settings
+from app.infrastructure.ai.llm_provider_factory import LLMProviderConfig
 from app.infrastructure.database.models import TenantIntegrationModel
 
 KEY_ID_PATTERN = re.compile(r"^[A-Za-z0-9_-]{1,32}$")
@@ -170,6 +171,56 @@ class GroqConfigResolver:
             temperature=settings.chat_completion_temperature,
             timeout_seconds=settings.chat_completion_timeout_seconds,
             source="not_configured",
+        )
+
+    def resolve_active_provider(
+        self,
+        session: Session | None,
+        settings: Settings,
+        tenant_id: str | None,
+    ) -> LLMProviderConfig:
+        """Resolves whether the tenant uses local Ollama or Groq, falling back to Groq config."""
+        if session is not None and tenant_id:
+            router_row = session.execute(
+                select(TenantIntegrationModel.status, TenantIntegrationModel.config).where(
+                    TenantIntegrationModel.tenant_id == tenant_id,
+                    TenantIntegrationModel.provider == "ai_router",
+                )
+            ).first()
+            active_provider = (
+                ((router_row.config or {}).get("active_provider") if router_row and router_row.status == "ENABLED" else None)
+                or "groq"
+            )
+            if str(active_provider).strip().lower() == "ollama":
+                ollama_row = session.execute(
+                    select(TenantIntegrationModel.status, TenantIntegrationModel.config).where(
+                        TenantIntegrationModel.tenant_id == tenant_id,
+                        TenantIntegrationModel.provider == "ollama",
+                    )
+                ).first()
+                cfg = (ollama_row.config if ollama_row and isinstance(ollama_row.config, dict) else {}) or {}
+                params = cfg.get("params") if isinstance(cfg.get("params"), dict) else {}
+                raw_base = str(cfg.get("base_url") or "http://ollama:11434").strip().rstrip("/")
+                openai_base = raw_base if raw_base.endswith("/v1") else f"{raw_base}/v1"
+                return LLMProviderConfig(
+                    provider="ollama",
+                    api_key="ollama-local",
+                    model=str(cfg.get("model") or "llama3.2:3b"),
+                    base_url=openai_base,
+                    max_tokens=int(params.get("max_tokens", settings.chat_completion_max_tokens)),
+                    temperature=float(params.get("temperature", settings.chat_completion_temperature)),
+                    timeout_seconds=int(params.get("timeout_seconds", 120)),
+                    allow_local=True,
+                )
+
+        effective_groq = self.resolve(session, settings, tenant_id)
+        return LLMProviderConfig(
+            provider="groq",
+            api_key=effective_groq.api_key,
+            model=effective_groq.model,
+            max_tokens=effective_groq.max_tokens,
+            temperature=effective_groq.temperature,
+            timeout_seconds=effective_groq.timeout_seconds,
         )
 
 

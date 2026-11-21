@@ -32,13 +32,18 @@ services:
     container_name: knowledge-studio-service
     environment:
       STUDIO_ENABLED: ${STUDIO_ENABLED:-false}
+      CORS_ORIGINS: '${STUDIO_CORS_ORIGINS:-["http://localhost:3000","http://127.0.0.1:3000"]}'
       DATABASE_URL: postgresql+psycopg://studio_runtime@postgres:5432/documents_db
       PGPASSWORD: ${STUDIO_DB_PASSWORD:-blandskron-local-studio}
+      AUTH_JWT_PUBLIC_KEY_PATH: /app/auth_keys/public.pem
+      AUTH_JWT_ALGORITHM: RS256
       SECRETS_ENCRYPTION_KEY: ${SECRETS_ENCRYPTION_KEY:-}
       SECRETS_KEY_ID: ${SECRETS_KEY_ID:-v1}
       SECRETS_PREVIOUS_KEYS: ${SECRETS_PREVIOUS_KEYS:-}
     ports:
       - "127.0.0.1:8018:8000"
+    volumes:
+      - auth_verification_keys:/app/auth_keys:ro
     depends_on:
       studio-db-role:
         condition: service_completed_successfully

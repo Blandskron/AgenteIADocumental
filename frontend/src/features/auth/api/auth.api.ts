@@ -107,3 +107,70 @@ export function cookieLogoutRequest(
     },
   );
 }
+
+export interface SetupStatusPayload {
+  needs_setup: boolean;
+  google_login_enabled: boolean;
+  google_client_id: string | null;
+  smtp_configured: boolean;
+}
+
+export interface RegisterPayload {
+  email: string;
+  password: string;
+  username?: string;
+  first_name?: string;
+  last_name?: string;
+  workspace_name?: string;
+}
+
+export function setupStatusRequest() {
+  return httpRequest<SetupStatusPayload>(
+    env.authBaseUrl,
+    "/api/users/setup-status/",
+    { method: "GET" },
+  );
+}
+
+export function registerRequest(payload: RegisterPayload) {
+  return httpRequest<TokenPayload & { is_initial_admin?: boolean }>(
+    env.authBaseUrl,
+    "/api/users/register/",
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    },
+  );
+}
+
+export function passwordResetRequest(email: string) {
+  return httpRequest<{ status?: string; code?: string; detail: string }>(
+    env.authBaseUrl,
+    "/api/users/password-reset/request/",
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email }),
+    },
+  );
+}
+
+export function googleOidcLoginRequest(
+  idToken: string,
+  options: { nonce?: string; redirectUri?: string } = {},
+) {
+  return httpRequest<TokenPayload & { created?: boolean }>(
+    env.authBaseUrl,
+    "/api/users/google/login/",
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        id_token: idToken,
+        nonce: options.nonce || "",
+        redirect_uri: options.redirectUri || "",
+      }),
+    },
+  );
+}

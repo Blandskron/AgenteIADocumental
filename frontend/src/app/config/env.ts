@@ -62,4 +62,8 @@ export const env = {
     "http://localhost:8008",
   ),
   profileBaseUrl: requiredUrl("VITE_PROFILE_BASE_URL", "http://localhost:8015"),
+  knowledgeStudioBaseUrl: requiredUrl(
+    "VITE_KNOWLEDGE_STUDIO_BASE_URL",
+    "http://localhost:8018",
+  ),
 };

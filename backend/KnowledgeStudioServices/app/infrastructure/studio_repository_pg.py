@@ -1,4 +1,4 @@
-"""Repository for Knowledge Studio P0 tables (`studio.*`) using PostgreSQL SKIP LOCKED queue (R7-01)."""
+"""Repository for Knowledge Studio tables (`studio.*`) using PostgreSQL SKIP LOCKED queue (R7-01 / STB-06)."""
 
 from __future__ import annotations
 
@@ -43,6 +43,19 @@ class StudioRepositoryPg:
         )
         self._session.commit()
         return {"collection_id": collection_id, "tenant_id": tenant_id, "title": title.strip(), "visibility": visibility}
+
+    def list_collections(self, *, tenant_id: str, owner_user_id: str, limit: int = 50) -> list[dict[str, Any]]:
+        rows = self._session.execute(
+            text("""
+                SELECT collection_id, tenant_id, owner_user_id, title, description, visibility, created_at
+                FROM studio.collections
+                WHERE tenant_id = :tenant_id AND owner_user_id = :owner_user_id
+                ORDER BY created_at DESC
+                LIMIT :limit
+            """),
+            {"tenant_id": tenant_id, "owner_user_id": owner_user_id, "limit": max(1, min(100, limit))},
+        ).mappings().all()
+        return [dict(r) for r in rows]
 
     def enqueue_job(
         self,
@@ -91,6 +104,37 @@ class StudioRepositoryPg:
         )
         self._session.commit()
         return {"job_id": job_id, "status": "PENDING", "step": "queued"}
+
+    def list_jobs(self, *, tenant_id: str, owner_user_id: str, limit: int = 30) -> list[dict[str, Any]]:
+        rows = self._session.execute(
+            text("""
+                SELECT job_id, collection_id, template_id, model_id, status, step,
+                       error_code, error_message, usage_tokens, created_at, updated_at
+                FROM studio.studio_jobs
+                WHERE tenant_id = :tenant_id AND created_by_user_id = :owner_user_id
+                ORDER BY created_at DESC
+                LIMIT :limit
+            """),
+            {"tenant_id": tenant_id, "owner_user_id": owner_user_id, "limit": max(1, min(100, limit))},
+        ).mappings().all()
+        return [dict(r) for r in rows]
+
+    def cancel_job(self, *, job_id: str, tenant_id: str, owner_user_id: str) -> bool:
+        result = self._session.execute(
+            text("""
+                UPDATE studio.studio_jobs
+                SET cancel_requested = TRUE,
+                    status = CASE WHEN status = 'PENDING' THEN 'CANCELLED' ELSE status END,
+                    updated_at = :now
+                WHERE job_id = :job_id
+                  AND tenant_id = :tenant_id
+                  AND created_by_user_id = :owner_user_id
+                  AND status IN ('PENDING', 'RUNNING')
+            """),
+            {"job_id": job_id, "tenant_id": tenant_id, "owner_user_id": owner_user_id, "now": datetime.now(UTC)},
+        )
+        self._session.commit()
+        return bool(result.rowcount)
 
     def claim_next_pending_job(self) -> dict[str, Any] | None:
         """Atomically claims one PENDING job using PostgreSQL `FOR UPDATE SKIP LOCKED`."""
@@ -153,3 +197,91 @@ class StudioRepositoryPg:
         )
         self._session.commit()
 
+    def save_artifact(
+        self,
+        *,
+        tenant_id: str,
+        owner_user_id: str,
+        collection_id: str,
+        template_id: str,
+        title: str,
+        content: dict[str, Any],
+        document_ids: list[str],
+        groundedness_score: float = 1.0,
+    ) -> dict[str, Any]:
+        artifact_id = str(uuid4())
+        now = datetime.now(UTC)
+        self._session.execute(
+            text("""
+                INSERT INTO studio.artifacts (
+                    artifact_id, tenant_id, owner_user_id, collection_id,
+                    template_id, title, content, status, version, groundedness_score,
+                    created_at, updated_at
+                ) VALUES (
+                    :artifact_id, :tenant_id, :owner_user_id, :collection_id,
+                    :template_id, :title, CAST(:content AS jsonb), 'FRESH', 1, :score,
+                    :now, :now
+                )
+            """),
+            {
+                "artifact_id": artifact_id,
+                "tenant_id": tenant_id,
+                "owner_user_id": owner_user_id,
+                "collection_id": collection_id,
+                "template_id": template_id,
+                "title": title.strip()[:200],
+                "content": json.dumps(content),
+                "score": groundedness_score,
+                "now": now,
+            },
+        )
+        for doc_id in dict.fromkeys(document_ids):
+            self._session.execute(
+                text("""
+                    INSERT INTO studio.artifact_sources (artifact_id, document_id)
+                    VALUES (:artifact_id, :document_id)
+                    ON CONFLICT DO NOTHING
+                """),
+                {"artifact_id": artifact_id, "document_id": doc_id},
+            )
+        self._session.commit()
+        return {
+            "artifact_id": artifact_id,
+            "collection_id": collection_id,
+            "template_id": template_id,
+            "title": title.strip()[:200],
+            "status": "FRESH",
+            "version": 1,
+            "groundedness_score": groundedness_score,
+            "content": content,
+            "document_ids": list(dict.fromkeys(document_ids)),
+            "created_at": now.isoformat(),
+        }
+
+    def list_artifacts(self, *, tenant_id: str, owner_user_id: str, limit: int = 50) -> list[dict[str, Any]]:
+        rows = self._session.execute(
+            text("""
+                SELECT artifact_id, collection_id, template_id, title, status, version,
+                       groundedness_score, content, created_at, updated_at
+                FROM studio.artifacts
+                WHERE tenant_id = :tenant_id AND owner_user_id = :owner_user_id
+                ORDER BY updated_at DESC
+                LIMIT :limit
+            """),
+            {"tenant_id": tenant_id, "owner_user_id": owner_user_id, "limit": max(1, min(100, limit))},
+        ).mappings().all()
+        return [dict(r) for r in rows]
+
+    def get_artifact(self, *, artifact_id: str, tenant_id: str, owner_user_id: str) -> dict[str, Any] | None:
+        row = self._session.execute(
+            text("""
+                SELECT artifact_id, collection_id, template_id, title, status, version,
+                       groundedness_score, content, created_at, updated_at
+                FROM studio.artifacts
+                WHERE artifact_id = :artifact_id
+                  AND tenant_id = :tenant_id
+                  AND owner_user_id = :owner_user_id
+            """),
+            {"artifact_id": artifact_id, "tenant_id": tenant_id, "owner_user_id": owner_user_id},
+        ).mappings().first()
+        return dict(row) if row is not None else None

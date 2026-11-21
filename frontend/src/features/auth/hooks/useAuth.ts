@@ -13,10 +13,13 @@ import {
   userStorageScope,
 } from "@/entities/auth/model/auth.user";
 import {
+  googleOidcLoginRequest,
   loginRequest,
   logoutRequest,
   meRequest,
   refreshTokenRequest,
+  registerRequest,
+  type RegisterPayload,
 } from "@/features/auth/api/auth.api";
 
 export function useAuth() {
@@ -190,6 +193,73 @@ export function useAuth() {
     return userStorageScope(currentUser);
   }, [currentUser]);
 
+  const register = useCallback(async (payload: RegisterPayload) => {
+    const operation = ++generation.current;
+    setIsAuthenticating(true);
+    setLoginError("");
+    try {
+      const response = await registerRequest(payload);
+      if (!mounted.current || operation !== generation.current) return false;
+      const user = normalizeAuthUser(
+        response,
+        payload.username || payload.email,
+      );
+      const next = {
+        sessionId: crypto.randomUUID(),
+        access: response.access,
+        refresh: response.refresh,
+        username: user.username,
+        user,
+      };
+      authRef.current = next;
+      setAuth(next);
+      return true;
+    } catch (caughtError) {
+      const error = toError(caughtError);
+      if (!mounted.current || operation !== generation.current) return false;
+      setLoginError(error.message);
+      return false;
+    } finally {
+      if (mounted.current && operation === generation.current)
+        setIsAuthenticating(false);
+    }
+  }, []);
+
+  const loginWithGoogle = useCallback(
+    async (
+      idToken: string,
+      options: { nonce?: string; redirectUri?: string } = {},
+    ) => {
+      const operation = ++generation.current;
+      setIsAuthenticating(true);
+      setLoginError("");
+      try {
+        const response = await googleOidcLoginRequest(idToken, options);
+        if (!mounted.current || operation !== generation.current) return false;
+        const user = normalizeAuthUser(response, "google-user");
+        const next = {
+          sessionId: crypto.randomUUID(),
+          access: response.access,
+          refresh: response.refresh,
+          username: user.username,
+          user,
+        };
+        authRef.current = next;
+        setAuth(next);
+        return true;
+      } catch (caughtError) {
+        const error = toError(caughtError);
+        if (!mounted.current || operation !== generation.current) return false;
+        setLoginError(error.message);
+        return false;
+      } finally {
+        if (mounted.current && operation === generation.current)
+          setIsAuthenticating(false);
+      }
+    },
+    [],
+  );
+
   return useMemo(
     () => ({
       auth,
@@ -199,6 +269,8 @@ export function useAuth() {
       isAuthenticating,
       loginError,
       login,
+      register,
+      loginWithGoogle,
       refreshAccessToken,
       logout,
       readAuthSession,
@@ -210,6 +282,8 @@ export function useAuth() {
       isAuthenticating,
       loginError,
       login,
+      register,
+      loginWithGoogle,
       refreshAccessToken,
       logout,
       readAuthSession,

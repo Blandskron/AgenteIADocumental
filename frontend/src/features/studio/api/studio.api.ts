@@ -58,3 +58,67 @@ export function exportStudioCsv(
     },
   );
 }
+
+export interface StudioArtifactRecord {
+  artifact_id: string;
+  collection_id: string;
+  template_id: string;
+  title: string;
+  status: string;
+  version: number;
+  groundedness_score: number;
+  content: Record<string, unknown>;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface StudioJobRecord {
+  job_id: string;
+  collection_id: string;
+  template_id: string;
+  status: string;
+  step: string;
+  error_code?: string | null;
+  error_message?: string | null;
+  created_at?: string;
+}
+
+export function listStudioArtifacts(studioClient: MaybeClient) {
+  return requireClient(studioClient)<{ items: StudioArtifactRecord[] }>(
+    "/api/v1/studio/artifacts",
+    { method: "GET" },
+  );
+}
+
+export function createStudioArtifact(
+  studioClient: MaybeClient,
+  payload: {
+    template_id: string;
+    title: string;
+    document_ids: string[];
+    content: Record<string, unknown>;
+  },
+) {
+  return requireClient(studioClient)<StudioArtifactRecord>(
+    "/api/v1/studio/artifacts",
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    },
+  );
+}
+
+export function listStudioJobs(studioClient: MaybeClient) {
+  return requireClient(studioClient)<{ items: StudioJobRecord[] }>(
+    "/api/v1/studio/jobs",
+    { method: "GET" },
+  );
+}
+
+export function cancelStudioJob(studioClient: MaybeClient, jobId: string) {
+  return requireClient(studioClient)<{ job_id: string; cancelled: boolean }>(
+    `/api/v1/studio/jobs/${encodeURIComponent(jobId)}/cancel`,
+    { method: "POST" },
+  );
+}
