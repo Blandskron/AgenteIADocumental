@@ -23,7 +23,8 @@ El usuario autorizó crear/eliminar ramas, hacer commits, integrar y hacer push.
 
 - Ejecuta las comprobaciones apropiadas al cambio y registra resultados y limitaciones en el PR:
   - **Frontend:** `npm run format`, `npm run lint`, `npm run typecheck`, `npm run format:check`, `npm test`, `npm run build` y navegador cuando corresponda.
-  - **Backend Python:** verifica sintaxis e imports sin usar (`ruff check` o análisis AST), y en tests Django de `AuthServices` que consulten modelos `managed = False` (`Tenant*`, `TenantIntegration`) crea y elimina esas tablas compartidas con `connection.schema_editor()` en `setUpClass`/`tearDownClass`.
+  - **Backend Python:** verifica sintaxis, reglas `ruff` (`F401`, `F841`, `E721` — usar `isinstance()` en vez de `type(x) is ...`) y evita imports `from tests.*` en suites pytest; en tests Django de `AuthServices` que consulten modelos `managed = False` (`Tenant*`, `TenantIntegration`, `AuditLog`), crea y elimina esas tablas compartidas con `connection.schema_editor()` en `setUpClass`/`tearDownClass`.
+  - **Base de datos y triggers:** declara cualquier función trigger cross-schema (p. ej. `public.documents` → `studio.artifacts`) con `SECURITY DEFINER SET search_path = ...` para preservar los roles de privilegios mínimos sin errores `InsufficientPrivilege`.
   - **Compose y documentación:** `docker compose --env-file ... -f docker/docker-compose.yml config --quiet`, sincroniza las aserciones de variables de entorno en `.github/workflows/ci-fast.yml` si cambian variables de servicios, y ejecuta `python3 scripts/ci/check_docs_links.py`.
 - Usa el proyecto sintético bd-final-check y .env.example para la verificación transversal; no montes archivos o secretos personales. Conserva migraciones y pruebas necesarias para operar instalaciones existentes.
 - Actualiza el README si cambian comandos, variables o recorrido de la demo. Valida enlaces al retirar documentación.
