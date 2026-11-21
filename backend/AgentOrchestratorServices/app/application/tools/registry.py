@@ -82,3 +82,4 @@ class ToolRegistry:
             return spec.handler(safe_args, user_context)
         except Exception as exc:
             raise RuntimeError(redact_secrets(str(exc))) from None
+

@@ -38,3 +38,4 @@ GRANT SELECT (integration_id, tenant_id, provider, status, config, secrets_encry
 GRANT INSERT ON TABLE public.audit_logs TO agent_runtime;
 
 COMMIT;
+

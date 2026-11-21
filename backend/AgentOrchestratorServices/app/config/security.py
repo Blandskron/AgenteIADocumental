@@ -54,3 +54,4 @@ def require_agent_user(
         "is_superuser": bool(payload.get("is_superuser") or payload.get("is_superadmin")),
         "raw_token": credentials.credentials,
     }
+

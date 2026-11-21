@@ -67,3 +67,4 @@ def list_tools(user: dict[str, Any] = Depends(require_agent_user)) -> dict[str, 
     _require_agents_enabled()
     registry = build_default_registry()
     return {"tenant_id": user["active_tenant_id"], "tools": registry.list_specs()}
+

@@ -59,3 +59,4 @@ CREATE INDEX IF NOT EXISTS agent_runs_tenant_owner_idx
 
 CREATE INDEX IF NOT EXISTS agent_approvals_run_idx
     ON agents.agent_approvals (run_id, decision);
+

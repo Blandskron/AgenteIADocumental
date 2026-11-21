@@ -24,3 +24,4 @@ El patrón **Code Mode** (divulgado por Cloudflare en `@cloudflare/codemode`) pe
 ## 3. Criterios de descarte
 
 - La activación de Code Mode queda bloqueada hasta superar el 100 % de la batería adversarial (`AG-010`: bloqueo de `fetch()` externo, lectura de filesystem/env, bucles infinitos y bombas de memoria).
+

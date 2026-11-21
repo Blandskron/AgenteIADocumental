@@ -16,3 +16,4 @@ Puerto local **8019**.
 - `app/application/tools/registry.py`: catálogo tipado de herramientas de solo lectura con política de capacidades, tope de resultados (`<= 20`) y redacción de secretos.
 - `app/infrastructure/mcp/mcp_client.py`: adaptador cliente MCP JSON-RPC 2.0 que propaga el JWT del usuario hacia `KnowledgeStudioServices /api/v1/mcp`.
 - `app/main.py`: entrypoint FastAPI acotado por `AGENTS_ENABLED`.
+

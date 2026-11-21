@@ -107,3 +107,4 @@ def register_default_mcp_tools(registry: ToolRegistry, mcp_client: McpHttpClient
                 handler=_make_handler(name),
             )
         )
+

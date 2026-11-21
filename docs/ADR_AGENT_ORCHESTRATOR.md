@@ -27,3 +27,4 @@ El chat documental actual (`RagDocumentChatServices`) resuelve consultas *single
 
 - Desactivar `AGENTS_ENABLED=false` o retirar el perfil `--profile agents` restaura el sistema al 100 % sin tocar tablas de `public.*` ni el Chat RAG tradicional.
 - Si los modelos Ollama pequeños (`2b`/`3b`) fallan en *native tool calling*, el adaptador usa fallback JSON estructurado en lugar de exigir llamadas nativas.
+

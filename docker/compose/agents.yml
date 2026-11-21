@@ -60,3 +60,4 @@ services:
         condition: service_completed_successfully
       auth-service:
         condition: service_healthy
+

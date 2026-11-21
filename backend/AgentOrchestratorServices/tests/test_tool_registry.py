@@ -67,3 +67,4 @@ def test_tool_registry_enforces_allowlist_limit_cap_and_secret_redaction() -> No
 
     assert "[REDACTED]" in redact_secrets("Error with Bearer secret.jwt.123 and secrets1.v1.abc")
     assert "secret.jwt.123" not in redact_secrets("Error with Bearer secret.jwt.123")
+
