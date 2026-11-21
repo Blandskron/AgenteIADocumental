@@ -2,7 +2,7 @@
 
 > Estado: especificación de planificación (2026-11-21). Alcance adoptado en [roadmap.md](../../../roadmap.md): **P0** en Fase 4 (`R4-01`–`R4-06`), **P1** evaluable en Fase 5 (`R5-03`–`R5-04`) y elementos multimedia descartados.
 
-Depende del plan **Groq Settings ([GROQ_SETTINGS_DESIGN.md](../core-rag/GROQ_SETTINGS_DESIGN.md), Fase 1)** para credenciales LLM y de **DocumentSearch/Library/Access** para permisos. No introduce dependencias de NotebookLM, Obsidian ni servicios externos obligatorios.
+Depende de la configuración de IA por tenant (Fase 1, implementada en `AuthServices` y `RagDocumentChatServices`) para credenciales LLM y de **DocumentSearch/Library/Access** para permisos. No introduce dependencias de NotebookLM, Obsidian ni servicios externos obligatorios.
 
 ## 1. Problema del usuario
 
@@ -35,7 +35,7 @@ Recorrido verificable (ruta UI propuesta dentro del frontend Feature-Sliced exis
 - **Vacío**: explicación + acción única ("Crear colección", "Generar primer artefacto").
 - **Loading**: job con progreso por pasos y ETA estimada; cancelable.
 - **Fallo**: causa legible (p. ej. "Groq no configurado", "Las fuentes superan el presupuesto de contexto: reduce la selección o usa resumen por secciones"), acciones reintentar/ajustar/cancelar. Sin clave en mensajes.
-- **Degradado honesto**: sin Groq configurado → las funciones de generación muestran banner "Configura un proveedor de IA en Configuración > IA"; las funciones NO-LLM (ver tabla de evidencia guardada, mapas manuales, práctica de quizzes guardados) siguen operativas. Embeddings locales y búsqueda nunca dependen de Groq (invariante de Fase 1 / [GROQ_SETTINGS_DESIGN.md](../core-rag/GROQ_SETTINGS_DESIGN.md)).
+- **Degradado honesto**: sin Groq configurado → las funciones de generación muestran banner "Configura un proveedor de IA en Configuración > IA"; las funciones NO-LLM (ver tabla de evidencia guardada, mapas manuales, práctica de quizzes guardados) siguen operativas. Embeddings locales y búsqueda nunca dependen de Groq (invariante de Fase 1).
 
 ### 3.3 Editor ligero
 Artefactos guardados son editables en Markdown con editor simple (textarea + preview, sin WYSIWYG completo). Reglas:

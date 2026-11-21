@@ -1,6 +1,6 @@
 # Obsidian y fuentes Markdown — opciones y matriz de decision
 
-> Estado: análisis de planificación (2026-11-21). Decisión consolidada en [roadmap.md](../../../roadmap.md): se adopta únicamente **O1 (Markdown/ZIP genérico)** en Fase 3 (`R3-01`–`R3-04`); O2 queda descartada. Evidencia de código en [CURRENT_STATE_AUDIT.md](CURRENT_STATE_AUDIT.md).
+> Estado: análisis de planificación (2026-11-21). Decisión consolidada en [roadmap.md](../../../roadmap.md): se adopta únicamente **O1 (Markdown/ZIP genérico)** en Fase 3 (`R3-01`–`R3-04`); O2 queda descartada.
 
 ## 1. Que es realmente una boveda Obsidian (investigacion)
 

@@ -112,5 +112,5 @@ sequenceDiagram
 
 ## Contratos compartidos con otras fases del roadmap
 
-- **Fase 1 — Groq Settings ([GROQ_SETTINGS_DESIGN.md](../core-rag/GROQ_SETTINGS_DESIGN.md))**: Studio lee credenciales/modelo exclusivamente vía el resolvedor de configuración por tenant definido allí; prohibido leer `.env` propio o localStorage. Los flags de desactivación de conectores no afectan a Studio P0.
+- **Fase 1 — Configuración de IA Groq (implementada)**: Studio leerá credenciales/modelo exclusivamente vía el resolvedor dinámico por tenant (`tenant_integrations` + `SecretsCipher`), sin leer `.env` propio ni `localStorage`. Los flags de desactivación de conectores no afectan a Studio P0.
 - **Fase 5 — MCP futuro (`R5-05` en [roadmap.md](../../../roadmap.md))**: superficie mínima de solo lectura; autorización derivada SIEMPRE del usuario autenticado en la plataforma; auditoría compartida (misma tabla de eventos de auditoría, prefijo `mcp.`); mismo catálogo de plantillas/prompts — ni Studio ni MCP definen prompts propios.

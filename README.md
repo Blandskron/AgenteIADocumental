@@ -31,7 +31,7 @@ cd AgenteIADocumental
 if (-not (Test-Path .env)) { Copy-Item .env.example .env }
 ```
 
-Edita `.env` y configura `POSTGRES_PASSWORD`, `DJANGO_SECRET_KEY`, `INITIAL_ADMIN_USERNAME` e `INITIAL_ADMIN_PASSWORD`. Añade `GROQ_API_KEY` para probar respuestas con el proveedor real. Usa valores propios y conserva el archivo fuera de Git.
+Edita `.env` y configura `POSTGRES_PASSWORD`, `DJANGO_SECRET_KEY`, `INITIAL_ADMIN_USERNAME` e `INITIAL_ADMIN_PASSWORD`. Opcionalmente define `GROQ_API_KEY` (o `SECRETS_ENCRYPTION_KEY` para configurar Groq desde la web en **Configuración IA** sin reiniciar contenedores). Usa valores propios y conserva el archivo fuera de Git.
 
 ```powershell
 docker compose --env-file .env -f docker/docker-compose.yml up -d --build --wait

@@ -4,6 +4,7 @@ import type { Conversation } from "@/entities/conversation/model/types.ts";
 import {
   AppWindow,
   Building2,
+  Cpu,
   FileSearch,
   LogOut,
   MessageSquare,
@@ -77,6 +78,8 @@ export function Sidebar({
   const avatar = usePrivateAvatar(profileClient, profile?.profile_picture_url);
   const isSuperuser = Boolean(user?.isSuperuser || profile?.is_superuser);
   const isAdmin = isTenantAdmin(user);
+  const canManageAiSettings =
+    isSuperuser || hasTenantPermission(user, "manage_ai_settings");
   const canUseChat = isSuperuser || hasTenantPermission(user, "use_chat");
   const canUseIntegrations =
     isSuperuser ||
@@ -105,6 +108,9 @@ export function Sidebar({
       : []),
     ...(isAdmin
       ? [{ route: appRoutes.admin, label: "Administración", icon: Building2 }]
+      : []),
+    ...(canManageAiSettings
+      ? [{ route: appRoutes.settingsAi, label: "Configuración IA", icon: Cpu }]
       : []),
   ];
 

@@ -11,4 +11,5 @@ export const appRoutes = {
   documentFolders: "/documents/folders",
   documentFavorites: "/documents/favorites",
   profile: "/profile",
+  settingsAi: "/settings/ai",
 } as const;
