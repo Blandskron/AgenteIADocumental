@@ -1,9 +1,17 @@
 import json
 
 from django.contrib.auth.models import Permission, User
+from django.db import connection
 from django.test import TestCase
 
-from users.models import Tenant, TenantGroup, TenantGroupPermission, TenantMembership, TenantUserGroup
+from users.models import (
+    Tenant,
+    TenantArea,
+    TenantGroup,
+    TenantGroupPermission,
+    TenantMembership,
+    TenantUserGroup,
+)
 from users.secrets_cipher import SecretDecryptionError, SecretsCipher
 from users.serializers import serialize_user_profile
 from users.views import user_can_manage_ai_settings
@@ -92,6 +100,23 @@ class SecretsCipherTests(TestCase):
 
 
 class ManageAISettingsPermissionTests(TestCase):
+    tenant_models = (Tenant, TenantArea, TenantMembership, TenantGroup, TenantGroupPermission, TenantUserGroup)
+
+    @classmethod
+    def setUpClass(cls):
+        # Django migrations do not create the shared, unmanaged tenant tables.
+        with connection.schema_editor() as schema:
+            for model in cls.tenant_models:
+                schema.create_model(model)
+        super().setUpClass()
+
+    @classmethod
+    def tearDownClass(cls):
+        super().tearDownClass()
+        with connection.schema_editor() as schema:
+            for model in reversed(cls.tenant_models):
+                schema.delete_model(model)
+
     def test_manage_ai_settings_permission_seeded_by_migration(self):
         self.assertTrue(
             Permission.objects.filter(
