@@ -468,3 +468,4 @@ jobs:
               sys.exit(1)
           print("CI Rápido aprobado.")
           PY
+

@@ -108,3 +108,4 @@ jobs:
           else
             gh release create "$RELEASE_TAG" release-bundle/* "${args[@]}"
           fi
+

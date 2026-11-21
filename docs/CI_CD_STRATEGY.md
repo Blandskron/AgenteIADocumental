@@ -141,3 +141,4 @@ Configura dos Rulesets de rama y uno de tags en **Settings → Rules → Ruleset
    git push origin v0.2.0
    ```
    `release.yml` verificará que el commit pertenece a `origin/main`, ejecutará la suite de integración completa y publicará el GitHub Release con reportes y `SHA256SUMS.txt`.
+
