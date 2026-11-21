@@ -10,11 +10,15 @@ BEGIN
        OR NOT has_table_privilege(current_user, 'public.tenant_integrations', 'SELECT')
        OR NOT has_table_privilege(current_user, 'public.tenant_integrations', 'INSERT')
        OR NOT has_table_privilege(current_user, 'public.tenant_integrations', 'UPDATE')
-       OR NOT has_table_privilege(current_user, 'public.tenant_integrations', 'DELETE') THEN
+       OR NOT has_table_privilege(current_user, 'public.tenant_integrations', 'DELETE')
+       OR NOT has_table_privilege(current_user, 'public.audit_logs', 'SELECT')
+       OR NOT has_table_privilege(current_user, 'public.audit_logs', 'INSERT') THEN
         RAISE EXCEPTION 'auth_runtime lacks required application permissions';
     END IF;
 
     IF has_table_privilege(current_user, 'public.documents', 'SELECT')
+       OR has_table_privilege(current_user, 'public.audit_logs', 'DELETE')
+       OR has_table_privilege(current_user, 'public.audit_logs', 'UPDATE')
        OR has_table_privilege(current_user, 'public.django_migrations', 'UPDATE')
        OR has_schema_privilege(current_user, 'public', 'CREATE') THEN
         RAISE EXCEPTION 'auth_runtime has permissions beyond its application scope';

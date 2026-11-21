@@ -25,11 +25,21 @@ from users.ai_integrations import (
     GroqSettingsView,
     GroqTestConnectionView,
 )
+from users.audit_logs import AuditLogListView
+from users.cookie_session import (
+    CookieSessionLoginView,
+    CookieSessionLogoutView,
+    CookieSessionRefreshView,
+)
 
 
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('api/users/', include('users.urls')),
+    path('api/users/session/login/', CookieSessionLoginView.as_view(), name='cookie_session_login'),
+    path('api/users/session/refresh/', CookieSessionRefreshView.as_view(), name='cookie_session_refresh'),
+    path('api/users/session/logout/', CookieSessionLogoutView.as_view(), name='cookie_session_logout'),
+    path('api/audit-logs/', AuditLogListView.as_view(), name='audit_logs_list'),
     path('api/integrations/groq/', GroqSettingsView.as_view(), name='groq_settings'),
     path('api/integrations/groq/credentials/', GroqCredentialsView.as_view(), name='groq_credentials'),
     path('api/integrations/groq/models/', GroqModelsView.as_view(), name='groq_models'),
