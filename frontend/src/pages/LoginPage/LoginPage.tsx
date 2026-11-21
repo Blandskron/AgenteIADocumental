@@ -226,34 +226,34 @@ export function LoginPage() {
             }}
           >
             {mode !== "login" && (
-              <button
+              <Button
                 type="button"
-                className="btn-secondary"
+                variant="ghost"
                 onClick={() => setMode("login")}
               >
                 Ya tengo cuenta
-              </button>
+              </Button>
             )}
             {mode !== "register" && (
-              <button
+              <Button
                 type="button"
-                className="btn-secondary"
+                variant="ghost"
                 onClick={() => setMode("register")}
               >
                 Crear cuenta
-              </button>
+              </Button>
             )}
             {mode !== "reset" && (
-              <button
+              <Button
                 type="button"
-                className="btn-secondary"
+                variant="ghost"
                 onClick={() => {
                   setResetFeedback(null);
                   setMode("reset");
                 }}
               >
                 ¿Olvidaste tu contraseña?
-              </button>
+              </Button>
             )}
           </div>
 
