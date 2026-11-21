@@ -14,3 +14,4 @@ Listas vacías:
 -
 
 Observaciones: El escaneo no contiene cifras de presupuesto ni responsables confirmados. Cualquier cifra de costo o responsable debe marcarse como dato ausente (`gaps[]`) y nunca inventarse.
+

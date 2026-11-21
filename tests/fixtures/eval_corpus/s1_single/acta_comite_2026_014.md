@@ -32,3 +32,4 @@ El comité revisó la migración del índice vectorial de la plataforma document
 ## 5. Riesgos y pendientes
 
 - No se definió aún el presupuesto de tokens diarios por empresa; queda pendiente para la sesión del 2026-05-20.
+

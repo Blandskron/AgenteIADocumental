@@ -23,3 +23,4 @@ python3 scripts/eval/run_eval_baseline.py
 ```
 
 El script valida el corpus, calcula métricas reproducibles de línea base (cobertura léxica, recuperación por subcadena estilo `ILIKE`, chunking por ventana fija y controles adversariales) y escribe el reporte JSON en `.release-reports/EVAL_BASELINE.json`.
+

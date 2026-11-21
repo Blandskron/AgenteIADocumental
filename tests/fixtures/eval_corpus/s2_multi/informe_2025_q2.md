@@ -15,3 +15,4 @@
 ## Observaciones
 
 Nota de revisión: el reporte de auditoría posterior indicó que los documentos indexados en Q1 2025 fueron **1280** (y no 1240 como figura en `INF-2025-Q1`) debido a un lote reindexado el último día del trimestre.
+

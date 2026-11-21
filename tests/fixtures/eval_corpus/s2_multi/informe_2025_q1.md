@@ -15,3 +15,4 @@
 ## Observaciones
 
 Durante Q1 2025 el volumen de documentos creció un 12% frente al trimestre previo. El índice `IVFFlat` presentó caídas de recall en consultas con códigos exactos como `EXP-2025-0091`.
+

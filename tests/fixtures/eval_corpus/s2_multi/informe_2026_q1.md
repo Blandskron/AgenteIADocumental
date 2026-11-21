@@ -15,3 +15,4 @@
 ## Observaciones
 
 La adopción de búsqueda híbrida (vector + FTS) redujo la latencia p95 de 390 ms a 215 ms y elevó la precisión de citas a 96.4%. No se reportó tasa de satisfacción de usuarios en este periodo (dato no medido).
+
