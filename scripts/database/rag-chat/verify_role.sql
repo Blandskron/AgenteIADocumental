@@ -12,7 +12,12 @@ BEGIN
        OR has_any_column_privilege(current_user, 'public.document_embeddings', 'INSERT')
        OR has_any_column_privilege(current_user, 'public.document_assignments', 'UPDATE')
        OR has_any_column_privilege(current_user, 'public.chat_messages', 'UPDATE')
-       OR has_table_privilege(current_user, 'public.chat_messages', 'DELETE') THEN
+       OR has_table_privilege(current_user, 'public.chat_messages', 'DELETE')
+       OR has_column_privilege(current_user, 'public.conversation_messages', 'sources', 'SELECT')
+       OR has_column_privilege(current_user, 'public.conversation_messages', 'metadata', 'SELECT')
+       OR has_any_column_privilege(current_user, 'public.conversation_messages', 'INSERT')
+       OR has_any_column_privilege(current_user, 'public.conversation_messages', 'UPDATE')
+       OR has_table_privilege(current_user, 'public.conversation_messages', 'DELETE') THEN
         RAISE EXCEPTION 'rag_chat_runtime exceeds its permissions';
     END IF;
 END
@@ -22,6 +27,8 @@ INSERT INTO public.chat_messages (session_id, owner_user_id, role, content, sour
 VALUES ('synthetic-role-probe', '42', 'user', 'Synthetic question', '[]')
 RETURNING message_id, created_at;
 
+SELECT message_id, conversation_id, owner_user_id, role, content, created_at
+FROM public.conversation_messages LIMIT 0;
 SELECT document_id, owner_user_id, tenant_id, metadata FROM public.documents LIMIT 0;
 SELECT chunk_id, document_id, chunk_index, chunk_content, embedding, metadata
 FROM public.document_embeddings LIMIT 0;
