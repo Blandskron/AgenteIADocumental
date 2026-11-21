@@ -1,5 +1,7 @@
 # Blandskron Documental
 
+> **Landing oficial (GitHub Pages):** [https://blandskron.github.io/AgenteIADocumental/](https://blandskron.github.io/AgenteIADocumental/) · **Código fuente de la landing:** [index.html](index.html)
+
 Aplicación de código abierto para la gestión y consulta documental, desarrollada por Blandskron. Permite cargar y organizar documentos, buscar por contenido (vectorial + texto completo) y hacer preguntas con respuestas que citan sus fuentes verificables. Desde la interfaz puedes revisar fragmentos recuperados, guardar conversaciones, exportar respuestas a PDF y elegir entre **Groq** (nube) u **Ollama local** sin editar código ni reiniciar contenedores.
 
 La web usa React y TypeScript. Django administra la identidad y once servicios de aplicación cubren el recorrido documental (más el módulo opcional `KnowledgeStudioServices`). La ingesta y el chat calculan embeddings en CPU (`intfloat/multilingual-e5-small`). PostgreSQL 16 con `pgvector` almacena los vectores y el control de acceso se aplica en el servidor antes de construir el contexto.
@@ -13,6 +15,7 @@ La web usa React y TypeScript. Django administra la identidad y once servicios d
 | [Base de datos](scripts/database/README.md) | Esquema, roles de privilegios mínimos, preflight y migraciones. |
 | [Extensibilidad LLM y MCP](docs/ADR_EXTENSIBILITY_LLM_MCP.md) | Proveedores Groq/Ollama/OpenAI-compatible y servidor MCP JSON-RPC 2.0 de solo lectura. |
 | [Skills y documentación](docs/maintainers.md) | Convenciones y rutas de trabajo para colaboradores y agentes. |
+| [Capturas automatizadas](scripts/screenshots/README.md) | Script Playwright para generar capturas reales y publicación en GitHub Pages. |
 | [Frontend](frontend/README.md) | Estructura, convenciones, diseño y pruebas de la interfaz. |
 
 ```mermaid
