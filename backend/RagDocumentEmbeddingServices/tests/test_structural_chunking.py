@@ -64,3 +64,4 @@ def test_markdown_headings_split_sections_and_preserve_section_metadata():
     chunks = creator.execute("doc-md", text)
     sections = [chunk.metadata["section"] for chunk in chunks]
     assert sections == ["Acta Comite", "Decisiones", "Glosario"]
+
