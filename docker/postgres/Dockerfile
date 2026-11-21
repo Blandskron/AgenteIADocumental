@@ -7,7 +7,9 @@ RUN tar -xzf /tmp/gosu.tar.gz --strip-components=1 \
     && CGO_ENABLED=0 GOTOOLCHAIN=local go build -trimpath -mod=readonly -ldflags='-s -w' -o /out/gosu . \
     && cp LICENSE /out/gosu-LICENSE
 
-FROM postgres:16.16-alpine3.24@sha256:81e77a4833487b8132fe4b00bedd39dc3f74b8641e387f19312a48f7de218c2e AS postgres-base
+FROM postgres:16.16-alpine3.24@sha256:1d5b02d3a9941fbd52437db4107f8c52d6297dac553ca1e5c299ebb3756b4857 AS postgres-base
+
+RUN apk upgrade --no-cache
 
 FROM postgres-base AS vector-build
 
