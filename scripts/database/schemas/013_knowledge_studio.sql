@@ -112,7 +112,9 @@ BEGIN
       );
     RETURN COALESCE(NEW, OLD);
 END;
-$$ LANGUAGE plpgsql;
+$$ LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = studio, public;
 
 DROP TRIGGER IF EXISTS documents_mark_studio_artifacts_stale ON public.documents;
 CREATE TRIGGER documents_mark_studio_artifacts_stale

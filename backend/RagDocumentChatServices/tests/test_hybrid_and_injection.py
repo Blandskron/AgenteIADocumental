@@ -15,7 +15,10 @@ def test_rrf_boosts_chunk_ranked_by_both_vector_and_fts():
     c3 = SearchResult("doc-3", "c3", 0, "Otro fragmento", 0.70, "c.md")
 
     fused = fuse_reciprocal_rank([c1, c2, c3], [c2, c3], limit=2)
-    assert [item.chunk_id for item in fused] == ["c2", "c1"]
+    assert [item.chunk_id for item in fused] == ["c2", "c3"]
+
+    fused_single_fts = fuse_reciprocal_rank([c1, c2, c3], [c2], limit=2)
+    assert [item.chunk_id for item in fused_single_fts] == ["c2", "c1"]
 
 
 def test_prompt_uses_untrusted_context_delimiters_and_anti_injection_rules(monkeypatch):
