@@ -6,7 +6,7 @@ import json
 import os
 from typing import Any
 
-from fastapi import Depends, FastAPI, HTTPException, status
+from fastapi import Depends, FastAPI, Header, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 from sqlalchemy import create_engine
@@ -28,7 +28,7 @@ from app.domain.visuals_and_learning import (
 )
 from app.infrastructure.studio_repository_pg import StudioRepositoryPg
 from app.interfaces.mcp_readonly import ReadOnlyMcpDispatcher
-from app.interfaces.mcp_server import handle_mcp_jsonrpc
+from app.interfaces.mcp_server import handle_mcp_jsonrpc, validate_mcp_origin
 
 
 def is_studio_enabled() -> bool:
@@ -299,6 +299,13 @@ def _build_live_mcp_dispatcher(repo: StudioRepositoryPg) -> ReadOnlyMcpDispatche
             owner_user_id=user["user_id"],
             query=query,
             limit=limit,
+            is_superuser=bool(user.get("is_superuser")),
+        )
+        repo.record_mcp_audit_event(
+            action="mcp.search_documents",
+            actor_user_id=user["user_id"],
+            tenant_id=user.get("active_tenant_id"),
+            metadata={"count": len(rows)},
         )
         return {"items": rows, "count": len(rows)}
 
@@ -310,6 +317,13 @@ def _build_live_mcp_dispatcher(repo: StudioRepositoryPg) -> ReadOnlyMcpDispatche
             owner_user_id=user["user_id"],
             document_id=doc_id,
             limit=limit,
+            is_superuser=bool(user.get("is_superuser")),
+        )
+        repo.record_mcp_audit_event(
+            action="mcp.get_document_chunks",
+            actor_user_id=user["user_id"],
+            tenant_id=user.get("active_tenant_id"),
+            metadata={"document_id": doc_id, "count": len(rows)},
         )
         return {"document_id": doc_id, "chunks": rows}
 
@@ -320,6 +334,12 @@ def _build_live_mcp_dispatcher(repo: StudioRepositoryPg) -> ReadOnlyMcpDispatche
             owner_user_id=user["user_id"],
             limit=limit,
         )
+        repo.record_mcp_audit_event(
+            action="mcp.list_studio_artifacts",
+            actor_user_id=user["user_id"],
+            tenant_id=user.get("active_tenant_id"),
+            metadata={"count": len(rows)},
+        )
         return {"items": rows, "count": len(rows)}
 
     def _get_studio_artifact(args: dict[str, Any], user: dict[str, Any]) -> dict[str, Any]:
@@ -328,6 +348,12 @@ def _build_live_mcp_dispatcher(repo: StudioRepositoryPg) -> ReadOnlyMcpDispatche
             artifact_id=artifact_id,
             tenant_id=user["active_tenant_id"],
             owner_user_id=user["user_id"],
+        )
+        repo.record_mcp_audit_event(
+            action="mcp.get_studio_artifact",
+            actor_user_id=user["user_id"],
+            tenant_id=user.get("active_tenant_id"),
+            metadata={"artifact_id": artifact_id, "found": item is not None},
         )
         return {"artifact": item}
 
@@ -344,9 +370,15 @@ def _build_live_mcp_dispatcher(repo: StudioRepositoryPg) -> ReadOnlyMcpDispatche
 @app.post("/api/v1/mcp")
 def mcp_jsonrpc_endpoint(
     payload: dict[str, Any],
+    origin: str | None = Header(default=None),
     user: dict[str, Any] = Depends(require_studio_user),
 ) -> dict[str, Any]:
     _require_enabled()
+    if not validate_mcp_origin(origin, _cors_origins):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Origen no autorizado para MCP Streamable HTTP.",
+        )
     repo = _get_studio_repo()
     dispatcher = _build_live_mcp_dispatcher(repo)
     return handle_mcp_jsonrpc(payload, dispatcher=dispatcher, current_user=user)

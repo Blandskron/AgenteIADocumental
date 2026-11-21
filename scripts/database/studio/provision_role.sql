@@ -34,12 +34,15 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE
     studio.artifact_sources
 TO studio_runtime;
 
-GRANT SELECT (document_id, tenant_id, owner_user_id, filename, status, metadata, updated_at)
+GRANT SELECT (document_id, tenant_id, owner_user_id, filename, mime_type, status, metadata, updated_at)
     ON public.documents TO studio_runtime;
-GRANT SELECT (chunk_id, document_id, chunk_index, chunk_content, metadata)
+GRANT SELECT (chunk_id, document_id, chunk_index, chunk_content, content_tsv, metadata)
     ON public.document_embeddings TO studio_runtime;
+GRANT SELECT (document_id, tenant_id, assigned_to_user_id, assigned_by_user_id, status)
+    ON public.document_assignments TO studio_runtime;
 GRANT SELECT (integration_id, tenant_id, provider, status, config, secrets_encrypted, updated_at)
     ON public.tenant_integrations TO studio_runtime;
+GRANT INSERT ON TABLE public.audit_logs TO studio_runtime;
 
 COMMIT;
 

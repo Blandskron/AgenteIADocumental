@@ -188,6 +188,7 @@ def compute_scopes(files: list[str], force_all: bool) -> dict[str, object]:
     rag_groq = global_infra or any_starts("backend/RagDocumentChatServices/")
     studio_eval = global_infra or any_starts(
         "backend/KnowledgeStudioServices/",
+        "backend/AgentOrchestratorServices/",
         "scripts/eval/",
         "tests/fixtures/eval_corpus/",
     )

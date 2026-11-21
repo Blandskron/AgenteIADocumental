@@ -19,6 +19,7 @@ BEGIN;
 \ir schemas/011_notifications_audit.sql
 \ir schemas/012_document_deletions.sql
 \ir schemas/013_knowledge_studio.sql
+\ir schemas/014_agent_orchestrator.sql
 \ir constraints/001_document_constraints.sql
 \ir migrations/002_library_integrity.sql
 \ir indexes/001_indexes.sql
