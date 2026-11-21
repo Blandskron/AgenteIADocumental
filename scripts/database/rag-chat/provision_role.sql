@@ -33,5 +33,7 @@ GRANT SELECT (chunk_id, document_id, chunk_index, chunk_content, embedding, meta
     ON public.document_embeddings TO rag_chat_runtime;
 GRANT SELECT (document_id, assigned_to_user_id, assigned_by_user_id, status)
     ON public.document_assignments TO rag_chat_runtime;
+GRANT SELECT (integration_id, tenant_id, provider, status, config, secrets_encrypted, updated_at)
+    ON public.tenant_integrations TO rag_chat_runtime;
 
 COMMIT;
