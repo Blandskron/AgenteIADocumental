@@ -245,3 +245,83 @@ def test_database_failure_cannot_persist_half_a_turn(session):
         history.save_turn(chat_id, "Synthetic question", None, [])
     session.rollback()
     assert session.scalar(text("SELECT count(*) FROM chat_messages WHERE session_id = :id"), {"id": chat_id}) == 0
+
+
+def test_history_prefers_conversation_messages_and_enforces_owner_isolation(session):
+    actor = uuid4().int % (2**60) + 1
+    conversation_id = uuid4().hex
+    other_conversation_id = uuid4().hex
+    session.execute(
+        text("INSERT INTO conversations (conversation_id, owner_user_id, title) VALUES (:id, :owner, 'Synthetic')"),
+        [
+            {"id": conversation_id, "owner": str(actor)},
+            {"id": other_conversation_id, "owner": str(actor)},
+        ],
+    )
+    session.execute(
+        text("""
+            INSERT INTO conversation_messages (message_id, conversation_id, owner_user_id, role, content, created_at)
+            VALUES (:message_id, :conversation_id, :owner, :role, :content, NOW() + make_interval(secs => :offset))
+        """),
+        [
+            {
+                "message_id": "m-1",
+                "conversation_id": conversation_id,
+                "owner": str(actor),
+                "role": "user",
+                "content": "Primera pregunta en conversation_messages",
+                "offset": 1,
+            },
+            {
+                "message_id": "m-2",
+                "conversation_id": conversation_id,
+                "owner": str(actor),
+                "role": "assistant",
+                "content": "Respuesta del asistente que no debe inyectarse",
+                "offset": 2,
+            },
+            {
+                "message_id": "m-3",
+                "conversation_id": conversation_id,
+                "owner": str(actor + 1),
+                "role": "user",
+                "content": "Pregunta de otro usuario en el mismo conversation_id",
+                "offset": 3,
+            },
+            {
+                "message_id": "m-4",
+                "conversation_id": other_conversation_id,
+                "owner": str(actor),
+                "role": "user",
+                "content": "Pregunta de otra conversacion del mismo usuario",
+                "offset": 4,
+            },
+            {
+                "message_id": "m-5",
+                "conversation_id": conversation_id,
+                "owner": str(actor),
+                "role": "user",
+                "content": "Segunda pregunta en conversation_messages",
+                "offset": 5,
+            },
+        ],
+    )
+    # Even if legacy rows exist in chat_messages for the same id, conversation_messages is the source of truth.
+    session.execute(
+        text("""
+            INSERT INTO chat_messages (session_id, owner_user_id, role, content, sources)
+            VALUES (:session_id, :owner, 'user', 'Pregunta legacy ignorada', '[]')
+        """),
+        {"session_id": conversation_id, "owner": str(actor)},
+    )
+    session.execute(text("SET LOCAL ROLE rag_chat_runtime"))
+
+    history = ChatHistoryRepositoryPg(session, {"user_id": actor})
+    messages = history.get_user_history(conversation_id, limit=8)
+    assert [m.content for m in messages] == [
+        "Primera pregunta en conversation_messages",
+        "Segunda pregunta en conversation_messages",
+    ]
+
+    foreign_history = ChatHistoryRepositoryPg(session, {"user_id": actor + 2})
+    assert foreign_history.get_user_history(conversation_id, limit=8) == []

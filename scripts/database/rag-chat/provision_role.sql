@@ -25,6 +25,8 @@ $$;
 GRANT SELECT (message_id, session_id, owner_user_id, role, content, created_at),
     INSERT (session_id, owner_user_id, role, content, sources)
     ON public.chat_messages TO rag_chat_runtime;
+GRANT SELECT (message_id, conversation_id, owner_user_id, role, content, created_at)
+    ON public.conversation_messages TO rag_chat_runtime;
 GRANT SELECT (document_id, owner_user_id, tenant_id, metadata)
     ON public.documents TO rag_chat_runtime;
 GRANT SELECT (chunk_id, document_id, chunk_index, chunk_content, embedding, metadata)

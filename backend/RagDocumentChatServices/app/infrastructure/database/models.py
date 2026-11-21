@@ -70,3 +70,14 @@ class ChatMessageModel(Base):
     content: Mapped[str] = mapped_column(Text, nullable=False)
     sources: Mapped[list[dict[str, Any]]] = mapped_column(JSONB, nullable=False, default=list)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class ConversationMessageModel(Base):
+    __tablename__ = "conversation_messages"
+
+    message_id: Mapped[str] = mapped_column(Text, primary_key=True, server_default=FetchedValue())
+    conversation_id: Mapped[str] = mapped_column(Text, nullable=False)
+    owner_user_id: Mapped[str] = mapped_column(Text, nullable=False)
+    role: Mapped[str] = mapped_column(Text, nullable=False)
+    content: Mapped[str] = mapped_column(Text, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
