@@ -37,11 +37,16 @@ def ask(
     )
     if stream:
         def _event_stream():
-            yield f"event: meta\ndata: {json.dumps({'provider_status': response_payload.provider_status, 'sources': [s.model_dump() for s in response_payload.sources]}, ensure_ascii=False)}\n\n"
+            meta_payload = {
+                "provider_status": response_payload.provider_status,
+                "sources": [s.model_dump() for s in response_payload.sources],
+            }
+            yield f"event: meta\ndata: {json.dumps(meta_payload, ensure_ascii=False)}\n\n"
             text = response_payload.answer
             chunk_size = 160
             for offset in range(0, len(text), chunk_size):
-                yield f"event: delta\ndata: {json.dumps({'delta': text[offset : offset + chunk_size]}, ensure_ascii=False)}\n\n"
+                delta_payload = {"delta": text[offset : offset + chunk_size]}
+                yield f"event: delta\ndata: {json.dumps(delta_payload, ensure_ascii=False)}\n\n"
             yield f"event: done\ndata: {json.dumps({'answer': text}, ensure_ascii=False)}\n\n"
 
         return StreamingResponse(_event_stream(), media_type="text/event-stream")

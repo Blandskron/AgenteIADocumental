@@ -20,6 +20,7 @@ import { appRoutes } from "@/app/router/routes.ts";
 import { useConversations } from "@/features/conversations/hooks/useConversations.ts";
 import { openGoogleDrivePicker } from "@/features/google-drive-import/google-picker.ts";
 import { useDriveConnection } from "@/features/google-drive-import/useDriveConnection.ts";
+import { MarkdownBatchImportCard } from "@/features/markdown-import/MarkdownBatchImportCard.tsx";
 import { AppShell } from "@/shared/layouts/AppShell.tsx";
 import { Sidebar } from "@/widgets/Sidebar/Sidebar.tsx";
 
@@ -30,6 +31,7 @@ export function ApplicationsPage({
   const {
     conversationClient,
     currentUser,
+    documentClient,
     googleDriveImportClient,
     profileSessionKey,
     logout,
@@ -169,21 +171,29 @@ export function ApplicationsPage({
             }}
           />
         ) : (
-          <ApplicationsList onNavigate={onNavigate} />
+          <ApplicationsList
+            onNavigate={onNavigate}
+            documentClient={documentClient}
+          />
         )}
       </main>
     </AppShell>
   );
 }
 
-function ApplicationsList({ onNavigate }: PageProps) {
+function ApplicationsList({
+  onNavigate,
+  documentClient,
+}: PageProps & {
+  documentClient: ReturnType<typeof useAuthContext>["documentClient"];
+}) {
   return (
     <section className="applications-content">
       <div className="applications-heading">
         <h1>Aplicaciones</h1>
         <p>
-          Conecta fuentes externas para traer documentos a Blandskron
-          Documental.
+          Conecta fuentes externas o importa colecciones Markdown/ZIP para traer
+          documentos a Blandskron Documental.
         </p>
       </div>
 
@@ -203,6 +213,8 @@ function ApplicationsList({ onNavigate }: PageProps) {
           </span>
           <ChevronRight size={18} />
         </button>
+
+        <MarkdownBatchImportCard documentClient={documentClient} />
       </div>
     </section>
   );

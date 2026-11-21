@@ -97,6 +97,9 @@ export function Sidebar({
         ]
       : []),
     { route: appRoutes.documents, label: "Documentos", icon: FileSearch },
+    ...(canUseChat
+      ? [{ route: appRoutes.studio, label: "Studio", icon: ShieldCheck }]
+      : []),
     ...(canUseIntegrations
       ? [
           {

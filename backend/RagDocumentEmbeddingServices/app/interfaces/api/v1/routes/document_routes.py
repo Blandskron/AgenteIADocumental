@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, File, Form, Header, UploadFile
 
 from app.application.documents.ports.document_reader import DocumentReader
+from app.application.documents.use_cases.import_markdown_batch import ImportMarkdownBatch
 from app.application.documents.use_cases.ingest_existing_document import IngestExistingDocument
 from app.application.documents.use_cases.upload_document import UploadDocument
 from app.config.security import (
@@ -55,6 +56,22 @@ def upload_document(
         storage_path=document.storage_path,
         metadata=document.metadata or {},
     )
+
+
+@router.post("/import-batch")
+def import_markdown_batch(
+    files: list[UploadFile] = File(...),
+    process: bool = Form(default=True),
+    current_user: dict = Depends(require_upload_user),
+    use_case: UploadDocument = Depends(get_upload_document),
+) -> dict:
+    batch_use_case = ImportMarkdownBatch(use_case)
+    base_metadata = build_document_access_metadata(current_user)
+    if len(files) == 1 and (files[0].filename or "").lower().endswith(".zip"):
+        raw = files[0].file.read(25 * 1024 * 1024)
+        return batch_use_case.execute_zip(raw, base_metadata=base_metadata, process=process).to_dict()
+    entries = [(item.filename or "note.md", item.file.read(5 * 1024 * 1024)) for item in files]
+    return batch_use_case.execute_files(entries, base_metadata=base_metadata, process=process).to_dict()
 
 
 @router.post(

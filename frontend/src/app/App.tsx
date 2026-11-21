@@ -38,6 +38,11 @@ const SettingsAIPage = lazy(() =>
     default: module.SettingsAIPage,
   })),
 );
+const StudioPage = lazy(() =>
+  import("@/pages/StudioPage/StudioPage.tsx").then((module) => ({
+    default: module.StudioPage,
+  })),
+);
 
 export function App() {
   return (
@@ -114,6 +119,10 @@ function AppContent() {
 
   if (route === appRoutes.settingsAi) {
     return <SettingsAIPage onNavigate={navigate} />;
+  }
+
+  if (route === appRoutes.studio) {
+    return <StudioPage onNavigate={navigate} />;
   }
 
   return <ChatPage onNavigate={navigate} />;
