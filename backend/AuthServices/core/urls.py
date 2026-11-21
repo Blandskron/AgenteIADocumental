@@ -19,9 +19,21 @@ from django.urls import include, path
 from django.views.generic import RedirectView
 
 
+from users.ai_integrations import (
+    GroqCredentialsView,
+    GroqModelsView,
+    GroqSettingsView,
+    GroqTestConnectionView,
+)
+
+
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('api/users/', include('users.urls')),
+    path('api/integrations/groq/', GroqSettingsView.as_view(), name='groq_settings'),
+    path('api/integrations/groq/credentials/', GroqCredentialsView.as_view(), name='groq_credentials'),
+    path('api/integrations/groq/models/', GroqModelsView.as_view(), name='groq_models'),
+    path('api/integrations/groq/test/', GroqTestConnectionView.as_view(), name='groq_test'),
     path('docs/', include('core.openapi')),
     path('docs/', RedirectView.as_view(pattern_name='swagger-ui', permanent=False)),
     path('', RedirectView.as_view(pattern_name='swagger-ui', permanent=False)),
