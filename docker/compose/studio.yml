@@ -1,0 +1,41 @@
+# Optional Docker Compose overlay for Knowledge Studio P0 (R7-04).
+# Base `docker compose up` remains completely unaffected unless this overlay + profile `studio` are enabled.
+# Usage:
+#   STUDIO_ENABLED=true docker compose --env-file .env -f docker/docker-compose.yml -f docker/compose/studio.yml --profile studio up -d --build
+
+services:
+  studio-db-role:
+    image: ${COMPOSE_PROJECT_NAME}-postgres
+    profiles: ["studio"]
+    pull_policy: never
+    environment:
+      PGPASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+      STUDIO_DB_PASSWORD: ${STUDIO_DB_PASSWORD:-blandskron-local-studio}
+    volumes:
+      - ../../scripts/database/studio:/studio-db:ro
+    command: ["psql", "-h", "postgres", "-U", "postgres", "-d", "documents_db", "-v", "ON_ERROR_STOP=1", "-f", "/studio-db/provision_role.sql"]
+    depends_on:
+      database-schema:
+        condition: service_completed_successfully
+
+  knowledge-studio-service:
+    build:
+      context: ../../backend/KnowledgeStudioServices
+      dockerfile: Dockerfile
+    profiles: ["studio"]
+    container_name: knowledge-studio-service
+    environment:
+      STUDIO_ENABLED: ${STUDIO_ENABLED:-false}
+      DATABASE_URL: postgresql+psycopg://studio_runtime@postgres:5432/documents_db
+      PGPASSWORD: ${STUDIO_DB_PASSWORD:-blandskron-local-studio}
+      SECRETS_ENCRYPTION_KEY: ${SECRETS_ENCRYPTION_KEY:-}
+      SECRETS_KEY_ID: ${SECRETS_KEY_ID:-v1}
+      SECRETS_PREVIOUS_KEYS: ${SECRETS_PREVIOUS_KEYS:-}
+    ports:
+      - "127.0.0.1:8018:8000"
+    depends_on:
+      studio-db-role:
+        condition: service_completed_successfully
+      auth-service:
+        condition: service_healthy
+

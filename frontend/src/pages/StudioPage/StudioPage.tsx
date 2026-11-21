@@ -2,6 +2,7 @@ import type { PageProps } from "@/app/router/useAppRouter.ts";
 import { useAuthContext } from "@/app/providers/AuthProvider.tsx";
 import { appRoutes } from "@/app/router/routes.ts";
 import { SafeMarkdown } from "@/features/chat/ui/SafeMarkdown.tsx";
+import { InteractiveQuizPanel } from "@/features/studio/InteractiveQuizPanel.tsx";
 import { OfflineFlashcardDeck } from "@/features/studio/OfflineFlashcardDeck.tsx";
 import { useSidebarState } from "@/shared/hooks/useSidebarState.ts";
 import { AppShell } from "@/shared/layouts/AppShell.tsx";
@@ -214,6 +215,7 @@ export function StudioPage({ onNavigate }: PageProps) {
               </p>
             </section>
             <OfflineFlashcardDeck />
+            <InteractiveQuizPanel />
           </div>
         )}
       </main>

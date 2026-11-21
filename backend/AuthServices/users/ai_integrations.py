@@ -555,6 +555,17 @@ class GroqTestConnectionView(APIView):
             model=model,
             result=final_result,
         )
+        try:
+            record_audit_log(
+                action="ai_settings_test",
+                resource_type="tenant_integration",
+                resource_id=integration.integration_id if integration else None,
+                actor_user_id=request.user.pk,
+                tenant_id=tenant.tenant_id,
+                metadata={"provider": GROQ_PROVIDER, "model": model, "result": final_result},
+            )
+        except Exception:
+            pass
         return Response(
             {
                 "result": final_result,

@@ -1,6 +1,6 @@
 # Roadmap de Evolución — Blandskron Documental (Etapa 2) — COMPLETADO
 
-> **Estado: 37 / 37 tareas terminadas (100 %).** Todas las fases planificadas (Fases 0–5 + Fase 6 de expansión operativa y extensibilidad) están implementadas y verificadas.
+> **Estado: 45 / 45 tareas terminadas (100 %).** Todas las fases planificadas (Fases 0–7: núcleo RAG híbrido, configuración web de IA, importación Markdown/ZIP, Knowledge Studio P0/P1 completo, persistencia SKIP LOCKED, cuotas por tenant, hardening, auditoría y extensibilidad) están implementadas y verificadas.
 
 **Fecha de cierre de etapa:** 2026-11-21
 
@@ -17,7 +17,8 @@
 | **Fase 4** | Knowledge Studio P0 (artefactos con citas verificadas) | 6 | 0 | 0 | 6 |
 | **Fase 5** | Hardening de seguridad y extensiones P1+ bajo demanda | 5 | 0 | 0 | 5 |
 | **Fase 6** | Expansión operativa, visor de auditoría, OpenAI-compatible/Ollama, MCP y API Studio | 8 | 0 | 0 | 8 |
-| **Total** | | **37** | **0** | **0** | **37** |
+| **Fase 7** | Persistencia SKIP LOCKED, rol `studio_runtime`, cuotas, overlay Studio y Quiz UI | 8 | 0 | 0 | 8 |
+| **Total** | | **45** | **0** | **0** | **45** |
 
 ---
 
@@ -43,3 +44,12 @@
   - `R6-06`: Overlay opcional Docker Compose `docker/compose/ollama.yml` (`--profile local-llm`) sin alterar el stack base.
   - `R6-07`: Componente interactivo `OfflineFlashcardDeck` (SM-2 100 % local en el navegador) integrado en `/studio` + tests unitarios.
   - `R6-08`: Target `make eval-studio`, índice en `docs/maintainers.md` y validación integral.
+- **Fase 7 (`R7-01`–`R7-08`) — `terminada`:**
+  - `R7-01`: Repositorio PostgreSQL `StudioRepositoryPg` con cola atómica `FOR UPDATE SKIP LOCKED` e idempotencia por `(tenant_id, operation_key)`.
+  - `R7-02`: Rol de privilegios mínimos `studio_runtime` (`scripts/database/studio/provision_role.sql` y `verify_role.sql`).
+  - `R7-03`: `StudioQuotaGuard` (cuota diaria de tokens y límite de concurrencia por empresa con rollover diario + tests).
+  - `R7-04`: Overlay Docker Compose opcional `docker/compose/studio.yml` (`--profile studio`) + `Dockerfile` (UID 10018, sin `pip`/`ensurepip`) y `requirements.txt` de `KnowledgeStudioServices`.
+  - `R7-05`: Cliente HTTP frontend `studio.api.ts` + tests unitarios `studio.api.test.js`.
+  - `R7-06`: Panel interactivo `InteractiveQuizPanel` (quizzes citados offline) integrado en `/studio`.
+  - `R7-07`: Auditoría persistente `record_audit_log()` en pruebas de conexión Groq (`ai_settings_test`).
+  - `R7-08`: Validación integral de todos los overlays Compose (`base`, `ollama.yml`, `studio.yml`), backend AST/tests y frontend (`128 / 128` tests + build).

@@ -45,4 +45,3 @@ export function fetchAuditLogs(
     { method: "GET" },
   );
 }
-
