@@ -13,6 +13,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from .audit_logs import record_audit_log
 from .login_protection import WINDOW_SECONDS, _consume, audit_auth_event
 from .models import Tenant, TenantIntegration
 from .secrets_cipher import SecretDecryptionError, SecretsCipher
@@ -327,6 +328,17 @@ class GroqSettingsView(APIView):
             result="ok",
         )
         try:
+            record_audit_log(
+                action="ai_settings_write",
+                resource_type="tenant_integration",
+                resource_id=integration.integration_id,
+                actor_user_id=request.user.pk,
+                tenant_id=tenant.tenant_id,
+                metadata={"provider": GROQ_PROVIDER, "sub_action": "patch_config", "model": config.get("model")},
+            )
+        except Exception:
+            pass
+        try:
             cipher = _get_cipher()
         except ValueError:
             cipher = None
@@ -392,6 +404,17 @@ class GroqCredentialsView(APIView):
             key_fingerprint=fingerprint,
             result="ok",
         )
+        try:
+            record_audit_log(
+                action="ai_settings_write",
+                resource_type="tenant_integration",
+                resource_id=integration.integration_id,
+                actor_user_id=request.user.pk,
+                tenant_id=tenant.tenant_id,
+                metadata={"provider": GROQ_PROVIDER, "sub_action": "put_credentials", "key_fingerprint": fingerprint},
+            )
+        except Exception:
+            pass
         return Response(_serialize_groq_settings(integration, cipher), status=status.HTTP_200_OK)
 
     @extend_schema(
@@ -422,6 +445,17 @@ class GroqCredentialsView(APIView):
             action="delete_credentials",
             result="ok",
         )
+        try:
+            record_audit_log(
+                action="ai_settings_write",
+                resource_type="tenant_integration",
+                resource_id=integration.integration_id if integration else None,
+                actor_user_id=request.user.pk,
+                tenant_id=tenant.tenant_id,
+                metadata={"provider": GROQ_PROVIDER, "sub_action": "delete_credentials"},
+            )
+        except Exception:
+            pass
         try:
             cipher = _get_cipher()
         except ValueError:
@@ -521,6 +555,17 @@ class GroqTestConnectionView(APIView):
             model=model,
             result=final_result,
         )
+        try:
+            record_audit_log(
+                action="ai_settings_test",
+                resource_type="tenant_integration",
+                resource_id=integration.integration_id if integration else None,
+                actor_user_id=request.user.pk,
+                tenant_id=tenant.tenant_id,
+                metadata={"provider": GROQ_PROVIDER, "model": model, "result": final_result},
+            )
+        except Exception:
+            pass
         return Response(
             {
                 "result": final_result,

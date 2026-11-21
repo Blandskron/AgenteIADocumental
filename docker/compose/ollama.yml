@@ -1,0 +1,18 @@
+# Optional Docker Compose overlay for local Ollama LLM (R6-06).
+# Usage:
+#   docker compose --env-file .env -f docker/docker-compose.yml -f docker/compose/ollama.yml --profile local-llm up -d
+
+services:
+  ollama:
+    image: ollama/ollama:latest
+    profiles: ["local-llm"]
+    container_name: blandskron-ollama
+    ports:
+      - "127.0.0.1:11434:11434"
+    volumes:
+      - ollama_models:/root/.ollama
+    restart: unless-stopped
+
+volumes:
+  ollama_models:
+

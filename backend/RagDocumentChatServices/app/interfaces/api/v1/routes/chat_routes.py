@@ -1,4 +1,7 @@
-from fastapi import APIRouter, Depends
+import json
+
+from fastapi import APIRouter, Depends, Query
+from fastapi.responses import StreamingResponse
 
 from app.application.chat.use_cases.ask_document_chat import AskDocumentChat
 from app.interfaces.api.v1.dependencies import get_ask_document_chat
@@ -10,14 +13,15 @@ router = APIRouter()
 @router.post("/ask", response_model=ChatAskResponse)
 def ask(
     payload: ChatAskRequest,
+    stream: bool = Query(default=False),
     use_case: AskDocumentChat = Depends(get_ask_document_chat),
-) -> ChatAskResponse:
+):
     answer = use_case.execute(
         question=payload.question,
         session_id=payload.session_id,
         document_ids=payload.document_ids,
     )
-    return ChatAskResponse(
+    response_payload = ChatAskResponse(
         answer=answer.answer,
         sources=[
             ChatSourceResponse(
@@ -31,3 +35,19 @@ def ask(
         ],
         provider_status=answer.provider_status,
     )
+    if stream:
+        def _event_stream():
+            meta_payload = {
+                "provider_status": response_payload.provider_status,
+                "sources": [s.model_dump() for s in response_payload.sources],
+            }
+            yield f"event: meta\ndata: {json.dumps(meta_payload, ensure_ascii=False)}\n\n"
+            text = response_payload.answer
+            chunk_size = 160
+            for offset in range(0, len(text), chunk_size):
+                delta_payload = {"delta": text[offset : offset + chunk_size]}
+                yield f"event: delta\ndata: {json.dumps(delta_payload, ensure_ascii=False)}\n\n"
+            yield f"event: done\ndata: {json.dumps({'answer': text}, ensure_ascii=False)}\n\n"
+
+        return StreamingResponse(_event_stream(), media_type="text/event-stream")
+    return response_payload

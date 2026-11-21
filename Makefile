@@ -51,8 +51,8 @@ COMPOSE_TEST_SERVICES := \
 	compose-config up down restart ps logs psql \
 	docker-build docker-up docker-up-infra docker-up-documents \
 	run-auth run-chat run-embedding run-search run-access run-library \
-	run-transfer run-conversation run-profile run-export run-drive run-frontend \
-	install lint check-docs eval-baseline \
+	run-transfer run-conversation run-profile run-export run-drive run-studio run-frontend \
+	install lint check-docs eval-baseline eval-studio test-studio \
 	test test-auth test-services test-frontend build-frontend \
 	process-pending reindex \
 	verify-prepare verify verify-relations verify-postgres-upgrade verify-images verify-graphs verify-down
@@ -147,6 +147,9 @@ run-export: ## Ejecuta DocumentExportServices (puerto 8016)
 run-drive: ## Ejecuta GoogleDriveImportServices (puerto 8017)
 	cd backend/GoogleDriveImportServices && uvicorn app.main:app --reload --host 127.0.0.1 --port 8017
 
+run-studio: ## Ejecuta KnowledgeStudioServices opcional (puerto 8018, requiere STUDIO_ENABLED=true)
+	cd backend/KnowledgeStudioServices && STUDIO_ENABLED=true uvicorn app.main:app --reload --host 127.0.0.1 --port 8018
+
 run-frontend: ## Ejecuta el frontend React/Vite en desarrollo
 	cd frontend && npm run dev
 
@@ -159,6 +162,12 @@ check-docs: ## Valida enlaces Markdown relativos en raíz y docs/
 
 eval-baseline: ## Ejecuta el harness sintético S1-S5 y genera .release-reports/EVAL_BASELINE.json
 	$(PYTHON) scripts/eval/run_eval_baseline.py
+
+eval-studio: ## Ejecuta el gate de evaluación de Knowledge Studio y genera .release-reports/STUDIO_EVAL_GATE.json
+	$(PYTHON) scripts/eval/run_studio_eval_gate.py
+
+test-studio: ## Ejecuta las pruebas unitarias de KnowledgeStudioServices
+	PYTHONPATH=backend/KnowledgeStudioServices $(PYTHON) -m pytest -q backend/KnowledgeStudioServices/tests
 
 lint: ## Ejecuta ruff sobre todos los servicios backend y scripts Python
 	ruff check \

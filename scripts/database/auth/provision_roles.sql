@@ -37,6 +37,7 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE
     public.tenants, public.tenant_areas, public.tenant_memberships, public.tenant_groups,
     public.tenant_group_permissions, public.tenant_user_groups, public.tenant_integrations
 TO auth_runtime;
+GRANT SELECT, INSERT ON TABLE public.audit_logs TO auth_runtime;
 
 -- Transfer only Django-owned tables from an existing installation.
 SELECT format('ALTER TABLE public.%I OWNER TO auth_migrate', tablename)

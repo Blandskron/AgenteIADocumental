@@ -1,0 +1,155 @@
+"""Repository for Knowledge Studio P0 tables (`studio.*`) using PostgreSQL SKIP LOCKED queue (R7-01)."""
+
+from __future__ import annotations
+
+from datetime import UTC, datetime
+import json
+from typing import Any
+from uuid import uuid4
+
+from sqlalchemy import text
+from sqlalchemy.orm import Session
+
+
+class StudioRepositoryPg:
+    def __init__(self, session: Session) -> None:
+        self._session = session
+
+    def create_collection(
+        self,
+        *,
+        tenant_id: str,
+        owner_user_id: str,
+        title: str,
+        description: str = "",
+        visibility: str = "private",
+        area_id: str | None = None,
+    ) -> dict[str, Any]:
+        collection_id = str(uuid4())
+        self._session.execute(
+            text("""
+                INSERT INTO studio.collections (collection_id, tenant_id, owner_user_id, area_id, title, description, visibility)
+                VALUES (:id, :tenant_id, :owner_user_id, :area_id, :title, :description, :visibility)
+            """),
+            {
+                "id": collection_id,
+                "tenant_id": tenant_id,
+                "owner_user_id": owner_user_id,
+                "area_id": area_id,
+                "title": title.strip(),
+                "description": description.strip(),
+                "visibility": visibility,
+            },
+        )
+        self._session.commit()
+        return {"collection_id": collection_id, "tenant_id": tenant_id, "title": title.strip(), "visibility": visibility}
+
+    def enqueue_job(
+        self,
+        *,
+        tenant_id: str,
+        collection_id: str,
+        created_by_user_id: str,
+        operation_key: str,
+        template_id: str,
+        model_id: str | None = None,
+        options: dict[str, Any] | None = None,
+        cache_fingerprint: str | None = None,
+    ) -> dict[str, Any]:
+        existing = self._session.execute(
+            text("""
+                SELECT job_id, status, step FROM studio.studio_jobs
+                WHERE tenant_id = :tenant_id AND operation_key = :operation_key
+            """),
+            {"tenant_id": tenant_id, "operation_key": operation_key},
+        ).mappings().first()
+        if existing is not None:
+            return dict(existing)
+
+        job_id = str(uuid4())
+        self._session.execute(
+            text("""
+                INSERT INTO studio.studio_jobs (
+                    job_id, tenant_id, collection_id, created_by_user_id, operation_key,
+                    template_id, model_id, options, cache_fingerprint, status, step
+                ) VALUES (
+                    :job_id, :tenant_id, :collection_id, :created_by_user_id, :operation_key,
+                    :template_id, :model_id, CAST(:options AS jsonb), :cache_fingerprint, 'PENDING', 'queued'
+                )
+            """),
+            {
+                "job_id": job_id,
+                "tenant_id": tenant_id,
+                "collection_id": collection_id,
+                "created_by_user_id": created_by_user_id,
+                "operation_key": operation_key,
+                "template_id": template_id,
+                "model_id": model_id,
+                "options": json.dumps(options or {}),
+                "cache_fingerprint": cache_fingerprint,
+            },
+        )
+        self._session.commit()
+        return {"job_id": job_id, "status": "PENDING", "step": "queued"}
+
+    def claim_next_pending_job(self) -> dict[str, Any] | None:
+        """Atomically claims one PENDING job using PostgreSQL `FOR UPDATE SKIP LOCKED`."""
+        row = self._session.execute(
+            text("""
+                WITH next_job AS (
+                    SELECT job_id
+                    FROM studio.studio_jobs
+                    WHERE status = 'PENDING' AND cancel_requested = FALSE
+                    ORDER BY created_at ASC
+                    FOR UPDATE SKIP LOCKED
+                    LIMIT 1
+                )
+                UPDATE studio.studio_jobs j
+                SET status = 'RUNNING',
+                    step = 'retrieving',
+                    attempts = j.attempts + 1,
+                    heartbeat_at = :now,
+                    updated_at = :now
+                FROM next_job
+                WHERE j.job_id = next_job.job_id
+                RETURNING j.job_id, j.tenant_id, j.collection_id, j.created_by_user_id,
+                          j.template_id, j.model_id, j.options, j.attempts
+            """),
+            {"now": datetime.now(UTC)},
+        ).mappings().first()
+        self._session.commit()
+        return dict(row) if row is not None else None
+
+    def mark_job_finished(
+        self,
+        job_id: str,
+        *,
+        status: str,
+        step: str = "done",
+        error_code: str | None = None,
+        error_message: str | None = None,
+        usage_tokens: int = 0,
+    ) -> None:
+        self._session.execute(
+            text("""
+                UPDATE studio.studio_jobs
+                SET status = :status,
+                    step = :step,
+                    error_code = :error_code,
+                    error_message = :error_message,
+                    usage_tokens = :usage_tokens,
+                    updated_at = :now
+                WHERE job_id = :job_id
+            """),
+            {
+                "job_id": job_id,
+                "status": status,
+                "step": step,
+                "error_code": error_code,
+                "error_message": error_message,
+                "usage_tokens": usage_tokens,
+                "now": datetime.now(UTC),
+            },
+        )
+        self._session.commit()
+

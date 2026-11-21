@@ -38,6 +38,16 @@ const SettingsAIPage = lazy(() =>
     default: module.SettingsAIPage,
   })),
 );
+const StudioPage = lazy(() =>
+  import("@/pages/StudioPage/StudioPage.tsx").then((module) => ({
+    default: module.StudioPage,
+  })),
+);
+const AuditLogsPage = lazy(() =>
+  import("@/pages/AuditLogsPage/AuditLogsPage.tsx").then((module) => ({
+    default: module.AuditLogsPage,
+  })),
+);
 
 export function App() {
   return (
@@ -66,6 +76,7 @@ function AppContent() {
       route === appRoutes.googleDriveApplication) &&
       !canUseIntegrations) ||
     (route === appRoutes.admin && !canAdmin) ||
+    (route === appRoutes.auditLogs && !canAdmin) ||
     (route === appRoutes.settingsAi && !canManageAiSettings);
 
   useEffect(() => {
@@ -114,6 +125,14 @@ function AppContent() {
 
   if (route === appRoutes.settingsAi) {
     return <SettingsAIPage onNavigate={navigate} />;
+  }
+
+  if (route === appRoutes.studio) {
+    return <StudioPage onNavigate={navigate} />;
+  }
+
+  if (route === appRoutes.auditLogs) {
+    return <AuditLogsPage onNavigate={navigate} />;
   }
 
   return <ChatPage onNavigate={navigate} />;

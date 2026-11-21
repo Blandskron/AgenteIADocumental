@@ -68,7 +68,13 @@ class DocumentSearchRepositoryPg:
         )
         statement = self._apply_access_filter(statement)
         if query:
-            statement = statement.filter(DocumentEmbeddingModel.chunk_content.ilike(f"%{query}%"))
+            ts_query = func.websearch_to_tsquery("spanish", query)
+            statement = statement.filter(
+                or_(
+                    DocumentEmbeddingModel.content_tsv.op("@@")(ts_query),
+                    DocumentEmbeddingModel.chunk_content.ilike(f"%{query}%"),
+                )
+            )
 
         total = statement.count()
         rows = statement.order_by(DocumentEmbeddingModel.chunk_index.asc()).offset(offset).limit(limit).all()
@@ -92,9 +98,13 @@ class DocumentSearchRepositoryPg:
             statement = statement.filter(DocumentModel.metadata_.op("->>")("source") == source)
         if query:
             like_query = f"%{query}%"
+            ts_query = func.websearch_to_tsquery("spanish", query)
             matching_chunk_exists = select(1).where(
                 DocumentEmbeddingModel.document_id == DocumentModel.document_id,
-                DocumentEmbeddingModel.chunk_content.ilike(like_query),
+                or_(
+                    DocumentEmbeddingModel.content_tsv.op("@@")(ts_query),
+                    DocumentEmbeddingModel.chunk_content.ilike(like_query),
+                ),
             ).exists()
             statement = statement.filter(or_(DocumentModel.filename.ilike(like_query), matching_chunk_exists))
         return statement
@@ -151,10 +161,17 @@ class DocumentSearchRepositoryPg:
         count = select(func.count(chunk.chunk_id)).where(matches_document).correlate(DocumentModel).scalar_subquery()
         snippet = null()
         if query:
+            ts_query = func.websearch_to_tsquery("spanish", query)
             snippet = (
                 select(chunk.chunk_content)
-                .where(matches_document, chunk.chunk_content.ilike(f"%{query}%"))
-                .order_by(chunk.chunk_index.asc())
+                .where(
+                    matches_document,
+                    or_(
+                        chunk.content_tsv.op("@@")(ts_query),
+                        chunk.chunk_content.ilike(f"%{query}%"),
+                    ),
+                )
+                .order_by(func.ts_rank_cd(chunk.content_tsv, ts_query).desc(), chunk.chunk_index.asc())
                 .limit(1)
                 .correlate(DocumentModel)
                 .scalar_subquery()

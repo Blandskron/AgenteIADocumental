@@ -12,4 +12,6 @@ export const appRoutes = {
   documentFavorites: "/documents/favorites",
   profile: "/profile",
   settingsAi: "/settings/ai",
+  studio: "/studio",
+  auditLogs: "/admin/audit",
 } as const;

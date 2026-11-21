@@ -97,6 +97,9 @@ export function Sidebar({
         ]
       : []),
     { route: appRoutes.documents, label: "Documentos", icon: FileSearch },
+    ...(canUseChat
+      ? [{ route: appRoutes.studio, label: "Studio", icon: ShieldCheck }]
+      : []),
     ...(canUseIntegrations
       ? [
           {
@@ -107,7 +110,10 @@ export function Sidebar({
         ]
       : []),
     ...(isAdmin
-      ? [{ route: appRoutes.admin, label: "Administración", icon: Building2 }]
+      ? [
+          { route: appRoutes.admin, label: "Administración", icon: Building2 },
+          { route: appRoutes.auditLogs, label: "Auditoría", icon: ShieldCheck },
+        ]
       : []),
     ...(canManageAiSettings
       ? [{ route: appRoutes.settingsAi, label: "Configuración IA", icon: Cpu }]

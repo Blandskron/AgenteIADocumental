@@ -43,7 +43,7 @@ La construcción inicial descarga y verifica el modelo E5 de aproximadamente 471
 2. Carga un archivo de texto sintético que diga «El plazo del contrato de prueba es de 97 días». La ingesta calcula los embeddings localmente con los archivos incluidos en la imagen.
 3. Busca el documento, selecciónalo y pregunta «¿Cuál es el plazo del contrato?». Abre una fuente de la respuesta y exporta el mensaje a PDF. Puedes volver a descargarlo desde **Mis PDFs**.
 
-Compose publica los puertos en loopback para desarrollo local. Google Drive es opcional y arranca deshabilitado. Para ejecutar el recorrido integral con Groq simulado y sin credenciales personales, sigue la [guía de verificación](docs/release/README.md).
+Compose publica los puertos en loopback para desarrollo local. Google Drive, Knowledge Studio (`docker/compose/studio.yml`) y Ollama local (`docker/compose/ollama.yml`) son opcionales y arrancan deshabilitados. Desde la web también puedes administrar la configuración de IA por empresa en `/settings/ai`, explorar **Knowledge Studio** en `/studio` y revisar la auditoría en `/admin/audit`. Para ejecutar el recorrido integral con Groq simulado y sin credenciales personales, sigue la [guía de verificación](docs/release/README.md).
 
 ## Colaboración
 
