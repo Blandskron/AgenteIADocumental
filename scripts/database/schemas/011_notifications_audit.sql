@@ -37,8 +37,14 @@ CREATE TABLE IF NOT EXISTS tenant_integrations (
     status TEXT NOT NULL DEFAULT 'DISABLED',
     enabled_for_roles JSONB NOT NULL DEFAULT '[]'::jsonb,
     config JSONB NOT NULL DEFAULT '{}'::jsonb,
+    secrets_encrypted TEXT,
+    updated_by_user_id TEXT,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     CONSTRAINT tenant_integrations_status_check CHECK (status IN ('ENABLED', 'DISABLED')),
     CONSTRAINT tenant_integrations_provider_unique UNIQUE (tenant_id, provider)
 );
+
+ALTER TABLE tenant_integrations
+    ADD COLUMN IF NOT EXISTS secrets_encrypted TEXT,
+    ADD COLUMN IF NOT EXISTS updated_by_user_id TEXT;

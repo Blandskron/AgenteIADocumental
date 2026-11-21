@@ -6,7 +6,11 @@ DO $$
 BEGIN
     IF NOT has_table_privilege(current_user, 'public.auth_user', 'SELECT')
        OR NOT has_table_privilege(current_user, 'public.users_loginattemptbudget', 'INSERT')
-       OR NOT has_table_privilege(current_user, 'public.tenant_memberships', 'UPDATE') THEN
+       OR NOT has_table_privilege(current_user, 'public.tenant_memberships', 'UPDATE')
+       OR NOT has_table_privilege(current_user, 'public.tenant_integrations', 'SELECT')
+       OR NOT has_table_privilege(current_user, 'public.tenant_integrations', 'INSERT')
+       OR NOT has_table_privilege(current_user, 'public.tenant_integrations', 'UPDATE')
+       OR NOT has_table_privilege(current_user, 'public.tenant_integrations', 'DELETE') THEN
         RAISE EXCEPTION 'auth_runtime lacks required application permissions';
     END IF;
 
