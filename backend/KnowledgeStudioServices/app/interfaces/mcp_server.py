@@ -67,6 +67,15 @@ MCP_TOOL_DEFINITIONS: list[dict[str, Any]] = [
 ]
 
 
+def validate_mcp_origin(origin: str | None, allowed_origins: list[str]) -> bool:
+    """Enforces MCP Streamable HTTP Origin validation against DNS rebinding attacks (AG-002)."""
+    if not origin or not origin.strip():
+        return True  # Non-browser CLI/service clients may omit Origin.
+    normalized = origin.strip().rstrip("/").lower()
+    allowed = {item.strip().rstrip("/").lower() for item in allowed_origins if item and item.strip()}
+    return normalized in allowed
+
+
 def _jsonrpc_result(req_id: Any, result: Any) -> dict[str, Any]:
     return {"jsonrpc": "2.0", "id": req_id, "result": result}
 

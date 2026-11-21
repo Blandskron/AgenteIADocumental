@@ -293,20 +293,30 @@ class StudioRepositoryPg:
         owner_user_id: str,
         query: str,
         limit: int = 10,
+        is_superuser: bool = False,
     ) -> list[dict[str, Any]]:
         rows = self._session.execute(
             text("""
-                SELECT document_id, filename, mime_type, status, updated_at
-                FROM public.documents
-                WHERE tenant_id = :tenant_id
-                  AND owner_user_id = :owner_user_id
-                  AND (:q = '' OR filename ILIKE :pattern)
-                ORDER BY updated_at DESC
+                SELECT DISTINCT d.document_id, d.filename, d.mime_type, d.status, d.updated_at
+                FROM public.documents d
+                LEFT JOIN public.document_embeddings e ON e.document_id = d.document_id
+                LEFT JOIN public.document_assignments a
+                  ON a.document_id = d.document_id
+                 AND a.status NOT IN ('CANCELLED', 'EXPIRED')
+                 AND (a.assigned_to_user_id = :owner_user_id OR a.assigned_by_user_id = :owner_user_id)
+                WHERE (:is_superuser = TRUE OR (d.tenant_id = :tenant_id AND (d.owner_user_id = :owner_user_id OR a.document_id IS NOT NULL)))
+                  AND (
+                      :q = ''
+                      OR d.filename ILIKE :pattern
+                      OR (e.content_tsv IS NOT NULL AND e.content_tsv @@ websearch_to_tsquery('spanish', :q))
+                  )
+                ORDER BY d.updated_at DESC
                 LIMIT :limit
             """),
             {
                 "tenant_id": tenant_id,
                 "owner_user_id": owner_user_id,
+                "is_superuser": is_superuser,
                 "q": query,
                 "pattern": f"%{query}%",
                 "limit": max(1, min(20, limit)),
@@ -321,15 +331,19 @@ class StudioRepositoryPg:
         owner_user_id: str,
         document_id: str,
         limit: int = 10,
+        is_superuser: bool = False,
     ) -> list[dict[str, Any]]:
         rows = self._session.execute(
             text("""
                 SELECT e.chunk_id, e.document_id, e.chunk_index, e.chunk_content
                 FROM public.document_embeddings e
                 JOIN public.documents d ON d.document_id = e.document_id
+                LEFT JOIN public.document_assignments a
+                  ON a.document_id = d.document_id
+                 AND a.status NOT IN ('CANCELLED', 'EXPIRED')
+                 AND (a.assigned_to_user_id = :owner_user_id OR a.assigned_by_user_id = :owner_user_id)
                 WHERE d.document_id = :document_id
-                  AND d.tenant_id = :tenant_id
-                  AND d.owner_user_id = :owner_user_id
+                  AND (:is_superuser = TRUE OR (d.tenant_id = :tenant_id AND (d.owner_user_id = :owner_user_id OR a.document_id IS NOT NULL)))
                 ORDER BY e.chunk_index ASC
                 LIMIT :limit
             """),
@@ -337,7 +351,38 @@ class StudioRepositoryPg:
                 "document_id": document_id,
                 "tenant_id": tenant_id,
                 "owner_user_id": owner_user_id,
+                "is_superuser": is_superuser,
                 "limit": max(1, min(20, limit)),
             },
         ).mappings().all()
         return [dict(r) for r in rows]
+
+    def record_mcp_audit_event(
+        self,
+        *,
+        action: str,
+        actor_user_id: str,
+        tenant_id: str | None,
+        metadata: dict[str, Any] | None = None,
+    ) -> None:
+        try:
+            self._session.execute(
+                text("""
+                    INSERT INTO public.audit_logs (
+                        audit_id, tenant_id, actor_user_id, action, resource_type, metadata, created_at
+                    ) VALUES (
+                        :audit_id, :tenant_id, :actor_user_id, :action, 'mcp_tool', CAST(:metadata AS jsonb), :now
+                    )
+                """),
+                {
+                    "audit_id": str(uuid4()),
+                    "tenant_id": tenant_id,
+                    "actor_user_id": actor_user_id,
+                    "action": action[:120],
+                    "metadata": json.dumps(metadata or {}),
+                    "now": datetime.now(UTC),
+                },
+            )
+            self._session.commit()
+        except Exception:
+            self._session.rollback()

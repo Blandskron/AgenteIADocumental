@@ -265,7 +265,7 @@ Se recomienda **una experiencia unificada dentro de `ChatPage`** (selector de mo
 ### Épica E0 — Decisiones arquitectónicas y endurecimiento de base (Fase 0)
 
 - **`AG-001` — Redactar ADR-006 (LangGraph + AgentOrchestratorServices) y ADR-007 (Code Mode Sandbox)**
-  - **Estado:** `[ ]` | **Prioridad:** P0 | **Complejidad:** S | **Dependencias:** Ninguna
+  - **Estado:** `[x]` | **Prioridad:** P0 | **Complejidad:** S | **Dependencias:** Ninguna
   - **Objetivo:** Formalizar las fronteras de responsabilidad, esquema `agents.*`, uso mínimo de `langchain-core` y política de sandbox antes de escribir código.
   - **Descripción técnica:** Crear `docs/ADR_AGENT_ORCHESTRATOR.md` y `docs/ADR_CODE_MODE_SANDBOX.md` con contratos, límites y criterios de descarte.
   - **Archivos/servicios:** `docs/ADR_AGENT_ORCHESTRATOR.md`, `docs/ADR_CODE_MODE_SANDBOX.md`, `docs/maintainers.md`.
@@ -275,7 +275,7 @@ Se recomienda **una experiencia unificada dentro de `ChatPage`** (selector de mo
   - **Riesgos:** Deriva arquitectónica si se empieza a codificar antes de acordar límites.
 
 - **`AG-002` — Endurecer el servidor MCP existente (`Origin`, paridad de permisos y auditoría persistente)**
-  - **Estado:** `[ ]` | **Prioridad:** P0 | **Complejidad:** M | **Dependencias:** `AG-001`
+  - **Estado:** `[x]` | **Prioridad:** P0 | **Complejidad:** M | **Dependencias:** `AG-001`
   - **Objetivo:** Dejar `POST /api/v1/mcp` listo para ser consumido por agentes y clientes MCP modernos sin brechas de seguridad ni de permisos.
   - **Descripción técnica:** Validar header `Origin` contra `CORS_ORIGINS` (403 ante orígenes inválidos); persistir eventos `mcp.*` en `public.audit_logs` (o vía endpoint interno/rol append-only); alinear `search_authorized_documents` y `get_authorized_document_chunks` con FTS y permisos de grupo/asignación activa/tenant admin.
   - **Archivos/servicios:** `backend/KnowledgeStudioServices/app/interfaces/mcp_server.py`, `app/infrastructure/studio_repository_pg.py`, `scripts/database/studio/provision_role.sql`, `tests/test_mcp_jsonrpc_server.py`.
@@ -287,7 +287,7 @@ Se recomienda **una experiencia unificada dentro de `ChatPage`** (selector de mo
 ### Épica E1 — Esquema `agents.*`, rol de mínimos privilegios y catálogo de herramientas (Fase 1)
 
 - **`AG-003` — Crear esquema SQL aislado `agents.*` y rol PostgreSQL `agent_runtime`**
-  - **Estado:** `[ ]` | **Prioridad:** P0 | **Complejidad:** M | **Dependencias:** `AG-001`
+  - **Estado:** `[x]` | **Prioridad:** P0 | **Complejidad:** M | **Dependencias:** `AG-001`
   - **Objetivo:** Persistir ejecuciones, aprobaciones, cuotas y checkpoints de LangGraph en PostgreSQL existente con aislamiento total respecto a `public.documents`.
   - **Descripción técnica:** Añadir `scripts/database/schemas/014_agent_orchestrator.sql` (`agents.agent_runs`, `agents.agent_approvals`, `agents.agent_usage_daily` + soporte para tablas de checkpoints de LangGraph) y `scripts/database/agents/{provision_role.sql,verify_role.sql}` otorgando a `agent_runtime` privilegios únicamente en `agents.*` y lectura mínima de `tenant_integrations` (o vía AuthServices).
   - **Archivos/servicios:** `scripts/database/schemas/014_agent_orchestrator.sql`, `scripts/database/run_all.sql`, `scripts/database/agents/*`, `scripts/database/tests/agents_schema_integrity.sql`.
@@ -297,7 +297,7 @@ Se recomienda **una experiencia unificada dentro de `ChatPage`** (selector de mo
   - **Riesgos:** Conflicto de privilegios en `pg_dump`/restauración (validar con `verify_postgres_upgrade.mjs`).
 
 - **`AG-004` — Crear estructura base de `AgentOrchestratorServices` y overlay `docker/compose/agents.yml`**
-  - **Estado:** `[ ]` | **Prioridad:** P0 | **Complejidad:** M | **Dependencias:** `AG-003`
+  - **Estado:** `[x]` | **Prioridad:** P0 | **Complejidad:** M | **Dependencias:** `AG-003`
   - **Objetivo:** Levantar el esqueleto hexagonal del servicio opcional (`AGENTS_ENABLED=false`, puerto `8019`, perfil `--profile agents`) sin afectar el stack base.
   - **Descripción técnica:** Crear `backend/AgentOrchestratorServices/` (`Dockerfile` non-root sin `pip`, `requirements.txt` pineado, `app/config/security.py` con JWT RS256 + `/api/users/me/`, `app/main.py` con `/api/v1/health` y gate `503` cuando `AGENTS_ENABLED=false`), y `docker/compose/agents.yml`.
   - **Archivos/servicios:** `backend/AgentOrchestratorServices/*`, `docker/compose/agents.yml`, `scripts/ci/detect_changes.py`.
@@ -307,7 +307,7 @@ Se recomienda **una experiencia unificada dentro de `ChatPage`** (selector de mo
   - **Riesgos:** Romper aserciones de `compose-contract` en `ci-fast.yml` (mantener overlay separado).
 
 - **`AG-005` — Implementar catálogo interno de herramientas y cliente MCP con propagación JWT**
-  - **Estado:** `[ ]` | **Prioridad:** P0 | **Complejidad:** M | **Dependencias:** `AG-002`, `AG-004`
+  - **Estado:** `[x]` | **Prioridad:** P0 | **Complejidad:** M | **Dependencias:** `AG-002`, `AG-004`
   - **Objetivo:** Centralizar las herramientas autorizadas de solo lectura reutilizando `POST /api/v1/mcp` y las APIs documentales existentes.
   - **Descripción técnica:** Implementar `ToolRegistry` con política de capacidades explícita (`read_only=True`, timeout, tope de resultados, esquema Pydantic) y `McpClientAdapter` que propaga el `Authorization: Bearer <user_jwt>` hacia `KnowledgeStudioServices` y `DocumentSearchServices`.
   - **Archivos/servicios:** `backend/AgentOrchestratorServices/app/application/tools/registry.py`, `app/infrastructure/mcp/mcp_client.py`, `tests/test_tool_registry.py`.

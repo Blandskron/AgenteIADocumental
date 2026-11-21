@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 
 from app.interfaces.mcp_readonly import ReadOnlyMcpDispatcher
-from app.interfaces.mcp_server import handle_mcp_jsonrpc
+from app.interfaces.mcp_server import handle_mcp_jsonrpc, validate_mcp_origin
 
 
 def _make_dispatcher() -> ReadOnlyMcpDispatcher:
@@ -88,4 +88,13 @@ def test_mcp_jsonrpc_lifecycle_read_only_limits_and_auth() -> None:
         current_user=user,
     )
     assert write_attempt["error"]["code"] == -32601
+
+
+def test_mcp_origin_validation_blocks_dns_rebinding() -> None:
+    allowed = ["http://localhost:3000", "http://127.0.0.1:3000"]
+    assert validate_mcp_origin(None, allowed) is True
+    assert validate_mcp_origin("http://localhost:3000", allowed) is True
+    assert validate_mcp_origin("http://127.0.0.1:3000/", allowed) is True
+    assert validate_mcp_origin("https://evil.example", allowed) is False
+    assert validate_mcp_origin("http://localhost:9999", allowed) is False
 
