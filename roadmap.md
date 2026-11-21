@@ -3,7 +3,7 @@
 > Documento vivo de ejecución para llevar **Blandskron Documental** al siguiente nivel: plataforma documental inteligente, configurable desde la web, con recuperación híbrida de alta precisión y generación de artefactos verificables con evidencia.
 
 **Última actualización:** 2026-11-21  
-**Estado actual:** **Fase 0 y Fase 1 completadas (9 / 29 tareas terminadas)** — Siguiente bloque: **Fase 2 (Motor RAG híbrido, búsqueda moderna y UX de chat)**.
+**Estado actual:** **Fase 0 y Fase 1 completadas + `R2-01` terminada (10 / 29 tareas terminadas)** — En curso: **Fase 2 (Motor RAG híbrido, búsqueda moderna y UX de chat)**.
 
 ---
 
@@ -21,11 +21,11 @@
 | --- | --- | ---: | ---: | ---: | ---: |
 | **Fase 0** | Higiene técnica, historial único y base de evaluación | 4 | 0 | 0 | 4 |
 | **Fase 1** | Configuración de IA (Groq) desde la web y degradación honesta | 5 | 0 | 0 | 5 |
-| **Fase 2** | Motor RAG híbrido, búsqueda moderna y UX de chat | 5 | 5 | 0 | 0 |
+| **Fase 2** | Motor RAG híbrido, búsqueda moderna y UX de chat | 5 | 4 | 0 | 1 |
 | **Fase 3** | Ingesta idempotente y fuentes Markdown/ZIP (Opción O1) | 4 | 4 | 0 | 0 |
 | **Fase 4** | Knowledge Studio P0 (artefactos con citas verificadas) | 6 | 6 | 0 | 0 |
 | **Fase 5** | Hardening de seguridad y extensiones P1+ bajo demanda | 5 | 5 | 0 | 0 |
-| **Total** | | **29** | **20** | **0** | **9** |
+| **Total** | | **29** | **19** | **0** | **10** |
 
 ---
 
@@ -63,7 +63,7 @@
 
 | ID | Estado | Prioridad | Ámbito | Tarea y criterio de terminado |
 | --- | --- | --- | --- | --- |
-| `R2-01` | `pendiente` | P0 | `RagDocumentEmbeddingServices` | **Chunking estructural y metadatos de página/sección.** Mejorar `CreateDocumentEmbeddings` para trocear respetando límites de secciones, párrafos y oraciones (manteniendo `MAX_CHUNK_SIZE` y `CHUNK_OVERLAP`), y refactorizar `PdfExtractor` / `DocxExtractor` para emitir `metadata.page` y `metadata.section` estructurados en cada chunk. **Done:** tests unitarios y mejora verificable en `S1`–`S2`. |
+| `R2-01` | `terminada` | P0 | `RagDocumentEmbeddingServices` | **Chunking estructural y metadatos de página/sección.** Mejorar `CreateDocumentEmbeddings` para trocear respetando límites de secciones, párrafos y oraciones (manteniendo `MAX_CHUNK_SIZE` y `CHUNK_OVERLAP`), y refactorizar `PdfExtractor` / `DocxExtractor` para emitir `metadata.page` y `metadata.section` estructurados en cada chunk. **Done:** tests unitarios y mejora verificable en `S1`–`S2`. |
 | `R2-02` | `pendiente` | P0 | `scripts/database/` | **Índices HNSW para pgvector y Full-Text Search (`tsvector` GIN).** Crear migración SQL que reemplace `ivfflat` por `HNSW` (`vector_cosine_ops`) en `document_embeddings` y añada columna generada `content_tsv tsvector` + índice GIN (y trigram para `documents.filename`). **Done:** migración probada en BD limpia y en restauración PostgreSQL (`verify_postgres_upgrade.mjs`). |
 | `R2-03` | `pendiente` | P0 | `RagDocumentChatServices`, `DocumentSearchServices` | **Recuperación híbrida (vector + FTS + RRF) y modernización de búsqueda.** Combinar distancia coseno pgvector + `ts_rank_cd` mediante Reciprocal Rank Fusion en `RagDocumentChatServices`, y reemplazar `ILIKE '%query%'` en `DocumentSearchServices` por búsqueda FTS indexada con snippets resaltados (y opción de modo semántico/híbrido). **Done:** mejora demostrada sobre el harness `R0-04` (especialmente códigos, cifras y términos exactos) manteniendo intacto `_apply_access_filter`. |
 | `R2-04` | `pendiente` | P0 | `RagDocumentChatServices` | **Blindaje anti prompt-injection y citas estructuradas en chat.** Separar explícitamente el contexto documental con delimitadores de datos no confiables en `GroqLLMProvider`, reforzar `_system_prompt` para prohibir seguir instrucciones embebidas en documentos y exigir referencias verificables `[Fuente N]` sin alucinar información faltante. **Done:** suite adversarial `S4` aprobada con 0 ejecuciones de inyección. |
