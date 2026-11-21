@@ -38,3 +38,4 @@ write_secret "django_secret_key" "${DJANGO_SECRET_KEY:-}" 32
 write_secret "secrets_encryption_key" "${SECRETS_ENCRYPTION_KEY:-}" 24
 
 echo "Blandskron runtime secrets initialized."
+
