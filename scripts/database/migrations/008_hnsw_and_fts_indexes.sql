@@ -36,3 +36,4 @@ CREATE INDEX IF NOT EXISTS document_embeddings_embedding_cosine_idx
     WITH (m = 16, ef_construction = 64);
 
 COMMIT;
+
