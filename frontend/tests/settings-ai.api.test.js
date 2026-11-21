@@ -70,3 +70,4 @@ test("settings-ai API adapter calls expected endpoints and never stores secrets"
   const revoked = await deleteGroqCredentials(delMock.client);
   assert.equal(revoked.configured, false);
 });
+

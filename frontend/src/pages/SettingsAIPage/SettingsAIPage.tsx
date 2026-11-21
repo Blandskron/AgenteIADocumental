@@ -356,3 +356,4 @@ export function SettingsAIPage({ onNavigate }: PageProps) {
     </AppShell>
   );
 }
+
