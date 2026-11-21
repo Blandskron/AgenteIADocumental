@@ -102,17 +102,7 @@ Configura dos Rulesets de rama y uno de tags en **Settings → Rules → Ruleset
 
 ---
 
-## 5. Plan seguro de migración para PR #97
-
-1. Publicar la rama `develop` (ya creada desde `main` `055a85d`): `git push -u origin develop`.
-2. Integrar `feature/ci-cd-optimization` en `main` (y avanzar `develop` a `main`) actualizando los Required Status Checks según la sección 4.
-3. En GitHub, editar **PR #97** (`rag-core-evolution-audit-6ac6c`) y cambiar su rama base de `main` a `develop`.
-   - Como `develop` comparte ancestro con `main`, el diff de PR #97 permanece idéntico (solo `docs/` y `roadmap.md`).
-   - PR #97 ejecutará `ci-fast-gate` (validando `docs-links` en ~20–30 s) y podrá integrarse a `develop` sin quedar bloqueado por el escaneo de imágenes Docker.
-
----
-
-## 6. Comparación de tiempos (antes vs objetivo tras migración)
+## 5. Comparación de tiempos de CI
 
 | Escenario | Antes (medido) | Después (estimado con caché) | Mejora |
 | --- | ---: | ---: | ---: |
@@ -126,7 +116,7 @@ Configura dos Rulesets de rama y uno de tags en **Settings → Rules → Ruleset
 
 ---
 
-## 7. Flujo diario para desarrolladores y agentes
+## 6. Flujo diario para desarrolladores y agentes
 
 1. Actualiza `develop` y crea una rama temporal:
    ```bash

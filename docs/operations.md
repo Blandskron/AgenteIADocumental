@@ -1,16 +1,15 @@
 # Operación local
 
-La instalación soportada usa Docker Compose y publica web, APIs y PostgreSQL en loopback. Ejecuta los comandos desde la raíz y usa `--env-file .env` para que los archivos incluidos por Compose reciban la configuración. La [verificación de entrega](release/README.md) usa un proyecto y credenciales sintéticas independientes.
+La instalación soportada usa Docker Compose desde la raíz (`docker compose up -d --build`) y publica web, APIs y PostgreSQL en loopback (`127.0.0.1`). No necesitas crear `.env` manualmente para arrancar: `secrets-init` genera secretos aleatorios fuertes en el volumen persistente `runtime_secrets` y respeta cualquier `.env` ya existente. La [verificación de entrega](release/README.md) usa un proyecto y credenciales sintéticas independientes.
 
 ## Configuración y diagnóstico
 
 | Variable o función | Operación |
 | --- | --- |
-| `POSTGRES_PASSWORD` | Configura la contraseña del operador PostgreSQL. Con un volumen existente conserva el valor vigente y usa el procedimiento de rotación si necesitas cambiarlo. |
-| `DJANGO_SECRET_KEY` | Genera un secreto aleatorio propio para Auth. |
-| `INITIAL_ADMIN_USERNAME`, `INITIAL_ADMIN_PASSWORD`, `INITIAL_ADMIN_EMAIL` | Define el administrador inicial con una contraseña válida para Django. El correo es opcional. Si ya existe un superusuario, se conservan su contraseña, estado y privilegios. Si el nombre corresponde a una cuenta normal y todavía falta un superusuario, el bootstrap falla. Retira las variables iniciales tras completar el alta. |
-| `GROQ_API_KEY` | Configura una clave de desarrollo para probar el chat con Groq (fallback de entorno). También puede gestionarse por empresa desde **Configuración IA** (`/settings/ai`) sin reiniciar contenedores. Usa documentos sintéticos porque la pregunta y el contexto recuperado se envían al proveedor. |
-| `SECRETS_ENCRYPTION_KEY`, `SECRETS_KEY_ID`, `SECRETS_PREVIOUS_KEYS` | Llavero Fernet (`secrets1.`) para cifrar en reposo credenciales de IA guardadas desde `/settings/ai` en `tenant_integrations`. Requiere una clave maestra aleatoria de al menos 32 caracteres (sin prefijos de ejemplo). |
+| `POSTGRES_PASSWORD`, `DJANGO_SECRET_KEY`, `SECRETS_ENCRYPTION_KEY` | Opcionales en desarrollo local (generadas automáticamente en `runtime_secrets` si faltan). En instalaciones existentes con `.env`, se conservan y aplican sus valores vigentes. |
+| `ALLOW_WEB_SETUP`, `INITIAL_ADMIN_*` | Con `ALLOW_WEB_SETUP=true` (por defecto en Compose), si no defines `INITIAL_ADMIN_USERNAME`/`INITIAL_ADMIN_PASSWORD`, puedes crear la primera cuenta administradora desde `http://localhost:3000`. |
+| `GOOGLE_OIDC_CLIENT_ID`, `EMAIL_HOST` | Opcionales y deshabilitadas por defecto. `GOOGLE_OIDC_CLIENT_ID` habilita Google Login (OIDC); `EMAIL_HOST` habilita recuperación de contraseña por correo. |
+| `GROQ_API_KEY`, `OLLAMA_BASE_URL` | Puedes elegir **Groq** u **Ollama local** desde `/settings/ai` sin reiniciar servicios. `GROQ_API_KEY` actúa como fallback de entorno; `OLLAMA_BASE_URL` apunta por defecto a `http://ollama:11434` con el perfil `--profile local-llm`. |
 | `POSTGRES_HOST_PORT` | Si el puerto local 5432 está ocupado, usa por ejemplo `15432`. Los servicios mantienen 5432 dentro de Compose. |
 | `EMBEDDING_UID`, `EMBEDDING_GID`, `ACCESS_UID`, `ACCESS_GID` | En un directorio documental existente, configura el UID/GID para que ambos servicios puedan acceder con los permisos actuales. El inicializador asigna propietario en un directorio nuevo vacío y conserva los archivos y permisos existentes. |
 | `GOOGLE_DRIVE_ENABLED`, `DRIVE_DB_PASSWORD` | Drive arranca deshabilitado. Conserva disponibilidad e historial autorizado y devuelve 503 en operaciones con el proveedor. Para habilitar OAuth, consulta el contrato de Drive y aprovisiona su rol de base de datos. |

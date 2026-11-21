@@ -1,14 +1,10 @@
 # Frontend documental
 
-React 19, Vite y TypeScript. Node 24 es la versión de desarrollo y CI. La API conserva sus contratos; ningún secreto de servidor debe llegar a las variables `VITE_*`.
+React 19, Vite y TypeScript estricto. Node 24 es la versión de desarrollo y CI. Ningún secreto de servidor debe llegar a las variables `VITE_*` (`VITE_AUTH_BASE_URL` … `VITE_KNOWLEDGE_STUDIO_BASE_URL`).
 
-## Decisiones de la auditoría (2026-11-10)
+## Arquitectura vigente
 
-La separación existente `app → pages → widgets/features → entities/shared` es útil y se conserva. Los controladores ya protegen operaciones asíncronas y cambios de cuenta/tenant; sustituirlos por un store global duplicaría estado y arriesgaría esas garantías. Context mantiene sesión y tema; cada funcionalidad conserva su estado local y sus controladores.
-
-Los principales déficits eran JavaScript sin comprobación estática, ausencia de linting, imports profundos, todas las páginas en el bundle inicial, una biblioteca de 1.113 líneas y estilos acumulados con colores independientes del tema. También había acciones anidadas, controles sin acción y navegación móvil insuficiente.
-
-La modernización introduce contratos TypeScript estrictos, alias `@/`, carga por página con recuperación de errores, separación de secciones y componentes accesibles. No requiere Redux, Zustand, Tailwind ni una biblioteca completa de UI: el tamaño y los flujos actuales no lo justifican. La inspiración Fluent/shadcn se expresa con superficies, radios, foco, tipografía y tokens semánticos propios, sin copiar sus implementaciones.
+La separación `app → pages → widgets/features → entities/shared` mantiene la sesión y el tema en Context mientras cada dominio conserva su estado local y controladores protegidos frente a cambios de cuenta o empresa. No se usa Redux, Zustand ni frameworks externos de estilos.
 
 ## Convenciones
 
@@ -60,4 +56,4 @@ Los clientes HTTP distinguen JSON y blobs por tipos; los adaptadores de cada end
 
 Las incorporaciones son herramientas de desarrollo: TypeScript/tipos, ESLint, Prettier y axe. `minimatch` está fijado por override a una versión corregida de la línea 11 para las herramientas de desarrollo, por [GHSA-g3hv-75wg-m249](https://github.com/advisories/GHSA-g3hv-75wg-m249); el lockfile y las comprobaciones se validan con esa resolución. No se añadió un framework de estilos, routing ni estado.
 
-El [informe de auditoría](../AUDIT.md) registra decisiones, comprobaciones y límites. Las referencias técnicas principales son [TypeScript strict](https://www.typescriptlang.org/tsconfig/strict), [React lazy](https://react.dev/reference/react/lazy) y [Disclosure de WAI-ARIA](https://www.w3.org/WAI/ARIA/apg/patterns/disclosure/).
+Las referencias técnicas principales son [TypeScript strict](https://www.typescriptlang.org/tsconfig/strict), [React lazy](https://react.dev/reference/react/lazy) y [Disclosure de WAI-ARIA](https://www.w3.org/WAI/ARIA/apg/patterns/disclosure/).
