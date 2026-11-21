@@ -29,7 +29,7 @@ GRANT SELECT (message_id, conversation_id, owner_user_id, role, content, created
     ON public.conversation_messages TO rag_chat_runtime;
 GRANT SELECT (document_id, owner_user_id, tenant_id, metadata)
     ON public.documents TO rag_chat_runtime;
-GRANT SELECT (chunk_id, document_id, chunk_index, chunk_content, embedding, metadata)
+GRANT SELECT (chunk_id, document_id, chunk_index, chunk_content, content_tsv, embedding, metadata)
     ON public.document_embeddings TO rag_chat_runtime;
 GRANT SELECT (document_id, assigned_to_user_id, assigned_by_user_id, status)
     ON public.document_assignments TO rag_chat_runtime;
