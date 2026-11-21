@@ -27,6 +27,8 @@ from app.domain.visuals_and_learning import (
     sm2_review,
 )
 from app.infrastructure.studio_repository_pg import StudioRepositoryPg
+from app.interfaces.mcp_readonly import ReadOnlyMcpDispatcher
+from app.interfaces.mcp_server import handle_mcp_jsonrpc
 
 
 def is_studio_enabled() -> bool:
@@ -286,4 +288,66 @@ def get_artifact_endpoint(artifact_id: str, user: dict[str, Any] = Depends(requi
     if item is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Artefacto no encontrado.")
     return item
+
+
+def _build_live_mcp_dispatcher(repo: StudioRepositoryPg) -> ReadOnlyMcpDispatcher:
+    def _search_documents(args: dict[str, Any], user: dict[str, Any]) -> dict[str, Any]:
+        query = str(args.get("query") or "").strip()
+        limit = int(args.get("limit") or 10)
+        rows = repo.search_authorized_documents(
+            tenant_id=user["active_tenant_id"],
+            owner_user_id=user["user_id"],
+            query=query,
+            limit=limit,
+        )
+        return {"items": rows, "count": len(rows)}
+
+    def _get_document_chunks(args: dict[str, Any], user: dict[str, Any]) -> dict[str, Any]:
+        doc_id = str(args.get("document_id") or "").strip()
+        limit = int(args.get("limit") or 10)
+        rows = repo.get_authorized_document_chunks(
+            tenant_id=user["active_tenant_id"],
+            owner_user_id=user["user_id"],
+            document_id=doc_id,
+            limit=limit,
+        )
+        return {"document_id": doc_id, "chunks": rows}
+
+    def _list_studio_artifacts(args: dict[str, Any], user: dict[str, Any]) -> dict[str, Any]:
+        limit = int(args.get("limit") or 10)
+        rows = repo.list_artifacts(
+            tenant_id=user["active_tenant_id"],
+            owner_user_id=user["user_id"],
+            limit=limit,
+        )
+        return {"items": rows, "count": len(rows)}
+
+    def _get_studio_artifact(args: dict[str, Any], user: dict[str, Any]) -> dict[str, Any]:
+        artifact_id = str(args.get("artifact_id") or "").strip()
+        item = repo.get_artifact(
+            artifact_id=artifact_id,
+            tenant_id=user["active_tenant_id"],
+            owner_user_id=user["user_id"],
+        )
+        return {"artifact": item}
+
+    return ReadOnlyMcpDispatcher(
+        {
+            "search_documents": _search_documents,
+            "get_document_chunks": _get_document_chunks,
+            "list_studio_artifacts": _list_studio_artifacts,
+            "get_studio_artifact": _get_studio_artifact,
+        }
+    )
+
+
+@app.post("/api/v1/mcp")
+def mcp_jsonrpc_endpoint(
+    payload: dict[str, Any],
+    user: dict[str, Any] = Depends(require_studio_user),
+) -> dict[str, Any]:
+    _require_enabled()
+    repo = _get_studio_repo()
+    dispatcher = _build_live_mcp_dispatcher(repo)
+    return handle_mcp_jsonrpc(payload, dispatcher=dispatcher, current_user=user)
 

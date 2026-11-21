@@ -285,3 +285,59 @@ class StudioRepositoryPg:
             {"artifact_id": artifact_id, "tenant_id": tenant_id, "owner_user_id": owner_user_id},
         ).mappings().first()
         return dict(row) if row is not None else None
+
+    def search_authorized_documents(
+        self,
+        *,
+        tenant_id: str,
+        owner_user_id: str,
+        query: str,
+        limit: int = 10,
+    ) -> list[dict[str, Any]]:
+        rows = self._session.execute(
+            text("""
+                SELECT document_id, filename, mime_type, status, updated_at
+                FROM public.documents
+                WHERE tenant_id = :tenant_id
+                  AND owner_user_id = :owner_user_id
+                  AND (:q = '' OR filename ILIKE :pattern)
+                ORDER BY updated_at DESC
+                LIMIT :limit
+            """),
+            {
+                "tenant_id": tenant_id,
+                "owner_user_id": owner_user_id,
+                "q": query,
+                "pattern": f"%{query}%",
+                "limit": max(1, min(20, limit)),
+            },
+        ).mappings().all()
+        return [dict(r) for r in rows]
+
+    def get_authorized_document_chunks(
+        self,
+        *,
+        tenant_id: str,
+        owner_user_id: str,
+        document_id: str,
+        limit: int = 10,
+    ) -> list[dict[str, Any]]:
+        rows = self._session.execute(
+            text("""
+                SELECT e.chunk_id, e.document_id, e.chunk_index, e.chunk_content
+                FROM public.document_embeddings e
+                JOIN public.documents d ON d.document_id = e.document_id
+                WHERE d.document_id = :document_id
+                  AND d.tenant_id = :tenant_id
+                  AND d.owner_user_id = :owner_user_id
+                ORDER BY e.chunk_index ASC
+                LIMIT :limit
+            """),
+            {
+                "document_id": document_id,
+                "tenant_id": tenant_id,
+                "owner_user_id": owner_user_id,
+                "limit": max(1, min(20, limit)),
+            },
+        ).mappings().all()
+        return [dict(r) for r in rows]

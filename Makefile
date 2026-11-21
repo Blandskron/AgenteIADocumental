@@ -52,7 +52,7 @@ COMPOSE_TEST_SERVICES := \
 	docker-build docker-up docker-up-infra docker-up-documents \
 	run-auth run-chat run-embedding run-search run-access run-library \
 	run-transfer run-conversation run-profile run-export run-drive run-studio run-frontend \
-	install lint check-docs eval-baseline eval-studio test-studio \
+	install lint check-docs eval-baseline eval-studio eval-rag-matrix test-studio \
 	test test-auth test-services test-frontend build-frontend \
 	process-pending reindex \
 	verify-prepare verify verify-relations verify-postgres-upgrade verify-images verify-graphs verify-down
@@ -165,6 +165,9 @@ eval-baseline: ## Ejecuta el harness sintético S1-S5 y genera .release-reports/
 
 eval-studio: ## Ejecuta el gate de evaluación de Knowledge Studio y genera .release-reports/STUDIO_EVAL_GATE.json
 	$(PYTHON) scripts/eval/run_studio_eval_gate.py
+
+eval-rag-matrix: ## Ejecuta la matriz de formatos y casos límite RAG (.release-reports/RAG_FORMAT_MATRIX.json)
+	$(PYTHON) scripts/eval/run_rag_format_matrix.py
 
 test-studio: ## Ejecuta las pruebas unitarias de KnowledgeStudioServices
 	PYTHONPATH=backend/KnowledgeStudioServices $(PYTHON) -m pytest -q backend/KnowledgeStudioServices/tests
