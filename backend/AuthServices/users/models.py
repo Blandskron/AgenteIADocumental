@@ -94,6 +94,24 @@ class TenantUserGroup(models.Model):
         unique_together = (("tenant", "user_id", "group"),)
 
 
+class TenantIntegration(models.Model):
+    integration_id = models.TextField(primary_key=True, default=make_uuid)
+    tenant = models.ForeignKey(Tenant, db_column="tenant_id", on_delete=models.CASCADE)
+    provider = models.TextField()
+    status = models.TextField(default="DISABLED")
+    enabled_for_roles = models.JSONField(default=list)
+    config = models.JSONField(default=dict)
+    secrets_encrypted = models.TextField(blank=True, null=True)
+    updated_by_user_id = models.TextField(blank=True, null=True)
+    created_at = models.DateTimeField(default=timezone.now)
+    updated_at = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        managed = False
+        db_table = "tenant_integrations"
+        unique_together = (("tenant", "provider"),)
+
+
 class LoginAttemptBudget(models.Model):
     key = models.CharField(max_length=64, primary_key=True)
     window = models.BigIntegerField(db_index=True)

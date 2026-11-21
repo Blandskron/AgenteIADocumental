@@ -20,6 +20,7 @@ TENANT_ROLE_PERMISSIONS = {
         "tenant.users.create",
         "tenant.users.assign_area",
         "tenant.areas.manage",
+        "manage_ai_settings",
         "documents.upload",
         "documents.view_all_tenant",
         "documents.download_assigned",
