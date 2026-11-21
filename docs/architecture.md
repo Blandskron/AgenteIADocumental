@@ -45,7 +45,7 @@ flowchart LR
 
 Los servicios documentales que usan `AUTH_IDENTITY_URL` verifican localmente firma y expiración del JWT y consultan `/api/users/me/` para obtener la identidad y los permisos vigentes. Una cuenta deshabilitada o un permiso retirado afecta a la siguiente operación protegida. Si Auth falla, las APIs que dependen de esa consulta responden 503. La clave privada de firma queda en Auth y los consumidores montan la clave pública en solo lectura. Los contratos de Perfil y Exportación detallan sus comprobaciones de sesión y propiedad. [Operación de Auth](../backend/AuthServices/docs/OPERATIONS.md) · [Perfil](../backend/ProfileServices/README.md) · [Exportación](../backend/DocumentExportServices/README.md)
 
-La visibilidad de documentos se evalúa en el servidor. En el chat, los filtros de acceso se aplican en la recuperación de fragmentos, antes de construir el contexto que cruza el límite externo hacia Groq. Las restricciones SQL mantienen relaciones válidas entre empresa, área, jerarquía y membresías. [Chat RAG](../backend/RagDocumentChatServices/README.md) · [Esquema y preflight](../scripts/database/README.md)
+La visibilidad de documentos se evalúa en el servidor. En el chat, los filtros de acceso se aplican en la recuperación híbrida (vectorial `pgvector` HNSW + búsqueda léxica FTS fusionada con RRF), antes de construir el contexto `<document_context>` que cruza el límite externo hacia Groq (configurable por empresa en `/settings/ai` o mediante proveedores OpenAI-compatible/Ollama opcionales). Las restricciones SQL mantienen relaciones válidas entre empresa, área, jerarquía y membresías. [Chat RAG](../backend/RagDocumentChatServices/README.md) · [Esquema y preflight](../scripts/database/README.md) · [Extensibilidad LLM/MCP](ADR_EXTENSIBILITY_LLM_MCP.md)
 
 ## De la carga a la respuesta y al PDF
 
@@ -109,3 +109,4 @@ Los puertos son los del host en la configuración local predeterminada.
 | [Perfil](../backend/ProfileServices/README.md) | 8015 | Perfil personal y avatar privado. |
 | [Exportación](../backend/DocumentExportServices/README.md) | 8016 | PDF, historial propio y descarga. |
 | [Google Drive](../backend/GoogleDriveImportServices/README.md) | 8017 | OAuth con PKCE S256, importación acotada e historial. |
+| [Knowledge Studio (opcional)](../backend/KnowledgeStudioServices/README.md) | 8018 | Artefactos con citas verificadas, visualizaciones deterministas y estudio offline (`STUDIO_ENABLED=true`, overlay `docker/compose/studio.yml`). |

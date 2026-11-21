@@ -1,6 +1,6 @@
 # Documentación y skills del repositorio
 
-Empieza por el README del ámbito que vas a cambiar. Cada uno presenta un diagrama y enlaza las guías y sus instrucciones AGENTS.md. Los detalles se mantienen en docs/ junto al código que describen. Para el sistema completo, consulta [arquitectura](architecture.md), [operación](operations.md), [verificación](release/README.md), [estrategia de CI/CD](CI_CD_STRATEGY.md), [extensibilidad LLM/MCP](ADR_EXTENSIBILITY_LLM_MCP.md) y el [roadmap de evolución](../roadmap.md).
+Empieza por el README del ámbito que vas a cambiar. Cada uno presenta un diagrama y enlaza las guías y sus instrucciones AGENTS.md. Los detalles se mantienen en docs/ junto al código que describen. Para el sistema completo, consulta [arquitectura](architecture.md), [operación](operations.md), [verificación](release/README.md), [estrategia de CI/CD](CI_CD_STRATEGY.md) y [extensibilidad LLM/MCP](ADR_EXTENSIBILITY_LLM_MCP.md).
 
 Codex descubre las skills versionadas en .agents/skills. Los AGENTS.md locales enlazan la skill de su ámbito para facilitar el acceso desde el componente. [Documentación de OpenAI sobre skills de repositorio](https://developers.openai.com/blog/skills-agents-sdk)
 

@@ -116,7 +116,8 @@ Configura dos Rulesets de rama y uno de tags en **Settings → Rules → Ruleset
 
 | Escenario | Antes (medido) | Después (estimado con caché) | Mejora |
 | --- | ---: | ---: | ---: |
-| PR de documentación (`docs/`, `roadmap.md`) → `develop` | 12.8–15.7 min (~28 min Actions) | **~20–35 s** (~0.5 min Actions) | **~96%** |
+| PR de documentación (`docs/`, `*.md`) → `develop` | 12.8–15.7 min (~28 min Actions) | **~20–35 s** (~0.5 min Actions) | **~96%** |
+| PR de Knowledge Studio / eval (`backend/KnowledgeStudioServices/`, `scripts/eval/`) → `develop` | N/A | **~15–25 s** (`studio-eval-fast`) | Gate dedicado |
 | PR de 1–2 servicios backend → `develop` | 12.8–15.7 min (~28 min Actions) | **~1.5–2.5 min** (~2–4 min Actions) | **~84%** |
 | PR de frontend → `develop` | 12.8–15.7 min (~28 min Actions) | **~1.8–2.6 min** (~2.5 min Actions) | **~83%** |
 | PR de BD / Auth → `develop` | 12.8–15.7 min (~28 min Actions) | **~2.0–3.0 min** (~3–4 min Actions) | **~80%** |
