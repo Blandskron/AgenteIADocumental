@@ -44,3 +44,66 @@ export function logoutRequest(access: string, refresh: string) {
     keepalive: true,
   });
 }
+
+export function readCsrfToken(
+  cookieSource: string = typeof document !== "undefined" ? document.cookie : "",
+): string | null {
+  const match = cookieSource
+    .split(";")
+    .map((part) => part.trim())
+    .find((part) => part.startsWith("csrftoken="));
+  return match ? decodeURIComponent(match.slice("csrftoken=".length)) : null;
+}
+
+export function cookieLoginRequest(
+  credentials: Credentials,
+  csrfToken: string | null = readCsrfToken(),
+) {
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+  };
+  if (csrfToken) headers["X-CSRFToken"] = csrfToken;
+  return httpRequest<{ status: string }>(
+    env.authBaseUrl,
+    "/api/users/session/login/",
+    {
+      method: "POST",
+      credentials: "include",
+      headers,
+      body: JSON.stringify(credentials),
+    },
+  );
+}
+
+export function cookieRefreshRequest(
+  csrfToken: string | null = readCsrfToken(),
+) {
+  const headers: Record<string, string> = {};
+  if (csrfToken) headers["X-CSRFToken"] = csrfToken;
+  return httpRequest<{ status: string }>(
+    env.authBaseUrl,
+    "/api/users/session/refresh/",
+    {
+      method: "POST",
+      credentials: "include",
+      headers,
+    },
+  );
+}
+
+export function cookieLogoutRequest(
+  csrfToken: string | null = readCsrfToken(),
+) {
+  const headers: Record<string, string> = {};
+  if (csrfToken) headers["X-CSRFToken"] = csrfToken;
+  return httpRequest<{ status: string }>(
+    env.authBaseUrl,
+    "/api/users/session/logout/",
+    {
+      method: "POST",
+      credentials: "include",
+      headers,
+      keepalive: true,
+    },
+  );
+}

@@ -1,6 +1,6 @@
 # Roadmap de Evolución — Blandskron Documental (Etapa 2) — COMPLETADO
 
-> **Estado: 45 / 45 tareas terminadas (100 %).** Todas las fases planificadas (Fases 0–7: núcleo RAG híbrido, configuración web de IA, importación Markdown/ZIP, Knowledge Studio P0/P1 completo, persistencia SKIP LOCKED, cuotas por tenant, hardening, auditoría y extensibilidad) están implementadas y verificadas.
+> **Estado: 55 / 55 tareas terminadas (100 %).** Todas las fases planificadas (Fases 0–8: núcleo RAG híbrido, configuración web de IA, importación Markdown/ZIP, Knowledge Studio P0/P1 completo, persistencia SKIP LOCKED, worker, cuotas por tenant, hardening, auditoría, CI selectivo, visualizaciones deterministas y limpieza final) están implementadas y verificadas.
 
 **Fecha de cierre de etapa:** 2026-11-21
 
@@ -18,7 +18,8 @@
 | **Fase 5** | Hardening de seguridad y extensiones P1+ bajo demanda | 5 | 0 | 0 | 5 |
 | **Fase 6** | Expansión operativa, visor de auditoría, OpenAI-compatible/Ollama, MCP y API Studio | 8 | 0 | 0 | 8 |
 | **Fase 7** | Persistencia SKIP LOCKED, rol `studio_runtime`, cuotas, overlay Studio y Quiz UI | 8 | 0 | 0 | 8 |
-| **Total** | | **45** | **0** | **0** | **45** |
+| **Fase 8** | Cierre integral: limpieza `docs/plans`, CI Studio/eval, worker, factory LLM, cookie UI y exportación | 10 | 0 | 0 | 10 |
+| **Total** | | **55** | **0** | **0** | **55** |
 
 ---
 
@@ -53,3 +54,14 @@
   - `R7-06`: Panel interactivo `InteractiveQuizPanel` (quizzes citados offline) integrado en `/studio`.
   - `R7-07`: Auditoría persistente `record_audit_log()` en pruebas de conexión Groq (`ai_settings_test`).
   - `R7-08`: Validación integral de todos los overlays Compose (`base`, `ollama.yml`, `studio.yml`), backend AST/tests y frontend (`128 / 128` tests + build).
+- **Fase 8 (`R8-01`–`R8-10`) — `terminada`:**
+  - `R8-01`: Retiro de planes ya ejecutados en `docs/plans/` y limpieza de enlaces en `docs/maintainers.md`.
+  - `R8-02`: Actualización de `.env.example`, `README.md`, `backend/README.md`, `docs/operations.md` y `docs/maintainers.md` con Studio, Ollama y nuevas rutas web.
+  - `R8-03`: Integración de `studio_eval` en `scripts/ci/detect_changes.py` y job rápido `studio-eval-fast` en `.github/workflows/ci-fast.yml` (conectado a `ci-fast-gate`).
+  - `R8-04`: Adaptadores frontend de sesión Cookie `HttpOnly` + CSRF (`readCsrfToken`, `cookieLoginRequest`, `cookieRefreshRequest`, `cookieLogoutRequest`) + test unitario.
+  - `R8-05`: Worker ejecutable `StudioWorker` (`backend/KnowledgeStudioServices/app/interfaces/worker.py`) acoplado a `SKIP LOCKED`, `StudioQuotaGuard` y `execute_studio_job` + tests.
+  - `R8-06`: Panel `VerifiedVisualsPanel` (grafo conceptual SVG determinista + barras desde celdas verificadas con procedencia) integrado en `/studio` + test SSR.
+  - `R8-07`: Exportación segura Markdown y CSV (con neutralización anti formula-injection y `URL.revokeObjectURL`) desde `/studio`.
+  - `R8-08`: Factory unificada `build_llm_provider` (`groq`, `openai_compatible`, `ollama`) en `RagDocumentChatServices` + tests unitarios.
+  - `R8-09`: Pruebas de humo HTTP FastAPI (`tests/test_studio_api.py`) validando 503 con `STUDIO_ENABLED=false` y 200 con `STUDIO_ENABLED=true`.
+  - `R8-10`: Targets `run-studio` / `test-studio` en `Makefile`, validación completa de docs, Compose (3 archivos), AST/tests Python y pipeline frontend completo.

@@ -26,6 +26,7 @@ jobs:
       frontend: ${{ steps.scope.outputs.frontend }}
       postgres: ${{ steps.scope.outputs.postgres }}
       rag_groq: ${{ steps.scope.outputs.rag_groq }}
+      studio_eval: ${{ steps.scope.outputs.studio_eval }}
       database: ${{ steps.scope.outputs.database }}
       has_services: ${{ steps.scope.outputs.has_services }}
       services: ${{ steps.scope.outputs.services }}
@@ -326,6 +327,26 @@ jobs:
           python -m pip install -r <(grep -hE '^(openai|pytest)==' requirements.txt requirements-test.txt)
           python -m pytest -q tests/test_groq_provider.py
 
+  studio-eval-fast:
+    name: Knowledge Studio y gates de evaluación
+    needs: [detect-changes]
+    if: needs.detect-changes.outputs.studio_eval == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: backend/KnowledgeStudioServices/requirements.txt
+      - name: Instalar dependencias mínimas y ejecutar suites de Studio y eval
+        run: |
+          python -m pip install -r backend/KnowledgeStudioServices/requirements.txt pytest httpx
+          python3 scripts/eval/run_eval_baseline.py
+          python3 scripts/eval/run_studio_eval_gate.py
+          PYTHONPATH=backend/KnowledgeStudioServices python -m pytest -q backend/KnowledgeStudioServices/tests
+
   postgres-upgrade:
     name: PostgreSQL y migración local
     needs: [detect-changes]
@@ -426,6 +447,7 @@ jobs:
       - auth-fast
       - frontend-fast
       - rag-groq-fast
+      - studio-eval-fast
       - postgres-upgrade
       - backend-services-fast
     if: always()
@@ -440,6 +462,7 @@ jobs:
           AUTH_RESULT: ${{ needs.auth-fast.result }}
           FRONTEND_RESULT: ${{ needs.frontend-fast.result }}
           RAG_GROQ_RESULT: ${{ needs.rag-groq-fast.result }}
+          STUDIO_EVAL_RESULT: ${{ needs.studio-eval-fast.result }}
           POSTGRES_RESULT: ${{ needs.postgres-upgrade.result }}
           SERVICES_RESULT: ${{ needs.backend-services-fast.result }}
         run: |
@@ -456,6 +479,7 @@ jobs:
               "auth-fast": os.environ["AUTH_RESULT"],
               "frontend-fast": os.environ["FRONTEND_RESULT"],
               "rag-groq-fast": os.environ["RAG_GROQ_RESULT"],
+              "studio-eval-fast": os.environ["STUDIO_EVAL_RESULT"],
               "postgres-upgrade": os.environ["POSTGRES_RESULT"],
               "backend-services-fast": os.environ["SERVICES_RESULT"],
           }

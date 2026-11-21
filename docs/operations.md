@@ -14,6 +14,8 @@ La instalación soportada usa Docker Compose y publica web, APIs y PostgreSQL en
 | `POSTGRES_HOST_PORT` | Si el puerto local 5432 está ocupado, usa por ejemplo `15432`. Los servicios mantienen 5432 dentro de Compose. |
 | `EMBEDDING_UID`, `EMBEDDING_GID`, `ACCESS_UID`, `ACCESS_GID` | En un directorio documental existente, configura el UID/GID para que ambos servicios puedan acceder con los permisos actuales. El inicializador asigna propietario en un directorio nuevo vacío y conserva los archivos y permisos existentes. |
 | `GOOGLE_DRIVE_ENABLED`, `DRIVE_DB_PASSWORD` | Drive arranca deshabilitado. Conserva disponibilidad e historial autorizado y devuelve 503 en operaciones con el proveedor. Para habilitar OAuth, consulta el contrato de Drive y aprovisiona su rol de base de datos. |
+| `STUDIO_ENABLED`, `STUDIO_DB_PASSWORD` | Knowledge Studio es opcional y arranca deshabilitado (`STUDIO_ENABLED=false`). Levántalo con el overlay `docker/compose/studio.yml` (`--profile studio`) y su rol mínimo `studio_runtime`. En la web se accede en `/studio`, la auditoría administrativa en `/admin/audit` y la configuración de IA en `/settings/ai`. |
+| `OLLAMA_HOST_PORT` | Overlay opcional `docker/compose/ollama.yml` (`--profile local-llm`) para proveedores OpenAI-compatible locales en loopback. |
 | `POSTGRES_DATA_VOLUME` | Selecciona el volumen PostgreSQL tras una restauración. El valor predeterminado conserva el nombre asociado al proyecto de Compose. |
 
 Consulta la plantilla de entorno y los contratos para las contraseñas por rol, CORS, pools y montajes. [Plantilla de entorno](../.env.example) · [Mapa de servicios](architecture.md#mapa-de-servicios) · [OAuth de Google Drive](../backend/GoogleDriveImportServices/README.md)

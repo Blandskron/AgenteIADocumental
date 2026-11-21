@@ -4,11 +4,20 @@ import { appRoutes } from "@/app/router/routes.ts";
 import { SafeMarkdown } from "@/features/chat/ui/SafeMarkdown.tsx";
 import { InteractiveQuizPanel } from "@/features/studio/InteractiveQuizPanel.tsx";
 import { OfflineFlashcardDeck } from "@/features/studio/OfflineFlashcardDeck.tsx";
+import {
+  SAMPLE_VERIFIED_ROWS,
+  VerifiedVisualsPanel,
+} from "@/features/studio/VerifiedVisualsPanel.tsx";
+import {
+  buildVerifiedEvidenceCsv,
+  triggerSafeFileDownload,
+} from "@/features/studio/studioExport.ts";
 import { useSidebarState } from "@/shared/hooks/useSidebarState.ts";
 import { AppShell } from "@/shared/layouts/AppShell.tsx";
 import { Sidebar } from "@/widgets/Sidebar/Sidebar.tsx";
 import {
   BookOpenCheck,
+  Download,
   FileText,
   Sparkles,
   Table2,
@@ -202,6 +211,42 @@ export function StudioPage({ onNavigate }: PageProps) {
               >
                 <SafeMarkdown content={draftMarkdown} />
               </div>
+              <div
+                style={{
+                  display: "flex",
+                  gap: "0.5rem",
+                  flexWrap: "wrap",
+                  marginTop: "0.75rem",
+                }}
+              >
+                <button
+                  type="button"
+                  className="btn-secondary"
+                  onClick={() =>
+                    triggerSafeFileDownload(
+                      draftMarkdown,
+                      `${selectedTemplate}.md`,
+                      "text/markdown;charset=utf-8",
+                    )
+                  }
+                >
+                  <Download size={14} aria-hidden="true" /> Descargar Markdown
+                </button>
+                <button
+                  type="button"
+                  className="btn-secondary"
+                  onClick={() =>
+                    triggerSafeFileDownload(
+                      buildVerifiedEvidenceCsv(SAMPLE_VERIFIED_ROWS),
+                      `${selectedTemplate}-evidence.csv`,
+                      "text/csv;charset=utf-8",
+                    )
+                  }
+                >
+                  <Download size={14} aria-hidden="true" /> Descargar CSV
+                  verificado
+                </button>
+              </div>
             </section>
           </div>
         ) : (
@@ -214,6 +259,7 @@ export function StudioPage({ onNavigate }: PageProps) {
                 cambia o se elimina una fuente.
               </p>
             </section>
+            <VerifiedVisualsPanel />
             <OfflineFlashcardDeck />
             <InteractiveQuizPanel />
           </div>

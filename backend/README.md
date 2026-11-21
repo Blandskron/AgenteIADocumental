@@ -30,6 +30,7 @@ flowchart LR
 | [ProfileServices](ProfileServices/README.md) | 8015 | Gestiona el perfil de contacto y el avatar privado de la cuenta autenticada. |
 | [DocumentExportServices](DocumentExportServices/README.md) | 8016 | Genera y almacena el PDF de una instantánea de chat con historial y descarga privados. |
 | [GoogleDriveImportServices](GoogleDriveImportServices/README.md) | 8017 | Conecta Google Drive mediante OAuth PKCE y coordina importaciones recuperables hacia Ingesta. |
+| [KnowledgeStudioServices](KnowledgeStudioServices/README.md) | 8018 | Servicio opcional (`STUDIO_ENABLED=true`, overlay `docker/compose/studio.yml`) para artefactos con citas verificadas, visualizaciones deterministas y estudio offline. |
 
 ## Guías
 
