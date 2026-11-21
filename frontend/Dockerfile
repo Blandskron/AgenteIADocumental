@@ -11,7 +11,8 @@ RUN npm run build
 FROM nginxinc/nginx-unprivileged:stable-alpine@sha256:f5116ed4606f3eb015dd4a8e28cb9b351476dc0ad4bc6e9f93b19cec130cdf03
 
 USER root
-RUN apk upgrade --no-cache
+RUN sed -i 's/^\(nginx[^=]*\)=.*/\1/' /etc/apk/world \
+    && apk upgrade --no-cache -X "https://nginx.org/packages/alpine/v$(egrep -o '^[0-9]+\.[0-9]+' /etc/alpine-release)/main"
 
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 COPY --from=build /app/dist /usr/share/nginx/html

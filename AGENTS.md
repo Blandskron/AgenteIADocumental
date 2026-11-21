@@ -5,7 +5,7 @@ El [README](README.md) es la entrada humana. Los README presentan el mapa de cad
 ## Antes de empezar
 
 1. Lee el README raíz y la documentación e instrucciones del componente que vas a tocar.
-2. Ejecuta `git status --short` y `git branch --show-current`; conserva los cambios existentes. Comprueba main antes de crear una rama codex/.
+2. Ejecuta `git status --short` y `git branch --show-current`; conserva los cambios existentes. Comprueba `develop` (y `main` en integraciones) antes de crear una rama `feature/*` o `codex/*` siguiendo [la estrategia de CI/CD y ramas](docs/CI_CD_STRATEGY.md).
 3. Revisa las issues y PR abiertos antes de iniciar trabajo; retoma cambios pendientes antes de duplicarlos.
 
 ## Durante el trabajo

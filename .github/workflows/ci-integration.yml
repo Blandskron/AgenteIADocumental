@@ -1,0 +1,291 @@
+name: CI Integración y Seguridad
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  schedule:
+    # Verificación nocturna de integración y CVEs sobre develop (04:00 UTC).
+    - cron: '0 4 * * *'
+  workflow_dispatch:
+  workflow_call:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-integration-${{ github.event_name == 'pull_request' && format('pr-{0}', github.event.pull_request.number) || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  db-concurrency-and-roles:
+    name: Integridad SQL, roles y concurrencia
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event_name == 'schedule' && 'develop' || '' }}
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: '24'
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+        if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+      - name: Prepare private synthetic installation credentials
+        run: node scripts/release/prepare_verification.mjs --github
+      - run: cp .env.example .env
+      - name: Aprovisionar esquema, Auth y todos los roles de servicio
+        env:
+          USE_GHA_CACHE: ${{ github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository }}
+        run: |
+          cache_args=()
+          if [ "$USE_GHA_CACHE" = "true" ]; then
+            export COMPOSE_BAKE=true
+            cache_args=(-f docker/compose/ci-cache.yml)
+          fi
+          compose=(docker compose --env-file "$VERIFICATION_ENV_FILE" -f docker/docker-compose.yml "${cache_args[@]}")
+          "${compose[@]}" up -d --build --wait auth-service
+          for role in conversation-db-role rag-chat-db-role embedding-db-role search-db-role access-db-role library-db-role transfer-db-role profile-db-role export-db-role drive-db-role; do
+            "${compose[@]}" run --rm --no-deps "$role"
+          done
+      - name: Verificar los 11 roles SQL y preflight multiempresa
+        run: |
+          compose=(docker compose --env-file "$VERIFICATION_ENV_FILE" -f docker/docker-compose.yml)
+          for script in auth/verify_roles.sql conversation/verify_role.sql rag-chat/verify_role.sql embedding/verify_role.sql search/verify_role.sql access/verify_role.sql library/verify_role.sql transfer/verify_role.sql profile/verify_role.sql export/verify_role.sql drive/verify_role.sql; do
+            "${compose[@]}" exec -T postgres psql -U postgres -d documents_db -v ON_ERROR_STOP=1 < "scripts/database/$script"
+          done
+          "${compose[@]}" run --rm --no-deps database-schema psql -h postgres -U postgres -d documents_db -X -q -v ON_ERROR_STOP=1 -f /schema/tests/tenant_preflight.sql
+          "${compose[@]}" run --rm --no-deps database-schema psql -h postgres -U postgres -d documents_db -X -q -v ON_ERROR_STOP=1 -f /schema/checks/tenant_preflight.sql
+      - name: Probar restricciones de asignaciones con logins y carreras reales
+        run: |
+          compose=(docker compose --env-file "$VERIFICATION_ENV_FILE" -f docker/docker-compose.yml)
+          "${compose[@]}" exec -T postgres psql -U postgres -d documents_db -v ON_ERROR_STOP=1 -c 'CREATE DATABASE plat_assignments_ci'
+          trap '"${compose[@]}" exec -T postgres psql -U postgres -d documents_db -v ON_ERROR_STOP=1 -c "DROP DATABASE plat_assignments_ci WITH (FORCE)"' EXIT
+          "${compose[@]}" run --rm --no-deps database-schema psql -h postgres -U postgres -d plat_assignments_ci -v ON_ERROR_STOP=1 -f /schema/run_all.sql
+          "${compose[@]}" cp scripts/database/constraints/002_tenant_assignments.sql auth-service:/tmp/tenant-assignments.sql
+          "${compose[@]}" cp scripts/database/tests/test_tenant_assignments.py auth-service:/tmp/test_tenant_assignments.py
+          "${compose[@]}" exec -T -e PLAT_TEST_DATABASE=plat_assignments_ci -e PLAT_TEST_ADMIN_PASSWORD="$POSTGRES_PASSWORD" auth-service python /tmp/test_tenant_assignments.py
+          "${compose[@]}" run --rm --no-deps database-schema psql -h postgres -U postgres -d plat_assignments_ci -v ON_ERROR_STOP=1 -f /schema/run_all.sql
+          "${compose[@]}" run --rm --no-deps database-schema psql -h postgres -U postgres -d plat_assignments_ci -v ON_ERROR_STOP=1 -f /schema/migrations/003_tenant_assignments.sql
+      - name: Probar relaciones de áreas, documentos y carreras de ingesta
+        env:
+          USE_GHA_CACHE: ${{ github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository }}
+        run: |
+          cache_args=()
+          if [ "$USE_GHA_CACHE" = "true" ]; then
+            export COMPOSE_BAKE=true
+            cache_args=(-f docker/compose/ci-cache.yml)
+          fi
+          compose=(docker compose --env-file "$VERIFICATION_ENV_FILE" -f docker/docker-compose.yml "${cache_args[@]}")
+          "${compose[@]}" exec -T postgres psql -U postgres -d documents_db -v ON_ERROR_STOP=1 -c 'CREATE DATABASE plat_relations_ci'
+          trap '"${compose[@]}" exec -T postgres psql -U postgres -d documents_db -v ON_ERROR_STOP=1 -c "DROP DATABASE plat_relations_ci WITH (FORCE)"' EXIT
+          "${compose[@]}" run --rm --no-deps database-schema psql -h postgres -U postgres -d plat_relations_ci -v ON_ERROR_STOP=1 -f /schema/run_all.sql
+          "${compose[@]}" run --rm --no-deps -e EMBEDDING_DB_PASSWORD=blandskron-local-embedding database-schema psql -h postgres -U postgres -d plat_relations_ci -v ON_ERROR_STOP=1 -f /schema/embedding/provision_role.sql
+          "${compose[@]}" cp scripts/database/constraints/002_tenant_assignments.sql auth-service:/tmp/tenant-assignments.sql
+          "${compose[@]}" cp scripts/database/constraints/003_tenant_area_relations.sql auth-service:/tmp/tenant-areas.sql
+          "${compose[@]}" cp scripts/database/tests/test_tenant_area_relations.py auth-service:/tmp/test_tenant_area_relations.py
+          "${compose[@]}" exec -T -e POSTGRES_DB=plat_relations_ci -e PLAT_TEST_DATABASE=plat_relations_ci -e PLAT_TEST_ADMIN_PASSWORD="$POSTGRES_PASSWORD" auth-service python /tmp/test_tenant_area_relations.py
+          "${compose[@]}" run --build --rm --no-deps --volume "$PWD/scripts/database/tests:/relation-checks:ro" -e PYTHONPATH=/app -e PLAT_TEST_DATABASE=plat_relations_ci -e PLAT_TEST_ADMIN_PASSWORD="$POSTGRES_PASSWORD" -e PLAT_TEST_AUTH_PASSWORD=blandskron-local-runtime embedding-tests python /relation-checks/test_embedding_area_relations.py
+          "${compose[@]}" run --rm --no-deps database-schema psql -h postgres -U postgres -d plat_relations_ci -v ON_ERROR_STOP=1 -f /schema/run_all.sql
+          "${compose[@]}" run --rm --no-deps database-schema psql -h postgres -U postgres -d plat_relations_ci -v ON_ERROR_STOP=1 -f /schema/migrations/004_tenant_area_relations.sql
+      - name: Probar jerarquía sin ciclos y preservación histórica
+        run: |
+          compose=(docker compose --env-file "$VERIFICATION_ENV_FILE" -f docker/docker-compose.yml)
+          "${compose[@]}" exec -T postgres psql -U postgres -d documents_db -v ON_ERROR_STOP=1 -c 'CREATE DATABASE plat_hierarchy_ci'
+          trap '"${compose[@]}" exec -T postgres psql -U postgres -d documents_db -v ON_ERROR_STOP=1 -c "DROP DATABASE plat_hierarchy_ci WITH (FORCE)"' EXIT
+          "${compose[@]}" run --rm --no-deps database-schema psql -h postgres -U postgres -d plat_hierarchy_ci -v ON_ERROR_STOP=1 -f /schema/run_all.sql
+          "${compose[@]}" run --rm --no-deps database-schema psql -h postgres -U postgres -d plat_hierarchy_ci -v ON_ERROR_STOP=1 -f /schema/migrations/005_tenant_hierarchy.sql
+          "${compose[@]}" cp scripts/database/constraints/004_tenant_hierarchy.sql auth-service:/tmp/tenant-hierarchy.sql
+          "${compose[@]}" cp scripts/database/tests/test_tenant_hierarchy.py auth-service:/tmp/test_tenant_hierarchy.py
+          "${compose[@]}" exec -T -e POSTGRES_DB=plat_hierarchy_ci -e PLAT_TEST_DATABASE=plat_hierarchy_ci -e PLAT_TEST_ADMIN_PASSWORD="$POSTGRES_PASSWORD" auth-service python /tmp/test_tenant_hierarchy.py
+          "${compose[@]}" exec -T postgres psql -U postgres -d plat_hierarchy_ci -v ON_ERROR_STOP=1 -c "INSERT INTO tenants(tenant_id,name) VALUES('preserve','synthetic'); INSERT INTO tenant_areas(area_id,tenant_id,name) VALUES('preserve-area','preserve','synthetic'); INSERT INTO documents(document_id,tenant_id,owner_area_id,owner_user_id,filename,storage_path,mime_type) VALUES('preserve-document','preserve','preserve-area','historical','synthetic','synthetic','text/plain');"
+          fingerprint="SELECT md5((to_jsonb(d)-'updated_at')::text) FROM documents d WHERE document_id='preserve-document'"
+          before=$("${compose[@]}" exec -T postgres psql -U postgres -d plat_hierarchy_ci -At -c "$fingerprint")
+          "${compose[@]}" run --rm --no-deps database-schema psql -h postgres -U postgres -d plat_hierarchy_ci -v ON_ERROR_STOP=1 -f /schema/run_all.sql
+          "${compose[@]}" run --rm --no-deps database-schema psql -h postgres -U postgres -d plat_hierarchy_ci -v ON_ERROR_STOP=1 -f /schema/migrations/005_tenant_hierarchy.sql
+          after=$("${compose[@]}" exec -T postgres psql -U postgres -d plat_hierarchy_ci -At -c "$fingerprint")
+          test -n "$before" && test "$before" = "$after"
+      - name: Probar ciclo de vida de usuarios y membresías con Auth real
+        run: |
+          compose=(docker compose --env-file "$VERIFICATION_ENV_FILE" -f docker/docker-compose.yml)
+          "${compose[@]}" exec -T postgres psql -U postgres -d documents_db -v ON_ERROR_STOP=1 -c 'CREATE DATABASE plat_identity_ci'
+          trap '"${compose[@]}" exec -T postgres psql -U postgres -d documents_db -v ON_ERROR_STOP=1 -c "DROP DATABASE plat_identity_ci WITH (FORCE)"' EXIT
+          "${compose[@]}" run --rm --no-deps database-schema psql -h postgres -U postgres -d plat_identity_ci -v ON_ERROR_STOP=1 -f /schema/run_all.sql
+          "${compose[@]}" run --rm --no-deps auth-db-roles psql -h postgres -U postgres -d plat_identity_ci -v ON_ERROR_STOP=1 -f /auth-db/provision_roles.sql
+          "${compose[@]}" run --rm --no-deps -e POSTGRES_DB=plat_identity_ci auth-migrate
+          "${compose[@]}" run --rm --no-deps database-schema psql -h postgres -U postgres -d plat_identity_ci -v ON_ERROR_STOP=1 -f /schema/migrations/006_tenant_user_links.sql
+          "${compose[@]}" cp scripts/database/constraints/005_tenant_user_links.sql auth-service:/tmp/tenant-user-links.sql
+          "${compose[@]}" cp scripts/database/tests/test_tenant_user_links.py auth-service:/tmp/test_tenant_user_links.py
+          "${compose[@]}" exec -T -e POSTGRES_DB=plat_identity_ci -e PLAT_TEST_DATABASE=plat_identity_ci -e PLAT_TEST_ADMIN_PASSWORD="$POSTGRES_PASSWORD" auth-service python /tmp/test_tenant_user_links.py
+          "${compose[@]}" exec -T postgres psql -U postgres -d plat_identity_ci -v ON_ERROR_STOP=1 -c "INSERT INTO tenants(tenant_id,name) VALUES('preserve','synthetic'); WITH u AS (INSERT INTO auth_user(password,is_superuser,username,first_name,last_name,email,is_staff,is_active,date_joined) VALUES('!',false,'preserve','','','',false,true,now()) RETURNING id) INSERT INTO tenant_memberships(tenant_id,user_id,role) SELECT 'preserve',id::text,'USER' FROM u; INSERT INTO documents(document_id,tenant_id,owner_user_id,filename,storage_path,mime_type) SELECT 'preserve-document','preserve',user_id,'synthetic','synthetic','text/plain' FROM tenant_memberships WHERE tenant_id='preserve';"
+          fingerprint="SELECT md5(jsonb_build_object('membership',to_jsonb(m)-'updated_at','document',to_jsonb(d)-'updated_at')::text) FROM tenant_memberships m JOIN documents d ON d.owner_user_id=m.user_id WHERE m.tenant_id='preserve'"
+          before=$("${compose[@]}" exec -T postgres psql -U postgres -d plat_identity_ci -At -c "$fingerprint")
+          "${compose[@]}" run --rm --no-deps database-schema psql -h postgres -U postgres -d plat_identity_ci -v ON_ERROR_STOP=1 -f /schema/run_all.sql
+          "${compose[@]}" run --rm --no-deps auth-db-roles psql -h postgres -U postgres -d plat_identity_ci -v ON_ERROR_STOP=1 -f /auth-db/provision_roles.sql
+          "${compose[@]}" run --rm --no-deps -e POSTGRES_DB=plat_identity_ci auth-migrate
+          "${compose[@]}" run --rm --no-deps database-schema psql -h postgres -U postgres -d plat_identity_ci -v ON_ERROR_STOP=1 -f /schema/migrations/006_tenant_user_links.sql
+          after=$("${compose[@]}" exec -T postgres psql -U postgres -d plat_identity_ci -At -c "$fingerprint")
+          test -n "$before" && test "$before" = "$after"
+      - name: Limpiar contenedores de prueba SQL
+        if: always()
+        run: docker compose --env-file "$VERIFICATION_ENV_FILE" -f docker/docker-compose.yml down --remove-orphans
+
+  service-contracts-and-audits:
+    name: Contratos runtime, pip-audit y hardening
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event_name == 'schedule' && 'develop' || '' }}
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: '24'
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+        if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+      - name: Prepare private synthetic installation credentials
+        run: node scripts/release/prepare_verification.mjs --github
+      - run: cp .env.example .env
+      - name: Levantar servicios de dominio con caché Buildx
+        env:
+          USE_GHA_CACHE: ${{ github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository }}
+        run: |
+          cache_args=()
+          if [ "$USE_GHA_CACHE" = "true" ]; then
+            export COMPOSE_BAKE=true
+            cache_args=(-f docker/compose/ci-cache.yml)
+          fi
+          docker compose --env-file "$VERIFICATION_ENV_FILE" -f docker/docker-compose.yml "${cache_args[@]}" up -d --build --wait \
+            conversation-service document-search-service document-access-service document-library-service \
+            document-transfer-service profile-service document-export-service google-drive-import-service
+      - name: Ejecutar auditorías pip-audit de los 6 servicios con target audit
+        env:
+          USE_GHA_CACHE: ${{ github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository }}
+        run: |
+          cache_args=()
+          if [ "$USE_GHA_CACHE" = "true" ]; then
+            export COMPOSE_BAKE=true
+            cache_args=(-f docker/compose/ci-cache.yml)
+          fi
+          compose=(docker compose --env-file "$VERIFICATION_ENV_FILE" -f docker/docker-compose.yml "${cache_args[@]}")
+          for audit in access-audit library-audit transfer-audit profile-audit export-audit drive-audit; do
+            "${compose[@]}" run --build --rm --no-deps "$audit"
+          done
+      - name: Validar contratos Auth/SQL, owners, restarts y hardening de runtime
+        run: |
+          compose=(docker compose --env-file "$VERIFICATION_ENV_FILE" -f docker/docker-compose.yml)
+          "${compose[@]}" exec -T postgres psql -U postgres -d documents_db -v ON_ERROR_STOP=1 < scripts/database/transfer/audit_owners.sql
+          "${compose[@]}" exec -T postgres psql -U postgres -d documents_db -v ON_ERROR_STOP=1 < scripts/database/export/audit_owners.sql
+          "${compose[@]}" exec -T profile-service python -c 'import subprocess; version=subprocess.check_output(["dpkg-query","-W","-f=${Version}","zlib1g"],text=True); subprocess.check_call(["dpkg","--compare-versions",version,"ge","1:1.3.dfsg+really1.3.1-1+deb13u1"])'
+          "${compose[@]}" exec -T google-drive-import-service python -c 'import importlib.util, os, tempfile; assert os.geteuid() == 10010; assert all(importlib.util.find_spec(name) is None for name in ("pytest", "ruff", "pip_audit", "pip")); f=tempfile.TemporaryFile(); f.write(b"x" * 20971520); f.close(); assert os.stat("/tmp").st_mode & 0o777 == 0o700'
+
+          for svc in document-transfer-service profile-service document-export-service google-drive-import-service; do
+            "${compose[@]}" restart "$svc"
+            "${compose[@]}" up -d --no-deps --wait "$svc"
+          done
+
+          "${compose[@]}" cp scripts/profile/verify_auth_contract.py auth-service:/tmp/profile-auth-contract.py
+          "${compose[@]}" cp scripts/export/verify_auth_contract.py auth-service:/tmp/export-auth-contract.py
+          "${compose[@]}" cp scripts/drive/verify_auth_contract.py auth-service:/tmp/drive-auth-contract.py
+          profile_marker=$(python3 -c 'import uuid; print(uuid.uuid4().hex)')
+          export_marker=$(python3 -c 'import uuid; print(uuid.uuid4().hex)')
+          drive_marker=$(python3 -c 'import uuid; print(uuid.uuid4().hex)')
+          cleanup_probes() {
+            "${compose[@]}" exec -T postgres psql -U postgres -d documents_db -v ON_ERROR_STOP=1 -v probe_marker="$profile_marker" < scripts/profile/cleanup_probe.sql || true
+            "${compose[@]}" run --build --rm --no-deps -T -e EXPORT_PROBE_MARKER="$export_marker" -e EXPORT_PROBE_ALLOW_CLEANUP=synthetic-ci export-tests python /export-checks/cleanup_probe.py || true
+          }
+          trap cleanup_probes EXIT
+          "${compose[@]}" exec -T -e PROFILE_PROBE_MARKER="$profile_marker" auth-service python /tmp/profile-auth-contract.py
+          "${compose[@]}" exec -T -e EXPORT_PROBE_MARKER="$export_marker" auth-service python /tmp/export-auth-contract.py
+          "${compose[@]}" exec -T -e DRIVE_PROBE_MARKER="$drive_marker" auth-service python /tmp/drive-auth-contract.py
+      - name: Limpiar contenedores de contratos
+        if: always()
+        run: docker compose --env-file "$VERIFICATION_ENV_FILE" -f docker/docker-compose.yml down --remove-orphans
+
+  e2e-and-image-audit:
+    name: E2E sintético, persistencia y auditoría Trivy
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event_name == 'schedule' && 'develop' || '' }}
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: '24'
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+        if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+      - name: Restaurar caché de base de vulnerabilidades Trivy
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: /tmp/bd-release-audit-ci/cache
+          key: trivy-db-${{ runner.os }}-${{ github.run_id }}
+          restore-keys: |
+            trivy-db-${{ runner.os }}-
+      - name: Prepare private synthetic installation credentials
+        run: node scripts/release/prepare_verification.mjs --github
+      - name: Construir entorno integral sin secretos ni datos personales
+        env:
+          USE_GHA_CACHE: ${{ github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository }}
+        run: |
+          cache_args=()
+          if [ "$USE_GHA_CACHE" = "true" ]; then
+            export COMPOSE_BAKE=true
+            cache_args=(-f docker/compose/ci-cache.yml)
+          fi
+          docker compose --env-file "$VERIFICATION_ENV_FILE" -p bd-final-check \
+            -f docker/docker-compose.yml -f docker/compose/verification.yml "${cache_args[@]}" \
+            up -d --build --wait blandskron-frontend
+      - name: Validar servicios, tests, E2E documental y persistencia
+        run: node scripts/release/verify.mjs --skip-relations
+      - name: Auditar las 13 imágenes finales con Trivy
+        run: |
+          mkdir -p /tmp/bd-release-audit-ci/cache
+          TMPDIR=/tmp node scripts/release/audit_images.mjs --project bd-final-check --work /tmp/bd-release-audit-ci
+      - name: Validar el grafo capturado sin herramientas en runtime
+        run: node scripts/release/verify_graphs.mjs
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with:
+          name: release-verification
+          path: .release-reports/*.json
+          include-hidden-files: true
+          if-no-files-found: ignore
+          retention-days: 90
+      - name: Retirar únicamente el entorno sintético
+        if: always()
+        run: docker compose --env-file "$VERIFICATION_ENV_FILE" -p bd-final-check -f docker/docker-compose.yml -f docker/compose/verification.yml down --remove-orphans
+
+  ci-integration-gate:
+    name: ci-integration-gate
+    needs:
+      - db-concurrency-and-roles
+      - service-contracts-and-audits
+      - e2e-and-image-audit
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Verificar resultado consolidado de Integración y Seguridad
+        env:
+          DB_RESULT: ${{ needs.db-concurrency-and-roles.result }}
+          CONTRACTS_RESULT: ${{ needs.service-contracts-and-audits.result }}
+          E2E_RESULT: ${{ needs.e2e-and-image-audit.result }}
+        run: |
+          python3 - <<'PY'
+          import os, sys
+
+          checks = {
+              "db-concurrency-and-roles": os.environ["DB_RESULT"],
+              "service-contracts-and-audits": os.environ["CONTRACTS_RESULT"],
+              "e2e-and-image-audit": os.environ["E2E_RESULT"],
+          }
+          for name, status in checks.items():
+              print(f"  {name}: {status}")
+          failed = {name: status for name, status in checks.items() if status != "success"}
+          if failed:
+              print(f"CI Integración falló en: {failed}", file=sys.stderr)
+              sys.exit(1)
+          print("CI Integración y Seguridad aprobado.")
+          PY
