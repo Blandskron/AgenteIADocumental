@@ -19,7 +19,7 @@
       property="og:description"
       content="Organiza, busca y analiza documentos con IA, citas verificables y control de acceso multiempresa. Ejecutable en local con Docker Compose y soporte para Groq u Ollama."
     />
-    <meta property="og:image" content="https://blandskron.github.io/AgenteIADocumental/frontend/public/blandskron-wordmark.png" />
+    <meta property="og:image" content="https://blandskron.github.io/AgenteIADocumental/docs/assets/screenshots/document-chat.webp" />
 
     <!-- Twitter / X -->
     <meta name="twitter:card" content="summary_large_image" />
@@ -216,6 +216,18 @@
                 JSON-RPC 2.0 autenticado con el JWT del usuario.
               </p>
             </article>
+
+            <article class="card card-wide">
+              <h3>Orquestación Agéntica y Code Mode en sandbox (opcional)</h3>
+              <p>
+                Perfiles opcionales <code>--profile agents</code> y
+                <code>--profile code-mode</code> con grafo multi-paso, checkpoints
+                estrictos en <code>agents.*</code>, aprobación humana explícita
+                (Human-in-the-Loop), análisis determinista de riesgos/vencimientos y
+                ejecución aislada en <strong>Deno <code>--deny-all</code></strong>
+                sin salida a internet ni secretos.
+              </p>
+            </article>
           </div>
         </div>
       </section>
@@ -294,6 +306,27 @@
               <figcaption>
                 <strong>Chat documental con citas</strong>
                 <span>Respuestas en Markdown seguro con fuentes clicables y exportación a PDF.</span>
+              </figcaption>
+            </figure>
+
+            <figure class="gallery-card" data-screenshot="docs/assets/screenshots/agent-orchestrator.webp">
+              <button type="button" class="gallery-zoom" aria-label="Ampliar captura de Modo Agente y Code Mode">
+                <img
+                  src="docs/assets/screenshots/agent-orchestrator.webp"
+                  alt="Modo Agente y Code Mode con pasos, código auditado en sandbox y aprobación humana"
+                  loading="lazy"
+                  decoding="async"
+                  width="1280"
+                  height="800"
+                  class="real-screenshot"
+                />
+                <div class="screenshot-fallback" hidden>
+                  <span>Pendiente: <code>agent-orchestrator.webp</code></span>
+                </div>
+              </button>
+              <figcaption>
+                <strong>Agente inteligente y Code Mode</strong>
+                <span>Orquestación multi-paso, sandbox Deno <code>--deny-all</code>, cuotas y aprobación humana.</span>
               </figcaption>
             </figure>
 

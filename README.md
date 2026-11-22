@@ -4,7 +4,23 @@
 
 Aplicación de código abierto para la gestión y consulta documental, desarrollada por Blandskron. Permite cargar y organizar documentos, buscar por contenido (vectorial + texto completo) y hacer preguntas con respuestas que citan sus fuentes verificables. Desde la interfaz puedes revisar fragmentos recuperados, guardar conversaciones, exportar respuestas a PDF y elegir entre **Groq** (nube) u **Ollama local** sin editar código ni reiniciar contenedores.
 
-La web usa React y TypeScript. Django administra la identidad y once servicios de aplicación cubren el recorrido documental (más el módulo opcional `KnowledgeStudioServices`). La ingesta y el chat calculan embeddings en CPU (`intfloat/multilingual-e5-small`). PostgreSQL 16 con `pgvector` almacena los vectores y el control de acceso se aplica en el servidor antes de construir el contexto.
+La web usa React y TypeScript. Django administra la identidad y once servicios de aplicación cubren el recorrido documental (más los módulos opcionales `KnowledgeStudioServices`, `AgentOrchestratorServices` y `CodeSandboxRunner`). La ingesta y el chat calculan embeddings en CPU (`intfloat/multilingual-e5-small`). PostgreSQL 16 con `pgvector` almacena los vectores y el control de acceso se aplica en el servidor antes de construir el contexto.
+
+## Vista previa de la interfaz
+
+![Chat documental con selector unificado de modos en Blandskron Documental](docs/assets/screenshots/document-chat.webp)
+
+| Modo Agente + Code Mode y aprobación humana | Biblioteca y búsqueda documental |
+| :---: | :---: |
+| ![Modo Agente y Code Mode con sandbox y aprobación humana](docs/assets/screenshots/agent-orchestrator.webp) | ![Biblioteca y búsqueda de documentos](docs/assets/screenshots/documents.webp) |
+
+| Configuración de IA (Groq y Ollama local) | Knowledge Studio |
+| :---: | :---: |
+| ![Configuración de IA Groq y Ollama local](docs/assets/screenshots/ai-settings.webp) | ![Knowledge Studio](docs/assets/screenshots/knowledge-studio.webp) |
+
+| Asignaciones y aprobaciones documentales | Inicio de sesión |
+| :---: | :---: |
+| ![Asignaciones y aprobaciones documentales](docs/assets/screenshots/document-assignments.webp) | ![Inicio de sesión en Blandskron Documental](docs/assets/screenshots/login.webp) |
 
 | Guía | Contenido |
 | --- | --- |
