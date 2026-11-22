@@ -19,9 +19,14 @@ def respond(request):
     )
     payload = json.loads(request.content)
     prompt = payload["messages"][-1]["content"]
-    context = prompt.split("Contexto documental recuperado:\n", 1)[1].split(
-        "\n\nSolicitud del usuario:", 1
-    )[0]
+    if "<document_context>\n" in prompt:
+        context = prompt.split("<document_context>\n", 1)[1].split(
+            "\n</document_context>", 1
+        )[0]
+    else:
+        context = prompt.split("Contexto documental recuperado:\n", 1)[1].split(
+            "\n\nSolicitud del usuario:", 1
+        )[0]
     answer = (
         "El contrato sintético dura 97 días."
         if "97" in context
@@ -45,7 +50,7 @@ def respond(request):
     )
 
 
-def provider(settings):
+def provider(settings, effective=None):
     instance = GroqLLMProvider(
         "",
         settings.groq_chat_model,
