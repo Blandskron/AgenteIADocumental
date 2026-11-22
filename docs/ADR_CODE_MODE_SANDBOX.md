@@ -1,6 +1,6 @@
 # ADR-007 — Patrón Code Mode en Sandbox Local Endurecido (Sin `eval`/`exec`/`node:vm` ni Cloudflare Workers)
 
-**Estado:** Aprobado para diseño e implementación en Fase 4 del Roadmap  
+**Estado:** Implementado (`CODE_MODE_ENABLED=false` por defecto)  
 **Fecha:** 2026-11-21  
 **Ámbito:** `backend/CodeSandboxRunner/`, `backend/AgentOrchestratorServices/`, `docker/compose/code-mode.yml`
 

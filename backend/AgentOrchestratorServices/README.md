@@ -1,6 +1,6 @@
 # AgentOrchestratorServices
 
-Servicio opcional de orquestación agéntica (ver [ADR-006](../../docs/ADR_AGENT_ORCHESTRATOR.md), [ADR-007](../../docs/ADR_CODE_MODE_SANDBOX.md) y [ROADMAP.md](../../ROADMAP.md)), deshabilitado por defecto (`AGENTS_ENABLED=false`) para mantener intacto el despliegue base de Docker Compose.
+Servicio opcional de orquestación agéntica (ver [ADR-006](../../docs/ADR_AGENT_ORCHESTRATOR.md) y [ADR-007](../../docs/ADR_CODE_MODE_SANDBOX.md)), deshabilitado por defecto (`AGENTS_ENABLED=false`) para mantener intacto el despliegue base de Docker Compose.
 
 ## Arranque opcional
 
