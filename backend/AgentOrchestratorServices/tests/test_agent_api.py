@@ -3,9 +3,8 @@ from __future__ import annotations
 import pytest
 
 pytest.importorskip("fastapi")
-from fastapi.testclient import TestClient  # noqa: E402
-
-from app.main import app  # noqa: E402
+from app.main import app
+from fastapi.testclient import TestClient
 
 
 def test_agent_api_health_and_401_without_jwt(monkeypatch: pytest.MonkeyPatch) -> None:

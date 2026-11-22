@@ -39,9 +39,13 @@ export interface GroqTestResponse {
   checked_at: string;
 }
 
-export function getGroqSettings(authClient: MaybeClient) {
+export function getGroqSettings(
+  authClient: MaybeClient,
+  { signal }: { signal?: AbortSignal } = {},
+) {
   return requireClient(authClient)<GroqSettings>("/api/integrations/groq/", {
     method: "GET",
+    ...(signal ? { signal } : {}),
   });
 }
 
@@ -76,13 +80,21 @@ export function deleteGroqCredentials(authClient: MaybeClient) {
   );
 }
 
-export function listGroqModels(authClient: MaybeClient) {
-  return requireClient(authClient)<GroqModelsResponse>(
+export async function listGroqModels(
+  authClient: MaybeClient,
+  { signal }: { signal?: AbortSignal } = {},
+): Promise<GroqModelsResponse> {
+  const raw = await requireClient(authClient)<GroqModelsResponse>(
     "/api/integrations/groq/models/",
     {
       method: "GET",
+      ...(signal ? { signal } : {}),
     },
   );
+  return {
+    ...raw,
+    models: Array.isArray(raw?.models) ? raw.models : [],
+  };
 }
 
 export function testGroqConnection(authClient: MaybeClient, model?: string) {
@@ -142,10 +154,13 @@ export interface OllamaPullProgress {
   updated_at: string;
 }
 
-export function getActiveAIProvider(authClient: MaybeClient) {
+export function getActiveAIProvider(
+  authClient: MaybeClient,
+  { signal }: { signal?: AbortSignal } = {},
+) {
   return requireClient(authClient)<ActiveProviderState>(
     "/api/integrations/ai/provider/",
-    { method: "GET" },
+    { method: "GET", ...(signal ? { signal } : {}) },
   );
 }
 
@@ -163,10 +178,13 @@ export function setActiveAIProvider(
   );
 }
 
-export function getOllamaSettings(authClient: MaybeClient) {
+export function getOllamaSettings(
+  authClient: MaybeClient,
+  { signal }: { signal?: AbortSignal } = {},
+) {
   return requireClient(authClient)<OllamaSettings>(
     "/api/integrations/ollama/",
-    { method: "GET" },
+    { method: "GET", ...(signal ? { signal } : {}) },
   );
 }
 
@@ -184,11 +202,19 @@ export function patchOllamaSettings(
   );
 }
 
-export function listOllamaModels(authClient: MaybeClient) {
-  return requireClient(authClient)<OllamaModelsResponse>(
+export async function listOllamaModels(
+  authClient: MaybeClient,
+  { signal }: { signal?: AbortSignal } = {},
+): Promise<OllamaModelsResponse> {
+  const raw = await requireClient(authClient)<OllamaModelsResponse>(
     "/api/integrations/ollama/models/",
-    { method: "GET" },
+    { method: "GET", ...(signal ? { signal } : {}) },
   );
+  return {
+    ...raw,
+    installed: Array.isArray(raw?.installed) ? raw.installed : [],
+    catalog: Array.isArray(raw?.catalog) ? raw.catalog : [],
+  };
 }
 
 export function pullOllamaModel(authClient: MaybeClient, model: string) {
@@ -202,11 +228,19 @@ export function pullOllamaModel(authClient: MaybeClient, model: string) {
   );
 }
 
-export function getOllamaPullStatus(authClient: MaybeClient) {
-  return requireClient(authClient)<{ downloads: OllamaPullProgress[] }>(
-    "/api/integrations/ollama/pull/status/",
-    { method: "GET" },
-  );
+export async function getOllamaPullStatus(
+  authClient: MaybeClient,
+  { signal }: { signal?: AbortSignal } = {},
+): Promise<{ downloads: OllamaPullProgress[] }> {
+  const raw = await requireClient(authClient)<{
+    downloads: OllamaPullProgress[];
+  }>("/api/integrations/ollama/pull/status/", {
+    method: "GET",
+    ...(signal ? { signal } : {}),
+  });
+  return {
+    downloads: Array.isArray(raw?.downloads) ? raw.downloads : [],
+  };
 }
 
 export function testOllamaConnection(authClient: MaybeClient, model?: string) {

@@ -110,3 +110,5 @@ Los puertos son los del host en la configuración local predeterminada.
 | [Exportación](../backend/DocumentExportServices/README.md) | 8016 | PDF, historial propio y descarga. |
 | [Google Drive](../backend/GoogleDriveImportServices/README.md) | 8017 | OAuth con PKCE S256, importación acotada e historial. |
 | [Knowledge Studio (opcional)](../backend/KnowledgeStudioServices/README.md) | 8018 | Artefactos con citas verificadas, visualizaciones deterministas y estudio offline (`STUDIO_ENABLED=true`, overlay `docker/compose/studio.yml`). |
+| [Agent Orchestrator (opcional)](../backend/AgentOrchestratorServices/README.md) | 8019 | Orquestación agéntica multi-paso, checkpoints en `agents.*`, aprobación humana, cuotas y handoff a Studio (`AGENTS_ENABLED=true`, overlay `docker/compose/agents.yml`). |
+| [Code Sandbox Runner (opcional)](../backend/CodeSandboxRunner/README.md) | *(solo red interna)* | Ejecución aislada Deno `--deny-all` sin salida a internet ni secretos (`CODE_MODE_ENABLED=true`, overlay `docker/compose/code-mode.yml`). |

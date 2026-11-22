@@ -46,41 +46,17 @@ export function InteractiveQuizPanel() {
   return (
     <section className="settings-ai-card" aria-labelledby="studio-quiz-heading">
       <h2 id="studio-quiz-heading">Quiz verificado con citas (offline)</h2>
-      <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
+      <div className="ui-stack-md">
         {SAMPLE_QUIZ.map((item) => {
           const picked = selected[item.id];
           const answered = picked !== undefined;
           const correct = picked === item.correctIndex;
           return (
-            <fieldset
-              key={item.id}
-              style={{
-                border: "1px solid var(--border-subtle, #cbd5e1)",
-                borderRadius: "10px",
-                padding: "0.85rem",
-                margin: 0,
-              }}
-            >
-              <legend style={{ fontWeight: 600, padding: "0 0.35rem" }}>
-                {item.prompt}
-              </legend>
-              <div
-                style={{
-                  display: "flex",
-                  flexDirection: "column",
-                  gap: "0.4rem",
-                }}
-              >
+            <fieldset key={item.id} className="ui-fieldset">
+              <legend>{item.prompt}</legend>
+              <div className="ui-stack-sm">
                 {item.options.map((opt, idx) => (
-                  <label
-                    key={opt}
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: "0.5rem",
-                      cursor: "pointer",
-                    }}
-                  >
+                  <label key={opt} className="ui-check-row">
                     <input
                       type="radio"
                       name={item.id}
@@ -96,11 +72,9 @@ export function InteractiveQuizPanel() {
               {answered && (
                 <p
                   role="status"
-                  style={{
-                    margin: "0.6rem 0 0",
-                    fontSize: "0.86rem",
-                    color: correct ? "#15803d" : "#b91c1c",
-                  }}
+                  className={`ui-status-note ${
+                    correct ? "ui-status-note--ok" : "ui-status-note--error"
+                  }`}
                 >
                   <strong>{correct ? "Correcto." : "Incorrecto."}</strong>{" "}
                   {item.explanation} (<code>{item.citationLabel}</code>)

@@ -1,21 +1,31 @@
-# Generación automatizada de capturas reales
+# Generación automatizada de capturas reales (Modo Claro y Modo Oscuro)
 
-El script [capture_screenshots.mjs](capture_screenshots.mjs) utiliza Playwright para recorrer la aplicación real ejecutándose en Docker Compose, crear/autenticar una cuenta sintética y guardar capturas optimizadas (WebP cuando `cwebp` está instalado, PNG como respaldo) en `docs/assets/screenshots/`.
+El directorio incluye dos scripts complementarios:
 
-## Requisitos
+1. **[capture_showcase_local.mjs](capture_showcase_local.mjs):** levanta `vite preview` sobre la compilación de producción (`frontend/dist/`), inyecta datos sintéticos verificados (sin secretos ni PII) y genera automáticamente las **24 capturas WebP de alta resolución (`1280×800 @2x`)** — **12 flujos completos en Modo Claro y 12 en Modo Oscuro** — en `docs/assets/screenshots/`:
+   - `login.webp` / `login-dark.webp`
+   - `document-chat.webp` / `document-chat-dark.webp`
+   - `agent-orchestrator.webp` / `agent-orchestrator-dark.webp`
+   - `documents.webp` / `documents-dark.webp`
+   - `document-assignments.webp` / `document-assignments-dark.webp`
+   - `ai-settings.webp` / `ai-settings-dark.webp`
+   - `ai-settings-groq.webp` / `ai-settings-groq-dark.webp`
+   - `knowledge-studio.webp` / `knowledge-studio-dark.webp`
+   - `knowledge-studio-study.webp` / `knowledge-studio-study-dark.webp`
+   - `audit-logs.webp` / `audit-logs-dark.webp`
+   - `admin-panel.webp` / `admin-panel-dark.webp`
+   - `applications-drive.webp` / `applications-drive-dark.webp`
+2. **[capture_screenshots.mjs](capture_screenshots.mjs):** recorre una instancia viva de Docker Compose en `http://localhost:3000`.
 
-1. Stack activo en local:
-   ```bash
-   docker compose up -d --build
-   ```
-2. Dependencias del frontend instaladas (`cd frontend && npm ci && npx playwright install chromium`).
-3. Opcional: `cwebp` (`sudo apt-get install webp` en Ubuntu/Debian o `brew install webp` en macOS) para comprimir automáticamente a `.webp`.
-
-## Ejecución manual
+## Regeneración rápida de las 24 capturas y del video narrado (sin levantar contenedores)
 
 ```bash
-node scripts/screenshots/capture_screenshots.mjs --base-url http://localhost:3000
+cd frontend && npm run build && cd ..
+node scripts/screenshots/capture_showcase_local.mjs
+python scripts/screenshots/generate_demo_video.py
 ```
+
+El script [generate_demo_video.py](generate_demo_video.py) compone el video `docs/assets/video/blandskron-documental-demo.mp4` (`1280×800`, H.264 `yuv420p` + audio AAC en español + `+faststart`) y la pista de subtítulos WebVTT `docs/assets/video/blandskron-documental-demo.es.vtt` recorriendo los 12 capítulos en Modo Claro y Modo Oscuro.
 
 El reporte de pantallas capturadas u omitidas se guarda en `.release-reports/SCREENSHOTS_REPORT.json`.
 

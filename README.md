@@ -4,7 +4,64 @@
 
 Aplicación de código abierto para la gestión y consulta documental, desarrollada por Blandskron. Permite cargar y organizar documentos, buscar por contenido (vectorial + texto completo) y hacer preguntas con respuestas que citan sus fuentes verificables. Desde la interfaz puedes revisar fragmentos recuperados, guardar conversaciones, exportar respuestas a PDF y elegir entre **Groq** (nube) u **Ollama local** sin editar código ni reiniciar contenedores.
 
-La web usa React y TypeScript. Django administra la identidad y once servicios de aplicación cubren el recorrido documental (más el módulo opcional `KnowledgeStudioServices`). La ingesta y el chat calculan embeddings en CPU (`intfloat/multilingual-e5-small`). PostgreSQL 16 con `pgvector` almacena los vectores y el control de acceso se aplica en el servidor antes de construir el contexto.
+La web usa React y TypeScript. Django administra la identidad y once servicios de aplicación cubren el recorrido documental (más los módulos opcionales `KnowledgeStudioServices`, `AgentOrchestratorServices` y `CodeSandboxRunner`). La ingesta y el chat calculan embeddings en CPU (`intfloat/multilingual-e5-small`). PostgreSQL 16 con `pgvector` almacena los vectores y el control de acceso se aplica en el servidor antes de construir el contexto.
+
+## Video demostrativo End-to-End (con locución en español)
+
+Recorrido narrado completo (`04:00 min`, `1280×800 HD`, audio AAC en español + subtítulos WebVTT) que explica paso a paso los **12 flujos de la aplicación en Modo Claro y Modo Oscuro**:
+
+<video src="docs/assets/video/blandskron-documental-demo.mp4" controls preload="metadata" poster="docs/assets/screenshots/document-chat.webp" width="100%">
+  <source src="docs/assets/video/blandskron-documental-demo.mp4" type="video/mp4" />
+  <track kind="captions" srclang="es" label="Español" src="docs/assets/video/blandskron-documental-demo.es.vtt" default />
+</video>
+
+- **Archivo de video (MP4 H.264 + AAC):** [docs/assets/video/blandskron-documental-demo.mp4](docs/assets/video/blandskron-documental-demo.mp4)
+- **Subtítulos sincronizados (WebVTT):** [docs/assets/video/blandskron-documental-demo.es.vtt](docs/assets/video/blandskron-documental-demo.es.vtt)
+- **Reproductor web en vivo (GitHub Pages):** [https://blandskron.github.io/AgenteIADocumental/#video-demo](https://blandskron.github.io/AgenteIADocumental/#video-demo)
+
+<details>
+<summary><strong>Ver índice de los 12 capítulos narrados en el video (00:00 – 04:00)</strong></summary>
+
+| Tiempo | Capítulo | Ruta | Qué explica la locución (Modo Claro → Modo Oscuro) |
+| --- | --- | --- | --- |
+| `00:00 – 00:21` | **1. Acceso seguro y Bootstrap inicial** | `/login` | Configuración inicial transaccional de la primera cuenta administradora, JWT RS256, diseño *Floating Glass* y Google OIDC opcional. |
+| `00:21 – 00:43` | **2. Biblioteca documental e ingesta E5** | `/documents` | Carga PDF/DOCX/TXT/MD/OCR, embeddings locales `multilingual-e5-small` (384 dims) en CPU, carpetas, favoritos y búsqueda FTS + trigram. |
+| `00:43 – 01:01` | **3. Google Drive OAuth PKCE y lotes ZIP/MD** | `/applications` | Conexión OAuth PKCE S256 e importación masiva de colecciones Obsidian/Logseq con deduplicación SHA-256 y protección anti zip-bomb. |
+| `01:01 – 01:22` | **4. Chat documental RAG híbrido con citas** | `/` | Fusión `pgvector` HNSW + FTS con Reciprocal Rank Fusion (RRF), `SafeMarkdown` anti-XSS, citas `[Fuente N]` y exportación PDF. |
+| `01:22 – 01:45` | **5. Agente IA multi-paso y Code Mode en Sandbox** | `/` | Selector unificado (`Chat` · `Agente` · `Code Mode`), sandbox Deno `--deny-all`, cuota de tokens y aprobación humana (*Human-in-the-Loop*). |
+| `01:45 – 02:06` | **6. Knowledge Studio: Generador P0** | `/studio` | Generación de resúmenes ejecutivos, informes técnicos y tablas de evidencia con detección de citas desvinculadas y descarga Markdown/CSV. |
+| `02:06 – 02:27` | **7. Estudio Offline SM-2 y Quiz citado** | `/studio?artifact=art-001` | Deep-linking a artefactos en `studio.artifacts`, tarjetas de repetición espaciada SM-2 100 % locales y quiz con explicación citada. |
+| `02:27 – 02:46` | **8. Configuración IA: Ollama Local en CPU** | `/settings/ai` | Operación sin API key comercial ni envío a terceros, catálogo CPU autorizado (`qwen2.5:3b`, `gemma2:2b`, `llama3.2:3b`). |
+| `02:46 – 03:06` | **9. Configuración IA: Groq Cifrado `secrets1.`** | `/settings/ai` | Cifrado Fernet autenticado con llave fuera de la BD, huella enmascarada, prueba de conexión y parámetros avanzados. |
+| `03:06 – 03:20` | **10. Asignaciones y firma documental** | `/documents/assignments` | Distribución de documentos con fecha de vencimiento, notas de revisión, aceptación, rechazo y firma interna. |
+| `03:20 – 03:38` | **11. Administración multiempresa y RBAC** | `/admin` | Gestión de empresas (*tenants*), áreas jerárquicas, usuarios, grupos con 15 permisos granulares y aislamiento al cambiar de empresa. |
+| `03:38 – 04:00` | **12. Auditoría de seguridad persistente** | `/admin/audit` | Bitácora inmutable de cambios de proveedor IA, credenciales, aprobaciones agénticas y permisos con filtrado reactivo `AbortController`. |
+
+</details>
+
+## Vista previa de la interfaz (Modo Claro y Modo Oscuro)
+
+> La galería interactiva completa con las **24 capturas en Modo Claro y Modo Oscuro** (12 flujos × 2 temas) está disponible en [index.html](index.html) ([https://blandskron.github.io/AgenteIADocumental/](https://blandskron.github.io/AgenteIADocumental/)).
+
+| Chat documental RAG con citas (Modo Claro) | Agente IA + Code Mode en Sandbox y aprobación humana (Modo Oscuro) |
+| :---: | :---: |
+| ![Chat documental con selector unificado de modos en Modo Claro](docs/assets/screenshots/document-chat.webp) | ![Modo Agente y Code Mode con sandbox Deno y aprobación humana en Modo Oscuro](docs/assets/screenshots/agent-orchestrator-dark.webp) |
+
+| Biblioteca y búsqueda documental (Modo Claro) | Knowledge Studio: Artefactos, Estudio SM-2 y Quiz citado (Modo Claro) |
+| :---: | :---: |
+| ![Biblioteca y búsqueda de documentos](docs/assets/screenshots/documents.webp) | ![Knowledge Studio con práctica SM-2 offline y quiz verificado](docs/assets/screenshots/knowledge-studio-study.webp) |
+
+| Configuración de IA Local con Ollama CPU (Modo Claro) | Configuración de IA con Groq Cifrado `secrets1.` (Modo Oscuro) |
+| :---: | :---: |
+| ![Configuración de IA con Ollama local y catálogo CPU](docs/assets/screenshots/ai-settings.webp) | ![Configuración de IA con Groq cifrado en Modo Oscuro](docs/assets/screenshots/ai-settings-groq-dark.webp) |
+
+| Asignaciones y firmas documentales (Modo Claro) | Auditoría de seguridad persistente (Modo Oscuro) |
+| :---: | :---: |
+| ![Asignaciones y aprobaciones documentales](docs/assets/screenshots/document-assignments.webp) | ![Visor de auditoría de seguridad en Modo Oscuro](docs/assets/screenshots/audit-logs-dark.webp) |
+
+| Administración multiempresa y RBAC (Modo Oscuro) | Inicio de sesión Floating Glass (Modo Claro) |
+| :---: | :---: |
+| ![Panel de administración multiempresa en Modo Oscuro](docs/assets/screenshots/admin-panel-dark.webp) | ![Inicio de sesión en Blandskron Documental](docs/assets/screenshots/login.webp) |
 
 | Guía | Contenido |
 | --- | --- |
@@ -62,6 +119,14 @@ No necesitas crear `.env` manualmente para empezar: `secrets-init` genera secret
 - **Modo opcional — Knowledge Studio y servidor MCP de solo lectura (`POST /api/v1/mcp`):**
   ```bash
   STUDIO_ENABLED=true docker compose -f compose.yaml -f docker/compose/studio.yml --profile studio up -d --build
+  ```
+- **Modo opcional — Orquestación Agéntica y Code Mode en sandbox endurecido:**
+  ```bash
+  # Modo 2 — Agente documental multi-paso (puerto 8019, esquema aislado agents.*)
+  AGENTS_ENABLED=true STUDIO_ENABLED=true docker compose -f compose.yaml -f docker/compose/studio.yml -f docker/compose/agents.yml --profile studio --profile agents up -d --build
+
+  # Modo 3 — Agente + Code Mode en sandbox Deno --deny-all sin red externa
+  AGENTS_ENABLED=true CODE_MODE_ENABLED=true STUDIO_ENABLED=true docker compose -f compose.yaml -f docker/compose/studio.yml -f docker/compose/agents.yml -f docker/compose/code-mode.yml --profile studio --profile agents --profile code-mode up -d --build
   ```
 - **Integraciones opcionales (Google Login OIDC, Google Drive, SMTP):** arrancan deshabilitadas por defecto. Consulta [.env.example](.env.example) y [docs/operations.md](docs/operations.md) para habilitar `GOOGLE_OIDC_CLIENT_ID`, `GOOGLE_DRIVE_ENABLED=true` o `EMAIL_HOST` (necesario para recuperación automática de contraseña por correo).
 

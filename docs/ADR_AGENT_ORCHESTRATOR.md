@@ -1,6 +1,6 @@
 # ADR-006 — Orquestación Agéntica Opcional (`AgentOrchestratorServices`, LangGraph y `langchain-core`)
 
-**Estado:** Aprobado para implementación incremental  
+**Estado:** Implementado (`AGENTS_ENABLED=false` por defecto)  
 **Fecha:** 2026-11-21  
 **Ámbito:** `backend/AgentOrchestratorServices/`, `scripts/database/schemas/014_agent_orchestrator.sql`, `docker/compose/agents.yml`, `frontend/`
 

@@ -19,7 +19,7 @@
       property="og:description"
       content="Organiza, busca y analiza documentos con IA, citas verificables y control de acceso multiempresa. Ejecutable en local con Docker Compose y soporte para Groq u Ollama."
     />
-    <meta property="og:image" content="https://blandskron.github.io/AgenteIADocumental/frontend/public/blandskron-wordmark.png" />
+    <meta property="og:image" content="https://blandskron.github.io/AgenteIADocumental/docs/assets/screenshots/document-chat.webp" />
 
     <!-- Twitter / X -->
     <meta name="twitter:card" content="summary_large_image" />
@@ -119,7 +119,10 @@
           <div class="hero-visual">
             <figure class="screenshot-frame hero-frame" data-screenshot="docs/assets/screenshots/document-chat.webp">
               <img
+                id="hero-screenshot-img"
                 src="docs/assets/screenshots/document-chat.webp"
+                data-light-src="docs/assets/screenshots/document-chat.webp"
+                data-dark-src="docs/assets/screenshots/document-chat-dark.webp"
                 alt="Chat documental con citas verificables en Blandskron Documental"
                 width="1280"
                 height="800"
@@ -136,12 +139,12 @@
                 />
                 <p>
                   <strong>Captura en vivo pendiente de generar en entorno Docker.</strong><br />
-                  Ejecuta <code>node scripts/screenshots/capture_screenshots.mjs</code> con el stack
-                  levantado para poblar <code>docs/assets/screenshots/</code> con capturas reales.
+                  Ejecuta <code>node scripts/screenshots/capture_showcase_local.mjs</code> para poblar
+                  <code>docs/assets/screenshots/</code> con capturas reales en claro y oscuro.
                 </p>
               </div>
               <figcaption>
-                Chat documental con recuperación híbrida (HNSW + FTS + RRF) y citas ancladas <code>[Fuente N]</code>.
+                Chat documental unificado (<code>Chat</code> · <code>Agente</code> · <code>Code Mode</code>) con recuperación híbrida (HNSW + FTS + RRF) y citas ancladas <code>[Fuente N]</code>. Pulsa <strong>Tema</strong> arriba para alternar entre Modo Claro y Modo Oscuro.
               </figcaption>
             </figure>
           </div>
@@ -216,6 +219,18 @@
                 JSON-RPC 2.0 autenticado con el JWT del usuario.
               </p>
             </article>
+
+            <article class="card card-wide">
+              <h3>Orquestación Agéntica y Code Mode en sandbox (opcional)</h3>
+              <p>
+                Perfiles opcionales <code>--profile agents</code> y
+                <code>--profile code-mode</code> con grafo multi-paso, checkpoints
+                estrictos en <code>agents.*</code>, aprobación humana explícita
+                (Human-in-the-Loop), análisis determinista de riesgos/vencimientos y
+                ejecución aislada en <strong>Deno <code>--deny-all</code></strong>
+                sin salida a internet ni secretos.
+              </p>
+            </article>
           </div>
         </div>
       </section>
@@ -223,64 +238,75 @@
       <!-- D. Galería del producto -->
       <section id="capturas" class="section section-alt">
         <div class="container">
-          <div class="section-head">
-            <p class="eyebrow">Galería del producto</p>
-            <h2>Recorrido visual por la interfaz real</h2>
-            <p>
-              Las capturas se generan automáticamente sobre datos sintéticos
-              mediante Playwright contra el stack real de Docker Compose. Haz clic
-              en cualquier captura disponible para ampliarla.
-            </p>
+          <div id="video-demo" class="video-showcase-card">
+            <div class="video-showcase-header">
+              <div>
+                <span class="badge">Tour narrado con voz en español · 04:00 min · 12 capítulos</span>
+                <h3>Video demostrativo End-to-End (Modo Claro y Modo Oscuro)</h3>
+                <p>
+                  Recorrido completo con locución explicando cada sección: Login y Bootstrap, Biblioteca E5, Google Drive y lotes ZIP/MD, Chat RAG con citas, Agente IA + Code Mode en sandbox Deno, Knowledge Studio + Estudio SM-2, Configuración IA (Ollama CPU y Groq cifrado), Asignaciones, Administración multiempresa y Auditoría.
+                </p>
+              </div>
+              <a
+                class="btn btn-sm btn-secondary"
+                href="docs/assets/video/blandskron-documental-demo.mp4"
+                download="blandskron-documental-demo.mp4"
+              >
+                Descargar MP4 (8.0 MB)
+              </a>
+            </div>
+            <video
+              class="video-showcase-player"
+              controls
+              preload="metadata"
+              poster="docs/assets/screenshots/document-chat.webp"
+              width="1280"
+              height="800"
+            >
+              <source src="docs/assets/video/blandskron-documental-demo.mp4" type="video/mp4" />
+              <track
+                kind="captions"
+                srclang="es"
+                label="Español"
+                src="docs/assets/video/blandskron-documental-demo.es.vtt"
+                default
+              />
+              Tu navegador no soporta reproducción de video HTML5. Puedes descargar el recorrido en
+              <a href="docs/assets/video/blandskron-documental-demo.mp4">blandskron-documental-demo.mp4</a>.
+            </video>
+          </div>
+
+          <div class="gallery-head-row">
+            <div class="section-head">
+              <p class="eyebrow">Galería completa del producto · 12 flujos × 2 temas</p>
+              <h2>Recorrido visual en Modo Claro y Modo Oscuro</h2>
+              <p>
+                Las 24 capturas WebP de alta resolución se generan con Playwright
+                sobre el Design System <em>Floating Glass</em> tokenizado (0
+                violaciones WCAG 2.2 AA en <code>@axe-core/playwright</code>). Haz
+                clic en cualquier imagen para ampliarla o filtra por tema.
+              </p>
+            </div>
+            <div class="gallery-filter-bar" role="group" aria-label="Filtrar capturas por tema">
+              <button type="button" class="gallery-filter-btn" data-gallery-filter="all" aria-pressed="true">
+                Todos los flujos (24)
+              </button>
+              <button type="button" class="gallery-filter-btn" data-gallery-filter="light" aria-pressed="false">
+                Modo Claro (12)
+              </button>
+              <button type="button" class="gallery-filter-btn" data-gallery-filter="dark" aria-pressed="false">
+                Modo Oscuro (12)
+              </button>
+            </div>
           </div>
 
           <div class="gallery-grid" id="product-gallery">
-            <figure class="gallery-card" data-screenshot="docs/assets/screenshots/login.webp">
-              <button type="button" class="gallery-zoom" aria-label="Ampliar captura de Inicio de sesión">
-                <img
-                  src="docs/assets/screenshots/login.webp"
-                  alt="Pantalla de inicio de sesión y configuración inicial de Blandskron Documental"
-                  loading="lazy"
-                  decoding="async"
-                  width="1280"
-                  height="800"
-                  class="real-screenshot"
-                />
-                <div class="screenshot-fallback" hidden>
-                  <span>Pendiente: <code>login.webp</code></span>
-                </div>
-              </button>
-              <figcaption>
-                <strong>Inicio de sesión y registro inicial</strong>
-                <span>Bootstrap transaccional de la primera cuenta administradora y acceso tradicional.</span>
-              </figcaption>
-            </figure>
-
-            <figure class="gallery-card" data-screenshot="docs/assets/screenshots/documents.webp">
-              <button type="button" class="gallery-zoom" aria-label="Ampliar captura de Gestión de documentos">
-                <img
-                  src="docs/assets/screenshots/documents.webp"
-                  alt="Biblioteca y búsqueda de documentos en Blandskron Documental"
-                  loading="lazy"
-                  decoding="async"
-                  width="1280"
-                  height="800"
-                  class="real-screenshot"
-                />
-                <div class="screenshot-fallback" hidden>
-                  <span>Pendiente: <code>documents.webp</code></span>
-                </div>
-              </button>
-              <figcaption>
-                <strong>Biblioteca y búsqueda documental</strong>
-                <span>Carpetas, favoritos, filtros FTS/trigram, carga individual y lotes Markdown/ZIP.</span>
-              </figcaption>
-            </figure>
-
-            <figure class="gallery-card" data-screenshot="docs/assets/screenshots/document-chat.webp">
-              <button type="button" class="gallery-zoom" aria-label="Ampliar captura de Chat documental">
+            <!-- 1. Chat documental (Light & Dark) -->
+            <figure class="gallery-card" data-theme-mode="light" data-screenshot="docs/assets/screenshots/document-chat.webp">
+              <button type="button" class="gallery-zoom" aria-label="Ampliar captura de Chat documental en Modo Claro">
                 <img
                   src="docs/assets/screenshots/document-chat.webp"
-                  alt="Chat documental con respuesta RAG y citas verificables"
+                  alt="Chat documental con respuesta RAG, citas verificables y selector de 3 modos (Modo Claro)"
                   loading="lazy"
                   decoding="async"
                   width="1280"
@@ -292,16 +318,19 @@
                 </div>
               </button>
               <figcaption>
-                <strong>Chat documental con citas</strong>
-                <span>Respuestas en Markdown seguro con fuentes clicables y exportación a PDF.</span>
+                <div class="gallery-card-meta">
+                  <strong>1. Chat documental con citas</strong>
+                  <span class="gallery-theme-badge">Modo Claro</span>
+                </div>
+                <span>Respuestas en Markdown seguro (anti-XSS) con referencias clicables <code>[Fuente N]</code> y exportación a PDF.</span>
               </figcaption>
             </figure>
 
-            <figure class="gallery-card" data-screenshot="docs/assets/screenshots/ai-settings.webp">
-              <button type="button" class="gallery-zoom" aria-label="Ampliar captura de Configuración de IA">
+            <figure class="gallery-card" data-theme-mode="dark" data-screenshot="docs/assets/screenshots/document-chat-dark.webp">
+              <button type="button" class="gallery-zoom" aria-label="Ampliar captura de Chat documental en Modo Oscuro">
                 <img
-                  src="docs/assets/screenshots/ai-settings.webp"
-                  alt="Panel de configuración de proveedores de IA Groq y Ollama"
+                  src="docs/assets/screenshots/document-chat-dark.webp"
+                  alt="Chat documental con respuesta RAG, citas verificables y selector de 3 modos (Modo Oscuro)"
                   loading="lazy"
                   decoding="async"
                   width="1280"
@@ -309,20 +338,122 @@
                   class="real-screenshot"
                 />
                 <div class="screenshot-fallback" hidden>
-                  <span>Pendiente: <code>ai-settings.webp</code></span>
+                  <span>Pendiente: <code>document-chat-dark.webp</code></span>
                 </div>
               </button>
               <figcaption>
-                <strong>Configuración de IA (Groq y Ollama)</strong>
-                <span>Selector de proveedor activo, cifrado de API keys y catálogo CPU local.</span>
+                <div class="gallery-card-meta">
+                  <strong>1. Chat documental con citas</strong>
+                  <span class="gallery-theme-badge gallery-theme-badge--dark">Modo Oscuro</span>
+                </div>
+                <span>Superficie <em>Floating Glass</em> nocturna con contraste verificado WCAG AA y documentos seleccionados en contexto.</span>
               </figcaption>
             </figure>
 
-            <figure class="gallery-card" data-screenshot="docs/assets/screenshots/knowledge-studio.webp">
-              <button type="button" class="gallery-zoom" aria-label="Ampliar captura de Knowledge Studio">
+            <!-- 2. Agente inteligente y Code Mode (Light & Dark) -->
+            <figure class="gallery-card" data-theme-mode="light" data-screenshot="docs/assets/screenshots/agent-orchestrator.webp">
+              <button type="button" class="gallery-zoom" aria-label="Ampliar captura de Agente IA y Code Mode en Modo Claro">
+                <img
+                  src="docs/assets/screenshots/agent-orchestrator.webp"
+                  alt="Orquestación agéntica multi-paso con código auditado en sandbox Deno y aprobación humana (Modo Claro)"
+                  loading="lazy"
+                  decoding="async"
+                  width="1280"
+                  height="800"
+                  class="real-screenshot"
+                />
+                <div class="screenshot-fallback" hidden>
+                  <span>Pendiente: <code>agent-orchestrator.webp</code></span>
+                </div>
+              </button>
+              <figcaption>
+                <div class="gallery-card-meta">
+                  <strong>2. Agente IA y Code Mode</strong>
+                  <span class="gallery-theme-badge">Modo Claro</span>
+                </div>
+                <span>Orquestación multi-paso, ejecución aislada en sandbox Deno <code>--deny-all</code>, cuota de tokens y aprobación humana.</span>
+              </figcaption>
+            </figure>
+
+            <figure class="gallery-card" data-theme-mode="dark" data-screenshot="docs/assets/screenshots/agent-orchestrator-dark.webp">
+              <button type="button" class="gallery-zoom" aria-label="Ampliar captura de Agente IA y Code Mode en Modo Oscuro">
+                <img
+                  src="docs/assets/screenshots/agent-orchestrator-dark.webp"
+                  alt="Orquestación agéntica multi-paso con código auditado en sandbox Deno y aprobación humana (Modo Oscuro)"
+                  loading="lazy"
+                  decoding="async"
+                  width="1280"
+                  height="800"
+                  class="real-screenshot"
+                />
+                <div class="screenshot-fallback" hidden>
+                  <span>Pendiente: <code>agent-orchestrator-dark.webp</code></span>
+                </div>
+              </button>
+              <figcaption>
+                <div class="gallery-card-meta">
+                  <strong>2. Agente IA y Code Mode</strong>
+                  <span class="gallery-theme-badge gallery-theme-badge--dark">Modo Oscuro</span>
+                </div>
+                <span>Panel de aprobación <em>Human-in-the-Loop</em> tokenizado con trazabilidad de herramientas y handoff a Studio.</span>
+              </figcaption>
+            </figure>
+
+            <!-- 3. Biblioteca y búsqueda documental (Light & Dark) -->
+            <figure class="gallery-card" data-theme-mode="light" data-screenshot="docs/assets/screenshots/documents.webp">
+              <button type="button" class="gallery-zoom" aria-label="Ampliar captura de Biblioteca documental en Modo Claro">
+                <img
+                  src="docs/assets/screenshots/documents.webp"
+                  alt="Biblioteca y búsqueda de documentos con filtros FTS, carpetas y favoritos (Modo Claro)"
+                  loading="lazy"
+                  decoding="async"
+                  width="1280"
+                  height="800"
+                  class="real-screenshot"
+                />
+                <div class="screenshot-fallback" hidden>
+                  <span>Pendiente: <code>documents.webp</code></span>
+                </div>
+              </button>
+              <figcaption>
+                <div class="gallery-card-meta">
+                  <strong>3. Biblioteca y búsqueda</strong>
+                  <span class="gallery-theme-badge">Modo Claro</span>
+                </div>
+                <span>Carpetas, favoritos, búsqueda léxica FTS + trigram, vista previa y selección directa para consultar en el chat.</span>
+              </figcaption>
+            </figure>
+
+            <figure class="gallery-card" data-theme-mode="dark" data-screenshot="docs/assets/screenshots/documents-dark.webp">
+              <button type="button" class="gallery-zoom" aria-label="Ampliar captura de Biblioteca documental en Modo Oscuro">
+                <img
+                  src="docs/assets/screenshots/documents-dark.webp"
+                  alt="Biblioteca y búsqueda de documentos con filtros FTS, carpetas y favoritos (Modo Oscuro)"
+                  loading="lazy"
+                  decoding="async"
+                  width="1280"
+                  height="800"
+                  class="real-screenshot"
+                />
+                <div class="screenshot-fallback" hidden>
+                  <span>Pendiente: <code>documents-dark.webp</code></span>
+                </div>
+              </button>
+              <figcaption>
+                <div class="gallery-card-meta">
+                  <strong>3. Biblioteca y búsqueda</strong>
+                  <span class="gallery-theme-badge gallery-theme-badge--dark">Modo Oscuro</span>
+                </div>
+                <span>Exploración documental multiempresa con estados de indexación E5 y acciones rápidas por tarjeta.</span>
+              </figcaption>
+            </figure>
+
+            <!-- 4. Knowledge Studio — Generación P0 (Light & Dark) -->
+            <figure class="gallery-card" data-theme-mode="light" data-screenshot="docs/assets/screenshots/knowledge-studio.webp">
+              <button type="button" class="gallery-zoom" aria-label="Ampliar captura de Knowledge Studio en Modo Claro">
                 <img
                   src="docs/assets/screenshots/knowledge-studio.webp"
-                  alt="Interfaz de Knowledge Studio con plantillas P0 y exportación segura"
+                  alt="Knowledge Studio: selección de documentos reales, plantillas P0 y exportación Markdown/CSV (Modo Claro)"
                   loading="lazy"
                   decoding="async"
                   width="1280"
@@ -334,16 +465,191 @@
                 </div>
               </button>
               <figcaption>
-                <strong>Knowledge Studio</strong>
-                <span>Artefactos estructurados sobre documentos reales con exportación Markdown/CSV.</span>
+                <div class="gallery-card-meta">
+                  <strong>4. Knowledge Studio (Generador)</strong>
+                  <span class="gallery-theme-badge">Modo Claro</span>
+                </div>
+                <span>Generación de resúmenes ejecutivos, informes técnicos y tablas de evidencia con exportación CSV anti-inyección.</span>
               </figcaption>
             </figure>
 
-            <figure class="gallery-card" data-screenshot="docs/assets/screenshots/document-assignments.webp">
-              <button type="button" class="gallery-zoom" aria-label="Ampliar captura de Asignaciones y notificaciones">
+            <figure class="gallery-card" data-theme-mode="dark" data-screenshot="docs/assets/screenshots/knowledge-studio-dark.webp">
+              <button type="button" class="gallery-zoom" aria-label="Ampliar captura de Knowledge Studio en Modo Oscuro">
+                <img
+                  src="docs/assets/screenshots/knowledge-studio-dark.webp"
+                  alt="Knowledge Studio: selección de documentos reales, plantillas P0 y exportación Markdown/CSV (Modo Oscuro)"
+                  loading="lazy"
+                  decoding="async"
+                  width="1280"
+                  height="800"
+                  class="real-screenshot"
+                />
+                <div class="screenshot-fallback" hidden>
+                  <span>Pendiente: <code>knowledge-studio-dark.webp</code></span>
+                </div>
+              </button>
+              <figcaption>
+                <div class="gallery-card-meta">
+                  <strong>4. Knowledge Studio (Generador)</strong>
+                  <span class="gallery-theme-badge gallery-theme-badge--dark">Modo Oscuro</span>
+                </div>
+                <span>Editor de artefactos con detección de edición manual (<em>detached citations</em>) y persistencia en <code>studio.artifacts</code>.</span>
+              </figcaption>
+            </figure>
+
+            <!-- 5. Knowledge Studio — Estudio SM-2 y Quiz citado (Light & Dark) -->
+            <figure class="gallery-card" data-theme-mode="light" data-screenshot="docs/assets/screenshots/knowledge-studio-study.webp">
+              <button type="button" class="gallery-zoom" aria-label="Ampliar captura de Estudio SM-2 y Quiz en Modo Claro">
+                <img
+                  src="docs/assets/screenshots/knowledge-studio-study.webp"
+                  alt="Knowledge Studio: artefactos guardados, repetición espaciada SM-2 offline y quiz con citas (Modo Claro)"
+                  loading="lazy"
+                  decoding="async"
+                  width="1280"
+                  height="800"
+                  class="real-screenshot"
+                />
+                <div class="screenshot-fallback" hidden>
+                  <span>Pendiente: <code>knowledge-studio-study.webp</code></span>
+                </div>
+              </button>
+              <figcaption>
+                <div class="gallery-card-meta">
+                  <strong>5. Estudio SM-2 y Quiz citado</strong>
+                  <span class="gallery-theme-badge">Modo Claro</span>
+                </div>
+                <span>Deep-linking <code>/studio?artifact=art-001</code>, tarjetas de estudio SM-2 100 % locales y quiz con explicación citada.</span>
+              </figcaption>
+            </figure>
+
+            <figure class="gallery-card" data-theme-mode="dark" data-screenshot="docs/assets/screenshots/knowledge-studio-study-dark.webp">
+              <button type="button" class="gallery-zoom" aria-label="Ampliar captura de Estudio SM-2 y Quiz en Modo Oscuro">
+                <img
+                  src="docs/assets/screenshots/knowledge-studio-study-dark.webp"
+                  alt="Knowledge Studio: artefactos guardados, repetición espaciada SM-2 offline y quiz con citas (Modo Oscuro)"
+                  loading="lazy"
+                  decoding="async"
+                  width="1280"
+                  height="800"
+                  class="real-screenshot"
+                />
+                <div class="screenshot-fallback" hidden>
+                  <span>Pendiente: <code>knowledge-studio-study-dark.webp</code></span>
+                </div>
+              </button>
+              <figcaption>
+                <div class="gallery-card-meta">
+                  <strong>5. Estudio SM-2 y Quiz citado</strong>
+                  <span class="gallery-theme-badge gallery-theme-badge--dark">Modo Oscuro</span>
+                </div>
+                <span>Práctica de retención documental sin consumo de API externa y estado de trabajos de validación en segundo plano.</span>
+              </figcaption>
+            </figure>
+
+            <!-- 6. Configuración IA — Ollama Local CPU (Light & Dark) -->
+            <figure class="gallery-card" data-theme-mode="light" data-screenshot="docs/assets/screenshots/ai-settings.webp">
+              <button type="button" class="gallery-zoom" aria-label="Ampliar captura de Configuración IA Ollama en Modo Claro">
+                <img
+                  src="docs/assets/screenshots/ai-settings.webp"
+                  alt="Configuración de IA con Ollama local y catálogo de modelos CPU autorizados (Modo Claro)"
+                  loading="lazy"
+                  decoding="async"
+                  width="1280"
+                  height="800"
+                  class="real-screenshot"
+                />
+                <div class="screenshot-fallback" hidden>
+                  <span>Pendiente: <code>ai-settings.webp</code></span>
+                </div>
+              </button>
+              <figcaption>
+                <div class="gallery-card-meta">
+                  <strong>6. IA Local con Ollama (CPU)</strong>
+                  <span class="gallery-theme-badge">Modo Claro</span>
+                </div>
+                <span>Ejecución local sin API key comercial, prueba de consulta en vivo y catálogo CPU con requisitos de RAM y disco.</span>
+              </figcaption>
+            </figure>
+
+            <figure class="gallery-card" data-theme-mode="dark" data-screenshot="docs/assets/screenshots/ai-settings-dark.webp">
+              <button type="button" class="gallery-zoom" aria-label="Ampliar captura de Configuración IA Ollama en Modo Oscuro">
+                <img
+                  src="docs/assets/screenshots/ai-settings-dark.webp"
+                  alt="Configuración de IA con Ollama local y catálogo de modelos CPU autorizados (Modo Oscuro)"
+                  loading="lazy"
+                  decoding="async"
+                  width="1280"
+                  height="800"
+                  class="real-screenshot"
+                />
+                <div class="screenshot-fallback" hidden>
+                  <span>Pendiente: <code>ai-settings-dark.webp</code></span>
+                </div>
+              </button>
+              <figcaption>
+                <div class="gallery-card-meta">
+                  <strong>6. IA Local con Ollama (CPU)</strong>
+                  <span class="gallery-theme-badge gallery-theme-badge--dark">Modo Oscuro</span>
+                </div>
+                <span>Selección e instalación controlada de modelos locales (<code>qwen2.5:3b</code>, <code>gemma2:2b</code>, <code>llama3.2:3b</code>).</span>
+              </figcaption>
+            </figure>
+
+            <!-- 7. Configuración IA — Groq Cloud Cifrado (Light & Dark) -->
+            <figure class="gallery-card" data-theme-mode="light" data-screenshot="docs/assets/screenshots/ai-settings-groq.webp">
+              <button type="button" class="gallery-zoom" aria-label="Ampliar captura de Configuración IA Groq en Modo Claro">
+                <img
+                  src="docs/assets/screenshots/ai-settings-groq.webp"
+                  alt="Configuración de IA con Groq en la nube, huella cifrada secrets1 y parámetros avanzados (Modo Claro)"
+                  loading="lazy"
+                  decoding="async"
+                  width="1280"
+                  height="800"
+                  class="real-screenshot"
+                />
+                <div class="screenshot-fallback" hidden>
+                  <span>Pendiente: <code>ai-settings-groq.webp</code></span>
+                </div>
+              </button>
+              <figcaption>
+                <div class="gallery-card-meta">
+                  <strong>7. IA en Nube con Groq Cifrado</strong>
+                  <span class="gallery-theme-badge">Modo Claro</span>
+                </div>
+                <span>Credenciales cifradas con Fernet autenticado (<code>secrets1.</code>), huella enmascarada y ajuste de tokens/temperatura.</span>
+              </figcaption>
+            </figure>
+
+            <figure class="gallery-card" data-theme-mode="dark" data-screenshot="docs/assets/screenshots/ai-settings-groq-dark.webp">
+              <button type="button" class="gallery-zoom" aria-label="Ampliar captura de Configuración IA Groq en Modo Oscuro">
+                <img
+                  src="docs/assets/screenshots/ai-settings-groq-dark.webp"
+                  alt="Configuración de IA con Groq en la nube, huella cifrada secrets1 y parámetros avanzados (Modo Oscuro)"
+                  loading="lazy"
+                  decoding="async"
+                  width="1280"
+                  height="800"
+                  class="real-screenshot"
+                />
+                <div class="screenshot-fallback" hidden>
+                  <span>Pendiente: <code>ai-settings-groq-dark.webp</code></span>
+                </div>
+              </button>
+              <figcaption>
+                <div class="gallery-card-meta">
+                  <strong>7. IA en Nube con Groq Cifrado</strong>
+                  <span class="gallery-theme-badge gallery-theme-badge--dark">Modo Oscuro</span>
+                </div>
+                <span>Conmutación instantánea entre Groq y Ollama preservando los embeddings locales <code>multilingual-e5-small</code>.</span>
+              </figcaption>
+            </figure>
+
+            <!-- 8. Asignaciones y aprobaciones documentales (Light & Dark) -->
+            <figure class="gallery-card" data-theme-mode="light" data-screenshot="docs/assets/screenshots/document-assignments.webp">
+              <button type="button" class="gallery-zoom" aria-label="Ampliar captura de Asignaciones documentales en Modo Claro">
                 <img
                   src="docs/assets/screenshots/document-assignments.webp"
-                  alt="Flujos de asignación, aprobación y notificaciones documentales"
+                  alt="Flujos de asignación, aprobación, rechazo y firma documental (Modo Claro)"
                   loading="lazy"
                   decoding="async"
                   width="1280"
@@ -355,8 +661,231 @@
                 </div>
               </button>
               <figcaption>
-                <strong>Asignaciones y aprobaciones</strong>
-                <span>Seguimiento de lectura, aceptación/rechazo, notificaciones y control administrativo.</span>
+                <div class="gallery-card-meta">
+                  <strong>8. Asignaciones y firmas</strong>
+                  <span class="gallery-theme-badge">Modo Claro</span>
+                </div>
+                <span>Bandeja de documentos asignados con fecha de vencimiento, notas de revisión, aceptación, rechazo y firma interna.</span>
+              </figcaption>
+            </figure>
+
+            <figure class="gallery-card" data-theme-mode="dark" data-screenshot="docs/assets/screenshots/document-assignments-dark.webp">
+              <button type="button" class="gallery-zoom" aria-label="Ampliar captura de Asignaciones documentales en Modo Oscuro">
+                <img
+                  src="docs/assets/screenshots/document-assignments-dark.webp"
+                  alt="Flujos de asignación, aprobación, rechazo y firma documental (Modo Oscuro)"
+                  loading="lazy"
+                  decoding="async"
+                  width="1280"
+                  height="800"
+                  class="real-screenshot"
+                />
+                <div class="screenshot-fallback" hidden>
+                  <span>Pendiente: <code>document-assignments-dark.webp</code></span>
+                </div>
+              </button>
+              <figcaption>
+                <div class="gallery-card-meta">
+                  <strong>8. Asignaciones y firmas</strong>
+                  <span class="gallery-theme-badge gallery-theme-badge--dark">Modo Oscuro</span>
+                </div>
+                <span>Seguimiento de cumplimiento normativo y acuses de lectura con trazabilidad por usuario y empresa.</span>
+              </figcaption>
+            </figure>
+
+            <!-- 9. Auditoría de seguridad (Light & Dark) -->
+            <figure class="gallery-card" data-theme-mode="light" data-screenshot="docs/assets/screenshots/audit-logs.webp">
+              <button type="button" class="gallery-zoom" aria-label="Ampliar captura de Auditoría de seguridad en Modo Claro">
+                <img
+                  src="docs/assets/screenshots/audit-logs.webp"
+                  alt="Visor de auditoría de seguridad con filtro reactivo y metadatos sin secretos (Modo Claro)"
+                  loading="lazy"
+                  decoding="async"
+                  width="1280"
+                  height="800"
+                  class="real-screenshot"
+                />
+                <div class="screenshot-fallback" hidden>
+                  <span>Pendiente: <code>audit-logs.webp</code></span>
+                </div>
+              </button>
+              <figcaption>
+                <div class="gallery-card-meta">
+                  <strong>9. Auditoría de seguridad</strong>
+                  <span class="gallery-theme-badge">Modo Claro</span>
+                </div>
+                <span>Bitácora inmutable de cambios de proveedor IA, cifrado de claves, aprobaciones agénticas y permisos RBAC.</span>
+              </figcaption>
+            </figure>
+
+            <figure class="gallery-card" data-theme-mode="dark" data-screenshot="docs/assets/screenshots/audit-logs-dark.webp">
+              <button type="button" class="gallery-zoom" aria-label="Ampliar captura de Auditoría de seguridad en Modo Oscuro">
+                <img
+                  src="docs/assets/screenshots/audit-logs-dark.webp"
+                  alt="Visor de auditoría de seguridad con filtro reactivo y metadatos sin secretos (Modo Oscuro)"
+                  loading="lazy"
+                  decoding="async"
+                  width="1280"
+                  height="800"
+                  class="real-screenshot"
+                />
+                <div class="screenshot-fallback" hidden>
+                  <span>Pendiente: <code>audit-logs-dark.webp</code></span>
+                </div>
+              </button>
+              <figcaption>
+                <div class="gallery-card-meta">
+                  <strong>9. Auditoría de seguridad</strong>
+                  <span class="gallery-theme-badge gallery-theme-badge--dark">Modo Oscuro</span>
+                </div>
+                <span>Filtrado en tiempo real con cancelación automática <code>AbortController</code> y metadatos JSON redactados.</span>
+              </figcaption>
+            </figure>
+
+            <!-- 10. Administración multiempresa y RBAC (Light & Dark) -->
+            <figure class="gallery-card" data-theme-mode="light" data-screenshot="docs/assets/screenshots/admin-panel.webp">
+              <button type="button" class="gallery-zoom" aria-label="Ampliar captura de Administración multiempresa en Modo Claro">
+                <img
+                  src="docs/assets/screenshots/admin-panel.webp"
+                  alt="Panel de administración multiempresa, áreas jerárquicas, usuarios y grupos RBAC (Modo Claro)"
+                  loading="lazy"
+                  decoding="async"
+                  width="1280"
+                  height="800"
+                  class="real-screenshot"
+                />
+                <div class="screenshot-fallback" hidden>
+                  <span>Pendiente: <code>admin-panel.webp</code></span>
+                </div>
+              </button>
+              <figcaption>
+                <div class="gallery-card-meta">
+                  <strong>10. Administración multiempresa</strong>
+                  <span class="gallery-theme-badge">Modo Claro</span>
+                </div>
+                <span>Gestión de empresas (tenants), áreas jerárquicas, aprovisionamiento de usuarios y grupos con 15 permisos granulares.</span>
+              </figcaption>
+            </figure>
+
+            <figure class="gallery-card" data-theme-mode="dark" data-screenshot="docs/assets/screenshots/admin-panel-dark.webp">
+              <button type="button" class="gallery-zoom" aria-label="Ampliar captura de Administración multiempresa en Modo Oscuro">
+                <img
+                  src="docs/assets/screenshots/admin-panel-dark.webp"
+                  alt="Panel de administración multiempresa, áreas jerárquicas, usuarios y grupos RBAC (Modo Oscuro)"
+                  loading="lazy"
+                  decoding="async"
+                  width="1280"
+                  height="800"
+                  class="real-screenshot"
+                />
+                <div class="screenshot-fallback" hidden>
+                  <span>Pendiente: <code>admin-panel-dark.webp</code></span>
+                </div>
+              </button>
+              <figcaption>
+                <div class="gallery-card-meta">
+                  <strong>10. Administración multiempresa</strong>
+                  <span class="gallery-theme-badge gallery-theme-badge--dark">Modo Oscuro</span>
+                </div>
+                <span>Aislamiento estricto por tenant y cambio de empresa activa con remontaje seguro de borradores locales.</span>
+              </figcaption>
+            </figure>
+
+            <!-- 11. Aplicaciones: Google Drive OAuth PKCE y lotes Markdown/ZIP (Light & Dark) -->
+            <figure class="gallery-card" data-theme-mode="light" data-screenshot="docs/assets/screenshots/applications-drive.webp">
+              <button type="button" class="gallery-zoom" aria-label="Ampliar captura de Aplicaciones e importación por lote en Modo Claro">
+                <img
+                  src="docs/assets/screenshots/applications-drive.webp"
+                  alt="Centro de aplicaciones: Google Drive OAuth PKCE S256 e importador por lote Markdown/ZIP (Modo Claro)"
+                  loading="lazy"
+                  decoding="async"
+                  width="1280"
+                  height="800"
+                  class="real-screenshot"
+                />
+                <div class="screenshot-fallback" hidden>
+                  <span>Pendiente: <code>applications-drive.webp</code></span>
+                </div>
+              </button>
+              <figcaption>
+                <div class="gallery-card-meta">
+                  <strong>11. Drive e importación ZIP/MD</strong>
+                  <span class="gallery-theme-badge">Modo Claro</span>
+                </div>
+                <span>Conexión Google Drive OAuth PKCE S256 e importación masiva de bóvedas Obsidian/Logseq con protección anti zip-bomb.</span>
+              </figcaption>
+            </figure>
+
+            <figure class="gallery-card" data-theme-mode="dark" data-screenshot="docs/assets/screenshots/applications-drive-dark.webp">
+              <button type="button" class="gallery-zoom" aria-label="Ampliar captura de Aplicaciones e importación por lote en Modo Oscuro">
+                <img
+                  src="docs/assets/screenshots/applications-drive-dark.webp"
+                  alt="Centro de aplicaciones: Google Drive OAuth PKCE S256 e importador por lote Markdown/ZIP (Modo Oscuro)"
+                  loading="lazy"
+                  decoding="async"
+                  width="1280"
+                  height="800"
+                  class="real-screenshot"
+                />
+                <div class="screenshot-fallback" hidden>
+                  <span>Pendiente: <code>applications-drive-dark.webp</code></span>
+                </div>
+              </button>
+              <figcaption>
+                <div class="gallery-card-meta">
+                  <strong>11. Drive e importación ZIP/MD</strong>
+                  <span class="gallery-theme-badge gallery-theme-badge--dark">Modo Oscuro</span>
+                </div>
+                <span>Deduplicación automática por SHA-256 y preservación de wikilinks y frontmatter hacia Knowledge Studio.</span>
+              </figcaption>
+            </figure>
+
+            <!-- 12. Inicio de sesión y registro inicial (Light & Dark) -->
+            <figure class="gallery-card" data-theme-mode="light" data-screenshot="docs/assets/screenshots/login.webp">
+              <button type="button" class="gallery-zoom" aria-label="Ampliar captura de Inicio de sesión en Modo Claro">
+                <img
+                  src="docs/assets/screenshots/login.webp"
+                  alt="Pantalla de inicio de sesión y configuración inicial de Blandskron Documental (Modo Claro)"
+                  loading="lazy"
+                  decoding="async"
+                  width="1280"
+                  height="800"
+                  class="real-screenshot"
+                />
+                <div class="screenshot-fallback" hidden>
+                  <span>Pendiente: <code>login.webp</code></span>
+                </div>
+              </button>
+              <figcaption>
+                <div class="gallery-card-meta">
+                  <strong>12. Acceso y bootstrap inicial</strong>
+                  <span class="gallery-theme-badge">Modo Claro</span>
+                </div>
+                <span>Bootstrap transaccional de la primera cuenta administradora, login JWT RS256 y Google OIDC opcional.</span>
+              </figcaption>
+            </figure>
+
+            <figure class="gallery-card" data-theme-mode="dark" data-screenshot="docs/assets/screenshots/login-dark.webp">
+              <button type="button" class="gallery-zoom" aria-label="Ampliar captura de Inicio de sesión en Modo Oscuro">
+                <img
+                  src="docs/assets/screenshots/login-dark.webp"
+                  alt="Pantalla de inicio de sesión y configuración inicial de Blandskron Documental (Modo Oscuro)"
+                  loading="lazy"
+                  decoding="async"
+                  width="1280"
+                  height="800"
+                  class="real-screenshot"
+                />
+                <div class="screenshot-fallback" hidden>
+                  <span>Pendiente: <code>login-dark.webp</code></span>
+                </div>
+              </button>
+              <figcaption>
+                <div class="gallery-card-meta">
+                  <strong>12. Acceso y bootstrap inicial</strong>
+                  <span class="gallery-theme-badge gallery-theme-badge--dark">Modo Oscuro</span>
+                </div>
+                <span>Ventana de acceso <em>Floating Glass</em> en tema oscuro con identidad visual oficial de Blandskron.</span>
               </figcaption>
             </figure>
           </div>
@@ -467,8 +996,8 @@ docker compose up -d --build</code></pre>
               <p><code>AuthServices</code> (<code>8001</code>): JWT RS256, multiempresa, Google OIDC opcional, configuración IA y <code>audit_logs</code>.</p>
             </div>
             <div class="arch-layer">
-              <h3>3. Dominio Documental y RAG (FastAPI)</h3>
-              <p>Ingesta E5 + OCR (<code>8003</code>), Chat RAG híbrido (<code>8002</code>), Búsqueda FTS (<code>8004</code>), Acceso/Flujos (<code>8005</code>), Biblioteca (<code>8006</code>), Transferencias (<code>8007</code>), Conversaciones (<code>8008</code>), Perfil (<code>8015</code>), Exportación PDF (<code>8016</code>), Drive opcional (<code>8017</code>) y Studio/MCP opcional (<code>8018</code>).</p>
+              <h3>3. Dominio Documental, RAG y Agentes (FastAPI + Deno Sandbox)</h3>
+              <p>Ingesta E5 + OCR (<code>8003</code>), Chat RAG híbrido (<code>8002</code>), Búsqueda FTS (<code>8004</code>), Acceso/Flujos (<code>8005</code>), Biblioteca (<code>8006</code>), Transferencias (<code>8007</code>), Conversaciones (<code>8008</code>), Perfil (<code>8015</code>), Exportación PDF (<code>8016</code>), Drive opcional (<code>8017</code>), Studio/MCP opcional (<code>8018</code>) y Orquestador Agéntico + Code Sandbox Deno <code>--deny-all</code> opcional (<code>8019</code>).</p>
             </div>
             <div class="arch-layer">
               <h3>4. Datos y Proveedores IA</h3>

@@ -3,6 +3,7 @@ import {
   isTenantAdmin,
 } from "@/entities/auth/model/auth.user";
 import { LoginPage } from "@/pages/LoginPage/LoginPage.tsx";
+import { ErrorBoundary } from "@/shared/components/ErrorBoundary.tsx";
 import { PageState } from "@/shared/components/PageState.tsx";
 import { lazy, Suspense, useEffect } from "react";
 import { useAuthContext } from "./providers/AuthProvider";
@@ -97,6 +98,8 @@ function AppContent() {
 
   if (denied) return null;
 
+  let pageNode = <ChatPage onNavigate={navigate} />;
+
   if (
     route === appRoutes.documents ||
     route === appRoutes.documentAssignments ||
@@ -105,35 +108,23 @@ function AppContent() {
     route === appRoutes.documentFolders ||
     route === appRoutes.documentFavorites
   ) {
-    return <DocumentSearchPage activeView={route} onNavigate={navigate} />;
-  }
-
-  if (
+    pageNode = <DocumentSearchPage activeView={route} onNavigate={navigate} />;
+  } else if (
     route === appRoutes.applications ||
     route === appRoutes.googleDriveApplication
   ) {
-    return <ApplicationsPage activeView={route} onNavigate={navigate} />;
+    pageNode = <ApplicationsPage activeView={route} onNavigate={navigate} />;
+  } else if (route === appRoutes.profile) {
+    pageNode = <ProfilePage onNavigate={navigate} />;
+  } else if (route === appRoutes.admin) {
+    pageNode = <AdminPage onNavigate={navigate} />;
+  } else if (route === appRoutes.settingsAi) {
+    pageNode = <SettingsAIPage onNavigate={navigate} />;
+  } else if (route === appRoutes.studio) {
+    pageNode = <StudioPage onNavigate={navigate} />;
+  } else if (route === appRoutes.auditLogs) {
+    pageNode = <AuditLogsPage onNavigate={navigate} />;
   }
 
-  if (route === appRoutes.profile) {
-    return <ProfilePage onNavigate={navigate} />;
-  }
-
-  if (route === appRoutes.admin) {
-    return <AdminPage onNavigate={navigate} />;
-  }
-
-  if (route === appRoutes.settingsAi) {
-    return <SettingsAIPage onNavigate={navigate} />;
-  }
-
-  if (route === appRoutes.studio) {
-    return <StudioPage onNavigate={navigate} />;
-  }
-
-  if (route === appRoutes.auditLogs) {
-    return <AuditLogsPage onNavigate={navigate} />;
-  }
-
-  return <ChatPage onNavigate={navigate} />;
+  return <ErrorBoundary resetKey={route}>{pageNode}</ErrorBoundary>;
 }

@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { fileURLToPath, URL } from "node:url";
 import { createServer } from "vite";
 import react from "@vitejs/plugin-react";
 
@@ -7,6 +8,9 @@ test("applySm2Offline advances intervals cleanly without network or telemetry", 
   const server = await createServer({
     configFile: false,
     plugins: [react()],
+    resolve: {
+      alias: { "@": fileURLToPath(new URL("../src", import.meta.url)) },
+    },
     optimizeDeps: { noDiscovery: true, include: [] },
     server: { middlewareMode: true, hmr: false },
     appType: "custom",

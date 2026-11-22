@@ -1,0 +1,42 @@
+# Optional Docker Compose overlay for hardened Code Mode sandbox (AG-010 / ADR-007).
+# Base `docker compose up -d --build` remains 100% unaffected unless `--profile code-mode` is enabled.
+# Usage:
+#   AGENTS_ENABLED=true CODE_MODE_ENABLED=true docker compose -f compose.yaml -f docker/compose/studio.yml -f docker/compose/agents.yml -f docker/compose/code-mode.yml --profile studio --profile agents --profile code-mode up -d --build
+#
+# Production multi-tenant hardening: uncomment `runtime: runsc` (gVisor) on `code-sandbox-runner`.
+
+networks:
+  code_sandbox_net:
+    driver: bridge
+    internal: true
+
+services:
+  code-sandbox-runner:
+    build:
+      context: ../../backend/CodeSandboxRunner
+      dockerfile: Dockerfile
+    profiles: ["code-mode"]
+    container_name: code-sandbox-runner
+    # runtime: runsc  # Recommended gVisor kernel sandbox for multi-tenant production
+    environment:
+      PORT: "8090"
+      CODE_SANDBOX_TIMEOUT_MS: ${CODE_SANDBOX_TIMEOUT_MS:-5000}
+    networks:
+      - code_sandbox_net
+    read_only: true
+    cap_drop: ["ALL"]
+    security_opt: ["no-new-privileges:true"]
+    mem_limit: 256m
+    cpus: 0.5
+    pids_limit: 64
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,nodev,size=16777216
+
+  agent-orchestrator-service:
+    environment:
+      CODE_MODE_ENABLED: ${CODE_MODE_ENABLED:-false}
+      CODE_SANDBOX_URL: http://code-sandbox-runner:8090
+      CODE_SANDBOX_TIMEOUT_MS: ${CODE_SANDBOX_TIMEOUT_MS:-5000}
+    networks:
+      - default
+      - code_sandbox_net

@@ -20,28 +20,36 @@ export interface AuditLogPage {
   items: AuditLogEntry[];
 }
 
-export function fetchAuditLogs(
+export async function fetchAuditLogs(
   authClient: MaybeClient,
   {
     action,
     resourceType,
     limit = 25,
     offset = 0,
+    signal,
   }: {
     action?: string;
     resourceType?: string;
     limit?: number;
     offset?: number;
+    signal?: AbortSignal;
   } = {},
-) {
+): Promise<AuditLogPage> {
   const params = new URLSearchParams({
     limit: String(limit),
     offset: String(offset),
   });
   if (action) params.set("action", action);
   if (resourceType) params.set("resource_type", resourceType);
-  return requireClient(authClient)<AuditLogPage>(
+  const raw = await requireClient(authClient)<AuditLogPage>(
     `/api/audit-logs/?${params.toString()}`,
-    { method: "GET" },
+    { method: "GET", ...(signal ? { signal } : {}) },
   );
+  return {
+    total: typeof raw?.total === "number" ? raw.total : 0,
+    limit: typeof raw?.limit === "number" ? raw.limit : limit,
+    offset: typeof raw?.offset === "number" ? raw.offset : offset,
+    items: Array.isArray(raw?.items) ? raw.items : [],
+  };
 }

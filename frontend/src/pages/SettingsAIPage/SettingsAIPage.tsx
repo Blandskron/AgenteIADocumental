@@ -13,6 +13,7 @@ import {
   type GroqSettings,
 } from "@/features/settings-ai/api/settings-ai.api.ts";
 import { OllamaConfigPanel } from "@/features/settings-ai/ui/OllamaConfigPanel.tsx";
+import { Button } from "@/shared/components/Button/Button.tsx";
 import { PageState } from "@/shared/components/PageState.tsx";
 import { useSidebarState } from "@/shared/hooks/useSidebarState.ts";
 import { AppShell } from "@/shared/layouts/AppShell.tsx";
@@ -56,40 +57,59 @@ export function SettingsAIPage({ onNavigate }: PageProps) {
     setTimeoutSeconds(data.params?.timeout_seconds ?? 60);
   }, []);
 
-  const loadSettings = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const [data, providerState] = await Promise.all([
-        getGroqSettings(authClient),
-        getActiveAIProvider(authClient).catch(() => ({
-          active_provider: "groq" as const,
-          available_providers: ["groq", "ollama"] as Array<"groq" | "ollama">,
-        })),
-      ]);
-      applySettings(data);
-      setActiveProvider(providerState.active_provider);
-      if (data.configured) {
-        try {
-          const modelsResp = await listGroqModels(authClient);
-          if (modelsResp.result === "ok" && modelsResp.models.length > 0) {
-            setAvailableModels(modelsResp.models);
+  const loadSettings = useCallback(
+    async (signal?: AbortSignal) => {
+      setLoading(true);
+      setError(null);
+      try {
+        const [data, providerState] = await Promise.all([
+          getGroqSettings(authClient, { signal }),
+          getActiveAIProvider(authClient, { signal }).catch(() => ({
+            active_provider: "groq" as const,
+            available_providers: ["groq", "ollama"] as Array<"groq" | "ollama">,
+          })),
+        ]);
+        if (signal?.aborted) return;
+        applySettings(data);
+        setActiveProvider(providerState.active_provider);
+        if (data.configured) {
+          try {
+            const modelsResp = await listGroqModels(authClient, { signal });
+            if (
+              !signal?.aborted &&
+              modelsResp.result === "ok" &&
+              modelsResp.models.length > 0
+            ) {
+              setAvailableModels(modelsResp.models);
+            }
+          } catch {
+            // Mantener input manual si el listado de modelos no responde.
           }
-        } catch {
-          // Mantener input manual si el listado de modelos no responde.
+        }
+      } catch (caught) {
+        if (
+          signal?.aborted ||
+          (caught instanceof Error && caught.name === "AbortError")
+        ) {
+          return;
+        }
+        setError(
+          toError(caught).message ||
+            "No se pudo cargar la configuración de IA.",
+        );
+      } finally {
+        if (!signal?.aborted) {
+          setLoading(false);
         }
       }
-    } catch (caught) {
-      setError(
-        toError(caught).message || "No se pudo cargar la configuración de IA.",
-      );
-    } finally {
-      setLoading(false);
-    }
-  }, [authClient, applySettings]);
+    },
+    [authClient, applySettings],
+  );
 
   useEffect(() => {
-    void loadSettings();
+    const controller = new AbortController();
+    void loadSettings(controller.signal);
+    return () => controller.abort();
   }, [loadSettings]);
 
   async function handleSaveCredentials(event: React.FormEvent) {
@@ -225,12 +245,10 @@ export function SettingsAIPage({ onNavigate }: PageProps) {
               reiniciar servicios.
             </p>
           </div>
-          <div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
-            <button
+          <div className="ui-toolbar-row">
+            <Button
               type="button"
-              className={
-                activeProvider === "groq" ? "btn-primary" : "btn-secondary"
-              }
+              variant={activeProvider === "groq" ? "primary" : "secondary"}
               disabled={busy}
               onClick={() => {
                 setBusy(true);
@@ -245,12 +263,10 @@ export function SettingsAIPage({ onNavigate }: PageProps) {
               }}
             >
               Groq (Nube)
-            </button>
-            <button
+            </Button>
+            <Button
               type="button"
-              className={
-                activeProvider === "ollama" ? "btn-primary" : "btn-secondary"
-              }
+              variant={activeProvider === "ollama" ? "primary" : "secondary"}
               disabled={busy}
               onClick={() => {
                 setBusy(true);
@@ -267,7 +283,7 @@ export function SettingsAIPage({ onNavigate }: PageProps) {
               }}
             >
               Ollama (Local)
-            </button>
+            </Button>
             {settings && activeProvider === "groq" && (
               <span
                 className={`settings-ai-badge status-${settings.status}`}
@@ -360,31 +376,31 @@ export function SettingsAIPage({ onNavigate }: PageProps) {
                   disabled={busy}
                 />
                 <div className="settings-ai-actions">
-                  <button
+                  <Button
                     type="submit"
-                    className="btn-primary"
+                    variant="primary"
                     disabled={busy || !settings.encryption_ready}
                   >
                     Guardar clave
-                  </button>
-                  <button
+                  </Button>
+                  <Button
                     type="button"
-                    className="btn-secondary"
+                    variant="secondary"
                     onClick={handleTestConnection}
                     disabled={busy || !settings.configured}
                   >
                     <RefreshCw size={15} aria-hidden="true" />
                     Probar conexión
-                  </button>
-                  <button
+                  </Button>
+                  <Button
                     type="button"
-                    className="btn-danger"
+                    variant="danger"
                     onClick={handleRevoke}
                     disabled={busy || !settings.configured}
                   >
                     <Trash2 size={15} aria-hidden="true" />
                     Revocar clave
-                  </button>
+                  </Button>
                 </div>
               </form>
             </section>
@@ -459,9 +475,9 @@ export function SettingsAIPage({ onNavigate }: PageProps) {
                 </details>
 
                 <div className="settings-ai-actions">
-                  <button type="submit" className="btn-primary" disabled={busy}>
+                  <Button type="submit" variant="primary" disabled={busy}>
                     Guardar parámetros
-                  </button>
+                  </Button>
                 </div>
               </form>
             </section>

@@ -24,11 +24,17 @@ export interface StudioChartPoint {
   provenance: string;
 }
 
-export function listStudioTemplates(studioClient: MaybeClient) {
-  return requireClient(studioClient)<StudioTemplateList>(
+export async function listStudioTemplates(
+  studioClient: MaybeClient,
+  { signal }: { signal?: AbortSignal } = {},
+): Promise<StudioTemplateList> {
+  const raw = await requireClient(studioClient)<StudioTemplateList>(
     "/api/v1/studio/templates",
-    { method: "GET" },
+    { method: "GET", ...(signal ? { signal } : {}) },
   );
+  return {
+    templates: Array.isArray(raw?.templates) ? raw.templates : [],
+  };
 }
 
 export function validateStudioMermaid(
@@ -83,11 +89,19 @@ export interface StudioJobRecord {
   created_at?: string;
 }
 
-export function listStudioArtifacts(studioClient: MaybeClient) {
-  return requireClient(studioClient)<{ items: StudioArtifactRecord[] }>(
-    "/api/v1/studio/artifacts",
-    { method: "GET" },
-  );
+export async function listStudioArtifacts(
+  studioClient: MaybeClient,
+  { signal }: { signal?: AbortSignal } = {},
+): Promise<{ items: StudioArtifactRecord[] }> {
+  const raw = await requireClient(studioClient)<{
+    items: StudioArtifactRecord[];
+  }>("/api/v1/studio/artifacts", {
+    method: "GET",
+    ...(signal ? { signal } : {}),
+  });
+  return {
+    items: Array.isArray(raw?.items) ? raw.items : [],
+  };
 }
 
 export function createStudioArtifact(
@@ -109,11 +123,17 @@ export function createStudioArtifact(
   );
 }
 
-export function listStudioJobs(studioClient: MaybeClient) {
-  return requireClient(studioClient)<{ items: StudioJobRecord[] }>(
+export async function listStudioJobs(
+  studioClient: MaybeClient,
+  { signal }: { signal?: AbortSignal } = {},
+): Promise<{ items: StudioJobRecord[] }> {
+  const raw = await requireClient(studioClient)<{ items: StudioJobRecord[] }>(
     "/api/v1/studio/jobs",
-    { method: "GET" },
+    { method: "GET", ...(signal ? { signal } : {}) },
   );
+  return {
+    items: Array.isArray(raw?.items) ? raw.items : [],
+  };
 }
 
 export function cancelStudioJob(studioClient: MaybeClient, jobId: string) {

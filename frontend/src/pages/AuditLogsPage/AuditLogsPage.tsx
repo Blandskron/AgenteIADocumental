@@ -5,6 +5,7 @@ import {
   fetchAuditLogs,
   type AuditLogEntry,
 } from "@/features/audit-logs/api/audit-logs.api.ts";
+import { Button } from "@/shared/components/Button/Button.tsx";
 import { PageState } from "@/shared/components/PageState.tsx";
 import { useSidebarState } from "@/shared/hooks/useSidebarState.ts";
 import { AppShell } from "@/shared/layouts/AppShell.tsx";
@@ -22,29 +23,44 @@ export function AuditLogsPage({ onNavigate }: PageProps) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const loadLogs = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const page = await fetchAuditLogs(authClient, {
-        action: actionFilter.trim() || undefined,
-        limit: 50,
-        offset: 0,
-      });
-      setItems(page.items);
-      setTotal(page.total);
-    } catch (caught) {
-      setError(
-        toError(caught).message ||
-          "No se pudo cargar el historial de auditoría.",
-      );
-    } finally {
-      setLoading(false);
-    }
-  }, [authClient, actionFilter]);
+  const loadLogs = useCallback(
+    async (signal?: AbortSignal) => {
+      setLoading(true);
+      setError(null);
+      try {
+        const page = await fetchAuditLogs(authClient, {
+          action: actionFilter.trim() || undefined,
+          limit: 50,
+          offset: 0,
+          signal,
+        });
+        if (signal?.aborted) return;
+        setItems(page.items);
+        setTotal(page.total);
+      } catch (caught) {
+        if (
+          signal?.aborted ||
+          (caught instanceof Error && caught.name === "AbortError")
+        ) {
+          return;
+        }
+        setError(
+          toError(caught).message ||
+            "No se pudo cargar el historial de auditoría.",
+        );
+      } finally {
+        if (!signal?.aborted) {
+          setLoading(false);
+        }
+      }
+    },
+    [authClient, actionFilter],
+  );
 
   useEffect(() => {
-    void loadLogs();
+    const controller = new AbortController();
+    void loadLogs(controller.signal);
+    return () => controller.abort();
   }, [loadLogs]);
 
   return (
@@ -76,31 +92,24 @@ export function AuditLogsPage({ onNavigate }: PageProps) {
               operaciones críticas) sin exposición de secretos.
             </p>
           </div>
-          <button
+          <Button
             type="button"
-            className="btn-secondary"
+            variant="secondary"
             onClick={() => void loadLogs()}
             disabled={loading}
           >
             <RefreshCw size={15} aria-hidden="true" />
             Actualizar ({total})
-          </button>
+          </Button>
         </header>
 
-        <div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
+        <div className="ui-toolbar-row">
           <label htmlFor="audit-action-filter">Filtrar acción:</label>
           <input
             id="audit-action-filter"
             placeholder="ej. ai_settings_write"
             value={actionFilter}
             onChange={(event) => setActionFilter(event.target.value)}
-            style={{
-              padding: "0.45rem 0.7rem",
-              borderRadius: "8px",
-              border: "1px solid var(--border-subtle, #cbd5e1)",
-              background: "transparent",
-              color: "inherit",
-            }}
           />
         </div>
 
@@ -122,10 +131,10 @@ export function AuditLogsPage({ onNavigate }: PageProps) {
                 registrados para el filtro actual.
               </p>
             ) : (
-              <div style={{ overflowX: "auto" }}>
-                <table style={{ width: "100%", borderCollapse: "collapse" }}>
+              <div className="ui-table-scroll">
+                <table className="ui-data-table">
                   <thead>
-                    <tr style={{ textAlign: "left" }}>
+                    <tr>
                       <th>Fecha UTC</th>
                       <th>Acción</th>
                       <th>Recurso</th>

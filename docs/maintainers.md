@@ -1,6 +1,6 @@
 # Documentación y skills del repositorio
 
-Empieza por el README del ámbito que vas a cambiar. Cada uno presenta un diagrama y enlaza las guías y sus instrucciones AGENTS.md. Los detalles se mantienen en docs/ junto al código que describen. Para el sistema completo, consulta [arquitectura](architecture.md), [operación](operations.md), [verificación](release/README.md), [estrategia de CI/CD](CI_CD_STRATEGY.md), [extensibilidad LLM/MCP](ADR_EXTENSIBILITY_LLM_MCP.md), [ADR-006 Orquestación Agéntica](ADR_AGENT_ORCHESTRATOR.md), [ADR-007 Code Mode Sandbox](ADR_CODE_MODE_SANDBOX.md) y el [roadmap Agentic AI](../ROADMAP.md).
+Empieza por el README del ámbito que vas a cambiar. Cada uno presenta un diagrama y enlaza las guías y sus instrucciones AGENTS.md. Los detalles se mantienen en docs/ junto al código que describen. Para el sistema completo, consulta [arquitectura](architecture.md), [operación](operations.md), [verificación](release/README.md), [estrategia de CI/CD](CI_CD_STRATEGY.md), [extensibilidad LLM/MCP](ADR_EXTENSIBILITY_LLM_MCP.md), [ADR-006 Orquestación Agéntica](ADR_AGENT_ORCHESTRATOR.md) y [ADR-007 Code Mode Sandbox](ADR_CODE_MODE_SANDBOX.md).
 
 Codex descubre las skills versionadas en .agents/skills. Los AGENTS.md locales enlazan la skill de su ámbito para facilitar el acceso desde el componente. [Documentación de OpenAI sobre skills de repositorio](https://developers.openai.com/blog/skills-agents-sdk)
 
@@ -22,5 +22,7 @@ Codex descubre las skills versionadas en .agents/skills. Los AGENTS.md locales e
 | DocumentExportServices | [README](../backend/DocumentExportServices/README.md) | [documental-export](../.agents/skills/documental-export/SKILL.md) |
 | GoogleDriveImportServices | [README](../backend/GoogleDriveImportServices/README.md) | [documental-drive](../.agents/skills/documental-drive/SKILL.md) |
 | KnowledgeStudioServices (opcional) | [README](../backend/KnowledgeStudioServices/README.md) | [documental-backend](../.agents/skills/documental-backend/SKILL.md) |
+| AgentOrchestratorServices (opcional) | [README](../backend/AgentOrchestratorServices/README.md) | [documental-backend](../.agents/skills/documental-backend/SKILL.md) |
+| CodeSandboxRunner (opcional) | [README](../backend/CodeSandboxRunner/README.md) | [documental-backend](../.agents/skills/documental-backend/SKILL.md) |
 
 Al cambiar una API, revisa el contrato y sus consumidores. Si cambias el despliegue, actualiza la guía operativa y su diagrama. Cita el commit o la imagen probada al registrar resultados.

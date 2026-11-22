@@ -6,6 +6,10 @@ import { useEffect, useState } from "react";
 
 import { useAuthContext } from "@/app/providers/AuthProvider.tsx";
 import { appRoutes } from "@/app/router/routes.ts";
+import { AgentHistoryList } from "@/features/agents/components/AgentHistoryList.tsx";
+import { AgentModeSelector } from "@/features/agents/components/AgentModeSelector.tsx";
+import { AgentRunPanel } from "@/features/agents/components/AgentRunPanel.tsx";
+import { useAgentExecution } from "@/features/agents/hooks/useAgentExecution.ts";
 import { useChat } from "@/features/chat/hooks/useChat.ts";
 import { useConversations } from "@/features/conversations/hooks/useConversations.ts";
 import { ExportHistory } from "@/features/document-export/ExportHistory.tsx";
@@ -22,6 +26,7 @@ import { Sidebar } from "@/widgets/Sidebar/Sidebar.tsx";
 
 export function ChatPage({ onNavigate }: PageProps) {
   const {
+    agentClient,
     chatClient,
     conversationClient,
     currentUser,
@@ -34,6 +39,30 @@ export function ChatPage({ onNavigate }: PageProps) {
   const [sidebarOpen, setSidebarOpen] = useSidebarState();
   const [transfersOpen, setTransfersOpen] = useState(false);
   const [exportsOpen, setExportsOpen] = useState(false);
+  const {
+    agentCapabilities,
+    agentTemplates,
+    selectedTemplateId,
+    setSelectedTemplateId,
+    agentRuns,
+    agentQuota,
+    executionMode,
+    setExecutionMode,
+    activeAgentRun,
+    agentAnalysis,
+    agentAuditEvents,
+    agentBusy,
+    agentError,
+    startRun,
+    handleAgentCancel,
+    handleAgentDecision,
+    handleAgentExport,
+    handleAgentAnalyze,
+    handleAgentExportPdf,
+    handleAgentRetry,
+    selectRun,
+    dismissRun,
+  } = useAgentExecution(agentClient);
 
   const transfers = useTransfers(documentTransferClient);
   const conversationsState = useConversations(storageScope, conversationClient);
@@ -131,6 +160,21 @@ export function ChatPage({ onNavigate }: PageProps) {
       metadata: { exported_from: "chat", source_message_index: index },
     });
   }
+
+  async function handleComposerSubmit() {
+    if (executionMode === "chat" || !agentCapabilities?.agents_enabled) {
+      return chat.submit();
+    }
+    const selectedDocumentIds = (
+      activeConversation?.selectedDocuments || []
+    ).map((doc) => doc.documentId);
+    await startRun({
+      goal: chat.question,
+      selectedDocumentIds,
+      onSuccess: () => chat.setQuestion(""),
+    });
+  }
+
   return (
     <AppShell
       sidebarOpen={sidebarOpen}
@@ -182,6 +226,14 @@ export function ChatPage({ onNavigate }: PageProps) {
             <FileDown size={16} aria-hidden="true" />
             Mis PDFs
           </button>
+          <AgentModeSelector
+            mode={executionMode}
+            capabilities={agentCapabilities}
+            templates={agentTemplates}
+            selectedTemplateId={selectedTemplateId}
+            onModeChange={setExecutionMode}
+            onTemplateChange={setSelectedTemplateId}
+          />
           {activeConversation?.selectedDocuments?.length > 0 && (
             <div
               className="selected-documents-chip"
@@ -222,14 +274,38 @@ export function ChatPage({ onNavigate }: PageProps) {
           </button>
         )}
 
+        {agentCapabilities?.agents_enabled && (
+          <AgentHistoryList
+            runs={agentRuns}
+            activeRunId={activeAgentRun?.run_id ?? null}
+            onSelectRun={selectRun}
+          />
+        )}
+
+        <AgentRunPanel
+          run={activeAgentRun}
+          quota={agentQuota}
+          analysis={agentAnalysis}
+          auditEvents={agentAuditEvents}
+          busy={agentBusy}
+          error={agentError}
+          onCancel={handleAgentCancel}
+          onRetry={handleAgentRetry}
+          onExport={handleAgentExport}
+          onExportPdf={handleAgentExportPdf}
+          onAnalyze={handleAgentAnalyze}
+          onDecision={handleAgentDecision}
+          onDismiss={dismissRun}
+        />
+
         <ChatComposer
           fileInputRef={documentUpload.fileInputRef}
-          isBusy={chat.isBusy}
+          isBusy={chat.isBusy || agentBusy}
           onClearFile={documentUpload.clearSelectedFile}
           onFileChange={documentUpload.handleFileChange}
           onOpenFilePicker={documentUpload.openFilePicker}
           onQuestionChange={chat.setQuestion}
-          onSubmit={chat.submit}
+          onSubmit={handleComposerSubmit}
           onUploadOnly={chat.uploadOnly}
           question={chat.question}
           selectedFile={documentUpload.selectedFile}

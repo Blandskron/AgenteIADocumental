@@ -27,6 +27,7 @@ jobs:
       postgres: ${{ steps.scope.outputs.postgres }}
       rag_groq: ${{ steps.scope.outputs.rag_groq }}
       studio_eval: ${{ steps.scope.outputs.studio_eval }}
+      agents: ${{ steps.scope.outputs.agents }}
       database: ${{ steps.scope.outputs.database }}
       has_services: ${{ steps.scope.outputs.has_services }}
       services: ${{ steps.scope.outputs.services }}
@@ -348,6 +349,33 @@ jobs:
           PYTHONPATH=backend/KnowledgeStudioServices python -m pytest -q backend/KnowledgeStudioServices/tests
           PYTHONPATH=backend/AgentOrchestratorServices python -m pytest -q backend/AgentOrchestratorServices/tests
 
+  agents-fast:
+    name: Agentes opcionales y Code Mode Sandbox
+    needs: [detect-changes]
+    if: needs.detect-changes.outputs.agents == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: backend/AgentOrchestratorServices/requirements.txt
+      - name: Instalar dependencias de agentes, validar lint y ejecutar pruebas de orquestación y sandbox
+        run: |
+          python -m pip install -r backend/AgentOrchestratorServices/requirements.txt pytest httpx pyyaml ruff
+          python -m ruff check --select F,E721,W backend/AgentOrchestratorServices/app backend/AgentOrchestratorServices/tests backend/CodeSandboxRunner/tests scripts/ci/check_agents_contract.py scripts/eval/benchmark_agents_budget.py
+          python3 scripts/ci/check_agents_contract.py
+          python3 scripts/eval/benchmark_agents_budget.py
+          PYTHONPATH=backend/AgentOrchestratorServices python -m pytest -q backend/AgentOrchestratorServices/tests
+          python -m pytest -q backend/CodeSandboxRunner/tests
+      - name: Validar overlays Docker Compose de agentes y Code Mode
+        run: |
+          cp .env.example .env
+          docker compose -f compose.yaml -f docker/compose/studio.yml -f docker/compose/agents.yml --profile studio --profile agents config --quiet
+          docker compose -f compose.yaml -f docker/compose/studio.yml -f docker/compose/agents.yml -f docker/compose/code-mode.yml --profile studio --profile agents --profile code-mode config --quiet
+
   postgres-upgrade:
     name: PostgreSQL y migración local
     needs: [detect-changes]
@@ -450,6 +478,7 @@ jobs:
       - frontend-fast
       - rag-groq-fast
       - studio-eval-fast
+      - agents-fast
       - postgres-upgrade
       - backend-services-fast
     if: always()
@@ -465,6 +494,7 @@ jobs:
           FRONTEND_RESULT: ${{ needs.frontend-fast.result }}
           RAG_GROQ_RESULT: ${{ needs.rag-groq-fast.result }}
           STUDIO_EVAL_RESULT: ${{ needs.studio-eval-fast.result }}
+          AGENTS_RESULT: ${{ needs.agents-fast.result }}
           POSTGRES_RESULT: ${{ needs.postgres-upgrade.result }}
           SERVICES_RESULT: ${{ needs.backend-services-fast.result }}
         run: |
@@ -482,6 +512,7 @@ jobs:
               "frontend-fast": os.environ["FRONTEND_RESULT"],
               "rag-groq-fast": os.environ["RAG_GROQ_RESULT"],
               "studio-eval-fast": os.environ["STUDIO_EVAL_RESULT"],
+              "agents-fast": os.environ["AGENTS_RESULT"],
               "postgres-upgrade": os.environ["POSTGRES_RESULT"],
               "backend-services-fast": os.environ["SERVICES_RESULT"],
           }

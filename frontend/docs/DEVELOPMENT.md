@@ -1,17 +1,19 @@
 # Frontend documental
 
-React 19, Vite y TypeScript estricto. Node 24 es la versión de desarrollo y CI. Ningún secreto de servidor debe llegar a las variables `VITE_*` (`VITE_AUTH_BASE_URL` … `VITE_KNOWLEDGE_STUDIO_BASE_URL`).
+React 19, Vite y TypeScript estricto. Node 24 es la versión de desarrollo y CI. Ningún secreto de servidor debe llegar a las variables `VITE_*` (`VITE_AUTH_BASE_URL` … `VITE_AGENT_ORCHESTRATOR_BASE_URL`).
 
 ## Arquitectura vigente
 
-La separación `app → pages → widgets/features → entities/shared` mantiene la sesión y el tema en Context mientras cada dominio conserva su estado local y controladores protegidos frente a cambios de cuenta o empresa. No se usa Redux, Zustand ni frameworks externos de estilos.
+La separación `app → pages → widgets/features → entities/shared` mantiene la sesión y el tema en Context mientras cada dominio conserva su estado local y controladores protegidos frente a cambios de cuenta o empresa (`useAgentExecution`, `library-controller`, `export-controller`, `drive-controller`, `transfers-controller`). No se usa Redux, Zustand ni frameworks externos de estilos.
 
 ## Convenciones
 
-- `app/`: configuración, proveedores y navegación; `pages/`: composición de pantallas.
+- `app/`: configuración, proveedores y navegación (`useAppRouter` valida las 15 rutas con títulos exhaustivos `Record<AppRoute, string>` y preserva query strings como `/studio?artifact=<id>`); `pages/`: composición de pantallas envueltas en `ErrorBoundary` con `resetKey={route}`.
 - `features/`: API, controladores, hooks y UI del dominio; `entities/`: modelos compartidos.
-- `shared/`: primitivas visuales, layout, HTTP, almacenamiento y tokens. No importa páginas ni funcionalidades.
+- `shared/`: primitivas visuales, layout, HTTP, almacenamiento y tokens. No importa páginas ni funcionalidades (blindado automáticamente en `eslint.config.js` con `@typescript-eslint/no-restricted-imports`).
 - Usa `@/` entre capas; una ruta relativa corta es válida dentro del mismo componente.
+- Todas las variables CSS deben provenir de `src/shared/styles/tokens.css`; `eslint.config.js` bloquea en tiempo de lint el uso de tokens fantasma (`--border-subtle`, `--surface-card`, `--text-muted`, `--surface-elevated`, `--surface-muted`, `--surface-primary`, `--accent-primary`).
+- Los adaptadores HTTP de listado aceptan `signal?: AbortSignal` para cancelar peticiones en vuelo al filtrar o desmontar vistas (`AuditLogsPage`, `SettingsAIPage`, `useAgentExecution`) y normalizan colecciones defensivamente con `Array.isArray`.
 - Conserva el aislamiento por sesión, tenant y generación de solicitud. Los permisos de UI son orientativos: la autorización efectiva pertenece al servidor.
 - Los mensajes y documentos se renderizan como texto; evita HTML sin sanitizar. Las URL de avatar y los downloads conservan su contrato privado.
 - No persistas contraseñas ni claves. El almacenamiento de tokens existente es un límite de la arquitectura actual: migrar a cookies HttpOnly requiere cambios coordinados del backend y queda fuera de este trabajo.
@@ -38,7 +40,9 @@ El job de frontend de CI usa la imagen oficial de Playwright con los navegadores
 
 ## Design System
 
-`shared/styles/tokens.css` define superficies, texto, acento, estados, foco, radios, espacios y elevación para ambos temas. Los estilos se distribuyen en primitivas, navegación, chat, documentos, integraciones y diálogos. Perfil y administración mantienen sus hojas locales y consumen los mismos tokens.
+`shared/styles/tokens.css` define superficies, texto, acento, estados, foco, radios, espacios y elevación para ambos temas (`light` y `dark`). Los estilos se distribuyen en `primitives.css`, `navigation.css`, `chat.css` (incluyendo selectores y paneles agénticos `.agent-*`), `documents.css`, `integrations.css` (incluyendo tarjetas, tablas y alertas compartidas `.settings-ai-*` y `.ui-*` para Configuración IA, Knowledge Studio y Auditoría) y `dialogs.css`. Perfil y administración mantienen sus hojas locales y consumen los mismos tokens.
+
+Las suites de Playwright ejecutan `@axe-core/playwright` (`AxeBuilder`) tanto en tema claro como en tema oscuro sobre las vistas principales y operativas (`/login`, `/`, `/documents`, `/settings/ai`, `/studio`, `/admin/audit` y `AgentRunPanel`).
 
 El diseño Floating Glass usa el púrpura Blandskron `#4A148C` y el púrpura profundo `#2E0B59`. Los contenedores principales usan las superficies translúcidas, los bordes iluminados y la elevación de los tokens `--glass*`. Los controles de lectura y edición usan superficies de mayor opacidad. Las preferencias de menor transparencia, mayor contraste y colores forzados activan superficies sólidas. La interfaz respeta la preferencia de movimiento reducido.
 
