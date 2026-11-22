@@ -6,9 +6,17 @@ import json
 import os
 from typing import Any
 
+from app.application.graph.code_mode_node import (
+    describe_readonly_tool,
+    discover_readonly_tools,
+)
 from app.application.tools.registry import ToolRegistry
 from app.config.security import require_agent_user
 from app.infrastructure.mcp.mcp_client import McpHttpClient, register_default_mcp_tools
+from app.infrastructure.search.search_client import (
+    DocumentSearchHttpClient,
+    register_document_search_tools,
+)
 from app.interfaces.api.v1.runs_routes import router as runs_router
 from fastapi import Depends, FastAPI, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
@@ -34,6 +42,8 @@ def build_default_registry() -> ToolRegistry:
     registry = ToolRegistry()
     mcp_url = os.environ.get("MCP_BASE_URL", "http://knowledge-studio-service:8000/api/v1/mcp")
     register_default_mcp_tools(registry, McpHttpClient(mcp_url))
+    search_url = os.environ.get("DOCUMENT_SEARCH_BASE_URL", "http://document-search-service:8000")
+    register_document_search_tools(registry, DocumentSearchHttpClient(search_url))
     return registry
 
 
@@ -68,4 +78,34 @@ def list_tools(user: dict[str, Any] = Depends(require_agent_user)) -> dict[str, 
     _require_agents_enabled()
     registry = build_default_registry()
     return {"tenant_id": user["active_tenant_id"], "tools": registry.list_specs()}
+
+
+@app.get("/api/v1/agents/tools/search")
+def search_tools(
+    q: str = "",
+    user: dict[str, Any] = Depends(require_agent_user),
+) -> dict[str, Any]:
+    _require_agents_enabled()
+    registry = build_default_registry()
+    return {
+        "tenant_id": user["active_tenant_id"],
+        "query": q,
+        "tools": discover_readonly_tools(registry, q),
+    }
+
+
+@app.get("/api/v1/agents/tools/{tool_name}")
+def describe_tool(
+    tool_name: str,
+    user: dict[str, Any] = Depends(require_agent_user),
+) -> dict[str, Any]:
+    _require_agents_enabled()
+    registry = build_default_registry()
+    spec = describe_readonly_tool(registry, tool_name)
+    if spec is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Herramienta '{tool_name}' no encontrada en la lista autorizada.",
+        )
+    return {"tenant_id": user["active_tenant_id"], "tool": spec}
 

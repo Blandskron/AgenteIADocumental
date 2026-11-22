@@ -52,7 +52,7 @@ COMPOSE_TEST_SERVICES := \
 	docker-build docker-up docker-up-infra docker-up-documents \
 	run-auth run-chat run-embedding run-search run-access run-library \
 	run-transfer run-conversation run-profile run-export run-drive run-studio run-frontend \
-	install lint check-docs eval-baseline eval-studio eval-rag-matrix test-studio \
+	install lint check-docs eval-baseline eval-studio eval-rag-matrix test-studio test-agents benchmark-agents \
 	test test-auth test-services test-frontend build-frontend \
 	process-pending reindex \
 	verify-prepare verify verify-relations verify-postgres-upgrade verify-images verify-graphs verify-down
@@ -171,6 +171,12 @@ eval-rag-matrix: ## Ejecuta la matriz de formatos y casos límite RAG (.release-
 
 test-studio: ## Ejecuta las pruebas unitarias de KnowledgeStudioServices
 	PYTHONPATH=backend/KnowledgeStudioServices $(PYTHON) -m pytest -q backend/KnowledgeStudioServices/tests
+
+test-agents: ## Ejecuta las pruebas de AgentOrchestratorServices y CodeSandboxRunner
+	PYTHONPATH=backend/AgentOrchestratorServices $(PYTHON) -m pytest -q backend/AgentOrchestratorServices/tests backend/CodeSandboxRunner/tests
+
+benchmark-agents: ## Ejecuta el benchmark determinista de presupuesto de rendimiento agéntico
+	$(PYTHON) scripts/eval/benchmark_agents_budget.py
 
 lint: ## Ejecuta ruff sobre todos los servicios backend y scripts Python
 	ruff check \

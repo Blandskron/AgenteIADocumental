@@ -39,6 +39,7 @@ export interface AgentRun {
   run_id: string;
   thread_id: string;
   tenant_id: string;
+  goal?: string;
   status:
     | "PENDING"
     | "RUNNING"
@@ -58,10 +59,32 @@ export interface AgentRun {
   studio_handoff?: Record<string, unknown> | null;
 }
 
+export interface AgentTemplate {
+  template_id: string;
+  title: string;
+  description: string;
+  recommended_mode: "agent" | "code_mode";
+  default_save_to_studio: boolean;
+}
+
+export interface AgentQuotaSnapshot {
+  tenant_id: string;
+  runs_used: number;
+  runs_limit: number;
+  tokens_used: number;
+  tokens_limit: number;
+}
+
+export interface AgentStreamEvent {
+  event: "step" | "approval" | "status" | "message";
+  data: unknown;
+}
+
 export interface StartAgentRunInput {
   mode: "agent" | "code_mode";
   goal: string;
   document_ids: string[];
+  template_id?: string;
   enable_code_mode?: boolean;
   save_to_studio?: boolean;
   max_steps?: number;

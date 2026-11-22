@@ -2,7 +2,9 @@ import type { MaybeClient } from "@/shared/api/types.ts";
 import { requireClient } from "@/shared/api/types.ts";
 import type {
   AgentCapabilities,
+  AgentQuotaSnapshot,
   AgentRun,
+  AgentTemplate,
   ResumeApprovalInput,
   StartAgentRunInput,
 } from "../types.ts";
@@ -57,5 +59,32 @@ export function cancelAgentRun(agentClient: MaybeClient, runId: string) {
   return requireClient(agentClient)<AgentRun>(
     `/api/v1/agents/runs/${encodeURIComponent(runId)}/cancel`,
     { method: "POST" },
+  );
+}
+
+export function listAgentTemplates(agentClient: MaybeClient) {
+  return requireClient(agentClient)<{
+    tenant_id: string;
+    templates: AgentTemplate[];
+  }>("/api/v1/agents/templates", { method: "GET" });
+}
+
+export function getAgentQuota(agentClient: MaybeClient) {
+  return requireClient(agentClient)<AgentQuotaSnapshot>(
+    "/api/v1/agents/quota",
+    {
+      method: "GET",
+    },
+  );
+}
+
+export function exportAgentRunContent(
+  agentClient: MaybeClient,
+  runId: string,
+  format: "markdown" | "csv",
+) {
+  return requireClient(agentClient)<string>(
+    `/api/v1/agents/runs/${encodeURIComponent(runId)}/export?format=${encodeURIComponent(format)}`,
+    { method: "GET" },
   );
 }

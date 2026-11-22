@@ -7,12 +7,15 @@ import os
 import uuid
 from typing import Any
 
+from app.application.export_service import export_run_csv, export_run_markdown
 from app.application.graph.code_mode_node import (
     CodeModeDisabledError,
     is_code_mode_enabled,
 )
 from app.application.graph.research_graph import ResearchAgentGraph
+from app.application.metrics_service import AgentMetricsCollector
 from app.application.quota_service import QuotaExceededError, TenantQuotaService
+from app.application.templates.agent_templates import list_agent_templates
 from app.application.tools.registry import ToolRegistry
 from app.config.security import require_agent_user
 from app.infrastructure.database.audit_logger import AuditLogger
@@ -33,9 +36,13 @@ from app.infrastructure.llm.model_factory import (
 )
 from app.infrastructure.mcp.mcp_client import McpHttpClient, register_default_mcp_tools
 from app.infrastructure.sandbox.sandbox_client import SandboxHttpClient
+from app.infrastructure.search.search_client import (
+    DocumentSearchHttpClient,
+    register_document_search_tools,
+)
 from app.infrastructure.studio.studio_client import StudioHandoffClient
 from fastapi import APIRouter, Depends, HTTPException, status
-from fastapi.responses import StreamingResponse
+from fastapi.responses import PlainTextResponse, StreamingResponse
 from pydantic import BaseModel, Field
 
 router = APIRouter(prefix="/api/v1/agents", tags=["agents"])
@@ -45,12 +52,14 @@ _fallback_repo = InMemoryRunsRepository()
 _fallback_checkpointer = InMemoryCheckpointer()
 _fallback_quota = TenantQuotaService()
 _fallback_audit = AuditLogger()
+_metrics_collector = AgentMetricsCollector()
 
 
 class StartAgentRunRequest(BaseModel):
     mode: str = Field(default="agent", pattern="^(agent|code_mode)$")
     goal: str = Field(min_length=3, max_length=4000)
     document_ids: list[str] = Field(default_factory=list, max_length=25)
+    template_id: str | None = Field(default=None, max_length=64)
     enable_code_mode: bool = False
     save_to_studio: bool = False
     max_steps: int = Field(default=8, ge=1, le=15)
@@ -116,6 +125,8 @@ def _build_registry() -> ToolRegistry:
     registry = ToolRegistry()
     mcp_url = os.environ.get("MCP_BASE_URL", "http://knowledge-studio-service:8000/api/v1/mcp")
     register_default_mcp_tools(registry, McpHttpClient(mcp_url))
+    search_url = os.environ.get("DOCUMENT_SEARCH_BASE_URL", "http://document-search-service:8000")
+    register_document_search_tools(registry, DocumentSearchHttpClient(search_url))
     return registry
 
 
@@ -157,7 +168,7 @@ def create_agent_run(
             sandbox_client=_build_sandbox(),
             studio_client=_build_studio(),
         )
-        return graph.start_run(
+        run = graph.start_run(
             user=user,
             goal=payload.goal,
             document_ids=payload.document_ids,
@@ -167,7 +178,19 @@ def create_agent_run(
             max_tokens=payload.max_tokens,
             idempotency_key=payload.idempotency_key,
             save_to_studio=payload.save_to_studio,
+            template_id=payload.template_id,
         )
+        _metrics_collector.record_run_outcome(
+            tenant_id=str(user["active_tenant_id"]),
+            status=str(run.get("status") or "UNKNOWN"),
+            provider=run.get("provider"),
+            steps_used=int(run.get("steps_used") or 0),
+            usage_tokens=int(run.get("usage_tokens") or 0),
+            code_mode_used=bool(run.get("code_executions")),
+        )
+        return run
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from None
     except CodeModeDisabledError as exc:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
@@ -302,3 +325,61 @@ def cancel_agent_run(
         metadata={"status": updated["status"]},
     )
     return updated
+
+
+@router.get("/templates")
+def get_templates(user: dict[str, Any] = Depends(require_agent_user)) -> dict[str, Any]:
+    _require_agents_enabled()
+    return {"tenant_id": user["active_tenant_id"], "templates": list_agent_templates()}
+
+
+@router.get("/quota")
+def get_tenant_quota(user: dict[str, Any] = Depends(require_agent_user)) -> dict[str, Any]:
+    _require_agents_enabled()
+    _, _, quota, _, _ = _get_runtime_components()
+    tenant_id = str(user["active_tenant_id"])
+    usage = quota.get_usage(tenant_id)
+    return {
+        "tenant_id": tenant_id,
+        "runs_used": usage["runs_count"],
+        "runs_limit": int(os.environ.get("AGENT_DAILY_RUN_QUOTA", "200")),
+        "tokens_used": usage["tokens_used"],
+        "tokens_limit": int(os.environ.get("AGENT_DAILY_TOKEN_QUOTA", "200000")),
+    }
+
+
+@router.get("/metrics")
+def get_tenant_metrics(user: dict[str, Any] = Depends(require_agent_user)) -> dict[str, Any]:
+    _require_agents_enabled()
+    return _metrics_collector.snapshot(str(user["active_tenant_id"]))
+
+
+@router.get("/runs/{run_id}/export")
+def export_agent_run(
+    run_id: str,
+    format: str = "markdown",
+    user: dict[str, Any] = Depends(require_agent_user),
+) -> PlainTextResponse:
+    _require_agents_enabled()
+    repo, *_ = _get_runtime_components()
+    run = repo.get_run(
+        run_id,
+        tenant_id=str(user["active_tenant_id"]),
+        owner_user_id=str(user["user_id"]),
+    )
+    if run is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Ejecución de agente no encontrada.")
+    fmt = (format or "markdown").strip().lower()
+    if fmt == "csv":
+        return PlainTextResponse(
+            content=export_run_csv(run),
+            media_type="text/csv; charset=utf-8",
+            headers={"Content-Disposition": f'attachment; filename="{run_id}.csv"'},
+        )
+    if fmt == "markdown":
+        return PlainTextResponse(
+            content=export_run_markdown(run),
+            media_type="text/markdown; charset=utf-8",
+            headers={"Content-Disposition": f'attachment; filename="{run_id}.md"'},
+        )
+    raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Formato no soportado (usa markdown o csv).")

@@ -1,7 +1,7 @@
 # ROADMAP — Evolución Agentic AI (LangChain, LangGraph y Code Mode)
 
 > **Naturaleza de este documento:** Investigación arquitectónica, diseño técnico y backlog ejecutable para incorporar capacidades agénticas **opcionales, seguras y desacopladas** en Blandskron Documental.  
-> **Estado actual:** Backlog `AG-001`..`AG-014` implementado de forma opcional detrás de `AGENTS_ENABLED=false` y `CODE_MODE_ENABLED=false`; el RAG tradicional, Docker Compose base y todos los servicios existentes permanecen intactos.
+> **Estado actual:** Backlog `AG-001`..`AG-024` implementado de forma opcional detrás de `AGENTS_ENABLED=false` y `CODE_MODE_ENABLED=false`; el RAG tradicional, Docker Compose base y todos los servicios existentes permanecen intactos.
 
 ---
 
@@ -413,6 +413,58 @@ Se recomienda **una experiencia unificada dentro de `ChatPage`** (selector de mo
   - **Pruebas:** Suite completa de regresión + Trivy sobre nuevas imágenes + `check_docs_links.py`.
   - **Criterios de aceptación:** Todos los quality gates en verde; 0 vulnerabilidades críticas/altas sin mitigación; arranque base sin cambios.
   - **Riesgos:** Incremento de tiempo en CI (mitigado por detección selectiva de cambios).
+
+### Épica E6 — Endurecimiento productivo, observabilidad, SSE real y plantillas especializadas
+
+- **`AG-015` — Integración directa de `DocumentSearchServices` (`search_documents_fts`) en `ToolRegistry`**
+  - **Estado:** `[x]` | **Prioridad:** P1 | **Complejidad:** S | **Dependencias:** `AG-005`
+  - **Objetivo:** Permitir descubrimiento híbrido FTS/trigram con propagación JWT directo hacia `DocumentSearchServices` incluso si Knowledge Studio está apagado.
+  - **Archivos/servicios:** `backend/AgentOrchestratorServices/app/infrastructure/search/search_client.py`, `tests/test_search_tool_adapter.py`.
+
+- **`AG-016` — Plantillas especializadas de investigación documental y extracción determinista de fechas/montos**
+  - **Estado:** `[x]` | **Prioridad:** P1 | **Complejidad:** M | **Dependencias:** `AG-007`
+  - **Objetivo:** Exponer 4 plantillas (`research_general`, `contract_comparison`, `dates_amounts_extraction`, `executive_report_studio`) en `GET /api/v1/agents/templates` con extracción determinista de fechas/montos/porcentajes.
+  - **Archivos/servicios:** `backend/AgentOrchestratorServices/app/application/templates/agent_templates.py`, `tests/test_agent_templates.py`.
+
+- **`AG-017` — Validación activa de identidad vigente contra `AuthServices /api/users/me/` con caché corta**
+  - **Estado:** `[x]` | **Prioridad:** P0 | **Complejidad:** M | **Dependencias:** `AG-004`
+  - **Objetivo:** Fallar cerrado (`401`/`403` ante cuentas deshabilitadas o tokens revocados; `503` si AuthServices no responde) con caché de 10 s.
+  - **Archivos/servicios:** `backend/AgentOrchestratorServices/app/config/identity_verifier.py`, `app/config/security.py`, `tests/test_identity_verification.py`.
+
+- **`AG-018` — Endpoints de descubrimiento progresivo de herramientas (`tools/search`, `tools/{tool_name}`) y validación de argumentos requeridos**
+  - **Estado:** `[x]` | **Prioridad:** P1 | **Complejidad:** S | **Dependencias:** `AG-011`
+  - **Objetivo:** Exponer descubrimiento progresivo solo de herramientas `read_only=True` y rechazar argumentos requeridos faltantes antes de invocar handlers.
+  - **Archivos/servicios:** `backend/AgentOrchestratorServices/app/main.py`, `app/application/tools/registry.py`, `tests/test_progressive_discovery_api.py`.
+
+- **`AG-019` — Métricas operativas y telemetría local por tenant (`/api/v1/agents/metrics` y `/api/v1/agents/quota`)**
+  - **Estado:** `[x]` | **Prioridad:** P2 | **Complejidad:** S | **Dependencias:** `AG-009`
+  - **Objetivo:** Visibilizar consumo diario frente a cuota y métricas no sensibles (estados, proveedores, Code Mode, latencia media) aisladas por tenant.
+  - **Archivos/servicios:** `backend/AgentOrchestratorServices/app/application/metrics_service.py`, `app/interfaces/api/v1/runs_routes.py`, `tests/test_metrics_and_quota_api.py`.
+
+- **`AG-020` — Exportación directa Markdown y CSV anti-inyección de fórmulas (`GET /api/v1/agents/runs/{run_id}/export`)**
+  - **Estado:** `[x]` | **Prioridad:** P2 | **Complejidad:** S | **Dependencias:** `AG-007`
+  - **Objetivo:** Permitir descargar resultados citados en `.md` o `.csv` seguro neutralizando fórmulas (`=`, `+`, `-`, `@`).
+  - **Archivos/servicios:** `backend/AgentOrchestratorServices/app/application/export_service.py`, `tests/test_run_export.py`.
+
+- **`AG-021` — Verificación SQL ampliada de `agents.agent_checkpoints` y cableado completo de entorno en `agents.yml`**
+  - **Estado:** `[x]` | **Prioridad:** P1 | **Complejidad:** S | **Dependencias:** `AG-008`, `AG-017`
+  - **Objetivo:** Validar en SQL la tabla `agents.agent_checkpoints` y privilegios `agent_runtime`, y cablear `AUTH_IDENTITY_URL`, `KNOWLEDGE_STUDIO_BASE_URL` y cuotas en `docker/compose/agents.yml`.
+  - **Archivos/servicios:** `scripts/database/tests/agents_schema_integrity.sql`, `scripts/database/agents/verify_role.sql`, `docker/compose/agents.yml`.
+
+- **`AG-022` — Historial de ejecuciones, selector de plantillas, indicador de cuota y descarga MD/CSV en Frontend**
+  - **Estado:** `[x]` | **Prioridad:** P2 | **Complejidad:** M | **Dependencias:** `AG-013`, `AG-016`, `AG-019`, `AG-020`
+  - **Objetivo:** Integrar historial colapsable (`AgentHistoryList`), selector de plantillas en `AgentModeSelector`, indicador de cuota y botones MD/CSV en `AgentRunPanel` sin alterar Modo 1.
+  - **Archivos/servicios:** `frontend/src/features/agents/components/AgentHistoryList.tsx`, `AgentModeSelector.tsx`, `AgentRunPanel.tsx`, `frontend/src/pages/ChatPage/ChatPage.tsx`.
+
+- **`AG-023` — Cliente SSE en tiempo real con cabecera `Authorization: Bearer` y pruebas unitarias**
+  - **Estado:** `[x]` | **Prioridad:** P2 | **Complejidad:** S | **Dependencias:** `AG-013`
+  - **Objetivo:** Consumir `GET /api/v1/agents/runs/{run_id}/stream` vía `fetch` + `ReadableStream` con soporte de `AbortSignal` y parser SSE incremental.
+  - **Archivos/servicios:** `frontend/src/features/agents/api/agents.stream.ts`, `frontend/tests/agents.stream.test.js`.
+
+- **`AG-024` — Benchmark determinista de presupuesto de rendimiento agéntico y atajos en `Makefile`**
+  - **Estado:** `[x]` | **Prioridad:** P2 | **Complejidad:** S | **Dependencias:** `AG-014`
+  - **Objetivo:** Medir latencias de compactación de checkpoints, verificación de citas, extracción determinista y validación de sandbox sin API keys externas, y exponer `make test-agents` / `make benchmark-agents`.
+  - **Archivos/servicios:** `scripts/eval/benchmark_agents_budget.py`, `Makefile`.
 
 ---
 

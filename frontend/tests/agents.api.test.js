@@ -3,9 +3,12 @@ import test from "node:test";
 
 import {
   cancelAgentRun,
+  exportAgentRunContent,
   getAgentHealth,
+  getAgentQuota,
   getAgentRun,
   listAgentRuns,
+  listAgentTemplates,
   resumeAgentApproval,
   startAgentRun,
 } from "../src/features/agents/api/agents.api.ts";
@@ -16,6 +19,24 @@ test("agents API client targets expected AgentOrchestratorServices endpoints", a
     calls.push({ path, options });
     if (path === "/api/v1/health") {
       return { status: "ok", agents_enabled: true, code_mode_enabled: false };
+    }
+    if (path === "/api/v1/agents/templates") {
+      return {
+        tenant_id: "t1",
+        templates: [{ template_id: "contract_comparison", title: "Comparación" }],
+      };
+    }
+    if (path === "/api/v1/agents/quota") {
+      return {
+        tenant_id: "t1",
+        runs_used: 1,
+        runs_limit: 200,
+        tokens_used: 500,
+        tokens_limit: 200000,
+      };
+    }
+    if (path.includes("/export?format=csv")) {
+      return "run_id,source_index\n";
     }
     if (path === "/api/v1/agents/runs" && options?.method === "POST") {
       return { run_id: "run_1", status: "WAITING_APPROVAL" };
@@ -35,10 +56,20 @@ test("agents API client targets expected AgentOrchestratorServices endpoints", a
   const health = await getAgentHealth(client);
   assert.equal(health.agents_enabled, true);
 
+  const tpls = await listAgentTemplates(client);
+  assert.equal(tpls.templates[0].template_id, "contract_comparison");
+
+  const quota = await getAgentQuota(client);
+  assert.equal(quota.tokens_limit, 200000);
+
+  const csv = await exportAgentRunContent(client, "run_1", "csv");
+  assert.match(csv, /run_id/);
+
   const created = await startAgentRun(client, {
     mode: "agent",
     goal: "Comparar contratos",
     document_ids: ["doc-1"],
+    template_id: "contract_comparison",
   });
   assert.equal(created.run_id, "run_1");
 
@@ -58,5 +89,5 @@ test("agents API client targets expected AgentOrchestratorServices endpoints", a
   const cancelled = await cancelAgentRun(client, "run_1");
   assert.equal(cancelled.status, "CANCELLED");
 
-  assert.equal(calls.length, 6);
+  assert.equal(calls.length, 9);
 });

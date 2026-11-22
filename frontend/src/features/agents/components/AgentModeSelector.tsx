@@ -1,17 +1,27 @@
 import { Bot, Code2, MessageSquare } from "lucide-react";
 
-import type { AgentCapabilities, ChatExecutionMode } from "../types.ts";
+import type {
+  AgentCapabilities,
+  AgentTemplate,
+  ChatExecutionMode,
+} from "../types.ts";
 
 interface AgentModeSelectorProps {
   mode: ChatExecutionMode;
   capabilities: AgentCapabilities | null;
+  templates?: AgentTemplate[];
+  selectedTemplateId?: string;
   onModeChange: (mode: ChatExecutionMode) => void;
+  onTemplateChange?: (templateId: string) => void;
 }
 
 export function AgentModeSelector({
   mode,
   capabilities,
+  templates = [],
+  selectedTemplateId = "research_general",
   onModeChange,
+  onTemplateChange,
 }: AgentModeSelectorProps) {
   if (!capabilities?.agents_enabled) {
     return null;
@@ -100,6 +110,28 @@ export function AgentModeSelector({
           <Code2 size={14} aria-hidden="true" />
           Code Mode
         </button>
+      )}
+      {mode !== "chat" && templates.length > 0 && onTemplateChange && (
+        <select
+          aria-label="Plantilla de agente"
+          value={selectedTemplateId}
+          onChange={(e) => onTemplateChange(e.target.value)}
+          style={{
+            marginLeft: "0.25rem",
+            padding: "0.2rem 0.45rem",
+            borderRadius: "999px",
+            border: "1px solid var(--border-subtle, rgba(127,127,127,0.3))",
+            background: "var(--surface-primary, #fff)",
+            color: "inherit",
+            fontSize: "0.78rem",
+          }}
+        >
+          {templates.map((tpl) => (
+            <option key={tpl.template_id} value={tpl.template_id}>
+              {tpl.title}
+            </option>
+          ))}
+        </select>
       )}
     </div>
   );

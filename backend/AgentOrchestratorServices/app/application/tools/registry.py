@@ -72,6 +72,10 @@ class ToolRegistry:
             raise ToolPermissionError(f"Tool '{name}' requires explicit human approval before execution.")
 
         safe_args = dict(arguments or {})
+        required_fields = spec.input_schema.get("required") or []
+        for field_name in required_fields:
+            if field_name not in safe_args or safe_args[field_name] in (None, ""):
+                raise ValueError(f"Tool '{name}' missing required argument '{field_name}'.")
         if "limit" in safe_args:
             try:
                 safe_args["limit"] = max(1, min(spec.policy.max_results, int(safe_args["limit"])))

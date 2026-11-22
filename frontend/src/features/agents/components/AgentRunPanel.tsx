@@ -1,14 +1,16 @@
-import { Check, Code2, ShieldAlert, Square, X } from "lucide-react";
+import { Check, Code2, Download, ShieldAlert, Square, X } from "lucide-react";
 import { useState } from "react";
 
 import { SafeMarkdown } from "@/features/chat/ui/SafeMarkdown.tsx";
-import type { AgentRun } from "../types.ts";
+import type { AgentQuotaSnapshot, AgentRun } from "../types.ts";
 
 interface AgentRunPanelProps {
   run: AgentRun | null;
+  quota?: AgentQuotaSnapshot | null;
   busy: boolean;
   error: string | null;
   onCancel: (runId: string) => void;
+  onExport?: (runId: string, format: "markdown" | "csv") => void;
   onDecision: (
     runId: string,
     approvalId: string,
@@ -20,9 +22,11 @@ interface AgentRunPanelProps {
 
 export function AgentRunPanel({
   run,
+  quota,
   busy,
   error,
   onCancel,
+  onExport,
   onDecision,
   onDismiss,
 }: AgentRunPanelProps) {
@@ -60,6 +64,57 @@ export function AgentRunPanel({
             : `Agente · ${run?.status ?? "ERROR"}${run?.provider ? ` (${run.provider})` : ""}`}
         </strong>
         <div style={{ display: "flex", gap: "0.4rem", alignItems: "center" }}>
+          {quota && (
+            <span
+              style={{
+                fontSize: "0.75rem",
+                opacity: 0.75,
+                marginRight: "0.25rem",
+              }}
+            >
+              Cuota: {quota.tokens_used}/{quota.tokens_limit} tokens
+            </span>
+          )}
+          {run && run.status === "SUCCEEDED" && onExport && (
+            <>
+              <button
+                type="button"
+                onClick={() => onExport(run.run_id, "markdown")}
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "0.25rem",
+                  padding: "0.2rem 0.5rem",
+                  borderRadius: "8px",
+                  border: "1px solid currentColor",
+                  background: "transparent",
+                  cursor: "pointer",
+                  fontSize: "0.75rem",
+                }}
+              >
+                <Download size={12} aria-hidden="true" />
+                MD
+              </button>
+              <button
+                type="button"
+                onClick={() => onExport(run.run_id, "csv")}
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "0.25rem",
+                  padding: "0.2rem 0.5rem",
+                  borderRadius: "8px",
+                  border: "1px solid currentColor",
+                  background: "transparent",
+                  cursor: "pointer",
+                  fontSize: "0.75rem",
+                }}
+              >
+                <Download size={12} aria-hidden="true" />
+                CSV
+              </button>
+            </>
+          )}
           {run &&
             (run.status === "RUNNING" ||
               run.status === "PENDING" ||

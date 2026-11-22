@@ -8,15 +8,22 @@ import { useAuthContext } from "@/app/providers/AuthProvider.tsx";
 import { appRoutes } from "@/app/router/routes.ts";
 import {
   cancelAgentRun,
+  exportAgentRunContent,
   getAgentHealth,
+  getAgentQuota,
+  listAgentRuns,
+  listAgentTemplates,
   resumeAgentApproval,
   startAgentRun,
 } from "@/features/agents/api/agents.api.ts";
+import { AgentHistoryList } from "@/features/agents/components/AgentHistoryList.tsx";
 import { AgentModeSelector } from "@/features/agents/components/AgentModeSelector.tsx";
 import { AgentRunPanel } from "@/features/agents/components/AgentRunPanel.tsx";
 import type {
   AgentCapabilities,
+  AgentQuotaSnapshot,
   AgentRun,
+  AgentTemplate,
   ChatExecutionMode,
 } from "@/features/agents/types.ts";
 import { useChat } from "@/features/chat/hooks/useChat.ts";
@@ -50,6 +57,11 @@ export function ChatPage({ onNavigate }: PageProps) {
   const [exportsOpen, setExportsOpen] = useState(false);
   const [agentCapabilities, setAgentCapabilities] =
     useState<AgentCapabilities | null>(null);
+  const [agentTemplates, setAgentTemplates] = useState<AgentTemplate[]>([]);
+  const [selectedTemplateId, setSelectedTemplateId] =
+    useState<string>("research_general");
+  const [agentRuns, setAgentRuns] = useState<AgentRun[]>([]);
+  const [agentQuota, setAgentQuota] = useState<AgentQuotaSnapshot | null>(null);
   const [executionMode, setExecutionMode] = useState<ChatExecutionMode>("chat");
   const [activeAgentRun, setActiveAgentRun] = useState<AgentRun | null>(null);
   const [agentBusy, setAgentBusy] = useState(false);
@@ -62,6 +74,22 @@ export function ChatPage({ onNavigate }: PageProps) {
       .then((caps) => {
         if (alive && caps?.agents_enabled) {
           setAgentCapabilities(caps);
+          Promise.allSettled([
+            listAgentTemplates(agentClient),
+            listAgentRuns(agentClient, 10),
+            getAgentQuota(agentClient),
+          ]).then(([tplRes, runsRes, quotaRes]) => {
+            if (!alive) return;
+            if (tplRes.status === "fulfilled") {
+              setAgentTemplates(tplRes.value.templates || []);
+            }
+            if (runsRes.status === "fulfilled") {
+              setAgentRuns(runsRes.value.items || []);
+            }
+            if (quotaRes.status === "fulfilled") {
+              setAgentQuota(quotaRes.value);
+            }
+          });
         }
       })
       .catch(() => {
@@ -185,9 +213,17 @@ export function ChatPage({ onNavigate }: PageProps) {
         mode: executionMode === "code_mode" ? "code_mode" : "agent",
         goal,
         document_ids: selectedDocIds,
+        template_id: selectedTemplateId,
         enable_code_mode: executionMode === "code_mode",
       });
       setActiveAgentRun(run);
+      setAgentRuns((prev) => [
+        run,
+        ...prev.filter((item) => item.run_id !== run.run_id),
+      ]);
+      getAgentQuota(agentClient)
+        .then(setAgentQuota)
+        .catch(() => {});
       chat.setQuestion("");
     } catch (err) {
       setAgentError(
@@ -245,6 +281,31 @@ export function ChatPage({ onNavigate }: PageProps) {
     }
   }
 
+  async function handleAgentExport(runId: string, format: "markdown" | "csv") {
+    if (!agentClient) return;
+    try {
+      const content = await exportAgentRunContent(agentClient, runId, format);
+      const blob = new Blob([content], {
+        type:
+          format === "csv"
+            ? "text/csv;charset=utf-8"
+            : "text/markdown;charset=utf-8",
+      });
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement("a");
+      anchor.href = url;
+      anchor.download = `${runId}.${format === "csv" ? "csv" : "md"}`;
+      anchor.click();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      setAgentError(
+        err instanceof Error
+          ? err.message
+          : "No se pudo exportar el resultado del agente.",
+      );
+    }
+  }
+
   return (
     <AppShell
       sidebarOpen={sidebarOpen}
@@ -299,7 +360,10 @@ export function ChatPage({ onNavigate }: PageProps) {
           <AgentModeSelector
             mode={executionMode}
             capabilities={agentCapabilities}
+            templates={agentTemplates}
+            selectedTemplateId={selectedTemplateId}
             onModeChange={setExecutionMode}
+            onTemplateChange={setSelectedTemplateId}
           />
           {activeConversation?.selectedDocuments?.length > 0 && (
             <div
@@ -341,11 +405,24 @@ export function ChatPage({ onNavigate }: PageProps) {
           </button>
         )}
 
+        {agentCapabilities?.agents_enabled && (
+          <AgentHistoryList
+            runs={agentRuns}
+            activeRunId={activeAgentRun?.run_id ?? null}
+            onSelectRun={(run) => {
+              setActiveAgentRun(run);
+              setAgentError(null);
+            }}
+          />
+        )}
+
         <AgentRunPanel
           run={activeAgentRun}
+          quota={agentQuota}
           busy={agentBusy}
           error={agentError}
           onCancel={handleAgentCancel}
+          onExport={handleAgentExport}
           onDecision={handleAgentDecision}
           onDismiss={() => {
             setActiveAgentRun(null);

@@ -10,6 +10,12 @@ BEGIN
     IF NOT has_table_privilege('agent_runtime', 'agents.agent_runs', 'INSERT') THEN
         RAISE EXCEPTION 'agent_runtime must have INSERT on agents.agent_runs';
     END IF;
+    IF NOT has_table_privilege('agent_runtime', 'agents.agent_checkpoints', 'INSERT') THEN
+        RAISE EXCEPTION 'agent_runtime must have INSERT on agents.agent_checkpoints';
+    END IF;
+    IF NOT has_table_privilege('agent_runtime', 'agents.agent_checkpoints', 'SELECT') THEN
+        RAISE EXCEPTION 'agent_runtime must have SELECT on agents.agent_checkpoints';
+    END IF;
     IF NOT has_table_privilege('agent_runtime', 'public.audit_logs', 'INSERT') THEN
         RAISE EXCEPTION 'agent_runtime must have INSERT on public.audit_logs';
     END IF;
