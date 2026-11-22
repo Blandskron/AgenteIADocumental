@@ -12,9 +12,13 @@ import type {
   StartAgentRunInput,
 } from "../types.ts";
 
-export function getAgentHealth(agentClient: MaybeClient) {
+export function getAgentHealth(
+  agentClient: MaybeClient,
+  { signal }: { signal?: AbortSignal } = {},
+) {
   return requireClient(agentClient)<AgentCapabilities>("/api/v1/health", {
     method: "GET",
+    ...(signal ? { signal } : {}),
   });
 }
 
@@ -29,17 +33,28 @@ export function startAgentRun(
   });
 }
 
-export function listAgentRuns(agentClient: MaybeClient, limit = 20) {
-  return requireClient(agentClient)<{ items: AgentRun[] }>(
+export async function listAgentRuns(
+  agentClient: MaybeClient,
+  limit = 20,
+  { signal }: { signal?: AbortSignal } = {},
+): Promise<{ items: AgentRun[] }> {
+  const raw = await requireClient(agentClient)<{ items: AgentRun[] }>(
     `/api/v1/agents/runs?limit=${encodeURIComponent(String(limit))}`,
-    { method: "GET" },
+    { method: "GET", ...(signal ? { signal } : {}) },
   );
+  return {
+    items: Array.isArray(raw?.items) ? raw.items : [],
+  };
 }
 
-export function getAgentRun(agentClient: MaybeClient, runId: string) {
+export function getAgentRun(
+  agentClient: MaybeClient,
+  runId: string,
+  { signal }: { signal?: AbortSignal } = {},
+) {
   return requireClient(agentClient)<AgentRun>(
     `/api/v1/agents/runs/${encodeURIComponent(runId)}`,
-    { method: "GET" },
+    { method: "GET", ...(signal ? { signal } : {}) },
   );
 }
 
@@ -65,18 +80,32 @@ export function cancelAgentRun(agentClient: MaybeClient, runId: string) {
   );
 }
 
-export function listAgentTemplates(agentClient: MaybeClient) {
-  return requireClient(agentClient)<{
+export async function listAgentTemplates(
+  agentClient: MaybeClient,
+  { signal }: { signal?: AbortSignal } = {},
+): Promise<{ tenant_id: string; templates: AgentTemplate[] }> {
+  const raw = await requireClient(agentClient)<{
     tenant_id: string;
     templates: AgentTemplate[];
-  }>("/api/v1/agents/templates", { method: "GET" });
+  }>("/api/v1/agents/templates", {
+    method: "GET",
+    ...(signal ? { signal } : {}),
+  });
+  return {
+    tenant_id: raw?.tenant_id ?? "",
+    templates: Array.isArray(raw?.templates) ? raw.templates : [],
+  };
 }
 
-export function getAgentQuota(agentClient: MaybeClient) {
+export function getAgentQuota(
+  agentClient: MaybeClient,
+  { signal }: { signal?: AbortSignal } = {},
+) {
   return requireClient(agentClient)<AgentQuotaSnapshot>(
     "/api/v1/agents/quota",
     {
       method: "GET",
+      ...(signal ? { signal } : {}),
     },
   );
 }
@@ -113,11 +142,20 @@ export function retryAgentRun(agentClient: MaybeClient, runId: string) {
   );
 }
 
-export function listAgentRunAudit(agentClient: MaybeClient, runId: string) {
-  return requireClient(agentClient)<{
+export async function listAgentRunAudit(
+  agentClient: MaybeClient,
+  runId: string,
+  { signal }: { signal?: AbortSignal } = {},
+): Promise<{ run_id: string; events: AgentAuditEvent[] }> {
+  const raw = await requireClient(agentClient)<{
     run_id: string;
     events: AgentAuditEvent[];
   }>(`/api/v1/agents/runs/${encodeURIComponent(runId)}/audit`, {
     method: "GET",
+    ...(signal ? { signal } : {}),
   });
+  return {
+    run_id: raw?.run_id ?? runId,
+    events: Array.isArray(raw?.events) ? raw.events : [],
+  };
 }

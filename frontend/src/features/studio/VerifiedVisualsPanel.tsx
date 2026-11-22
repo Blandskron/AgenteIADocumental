@@ -61,17 +61,12 @@ export function VerifiedVisualsPanel({
         inventadas).
       </p>
 
-      <div style={{ display: "grid", gap: "1rem" }}>
+      <div className="ui-stack-md">
         <svg
           role="img"
           aria-label="Grafo conceptual verificado"
           viewBox="0 0 360 120"
-          style={{
-            width: "100%",
-            height: "120px",
-            border: "1px solid var(--border-subtle, #cbd5e1)",
-            borderRadius: "8px",
-          }}
+          className="ui-concept-svg"
         >
           {edges.map((edge, idx) => {
             const sIdx = Math.max(
@@ -105,9 +100,9 @@ export function VerifiedVisualsPanel({
                   cx={cx}
                   cy={60}
                   r={18}
-                  fill="var(--accent-primary, #2563eb)"
+                  fill="var(--accent)"
                   fillOpacity={0.18}
-                  stroke="var(--accent-primary, #2563eb)"
+                  stroke="var(--accent)"
                 />
                 <text
                   x={cx}
@@ -123,21 +118,12 @@ export function VerifiedVisualsPanel({
           })}
         </svg>
 
-        <div>
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: "0.4rem",
-              marginBottom: "0.4rem",
-            }}
-          >
+        <div className="ui-stack-sm">
+          <div className="settings-ai-card-title">
             <BarChart3 size={16} aria-hidden="true" />
             <strong>Métricas verificadas</strong>
           </div>
-          <div
-            style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}
-          >
+          <div className="ui-stack-sm">
             {rows.map((row) => {
               const widthPct = Math.max(
                 4,
@@ -145,35 +131,17 @@ export function VerifiedVisualsPanel({
               );
               return (
                 <div key={`${row.label}-${row.provenance}`}>
-                  <div
-                    style={{
-                      display: "flex",
-                      justifyContent: "space-between",
-                      fontSize: "0.85rem",
-                    }}
-                  >
+                  <div className="ui-metric-header">
                     <span>{row.label}</span>
                     <span>
                       <strong>{row.value}</strong>{" "}
-                      <code style={{ fontSize: "0.75rem" }}>
-                        [{row.provenance}]
-                      </code>
+                      <code>[{row.provenance}]</code>
                     </span>
                   </div>
-                  <div
-                    style={{
-                      height: "8px",
-                      borderRadius: "4px",
-                      background: "rgba(148, 163, 184, 0.25)",
-                      overflow: "hidden",
-                    }}
-                  >
+                  <div className="ui-progress-track">
                     <div
-                      style={{
-                        width: `${widthPct}%`,
-                        height: "100%",
-                        background: "var(--accent-primary, #2563eb)",
-                      }}
+                      className="ui-progress-fill"
+                      style={{ width: `${widthPct}%` }}
                     />
                   </div>
                 </div>

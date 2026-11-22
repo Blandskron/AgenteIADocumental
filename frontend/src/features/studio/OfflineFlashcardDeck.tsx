@@ -1,3 +1,4 @@
+import { Button } from "@/shared/components/Button/Button.tsx";
 import { useState } from "react";
 
 export interface LocalFlashcard {
@@ -78,48 +79,30 @@ export function OfflineFlashcardDeck() {
         <strong>{current.intervalDays} día(s)</strong> · Repeticiones:{" "}
         <strong>{current.repetitions}</strong>
       </p>
-      <div
-        style={{
-          padding: "1rem",
-          borderRadius: "10px",
-          border: "1px solid var(--border-subtle, #cbd5e1)",
-        }}
-      >
-        <p style={{ margin: "0 0 0.5rem", fontWeight: 600 }}>{current.front}</p>
-        {flipped && <p style={{ margin: 0 }}>{current.back}</p>}
+      <div className="ui-subcard">
+        <p className="ui-flashcard-front">{current.front}</p>
+        {flipped && <p className="ui-flashcard-back">{current.back}</p>}
       </div>
       <div className="settings-ai-actions">
         {!flipped ? (
-          <button
+          <Button
             type="button"
-            className="btn-primary"
+            variant="primary"
             onClick={() => setFlipped(true)}
           >
             Mostrar respuesta
-          </button>
+          </Button>
         ) : (
           <>
-            <button
-              type="button"
-              className="btn-danger"
-              onClick={() => rate(1)}
-            >
+            <Button type="button" variant="danger" onClick={() => rate(1)}>
               Repetir (1d)
-            </button>
-            <button
-              type="button"
-              className="btn-secondary"
-              onClick={() => rate(3)}
-            >
+            </Button>
+            <Button type="button" variant="secondary" onClick={() => rate(3)}>
               Bien
-            </button>
-            <button
-              type="button"
-              className="btn-primary"
-              onClick={() => rate(5)}
-            >
+            </Button>
+            <Button type="button" variant="primary" onClick={() => rate(5)}>
               Fácil
-            </button>
+            </Button>
           </>
         )}
       </div>

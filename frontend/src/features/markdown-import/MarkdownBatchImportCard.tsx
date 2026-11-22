@@ -1,5 +1,6 @@
 import type { MaybeClient } from "@/shared/api/types.ts";
 import { requireClient } from "@/shared/api/types.ts";
+import { Button } from "@/shared/components/Button/Button.tsx";
 import { FileArchive, Upload } from "lucide-react";
 import { useState } from "react";
 
@@ -68,16 +69,10 @@ export function MarkdownBatchImportCard({
 
   return (
     <section
-      className="application-row"
+      className="application-row ui-batch-card"
       aria-labelledby="markdown-batch-heading"
-      style={{
-        flexDirection: "column",
-        alignItems: "stretch",
-        cursor: "default",
-        gap: "0.75rem",
-      }}
     >
-      <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
+      <div className="ui-batch-card-header">
         <FileArchive size={22} aria-hidden="true" />
         <span>
           <strong id="markdown-batch-heading">Importar Markdown / ZIP</strong>
@@ -89,10 +84,7 @@ export function MarkdownBatchImportCard({
         </span>
       </div>
 
-      <form
-        onSubmit={handleImport}
-        style={{ display: "flex", flexWrap: "wrap", gap: "0.5rem" }}
-      >
+      <form onSubmit={handleImport} className="ui-toolbar-row">
         <input
           type="file"
           accept=".zip,.md,.markdown,.txt"
@@ -104,24 +96,24 @@ export function MarkdownBatchImportCard({
           }}
           disabled={busy}
         />
-        <button
+        <Button
           type="submit"
-          className="btn-primary"
+          variant="primary"
           disabled={busy || files.length === 0}
         >
           <Upload size={15} aria-hidden="true" />
           {busy ? "Importando…" : "Importar lote"}
-        </button>
+        </Button>
       </form>
 
       {error && (
-        <p role="alert" style={{ margin: 0, color: "#b91c1c" }}>
+        <p role="alert" className="settings-ai-alert settings-ai-alert-error">
           {error}
         </p>
       )}
 
       {summary && (
-        <div role="status" style={{ fontSize: "0.88rem" }}>
+        <div role="status" className="settings-ai-meta">
           <strong>Lote {summary.batch_id}:</strong> {summary.created} creados ·{" "}
           {summary.reused} reutilizados · {summary.rejected} rechazados
         </div>

@@ -1,4 +1,7 @@
 .ui-button,
+.btn-primary,
+.btn-secondary,
+.btn-danger,
 .action-button-primary,
 .action-button-secondary,
 .logout-button,
@@ -22,12 +25,14 @@
   text-decoration: none;
 }
 .ui-button:hover:not(:disabled),
+.btn-secondary:hover:not(:disabled),
 .action-button-secondary:hover:not(:disabled),
 .logout-button:hover:not(:disabled) {
   background: var(--surface-hover);
   border-color: var(--border-strong);
 }
 .ui-button--primary,
+.btn-primary,
 .action-button-primary,
 .assign-document-form footer button[type="submit"] {
   background: var(--primary);
@@ -35,6 +40,7 @@
   border-color: transparent;
 }
 .ui-button--primary:hover:not(:disabled),
+.btn-primary:hover:not(:disabled),
 .action-button-primary:hover:not(:disabled) {
   background: color-mix(in srgb, var(--primary) 88%, var(--foreground));
 }
@@ -42,10 +48,16 @@
   border-color: transparent;
   background: transparent;
 }
-.ui-button--danger {
+.ui-button--danger,
+.btn-danger {
   background: var(--danger-subtle);
   color: var(--danger);
   border-color: currentColor;
+}
+.ui-button--sm {
+  min-height: 32px;
+  padding: 5px 11px;
+  font-size: 0.78rem;
 }
 .icon-button,
 .icon-action-button,

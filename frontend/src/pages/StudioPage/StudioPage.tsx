@@ -19,6 +19,7 @@ import {
   triggerSafeFileDownload,
   type VerifiedEvidenceRow,
 } from "@/features/studio/studioExport.ts";
+import { Button } from "@/shared/components/Button/Button.tsx";
 import { useSidebarState } from "@/shared/hooks/useSidebarState.ts";
 import { AppShell } from "@/shared/layouts/AppShell.tsx";
 import { toError } from "@/shared/lib/errors.ts";
@@ -87,8 +88,12 @@ export function StudioPage({ onNavigate }: PageProps) {
     studioClient,
   } = useAuthContext();
   const [sidebarOpen, setSidebarOpen] = useSidebarState();
-  const [activeTab, setActiveTab] = useState<"generate" | "artifacts">(
-    "generate",
+  const [highlightedArtifactId] = useState<string | null>(() => {
+    if (typeof window === "undefined") return null;
+    return new URLSearchParams(window.location.search).get("artifact");
+  });
+  const [activeTab, setActiveTab] = useState<"generate" | "artifacts">(() =>
+    highlightedArtifactId ? "artifacts" : "generate",
   );
   const [selectedTemplate, setSelectedTemplate] =
     useState<string>("summary.executive");
@@ -268,32 +273,28 @@ export function StudioPage({ onNavigate }: PageProps) {
               verificables y guárdalos en <code>studio.artifacts</code>.
             </p>
           </div>
-          <div style={{ display: "flex", gap: "0.5rem" }}>
-            <button
+          <div className="ui-toolbar-row">
+            <Button
               type="button"
-              className={
-                activeTab === "generate" ? "btn-primary" : "btn-secondary"
-              }
+              variant={activeTab === "generate" ? "primary" : "secondary"}
               onClick={() => setActiveTab("generate")}
             >
               Generar
-            </button>
-            <button
+            </Button>
+            <Button
               type="button"
-              className={
-                activeTab === "artifacts" ? "btn-primary" : "btn-secondary"
-              }
+              variant={activeTab === "artifacts" ? "primary" : "secondary"}
               onClick={() => setActiveTab("artifacts")}
             >
               Mis artefactos ({artifacts.length})
-            </button>
-            <button
+            </Button>
+            <Button
               type="button"
-              className="btn-secondary"
+              variant="secondary"
               onClick={() => void loadWorkspaceData()}
             >
               <RefreshCw size={14} aria-hidden="true" /> Actualizar
-            </button>
+            </Button>
           </div>
         </header>
 
@@ -334,25 +335,9 @@ export function StudioPage({ onNavigate }: PageProps) {
                   procesa archivos en Documentos para generar artefactos reales.
                 </p>
               ) : (
-                <div
-                  style={{
-                    display: "flex",
-                    flexDirection: "column",
-                    gap: "0.4rem",
-                    maxHeight: "180px",
-                    overflowY: "auto",
-                    marginBottom: "1rem",
-                  }}
-                >
+                <div className="ui-scroll-box">
                   {docs.map((doc) => (
-                    <label
-                      key={doc.documentId}
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        gap: "0.5rem",
-                      }}
-                    >
+                    <label key={doc.documentId} className="ui-check-row">
                       <input
                         type="checkbox"
                         checked={selectedDocIds.includes(doc.documentId)}
@@ -368,34 +353,20 @@ export function StudioPage({ onNavigate }: PageProps) {
                 <Sparkles size={18} aria-hidden="true" />
                 <h2>2. Plantilla P0</h2>
               </div>
-              <div
-                style={{
-                  display: "flex",
-                  flexDirection: "column",
-                  gap: "0.6rem",
-                }}
-              >
+              <div className="ui-stack-md">
                 {P0_TEMPLATE_GROUPS.map((tpl) => (
-                  <button
+                  <Button
                     key={tpl.id}
                     type="button"
-                    className={
-                      selectedTemplate === tpl.id
-                        ? "btn-primary"
-                        : "btn-secondary"
+                    variant={
+                      selectedTemplate === tpl.id ? "primary" : "secondary"
                     }
-                    style={{
-                      textAlign: "left",
-                      display: "flex",
-                      flexDirection: "column",
-                      alignItems: "flex-start",
-                      padding: "0.75rem",
-                    }}
+                    className="ui-template-btn"
                     onClick={() => setSelectedTemplate(tpl.id)}
                   >
                     <strong>{tpl.label}</strong>
-                    <small style={{ opacity: 0.85 }}>{tpl.description}</small>
-                  </button>
+                    <small>{tpl.description}</small>
+                  </Button>
                 ))}
               </div>
             </section>
@@ -408,42 +379,34 @@ export function StudioPage({ onNavigate }: PageProps) {
                 <FileText size={18} aria-hidden="true" />
                 <h2 id="studio-editor-heading">3. Generación y persistencia</h2>
               </div>
-              <label style={{ display: "block", marginBottom: "0.5rem" }}>
+              <label className="ui-field-label">
                 Título del artefacto
                 <input
                   type="text"
                   value={titleInput}
                   placeholder="Ej. Resumen contrato Q4"
                   onChange={(e) => setTitleInput(e.target.value)}
-                  style={{ width: "100%", marginTop: "0.25rem" }}
                 />
               </label>
-              <div
-                style={{
-                  display: "flex",
-                  gap: "0.5rem",
-                  flexWrap: "wrap",
-                  marginBottom: "0.75rem",
-                }}
-              >
-                <button
+              <div className="settings-ai-actions">
+                <Button
                   type="button"
-                  className="btn-primary"
+                  variant="primary"
                   disabled={busy || selectedDocIds.length === 0}
                   onClick={() => void handleGenerateRealArtifact()}
                 >
                   {busy
                     ? "Generando..."
                     : "Generar con documentos seleccionados"}
-                </button>
-                <button
+                </Button>
+                <Button
                   type="button"
-                  className="btn-secondary"
+                  variant="secondary"
                   disabled={busy || !draftMarkdown.trim()}
                   onClick={() => void handleSaveArtifact()}
                 >
                   Guardar artefacto
-                </button>
+                </Button>
               </div>
               {citationsDetached && (
                 <div
@@ -457,45 +420,23 @@ export function StudioPage({ onNavigate }: PageProps) {
               <textarea
                 aria-label="Editor Markdown del artefacto"
                 rows={7}
+                className="ui-code-textarea"
                 placeholder="El resultado generado a partir de tus documentos aparecerá aquí."
                 value={draftMarkdown}
                 onChange={(event) => {
                   setDraftMarkdown(event.target.value);
                   setCitationsDetached(true);
                 }}
-                style={{
-                  width: "100%",
-                  padding: "0.65rem",
-                  borderRadius: "8px",
-                  border: "1px solid var(--border-subtle, #cbd5e1)",
-                  background: "transparent",
-                  color: "inherit",
-                  fontFamily: "monospace",
-                }}
               />
               {draftMarkdown.trim() && (
-                <div
-                  style={{
-                    padding: "0.75rem",
-                    borderRadius: "8px",
-                    border: "1px solid var(--border-subtle, #cbd5e1)",
-                    marginTop: "0.5rem",
-                  }}
-                >
+                <div className="ui-subcard">
                   <SafeMarkdown content={draftMarkdown} />
                 </div>
               )}
-              <div
-                style={{
-                  display: "flex",
-                  gap: "0.5rem",
-                  flexWrap: "wrap",
-                  marginTop: "0.75rem",
-                }}
-              >
-                <button
+              <div className="settings-ai-actions">
+                <Button
                   type="button"
-                  className="btn-secondary"
+                  variant="secondary"
                   disabled={!draftMarkdown.trim()}
                   onClick={() =>
                     triggerSafeFileDownload(
@@ -506,10 +447,10 @@ export function StudioPage({ onNavigate }: PageProps) {
                   }
                 >
                   <Download size={14} aria-hidden="true" /> Descargar Markdown
-                </button>
-                <button
+                </Button>
+                <Button
                   type="button"
-                  className="btn-secondary"
+                  variant="secondary"
                   disabled={verifiedCsvRows.length === 0}
                   onClick={() =>
                     triggerSafeFileDownload(
@@ -521,7 +462,7 @@ export function StudioPage({ onNavigate }: PageProps) {
                 >
                   <Download size={14} aria-hidden="true" /> Descargar CSV
                   verificado
-                </button>
+                </Button>
               </div>
             </section>
           </div>
@@ -535,11 +476,15 @@ export function StudioPage({ onNavigate }: PageProps) {
                   <code>studio.artifacts</code>.
                 </p>
               ) : (
-                <ul style={{ paddingLeft: "1.1rem" }}>
+                <ul className="ui-list">
                   {artifacts.map((art) => (
                     <li
                       key={art.artifact_id}
-                      style={{ marginBottom: "0.5rem" }}
+                      className={
+                        highlightedArtifactId === art.artifact_id
+                          ? "ui-selectable-item ui-selectable-item--active"
+                          : undefined
+                      }
                     >
                       <strong>{art.title}</strong> —{" "}
                       <code>{art.template_id}</code> (v{art.version},{" "}
@@ -551,17 +496,18 @@ export function StudioPage({ onNavigate }: PageProps) {
               {jobs.length > 0 && (
                 <>
                   <h3>Trabajos recientes</h3>
-                  <ul style={{ paddingLeft: "1.1rem" }}>
+                  <ul className="ui-list">
                     {jobs.map((job) => (
-                      <li key={job.job_id}>
-                        <code>{job.template_id}</code> — {job.status} (
-                        {job.step})
+                      <li key={job.job_id} className="ui-toolbar-row">
+                        <span>
+                          <code>{job.template_id}</code> — {job.status} (
+                          {job.step})
+                        </span>
                         {(job.status === "PENDING" ||
                           job.status === "RUNNING") && (
-                          <button
+                          <Button
                             type="button"
-                            className="btn-secondary"
-                            style={{ marginLeft: "0.5rem" }}
+                            variant="secondary"
                             onClick={() =>
                               void cancelStudioJob(
                                 studioClient,
@@ -570,7 +516,7 @@ export function StudioPage({ onNavigate }: PageProps) {
                             }
                           >
                             Cancelar
-                          </button>
+                          </Button>
                         )}
                       </li>
                     ))}

@@ -1,3 +1,4 @@
+import AxeBuilder from "@axe-core/playwright";
 import { expect, test } from "@playwright/test";
 import { normalizeAuthUser } from "../../src/entities/auth/model/auth.user.ts";
 
@@ -21,10 +22,10 @@ const identity = {
 
 async function prepareAgentPage(
   page,
-  { agentsEnabled = false, codeModeEnabled = false } = {},
+  { agentsEnabled = false, codeModeEnabled = false, theme = "light" } = {},
 ) {
   await page.addInitScript(
-    ({ user, raw }) => {
+    ({ user, raw, initialTheme }) => {
       const names = [
         "AUTH",
         "PROFILE",
@@ -46,7 +47,7 @@ async function prepareAgentPage(
           `${location.origin}/test-api`,
         ]),
       );
-      localStorage.setItem("blandskron:theme", "light");
+      localStorage.setItem("blandskron:theme", initialTheme);
       localStorage.setItem(
         "blandskron.auth",
         JSON.stringify({
@@ -58,7 +59,7 @@ async function prepareAgentPage(
         }),
       );
     },
-    { user: normalizeAuthUser(identity), raw: identity },
+    { user: normalizeAuthUser(identity), raw: identity, initialTheme: theme },
   );
 
   await page.route("**/test-api/**", async (route) => {
@@ -155,6 +156,56 @@ async function prepareAgentPage(
         },
       });
     }
+    if (path.endsWith("/api/integrations/ai/provider/")) {
+      return route.fulfill({
+        json: {
+          active_provider: "groq",
+          available_providers: ["groq", "ollama"],
+        },
+      });
+    }
+    if (path.endsWith("/api/integrations/groq/")) {
+      return route.fulfill({
+        json: {
+          provider: "groq",
+          configured: true,
+          status: "connected",
+          model: "llama-3.3-70b-versatile",
+          params: { max_tokens: 2000, temperature: 0.3, timeout_seconds: 60 },
+          last_check: { at: "2026-11-22T12:00:00Z", result: "ok" },
+          key_fingerprint: "9f2a",
+          encryption_ready: true,
+          updated_at: "2026-11-22T12:00:00Z",
+        },
+      });
+    }
+    if (path.endsWith("/api/integrations/groq/models/")) {
+      return route.fulfill({
+        json: { result: "ok", models: ["llama-3.3-70b-versatile"] },
+      });
+    }
+    if (path.endsWith("/api/audit-logs/")) {
+      return route.fulfill({
+        json: {
+          total: 1,
+          limit: 50,
+          offset: 0,
+          items: [
+            {
+              audit_id: "aud-1",
+              tenant_id: "tenant-demo",
+              actor_user_id: "123",
+              action: "ai_settings_write",
+              resource_type: "tenant_integration",
+              resource_id: "groq",
+              target_user_id: null,
+              metadata: { provider: "groq" },
+              created_at: "2026-11-22T12:00:00Z",
+            },
+          ],
+        },
+      });
+    }
     return route.fulfill({ json: { items: [] } });
   });
 }
@@ -179,3 +230,47 @@ test("Unified Chat/Agent/Code Mode renders selector when AGENTS_ENABLED=true", a
   ).toBeVisible();
   await expect(page.getByRole("button", { name: "Code Mode" })).toBeVisible();
 });
+
+for (const theme of ["light", "dark"]) {
+  test(`New views (/settings/ai, /studio, /admin/audit, AgentRunPanel) pass WCAG axe checks in ${theme} theme`, async ({
+    page,
+  }) => {
+    await prepareAgentPage(page, {
+      agentsEnabled: true,
+      codeModeEnabled: true,
+      theme,
+    });
+
+    await page.goto("/settings/ai");
+    await expect(
+      page.getByRole("heading", { name: "Proveedor Groq (Generación)" }),
+    ).toBeVisible();
+    const aiScan = await new AxeBuilder({ page }).analyze();
+    expect(aiScan.violations).toEqual([]);
+
+    await page.goto("/studio");
+    await expect(
+      page.getByRole("heading", { name: "Knowledge Studio", exact: true }),
+    ).toBeVisible();
+    const studioScan = await new AxeBuilder({ page }).analyze();
+    expect(studioScan.violations).toEqual([]);
+
+    await page.goto("/admin/audit");
+    await expect(
+      page.getByRole("heading", { name: "Auditoría de seguridad", exact: true }),
+    ).toBeVisible();
+    await expect(page.getByText("ai_settings_write")).toBeVisible();
+    const auditScan = await new AxeBuilder({ page }).analyze();
+    expect(auditScan.violations).toEqual([]);
+
+    await page.goto("/");
+    await page.getByRole("button", { name: "Agente", exact: true }).click();
+    await page.getByRole("textbox").fill("Comparar vencimientos");
+    await page.getByRole("textbox").press("Enter");
+    await expect(
+      page.getByRole("region", { name: "Estado de ejecución del agente" }),
+    ).toBeVisible();
+    const agentPanelScan = await new AxeBuilder({ page }).analyze();
+    expect(agentPanelScan.violations).toEqual([]);
+  });
+}
