@@ -6,9 +6,9 @@ import os
 from pathlib import Path
 from typing import Any
 
+import jwt
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
-import jwt
 
 _bearer = HTTPBearer(auto_error=False)
 

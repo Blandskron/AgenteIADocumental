@@ -21,5 +21,6 @@ export function createSessionClients(
     authClient: client(env.authBaseUrl),
     profileClient: client(env.profileBaseUrl),
     studioClient: client(env.knowledgeStudioBaseUrl),
+    agentClient: client(env.agentOrchestratorBaseUrl),
   };
 }

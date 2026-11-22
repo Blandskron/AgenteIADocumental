@@ -6,12 +6,12 @@ import json
 import os
 from typing import Any
 
-from fastapi import Depends, FastAPI, HTTPException, status
-from fastapi.middleware.cors import CORSMiddleware
-
 from app.application.tools.registry import ToolRegistry
 from app.config.security import require_agent_user
 from app.infrastructure.mcp.mcp_client import McpHttpClient, register_default_mcp_tools
+from app.interfaces.api.v1.runs_routes import router as runs_router
+from fastapi import Depends, FastAPI, HTTPException, status
+from fastapi.middleware.cors import CORSMiddleware
 
 
 def is_agents_enabled() -> bool:
@@ -51,6 +51,7 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+app.include_router(runs_router)
 
 
 @app.get("/api/v1/health")

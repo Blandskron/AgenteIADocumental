@@ -1,7 +1,7 @@
 # ROADMAP — Evolución Agentic AI (LangChain, LangGraph y Code Mode)
 
 > **Naturaleza de este documento:** Investigación arquitectónica, diseño técnico y backlog ejecutable para incorporar capacidades agénticas **opcionales, seguras y desacopladas** en Blandskron Documental.  
-> **Restricción vigente:** En esta fase **no se ha implementado ninguna de estas capacidades**; el RAG tradicional, Docker Compose base y todos los servicios existentes permanecen intactos.
+> **Estado actual:** Backlog `AG-001`..`AG-014` implementado de forma opcional detrás de `AGENTS_ENABLED=false` y `CODE_MODE_ENABLED=false`; el RAG tradicional, Docker Compose base y todos los servicios existentes permanecen intactos.
 
 ---
 
@@ -319,7 +319,7 @@ Se recomienda **una experiencia unificada dentro de `ChatPage`** (selector de mo
 ### Épica E2 — Adaptador LLM opcional (`langchain-core`) y Orquestador LangGraph (Fases 2 y 3)
 
 - **`AG-006` — Integrar adaptador LLM `langchain-core` reutilizando el router Groq / Ollama del tenant**
-  - **Estado:** `[ ]` | **Prioridad:** P1 | **Complejidad:** M | **Dependencias:** `AG-005`
+  - **Estado:** `[x]` | **Prioridad:** P1 | **Complejidad:** M | **Dependencias:** `AG-005`
   - **Objetivo:** Permitir que el agente use automáticamente el proveedor activo del tenant (Groq, Ollama local o OpenAI-compatible) con *tool-calling* tipado y fallback estructurado para modelos CPU pequeños.
   - **Descripción técnica:** Resolver configuración activa del tenant (reutilizando la misma lógica `ai_router` + `SecretsCipher` `secrets1.` + `validate_provider_base_url`), instanciar `ChatGroq` / `ChatOllama` / `ChatOpenAI` con timeouts y `max_tokens` acotados, e implementar un modo de fallback JSON estructurado cuando un modelo Ollama local no soporte *native tool calling* de forma confiable.
   - **Archivos/servicios:** `backend/AgentOrchestratorServices/app/infrastructure/llm/model_factory.py`, `tests/test_model_factory.py`.
@@ -329,7 +329,7 @@ Se recomienda **una experiencia unificada dentro de `ChatPage`** (selector de mo
   - **Riesgos:** Modelos Ollama 2B/3B con *tool-calling* inconsistente (mitigado por el fallback JSON estructurado).
 
 - **`AG-007` — Implementar grafo principal de investigación documental con LangGraph (`StateGraph`)**
-  - **Estado:** `[ ]` | **Prioridad:** P1 | **Complejidad:** L | **Dependencias:** `AG-006`
+  - **Estado:** `[x]` | **Prioridad:** P1 | **Complejidad:** L | **Dependencias:** `AG-006`
   - **Objetivo:** Orquestar consultas multi-paso (investigación multi-documento, comparación de contratos, extracción de fechas/montos/vencimientos) con citas verificables.
   - **Descripción técnica:** Definir `AgentState` tipado (`messages`, `document_ids`, `evidence`, `steps`, `token_budget`, `cancelled`) y nodos `plan → retrieve_tools → synthesize → verify_citations` con `recursion_limit`, reintentos acotados en fallos transitorios de lectura e idempotencia por `idempotency_key`.
   - **Archivos/servicios:** `backend/AgentOrchestratorServices/app/application/graph/research_graph.py`, `app/interfaces/api/v1/runs_routes.py`, `tests/test_research_graph.py`.
@@ -341,7 +341,7 @@ Se recomienda **una experiencia unificada dentro de `ChatPage`** (selector de mo
 ### Épica E3 — Persistencia, Checkpoints, Cancelación y Human-in-the-Loop (Fase 4)
 
 - **`AG-008` — Integrar `AsyncPostgresSaver` (`LANGGRAPH_STRICT_MSGPACK=true`) y recuperación ante reinicios**
-  - **Estado:** `[ ]` | **Prioridad:** P1 | **Complejidad:** M | **Dependencias:** `AG-003`, `AG-007`
+  - **Estado:** `[x]` | **Prioridad:** P1 | **Complejidad:** M | **Dependencias:** `AG-003`, `AG-007`
   - **Objetivo:** Persistir cada paso del grafo en `agents.*` permitiendo suspender y reanudar investigaciones incluso tras reiniciar contenedores.
   - **Descripción técnica:** Configurar `AsyncPostgresSaver` sobre el esquema `agents` con `LANGGRAPH_STRICT_MSGPACK=true`, tabla `agents.agent_runs` sincronizada con `thread_id` y aislamiento estricto por `(tenant_id, user_id)`.
   - **Archivos/servicios:** `backend/AgentOrchestratorServices/app/infrastructure/database/checkpointer.py`, `app/infrastructure/database/runs_repository.py`, `tests/test_checkpoints_and_recovery.py`.
@@ -351,7 +351,7 @@ Se recomienda **una experiencia unificada dentro de `ChatPage`** (selector de mo
   - **Riesgos:** Tamaño excesivo de checkpoints si se guardan documentos completos (guardar solo referencias `document_id#chunk_index` y extractos acotados).
 
 - **`AG-009` — Implementar `interrupt()` Human-in-the-Loop, cancelación cooperativa y cuotas por tenant**
-  - **Estado:** `[ ]` | **Prioridad:** P1 | **Complejidad:** M | **Dependencias:** `AG-008`
+  - **Estado:** `[x]` | **Prioridad:** P1 | **Complejidad:** M | **Dependencias:** `AG-008`
   - **Objetivo:** Exigir aprobación humana antes de persistir artefactos/exportaciones, permitir cancelar ejecuciones activas y limitar consumo diario por empresa.
   - **Descripción técnica:** Nodo `human_approval` usando `langgraph.types.interrupt(...)` + `Command(resume=...)` en `POST /api/v1/agents/runs/{run_id}/resume`; cancelación vía `POST /api/v1/agents/runs/{run_id}/cancel` verificada antes de cada nodo/herramienta; control de cuotas persistente en `agents.agent_usage_daily` + registro en `public.audit_logs`.
   - **Archivos/servicios:** `backend/AgentOrchestratorServices/app/application/graph/approval_node.py`, `app/application/quota_service.py`, `tests/test_hitl_cancel_quota.py`.
@@ -363,7 +363,7 @@ Se recomienda **una experiencia unificada dentro de `ChatPage`** (selector de mo
 ### Épica E4 — Code Mode seguro en sandbox aislado (Fase 5)
 
 - **`AG-010` — Construir sidecar `code-sandbox-runner` endurecido (Deno `--deny-all` / WASM sin red externa)**
-  - **Estado:** `[ ]` | **Prioridad:** P2 | **Complejidad:** L | **Dependencias:** `AG-004`
+  - **Estado:** `[x]` | **Prioridad:** P2 | **Complejidad:** L | **Dependencias:** `AG-004`
   - **Objetivo:** Proveer un entorno de ejecución verdaderamente aislado para transformar/comparar datos recuperados sin `eval`/`exec`/`node:vm` ni dependencia de Cloudflare Workers.
   - **Descripción técnica:** Contenedor minimalista (`--read-only`, `--cap-drop ALL`, `no-new-privileges`, `mem_limit: 256m`, `cpus: 0.5`, `pids_limit: 64`, sin puerto en host, red interna aislada sin salida a internet) que ejecuta scripts JS/TS en `Deno` con `--deny-all` (o runtime WASM) con timeout estricto (`5s`) y canal RPC tipado únicamente hacia herramientas de solo lectura expuestas por el host.
   - **Archivos/servicios:** `backend/CodeSandboxRunner/` (`Dockerfile`, runner Deno/WASM), `docker/compose/code-mode.yml`, `tests/test_sandbox_escape.py`.
@@ -373,7 +373,7 @@ Se recomienda **una experiencia unificada dentro de `ChatPage`** (selector de mo
   - **Riesgos:** Vulnerabilidad zero-day en motor V8 (documentar opción `runtime: runsc` / gVisor para despliegues multi-tenant de producción).
 
 - **`AG-011` — Integrar nodo opcional Code Mode en LangGraph con descubrimiento progresivo de herramientas**
-  - **Estado:** `[ ]` | **Prioridad:** P2 | **Complejidad:** M | **Dependencias:** `AG-007`, `AG-010`
+  - **Estado:** `[x]` | **Prioridad:** P2 | **Complejidad:** M | **Dependencias:** `AG-007`, `AG-010`
   - **Objetivo:** Permitir que el agente use Code Mode (solo cuando `CODE_MODE_ENABLED=true` y el usuario activa Modo 3) para cálculos, comparativas y tablas deterministas (casos de uso 4, 5 y 11).
   - **Descripción técnica:** Exponer al modelo la descripción compacta de tipos de las herramientas de solo lectura (`search`, `describe`, `execute_code`), validar sintaxis/tamaño del script antes de enviarlo al sidecar, registrar código y resultado en auditoría y validar citas resultantes con `validate_groundedness`.
   - **Archivos/servicios:** `backend/AgentOrchestratorServices/app/application/graph/code_mode_node.py`, `app/infrastructure/sandbox/sandbox_client.py`, `tests/test_code_mode_integration.py`.
@@ -385,7 +385,7 @@ Se recomienda **una experiencia unificada dentro de `ChatPage`** (selector de mo
 ### Épica E5 — Integración con Knowledge Studio, Frontend unificado y Hardening final (Fases 6, 7 y 8)
 
 - **`AG-012` — Conectar salidas aprobadas del agente con Knowledge Studio y DocumentExportServices**
-  - **Estado:** `[ ]` | **Prioridad:** P2 | **Complejidad:** M | **Dependencias:** `AG-009`
+  - **Estado:** `[x]` | **Prioridad:** P2 | **Complejidad:** M | **Dependencias:** `AG-009`
   - **Objetivo:** Guardar informes y tablas aprobadas por el humano como artefactos versionados en `studio.artifacts` y exportables a PDF/CSV.
   - **Descripción técnica:** Adaptador HTTP autenticado con el JWT del usuario hacia `POST /api/v1/studio/artifacts` y `DocumentExportServices` (`studio_artifact`), ejecutado únicamente tras aprobación humana en `AG-009`.
   - **Archivos/servicios:** `backend/AgentOrchestratorServices/app/infrastructure/studio/studio_client.py`, `tests/test_studio_handoff.py`.
@@ -395,7 +395,7 @@ Se recomienda **una experiencia unificada dentro de `ChatPage`** (selector de mo
   - **Riesgos:** Studio deshabilitado (ofrecer descarga directa Markdown/CSV como alternativa limpia).
 
 - **`AG-013` — Integrar selector unificado de modos (Chat / Agente / Agente+Code Mode) en Frontend**
-  - **Estado:** `[ ]` | **Prioridad:** P2 | **Complejidad:** L | **Dependencias:** `AG-009`, `AG-011`
+  - **Estado:** `[x]` | **Prioridad:** P2 | **Complejidad:** L | **Dependencias:** `AG-009`, `AG-011`
   - **Objetivo:** Exponer la experiencia agéntica dentro de `ChatPage` sin alterar el Modo 1 ni requerir pantallas duplicadas.
   - **Descripción técnica:** Añadir `VITE_AGENT_ORCHESTRATOR_BASE_URL` (opcional), cliente `agentClient` en `session-clients.ts`, selector de modo en `ChatComposer` (oculto o deshabilitado con explicación si `AGENTS_ENABLED=false`), panel colapsable de pasos/herramientas en tiempo real vía SSE, tarjetas de aprobación humana (`/resume`), botón cancelar (`/cancel`) y visor de código ejecutado en Modo 3 usando `SafeMarkdown`.
   - **Archivos/servicios:** `frontend/src/features/agents/*`, `frontend/src/pages/ChatPage/ChatPage.tsx`, `frontend/src/app/config/env.ts`, `frontend/tests/agents.api.test.js`, `frontend/tests/browser/`.
@@ -405,7 +405,7 @@ Se recomienda **una experiencia unificada dentro de `ChatPage`** (selector de mo
   - **Riesgos:** Ruido visual en el chat simple (mantener detalles de ejecución colapsados por defecto).
 
 - **`AG-014` — Suite de seguridad, regresión, límites de rendimiento y documentación operativa**
-  - **Estado:** `[ ]` | **Prioridad:** P1 | **Complejidad:** M | **Dependencias:** `AG-012`, `AG-013`
+  - **Estado:** `[x]` | **Prioridad:** P1 | **Complejidad:** M | **Dependencias:** `AG-012`, `AG-013`
   - **Objetivo:** Validar todos los quality gates antes de integrar la capacidad agéntica en `develop` / `main`.
   - **Descripción técnica:** Añadir job selectivo `agents-fast` en `.github/workflows/ci-fast.yml` (sin ralentizar PRs que no toquen agentes), pruebas de regresión RAG tradicional, benchmark de RAM/CPU/latencia con Groq y Ollama local, y documentación de perfiles `--profile agents` y `--profile code-mode` en `README.md`, `docs/operations.md` y `docs/architecture.md`.
   - **Archivos/servicios:** `.github/workflows/ci-fast.yml`, `scripts/ci/detect_changes.py`, `README.md`, `docs/operations.md`, `docs/architecture.md`.

@@ -66,4 +66,8 @@ export const env = {
     "VITE_KNOWLEDGE_STUDIO_BASE_URL",
     "http://localhost:8018",
   ),
+  agentOrchestratorBaseUrl: requiredUrl(
+    "VITE_AGENT_ORCHESTRATOR_BASE_URL",
+    "http://localhost:8019",
+  ),
 };

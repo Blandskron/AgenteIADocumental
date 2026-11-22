@@ -6,7 +6,12 @@ import json
 import urllib.request
 from typing import Any
 
-from app.application.tools.registry import ToolPolicy, ToolRegistry, ToolSpec, redact_secrets
+from app.application.tools.registry import (
+    ToolPolicy,
+    ToolRegistry,
+    ToolSpec,
+    redact_secrets,
+)
 
 DEFAULT_MCP_TOOLS = (
     (

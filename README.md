@@ -63,6 +63,14 @@ No necesitas crear `.env` manualmente para empezar: `secrets-init` genera secret
   ```bash
   STUDIO_ENABLED=true docker compose -f compose.yaml -f docker/compose/studio.yml --profile studio up -d --build
   ```
+- **Modo opcional — Orquestación Agéntica y Code Mode en sandbox endurecido:**
+  ```bash
+  # Modo 2 — Agente documental multi-paso (puerto 8019, esquema aislado agents.*)
+  AGENTS_ENABLED=true STUDIO_ENABLED=true docker compose -f compose.yaml -f docker/compose/studio.yml -f docker/compose/agents.yml --profile studio --profile agents up -d --build
+
+  # Modo 3 — Agente + Code Mode en sandbox Deno --deny-all sin red externa
+  AGENTS_ENABLED=true CODE_MODE_ENABLED=true STUDIO_ENABLED=true docker compose -f compose.yaml -f docker/compose/studio.yml -f docker/compose/agents.yml -f docker/compose/code-mode.yml --profile studio --profile agents --profile code-mode up -d --build
+  ```
 - **Integraciones opcionales (Google Login OIDC, Google Drive, SMTP):** arrancan deshabilitadas por defecto. Consulta [.env.example](.env.example) y [docs/operations.md](docs/operations.md) para habilitar `GOOGLE_OIDC_CLIENT_ID`, `GOOGLE_DRIVE_ENABLED=true` o `EMAIL_HOST` (necesario para recuperación automática de contraseña por correo).
 
 > **Alcance y notas de seguridad:** Compose publica los puertos solo en loopback (`127.0.0.1`) para desarrollo y uso local; exponerlo a internet requiere TLS/proxy inverso y `AUTH_ENV=production`. La captura de firma incluida en los flujos documentales es un registro interno de aceptación y **no** constituye firma electrónica criptográfica ni legalmente certificada.

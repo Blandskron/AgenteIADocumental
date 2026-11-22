@@ -54,9 +54,24 @@ CREATE TABLE IF NOT EXISTS agents.agent_usage_daily (
     PRIMARY KEY (tenant_id, usage_date)
 );
 
+CREATE TABLE IF NOT EXISTS agents.agent_checkpoints (
+    thread_id TEXT NOT NULL,
+    checkpoint_seq INTEGER NOT NULL,
+    tenant_id TEXT NOT NULL REFERENCES public.tenants(tenant_id) ON DELETE CASCADE,
+    owner_user_id TEXT NOT NULL,
+    node_name TEXT NOT NULL,
+    state_format TEXT NOT NULL DEFAULT 'strict_json',
+    state_payload JSONB NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    PRIMARY KEY (thread_id, checkpoint_seq)
+);
+
 CREATE INDEX IF NOT EXISTS agent_runs_tenant_owner_idx
     ON agents.agent_runs (tenant_id, owner_user_id, created_at DESC);
 
 CREATE INDEX IF NOT EXISTS agent_approvals_run_idx
     ON agents.agent_approvals (run_id, decision);
+
+CREATE INDEX IF NOT EXISTS agent_checkpoints_tenant_owner_idx
+    ON agents.agent_checkpoints (tenant_id, owner_user_id, thread_id, checkpoint_seq DESC);
 

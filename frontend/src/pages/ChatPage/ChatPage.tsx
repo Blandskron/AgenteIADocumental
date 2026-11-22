@@ -6,6 +6,19 @@ import { useEffect, useState } from "react";
 
 import { useAuthContext } from "@/app/providers/AuthProvider.tsx";
 import { appRoutes } from "@/app/router/routes.ts";
+import {
+  cancelAgentRun,
+  getAgentHealth,
+  resumeAgentApproval,
+  startAgentRun,
+} from "@/features/agents/api/agents.api.ts";
+import { AgentModeSelector } from "@/features/agents/components/AgentModeSelector.tsx";
+import { AgentRunPanel } from "@/features/agents/components/AgentRunPanel.tsx";
+import type {
+  AgentCapabilities,
+  AgentRun,
+  ChatExecutionMode,
+} from "@/features/agents/types.ts";
 import { useChat } from "@/features/chat/hooks/useChat.ts";
 import { useConversations } from "@/features/conversations/hooks/useConversations.ts";
 import { ExportHistory } from "@/features/document-export/ExportHistory.tsx";
@@ -22,6 +35,7 @@ import { Sidebar } from "@/widgets/Sidebar/Sidebar.tsx";
 
 export function ChatPage({ onNavigate }: PageProps) {
   const {
+    agentClient,
     chatClient,
     conversationClient,
     currentUser,
@@ -34,6 +48,29 @@ export function ChatPage({ onNavigate }: PageProps) {
   const [sidebarOpen, setSidebarOpen] = useSidebarState();
   const [transfersOpen, setTransfersOpen] = useState(false);
   const [exportsOpen, setExportsOpen] = useState(false);
+  const [agentCapabilities, setAgentCapabilities] =
+    useState<AgentCapabilities | null>(null);
+  const [executionMode, setExecutionMode] = useState<ChatExecutionMode>("chat");
+  const [activeAgentRun, setActiveAgentRun] = useState<AgentRun | null>(null);
+  const [agentBusy, setAgentBusy] = useState(false);
+  const [agentError, setAgentError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!agentClient) return;
+    let alive = true;
+    getAgentHealth(agentClient)
+      .then((caps) => {
+        if (alive && caps?.agents_enabled) {
+          setAgentCapabilities(caps);
+        }
+      })
+      .catch(() => {
+        // Optional AgentOrchestratorServices offline or disabled: keep Mode 1 intact.
+      });
+    return () => {
+      alive = false;
+    };
+  }, [agentClient]);
 
   const transfers = useTransfers(documentTransferClient);
   const conversationsState = useConversations(storageScope, conversationClient);
@@ -131,6 +168,83 @@ export function ChatPage({ onNavigate }: PageProps) {
       metadata: { exported_from: "chat", source_message_index: index },
     });
   }
+
+  async function handleComposerSubmit() {
+    if (executionMode === "chat" || !agentCapabilities?.agents_enabled) {
+      return chat.submit();
+    }
+    const goal = chat.question.trim();
+    if (!goal || agentBusy) return;
+    setAgentBusy(true);
+    setAgentError(null);
+    try {
+      const selectedDocIds = (activeConversation?.selectedDocuments || []).map(
+        (doc) => doc.documentId,
+      );
+      const run = await startAgentRun(agentClient, {
+        mode: executionMode === "code_mode" ? "code_mode" : "agent",
+        goal,
+        document_ids: selectedDocIds,
+        enable_code_mode: executionMode === "code_mode",
+      });
+      setActiveAgentRun(run);
+      chat.setQuestion("");
+    } catch (err) {
+      setAgentError(
+        err instanceof Error
+          ? err.message
+          : "No se pudo iniciar la ejecución del agente.",
+      );
+    } finally {
+      setAgentBusy(false);
+    }
+  }
+
+  async function handleAgentCancel(runId: string) {
+    if (!agentClient) return;
+    setAgentBusy(true);
+    setAgentError(null);
+    try {
+      const updated = await cancelAgentRun(agentClient, runId);
+      setActiveAgentRun(updated);
+    } catch (err) {
+      setAgentError(
+        err instanceof Error
+          ? err.message
+          : "No se pudo cancelar la ejecución.",
+      );
+    } finally {
+      setAgentBusy(false);
+    }
+  }
+
+  async function handleAgentDecision(
+    runId: string,
+    approvalId: string,
+    decision: "approve" | "reject",
+    comment: string,
+  ) {
+    if (!agentClient) return;
+    setAgentBusy(true);
+    setAgentError(null);
+    try {
+      const updated = await resumeAgentApproval(agentClient, runId, {
+        approval_id: approvalId,
+        decision,
+        comment,
+      });
+      setActiveAgentRun(updated);
+    } catch (err) {
+      setAgentError(
+        err instanceof Error
+          ? err.message
+          : "No se pudo registrar la decisión de aprobación.",
+      );
+    } finally {
+      setAgentBusy(false);
+    }
+  }
+
   return (
     <AppShell
       sidebarOpen={sidebarOpen}
@@ -182,6 +296,11 @@ export function ChatPage({ onNavigate }: PageProps) {
             <FileDown size={16} aria-hidden="true" />
             Mis PDFs
           </button>
+          <AgentModeSelector
+            mode={executionMode}
+            capabilities={agentCapabilities}
+            onModeChange={setExecutionMode}
+          />
           {activeConversation?.selectedDocuments?.length > 0 && (
             <div
               className="selected-documents-chip"
@@ -222,14 +341,26 @@ export function ChatPage({ onNavigate }: PageProps) {
           </button>
         )}
 
+        <AgentRunPanel
+          run={activeAgentRun}
+          busy={agentBusy}
+          error={agentError}
+          onCancel={handleAgentCancel}
+          onDecision={handleAgentDecision}
+          onDismiss={() => {
+            setActiveAgentRun(null);
+            setAgentError(null);
+          }}
+        />
+
         <ChatComposer
           fileInputRef={documentUpload.fileInputRef}
-          isBusy={chat.isBusy}
+          isBusy={chat.isBusy || agentBusy}
           onClearFile={documentUpload.clearSelectedFile}
           onFileChange={documentUpload.handleFileChange}
           onOpenFilePicker={documentUpload.openFilePicker}
           onQuestionChange={chat.setQuestion}
-          onSubmit={chat.submit}
+          onSubmit={handleComposerSubmit}
           onUploadOnly={chat.uploadOnly}
           question={chat.question}
           selectedFile={documentUpload.selectedFile}

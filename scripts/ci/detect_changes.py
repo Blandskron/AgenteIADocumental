@@ -168,6 +168,7 @@ def compute_scopes(files: list[str], force_all: bool) -> dict[str, object]:
             "postgres": True,
             "rag_groq": True,
             "studio_eval": True,
+            "agents": True,
             "database": True,
             "services": [],
         }
@@ -192,6 +193,13 @@ def compute_scopes(files: list[str], force_all: bool) -> dict[str, object]:
         "scripts/eval/",
         "tests/fixtures/eval_corpus/",
     )
+    agents = global_infra or any_starts(
+        "backend/AgentOrchestratorServices/",
+        "backend/CodeSandboxRunner/",
+        "docker/compose/agents.yml",
+        "docker/compose/code-mode.yml",
+        "scripts/database/agents/",
+    )
     docs = any_is_md() or any_starts("docs/", "scripts/ci/check_docs_links.py")
 
     selected_services = []
@@ -212,6 +220,7 @@ def compute_scopes(files: list[str], force_all: bool) -> dict[str, object]:
         "postgres": postgres,
         "rag_groq": rag_groq,
         "studio_eval": studio_eval,
+        "agents": agents,
         "database": database,
         "services": selected_services,
     }
@@ -226,6 +235,7 @@ def write_outputs(scopes: dict[str, object], github_output: str | None) -> None:
         f"postgres={'true' if scopes['postgres'] else 'false'}",
         f"rag_groq={'true' if scopes['rag_groq'] else 'false'}",
         f"studio_eval={'true' if scopes['studio_eval'] else 'false'}",
+        f"agents={'true' if scopes['agents'] else 'false'}",
         f"database={'true' if scopes['database'] else 'false'}",
         f"has_services={'true' if scopes['services'] else 'false'}",
         f"services={json.dumps(scopes['services'], separators=(',', ':'))}",
