@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { fileURLToPath, URL } from "node:url";
 import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import react from "@vitejs/plugin-react";
@@ -9,6 +10,10 @@ test("VerifiedVisualsPanel renders SVG graph and provenance-tagged metrics, CSV 
   const server = await createServer({
     configFile: false,
     plugins: [react()],
+    resolve: {
+      alias: { "@": fileURLToPath(new URL("../src", import.meta.url)) },
+    },
+    optimizeDeps: { noDiscovery: true, include: [] },
     server: { middlewareMode: true, hmr: false },
     appType: "custom",
   });

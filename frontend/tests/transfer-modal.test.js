@@ -1,13 +1,22 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { fileURLToPath, URL } from "node:url";
 import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { createServer } from "vite";
 import react from "@vitejs/plugin-react";
 
 test("transfer modal renders more than six rows, zero bytes and pagination controls", async () => {
-  const server = await createServer({ configFile: false, plugins: [react()], optimizeDeps: { noDiscovery: true, include: [] },
-    server: { middlewareMode: true }, appType: "custom" });
+  const server = await createServer({
+    configFile: false,
+    plugins: [react()],
+    resolve: {
+      alias: { "@": fileURLToPath(new URL("../src", import.meta.url)) },
+    },
+    optimizeDeps: { noDiscovery: true, include: [] },
+    server: { middlewareMode: true, hmr: false },
+    appType: "custom",
+  });
   try {
     const { TransferModal } = await server.ssrLoadModule("/src/shared/components/TransferModal/TransferModal.tsx");
     const html = renderToStaticMarkup(React.createElement(TransferModal, { isOpen: true, hasMore: true,
