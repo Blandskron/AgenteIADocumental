@@ -82,12 +82,15 @@ class SecretsCipher:
         env = os.environ if environ is None else environ
         raw_secret = env.get("SECRETS_ENCRYPTION_KEY", "").strip()
         if not raw_secret:
-            secret_file = Path(env.get("SECRETS_ENCRYPTION_KEY_FILE", "/run/blandskron-secrets/secrets_encryption_key"))
-            try:
-                if secret_file.is_file():
-                    raw_secret = secret_file.read_text(encoding="utf-8").strip()
-            except OSError:
-                raw_secret = ""
+            default_file = "/run/blandskron-secrets/secrets_encryption_key" if environ is None else ""
+            secret_file_raw = env.get("SECRETS_ENCRYPTION_KEY_FILE", default_file).strip()
+            if secret_file_raw:
+                secret_file = Path(secret_file_raw)
+                try:
+                    if secret_file.is_file():
+                        raw_secret = secret_file.read_text(encoding="utf-8").strip()
+                except OSError:
+                    raw_secret = ""
         if not raw_secret:
             return None
         key_id = env.get("SECRETS_KEY_ID", "v1").strip() or "v1"

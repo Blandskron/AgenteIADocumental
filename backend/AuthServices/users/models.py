@@ -96,7 +96,7 @@ class TenantUserGroup(models.Model):
 
 class TenantIntegration(models.Model):
     integration_id = models.TextField(primary_key=True, default=make_uuid)
-    tenant = models.ForeignKey(Tenant, db_column="tenant_id", on_delete=models.CASCADE)
+    tenant = models.ForeignKey(Tenant, db_column="tenant_id", on_delete=models.DO_NOTHING)
     provider = models.TextField()
     status = models.TextField(default="DISABLED")
     enabled_for_roles = models.JSONField(default=list)
@@ -114,7 +114,7 @@ class TenantIntegration(models.Model):
 
 class AuditLog(models.Model):
     audit_id = models.TextField(primary_key=True, default=make_uuid)
-    tenant = models.ForeignKey(Tenant, db_column="tenant_id", blank=True, null=True, on_delete=models.SET_NULL)
+    tenant = models.ForeignKey(Tenant, db_column="tenant_id", blank=True, null=True, on_delete=models.DO_NOTHING)
     actor_user_id = models.TextField(blank=True, null=True)
     action = models.TextField()
     resource_type = models.TextField()

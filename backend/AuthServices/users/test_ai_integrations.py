@@ -125,7 +125,7 @@ class GroqIntegrationApiTests(APITestCase):
         self.assertIsNone(row.secrets_encrypted)
         self.assertEqual(row.status, "DISABLED")
 
-    @patch.dict(os.environ, {}, clear=False)
+    @patch.dict(os.environ, {"SECRETS_ENCRYPTION_KEY_FILE": ""}, clear=False)
     def test_put_credentials_returns_503_when_encryption_key_missing(self):
         os.environ.pop("SECRETS_ENCRYPTION_KEY", None)
         self.client.force_authenticate(self.admin_a)
