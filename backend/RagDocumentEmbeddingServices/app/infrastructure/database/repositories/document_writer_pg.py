@@ -58,6 +58,50 @@ class DocumentWriterPg:
                 raise DocumentRelationConflict("La empresa o el área cambió. Recarga la sesión antes de volver a cargar.") from None
             raise
 
+    def find_existing_idempotent(
+        self,
+        owner_user_id: str | None,
+        tenant_id: str | None,
+        idempotency_key: str | None = None,
+        content_sha256: str | None = None,
+    ) -> Document | None:
+        if not owner_user_id or (not idempotency_key and not content_sha256):
+            return None
+        stmt = select(DocumentModel).where(DocumentModel.owner_user_id == owner_user_id)
+        if tenant_id is None:
+            stmt = stmt.where(DocumentModel.tenant_id.is_(None))
+        else:
+            stmt = stmt.where(DocumentModel.tenant_id == tenant_id)
+        if idempotency_key:
+            match = self._session.scalar(
+                stmt.where(DocumentModel.metadata_["idempotency_key"].astext == idempotency_key)
+                .order_by(DocumentModel.created_at.desc())
+                .limit(1)
+            )
+            if match is not None:
+                return self._to_domain(match)
+        if content_sha256:
+            match = self._session.scalar(
+                stmt.where(DocumentModel.metadata_["content_sha256"].astext == content_sha256)
+                .order_by(DocumentModel.created_at.desc())
+                .limit(1)
+            )
+            if match is not None:
+                return self._to_domain(match)
+        return None
+
+    def _to_domain(self, document: DocumentModel) -> Document:
+        return Document(
+            document_id=str(document.document_id),
+            filename=document.filename,
+            storage_path=document.storage_path,
+            mime_type=document.mime_type,
+            status=DocumentStatus(document.status),
+            metadata=document.metadata_ or {},
+            owner_user_id=document.owner_user_id,
+            tenant_id=document.tenant_id,
+        )
+
 
     @contextmanager
     def indexing_transaction(self, document_id: str) -> Iterator[None]:

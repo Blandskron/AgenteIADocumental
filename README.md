@@ -1,56 +1,147 @@
 # Blandskron Documental
 
-Aplicación de código abierto para la gestión y consulta documental, desarrollada por Blandskron. Permite cargar y organizar documentos, buscar por contenido y hacer preguntas con respuestas que citan sus fuentes. Desde la interfaz puedes revisar los fragmentos recuperados, guardar conversaciones y exportar respuestas a PDF.
+> **Landing oficial (GitHub Pages):** [https://blandskron.github.io/AgenteIADocumental/](https://blandskron.github.io/AgenteIADocumental/) · **Código fuente de la landing:** [index.html](index.html)
 
-La web usa React y TypeScript. Django administra la identidad y once servicios de aplicación en total cubren el recorrido documental. La ingesta y el chat calculan embeddings en CPU. PostgreSQL con pgvector almacena los vectores y el chat envía a Groq la pregunta y el contexto recuperado según los permisos vigentes.
+Aplicación de código abierto para la gestión y consulta documental, desarrollada por Blandskron. Permite cargar y organizar documentos, buscar por contenido (vectorial + texto completo) y hacer preguntas con respuestas que citan sus fuentes verificables. Desde la interfaz puedes revisar fragmentos recuperados, guardar conversaciones, exportar respuestas a PDF y elegir entre **Groq** (nube) u **Ollama local** sin editar código ni reiniciar contenedores.
+
+La web usa React y TypeScript. Django administra la identidad y once servicios de aplicación cubren el recorrido documental (más los módulos opcionales `KnowledgeStudioServices`, `AgentOrchestratorServices` y `CodeSandboxRunner`). La ingesta y el chat calculan embeddings en CPU (`intfloat/multilingual-e5-small`). PostgreSQL 16 con `pgvector` almacena los vectores y el control de acceso se aplica en el servidor antes de construir el contexto.
+
+## Video demostrativo End-to-End (con locución en español)
+
+Recorrido narrado completo (`04:00 min`, `1280×800 HD`, audio AAC en español + subtítulos WebVTT) que explica paso a paso los **12 flujos de la aplicación en Modo Claro y Modo Oscuro**:
+
+<video src="docs/assets/video/blandskron-documental-demo.mp4" controls preload="metadata" poster="docs/assets/screenshots/document-chat.webp" width="100%">
+  <source src="docs/assets/video/blandskron-documental-demo.mp4" type="video/mp4" />
+  <track kind="captions" srclang="es" label="Español" src="docs/assets/video/blandskron-documental-demo.es.vtt" default />
+</video>
+
+- **Archivo de video (MP4 H.264 + AAC):** [docs/assets/video/blandskron-documental-demo.mp4](docs/assets/video/blandskron-documental-demo.mp4)
+- **Subtítulos sincronizados (WebVTT):** [docs/assets/video/blandskron-documental-demo.es.vtt](docs/assets/video/blandskron-documental-demo.es.vtt)
+- **Reproductor web en vivo (GitHub Pages):** [https://blandskron.github.io/AgenteIADocumental/#video-demo](https://blandskron.github.io/AgenteIADocumental/#video-demo)
+
+<details>
+<summary><strong>Ver índice de los 12 capítulos narrados en el video (00:00 – 04:00)</strong></summary>
+
+| Tiempo | Capítulo | Ruta | Qué explica la locución (Modo Claro → Modo Oscuro) |
+| --- | --- | --- | --- |
+| `00:00 – 00:21` | **1. Acceso seguro y Bootstrap inicial** | `/login` | Configuración inicial transaccional de la primera cuenta administradora, JWT RS256, diseño *Floating Glass* y Google OIDC opcional. |
+| `00:21 – 00:43` | **2. Biblioteca documental e ingesta E5** | `/documents` | Carga PDF/DOCX/TXT/MD/OCR, embeddings locales `multilingual-e5-small` (384 dims) en CPU, carpetas, favoritos y búsqueda FTS + trigram. |
+| `00:43 – 01:01` | **3. Google Drive OAuth PKCE y lotes ZIP/MD** | `/applications` | Conexión OAuth PKCE S256 e importación masiva de colecciones Obsidian/Logseq con deduplicación SHA-256 y protección anti zip-bomb. |
+| `01:01 – 01:22` | **4. Chat documental RAG híbrido con citas** | `/` | Fusión `pgvector` HNSW + FTS con Reciprocal Rank Fusion (RRF), `SafeMarkdown` anti-XSS, citas `[Fuente N]` y exportación PDF. |
+| `01:22 – 01:45` | **5. Agente IA multi-paso y Code Mode en Sandbox** | `/` | Selector unificado (`Chat` · `Agente` · `Code Mode`), sandbox Deno `--deny-all`, cuota de tokens y aprobación humana (*Human-in-the-Loop*). |
+| `01:45 – 02:06` | **6. Knowledge Studio: Generador P0** | `/studio` | Generación de resúmenes ejecutivos, informes técnicos y tablas de evidencia con detección de citas desvinculadas y descarga Markdown/CSV. |
+| `02:06 – 02:27` | **7. Estudio Offline SM-2 y Quiz citado** | `/studio?artifact=art-001` | Deep-linking a artefactos en `studio.artifacts`, tarjetas de repetición espaciada SM-2 100 % locales y quiz con explicación citada. |
+| `02:27 – 02:46` | **8. Configuración IA: Ollama Local en CPU** | `/settings/ai` | Operación sin API key comercial ni envío a terceros, catálogo CPU autorizado (`qwen2.5:3b`, `gemma2:2b`, `llama3.2:3b`). |
+| `02:46 – 03:06` | **9. Configuración IA: Groq Cifrado `secrets1.`** | `/settings/ai` | Cifrado Fernet autenticado con llave fuera de la BD, huella enmascarada, prueba de conexión y parámetros avanzados. |
+| `03:06 – 03:20` | **10. Asignaciones y firma documental** | `/documents/assignments` | Distribución de documentos con fecha de vencimiento, notas de revisión, aceptación, rechazo y firma interna. |
+| `03:20 – 03:38` | **11. Administración multiempresa y RBAC** | `/admin` | Gestión de empresas (*tenants*), áreas jerárquicas, usuarios, grupos con 15 permisos granulares y aislamiento al cambiar de empresa. |
+| `03:38 – 04:00` | **12. Auditoría de seguridad persistente** | `/admin/audit` | Bitácora inmutable de cambios de proveedor IA, credenciales, aprobaciones agénticas y permisos con filtrado reactivo `AbortController`. |
+
+</details>
+
+## Vista previa de la interfaz (Modo Claro y Modo Oscuro)
+
+> La galería interactiva completa con las **24 capturas en Modo Claro y Modo Oscuro** (12 flujos × 2 temas) está disponible en [index.html](index.html) ([https://blandskron.github.io/AgenteIADocumental/](https://blandskron.github.io/AgenteIADocumental/)).
+
+| Chat documental RAG con citas (Modo Claro) | Agente IA + Code Mode en Sandbox y aprobación humana (Modo Oscuro) |
+| :---: | :---: |
+| ![Chat documental con selector unificado de modos en Modo Claro](docs/assets/screenshots/document-chat.webp) | ![Modo Agente y Code Mode con sandbox Deno y aprobación humana en Modo Oscuro](docs/assets/screenshots/agent-orchestrator-dark.webp) |
+
+| Biblioteca y búsqueda documental (Modo Claro) | Knowledge Studio: Artefactos, Estudio SM-2 y Quiz citado (Modo Claro) |
+| :---: | :---: |
+| ![Biblioteca y búsqueda de documentos](docs/assets/screenshots/documents.webp) | ![Knowledge Studio con práctica SM-2 offline y quiz verificado](docs/assets/screenshots/knowledge-studio-study.webp) |
+
+| Configuración de IA Local con Ollama CPU (Modo Claro) | Configuración de IA con Groq Cifrado `secrets1.` (Modo Oscuro) |
+| :---: | :---: |
+| ![Configuración de IA con Ollama local y catálogo CPU](docs/assets/screenshots/ai-settings.webp) | ![Configuración de IA con Groq cifrado en Modo Oscuro](docs/assets/screenshots/ai-settings-groq-dark.webp) |
+
+| Asignaciones y firmas documentales (Modo Claro) | Auditoría de seguridad persistente (Modo Oscuro) |
+| :---: | :---: |
+| ![Asignaciones y aprobaciones documentales](docs/assets/screenshots/document-assignments.webp) | ![Visor de auditoría de seguridad en Modo Oscuro](docs/assets/screenshots/audit-logs-dark.webp) |
+
+| Administración multiempresa y RBAC (Modo Oscuro) | Inicio de sesión Floating Glass (Modo Claro) |
+| :---: | :---: |
+| ![Panel de administración multiempresa en Modo Oscuro](docs/assets/screenshots/admin-panel-dark.webp) | ![Inicio de sesión en Blandskron Documental](docs/assets/screenshots/login.webp) |
 
 | Guía | Contenido |
 | --- | --- |
-| [Arquitectura](docs/architecture.md) | Topología, límites de confianza, secuencia de ingesta, RAG y exportación, y mapa de servicios. |
-| [Operación local](docs/operations.md) | Arranque, configuración, diagnóstico, actualización y mantenimiento. |
+| [Arquitectura](docs/architecture.md) | Topología, límites de confianza, secuencia RAG/PDF y mapa de servicios. |
+| [Operación local](docs/operations.md) | Requisitos mínimos, modos de despliegue, respaldos, restauración, solución de problemas y desinstalación. |
 | [Verificación de entrega](docs/release/README.md) | Suite sintética, evidencias fechadas, auditoría de imágenes y alcance de CI. |
-| [Backend](backend/README.md) | Inventario y documentación de los once microservicios. |
-| [Base de datos](scripts/database/README.md) | Esquema, roles, preflight y migraciones. |
-| [Skills y documentación](docs/maintainers.md) | Convenciones y rutas de trabajo para agentes. |
+| [Backend](backend/README.md) | Inventario y documentación de los microservicios. |
+| [Base de datos](scripts/database/README.md) | Esquema, roles de privilegios mínimos, preflight y migraciones. |
+| [Extensibilidad LLM y MCP](docs/ADR_EXTENSIBILITY_LLM_MCP.md) | Proveedores Groq/Ollama/OpenAI-compatible y servidor MCP JSON-RPC 2.0 de solo lectura. |
+| [Skills y documentación](docs/maintainers.md) | Convenciones y rutas de trabajo para colaboradores y agentes. |
+| [Capturas automatizadas](scripts/screenshots/README.md) | Script Playwright para generar capturas reales y publicación en GitHub Pages. |
 | [Frontend](frontend/README.md) | Estructura, convenciones, diseño y pruebas de la interfaz. |
 
 ```mermaid
 flowchart LR
-    web["Web documental"] --> backend["APIs de identidad y documentos"]
-    backend --> store["PostgreSQL, pgvector y originales"]
-    backend --> groq["Groq para respuestas con fuentes"]
+    web["Web documental (localhost:3000)"] --> backend["APIs de identidad y documentos"]
+    backend --> store["PostgreSQL 16, pgvector y originales"]
+    backend -.-> groq["Groq (nube, opcional)"]
+    backend -.-> ollama["Ollama (local CPU, opcional)"]
 ```
 
-## Probar en local
+## Requisitos mínimos
 
-Necesitas Git y Docker con Compose compatible con `include` y `additional_contexts`. Clona el repositorio y, desde su raíz, crea el archivo de configuración en PowerShell si aún no existe.
+- **Docker** con Compose v2 (compatible con `include` y `additional_contexts`) y **Git**.
+- **Modo básico (embeddings locales CPU + Groq opcional):** 4 GB de RAM libre y ~3 GB de disco (la primera compilación descarga y verifica el modelo E5 de ~471 MB).
+- **Modo local con Ollama (sin API key comercial):** 6–12 GB de RAM según el modelo elegido (p. ej. `gemma2:2b` ~1.6 GB / 4 GB RAM, `qwen2.5:3b` ~1.9 GB / 6 GB RAM, `mistral:7b` ~4.1 GB / 10+ GB RAM). No exige GPU.
 
-```powershell
+## Instalación rápida (1 comando)
+
+### Linux / macOS / Windows (PowerShell o Git Bash)
+
+```bash
 git clone https://github.com/Blandskron/AgenteIADocumental.git
 cd AgenteIADocumental
-if (-not (Test-Path .env)) { Copy-Item .env.example .env }
+docker compose up -d --build
 ```
 
-Edita `.env` y configura `POSTGRES_PASSWORD`, `DJANGO_SECRET_KEY`, `INITIAL_ADMIN_USERNAME` e `INITIAL_ADMIN_PASSWORD`. Añade `GROQ_API_KEY` para probar respuestas con el proveedor real. Usa valores propios y conserva el archivo fuera de Git.
+No necesitas crear `.env` manualmente para empezar: `secrets-init` genera secretos aleatorios fuertes en un volumen persistente (`runtime_secrets`) conservándolos entre reinicios, sin incrustar contraseñas estáticas en las imágenes. Si ya tienes un `.env` personalizado, sus valores se respetan.
 
-```powershell
-docker compose --env-file .env -f docker/docker-compose.yml up -d --build --wait
-```
+1. Abre [http://localhost:3000](http://localhost:3000).
+2. **Primer registro:** en una instalación nueva, la pantalla de acceso abre automáticamente **Configuración inicial** para crear la primera cuenta administradora y el espacio principal (protegido transaccionalmente; las cuentas posteriores se crean como usuarios estándar sin privilegios administrativos).
+3. **Configura la IA en `/settings/ai`:**
+   - **Alternativa A — Groq (nube):** selecciona *Groq (Nube)*, introduce tu API key (se guarda cifrada con `secrets1.`), valida la conexión y elige el modelo. Nota: los planes y límites de cuota dependen de las condiciones vigentes de Groq.
+   - **Alternativa B — Ollama (local, sin API key):** levanta el perfil opcional de Ollama (ver abajo), selecciona *Ollama (Local)* en `/settings/ai`, descarga un modelo del catálogo CPU autorizado viendo su progreso y prueba la consulta.
+4. Sube un documento (`PDF`, `DOCX`, `TXT`, `Markdown` o imágenes con OCR) y haz una pregunta en **Chat** revisando las citas `[Fuente N]`.
 
-La construcción inicial descarga y verifica el modelo E5 de aproximadamente 471 MB. Si actualizas una instalación que usaba la imagen PostgreSQL anterior, sigue la guía de migración antes del arranque. [Operación y migración](docs/operations.md#migrar-la-imagen-de-postgresql)
+## Modos de ejecución
 
-1. Abre [la aplicación local](http://localhost:3000) e inicia sesión con el administrador inicial.
-2. Carga un archivo de texto sintético que diga «El plazo del contrato de prueba es de 97 días». La ingesta calcula los embeddings localmente con los archivos incluidos en la imagen.
-3. Busca el documento, selecciónalo y pregunta «¿Cuál es el plazo del contrato?». Abre una fuente de la respuesta y exporta el mensaje a PDF. Puedes volver a descargarlo desde **Mis PDFs**.
+- **Modo básico (por defecto):** `docker compose up -d --build` (embeddings locales, registro tradicional, Groq opcional desde la web).
+- **Modo local con Ollama (sin enviar documentos a terceros para generación):**
+  ```bash
+  docker compose -f compose.yaml -f docker/compose/ollama.yml --profile local-llm up -d
+  ```
+  > Una vez construidas las imágenes y descargado el modelo elegido desde `/settings/ai`, el chat documental funciona sin conexión a internet. Ten presente que ejecutar modelos locales consume RAM, CPU, energía y almacenamiento de tu equipo.
+- **Modo opcional — Knowledge Studio y servidor MCP de solo lectura (`POST /api/v1/mcp`):**
+  ```bash
+  STUDIO_ENABLED=true docker compose -f compose.yaml -f docker/compose/studio.yml --profile studio up -d --build
+  ```
+- **Modo opcional — Orquestación Agéntica y Code Mode en sandbox endurecido:**
+  ```bash
+  # Modo 2 — Agente documental multi-paso (puerto 8019, esquema aislado agents.*)
+  AGENTS_ENABLED=true STUDIO_ENABLED=true docker compose -f compose.yaml -f docker/compose/studio.yml -f docker/compose/agents.yml --profile studio --profile agents up -d --build
 
-Compose publica los puertos en loopback para desarrollo local. Google Drive es opcional y arranca deshabilitado. Para ejecutar el recorrido integral con Groq simulado y sin credenciales personales, sigue la [guía de verificación](docs/release/README.md).
+  # Modo 3 — Agente + Code Mode en sandbox Deno --deny-all sin red externa
+  AGENTS_ENABLED=true CODE_MODE_ENABLED=true STUDIO_ENABLED=true docker compose -f compose.yaml -f docker/compose/studio.yml -f docker/compose/agents.yml -f docker/compose/code-mode.yml --profile studio --profile agents --profile code-mode up -d --build
+  ```
+- **Integraciones opcionales (Google Login OIDC, Google Drive, SMTP):** arrancan deshabilitadas por defecto. Consulta [.env.example](.env.example) y [docs/operations.md](docs/operations.md) para habilitar `GOOGLE_OIDC_CLIENT_ID`, `GOOGLE_DRIVE_ENABLED=true` o `EMAIL_HOST` (necesario para recuperación automática de contraseña por correo).
+
+> **Alcance y notas de seguridad:** Compose publica los puertos solo en loopback (`127.0.0.1`) para desarrollo y uso local; exponerlo a internet requiere TLS/proxy inverso y `AUTH_ENV=production`. La captura de firma incluida en los flujos documentales es un registro interno de aceptación y **no** constituye firma electrónica criptográfica ni legalmente certificada.
+
+## Respaldos, actualización y desinstalación segura
+
+- **Detener conservando datos (recomendado):** `docker compose down` (conserva PostgreSQL, documentos originales, modelos Ollama y secretos).
+- **Eliminar volúmenes (borrado irreversible):** `docker compose down -v` — realiza siempre un respaldo antes.
+- Consulta [docs/operations.md](docs/operations.md) para copias de seguridad, restauración, migración de PostgreSQL y solución de problemas.
 
 ## Colaboración
 
-Usa las [issues del repositorio](https://github.com/Blandskron/AgenteIADocumental/issues) para reportar errores y proponer mejoras. Para preparar un cambio, sigue las [pautas de contribución](CONTRIBUTING.md) y las [instrucciones para colaboradores](AGENTS.md). Para hallazgos de seguridad, sigue el [procedimiento de reporte privado](SECURITY.md).
+Usa las [issues del repositorio](https://github.com/Blandskron/AgenteIADocumental/issues) para reportar errores y proponer mejoras. Sigue las [pautas de contribución](CONTRIBUTING.md), las [instrucciones para colaboradores](AGENTS.md) y el [procedimiento de reporte privado de seguridad](SECURITY.md).
 
 ## Licencia y atribuciones
 
-El código y la documentación propios de Blandskron se publican bajo la [licencia MIT](LICENSE) (© 2026 Blandskron). Puedes usarlos, modificarlos y redistribuirlos, incluso con fines comerciales, conservando los avisos de copyright y licencia.
-
-Los componentes de terceros se rigen por sus propias licencias. Noto Sans usa [SIL Open Font License 1.1](backend/DocumentExportServices/app/infrastructure/pdf/fonts/LICENSE.txt). Las imágenes de ingesta y chat incluyen la licencia MIT y la ficha del modelo multilingual-e5-small. [Ficha de E5](https://huggingface.co/intfloat/multilingual-e5-small/tree/614241f622f53c4eeff9890bdc4f31cfecc418b3)
+El código y la documentación propios de Blandskron se publican bajo la [licencia MIT](LICENSE) (© 2026 Blandskron). Los componentes de terceros conservan sus propias licencias: Noto Sans ([SIL OFL 1.1](backend/DocumentExportServices/app/infrastructure/pdf/fonts/LICENSE.txt)) y `intfloat/multilingual-e5-small` ([ficha del modelo](https://huggingface.co/intfloat/multilingual-e5-small/tree/614241f622f53c4eeff9890bdc4f31cfecc418b3)).

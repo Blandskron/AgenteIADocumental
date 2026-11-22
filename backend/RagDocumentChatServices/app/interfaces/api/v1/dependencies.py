@@ -7,6 +7,8 @@ from app.config.database import get_session
 from app.config.security import is_superadmin_user, require_authenticated_user
 from app.config.settings import Settings, get_settings
 from app.infrastructure.ai.embedding_provider_local import LocalEmbeddingProvider
+from app.infrastructure.ai.groq_config_resolver import EffectiveGroqConfig, get_groq_config_resolver
+from app.infrastructure.ai.llm_provider_factory import LLMProviderConfig, build_llm_provider as build_provider_from_config
 from app.infrastructure.ai.llm_provider_groq import GroqLLMProvider
 from app.infrastructure.database.repositories.chat_history_repository_pg import ChatHistoryRepositoryPg
 from app.infrastructure.database.repositories.vector_repository_pgvector import VectorRepositoryPgVector
@@ -16,7 +18,20 @@ def build_embedding_provider() -> LocalEmbeddingProvider:
     return LocalEmbeddingProvider()
 
 
-def build_llm_provider(settings: Settings) -> GroqLLMProvider:
+def build_llm_provider(
+    settings: Settings,
+    effective: EffectiveGroqConfig | LLMProviderConfig | None = None,
+) -> GroqLLMProvider:
+    if isinstance(effective, LLMProviderConfig):
+        return build_provider_from_config(effective)
+    if effective is not None:
+        return GroqLLMProvider(
+            api_key=effective.api_key,
+            model=effective.model,
+            max_tokens=effective.max_tokens,
+            temperature=effective.temperature,
+            timeout_seconds=effective.timeout_seconds,
+        )
     return GroqLLMProvider(
         api_key=settings.groq_api_key,
         model=settings.groq_chat_model,
@@ -46,8 +61,10 @@ def get_ask_document_chat(
         limit=settings.vector_search_limit,
         min_score=settings.min_similarity_score,
     )
+    tenant_id = current_user.get("active_tenant_id")
+    active_provider_config = get_groq_config_resolver().resolve_active_provider(session, settings, tenant_id)
     return AskDocumentChat(
         search_similar_chunks=search_similar_chunks,
-        llm_provider=build_llm_provider(settings),
+        llm_provider=build_llm_provider(settings, effective=active_provider_config),
         chat_history_repository=ChatHistoryRepositoryPg(session, current_user=current_user),
     )

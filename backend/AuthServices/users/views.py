@@ -63,6 +63,26 @@ class IsTenantAdminOrSuperAdmin(BasePermission):
         return request.user.is_superuser or bool(tenant_admin_ids(request.user))
 
 
+def user_can_manage_ai_settings(user, tenant_id=None) -> bool:
+    if not user or not user.is_authenticated:
+        return False
+    if user.is_superuser:
+        return True
+    profile = serialize_user_profile(user)
+    target_tenant = tenant_id or profile["active_tenant_id"]
+    if not target_tenant:
+        return False
+    for membership in profile["tenant_memberships"]:
+        if membership["tenant_id"] == target_tenant:
+            return "manage_ai_settings" in membership["permissions"]
+    return False
+
+
+class CanManageAISettings(BasePermission):
+    def has_permission(self, request, view):
+        return user_can_manage_ai_settings(request.user)
+
+
 class AuditedModelViewSet(viewsets.ModelViewSet):
     def handle_exception(self, exc):
         if is_relation_conflict(exc):

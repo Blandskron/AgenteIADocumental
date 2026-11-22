@@ -19,6 +19,7 @@ services:
       VITE_GOOGLE_DRIVE_IMPORT_BASE_URL: http://localhost:8017
       VITE_CONVERSATION_BASE_URL: http://localhost:8008
       VITE_PROFILE_BASE_URL: http://localhost:8015
+      VITE_KNOWLEDGE_STUDIO_BASE_URL: http://localhost:8018
     ports:
       - "127.0.0.1:3000:8080"
     read_only: true

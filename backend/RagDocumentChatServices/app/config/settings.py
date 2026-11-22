@@ -21,6 +21,11 @@ class Settings(BaseSettings):
     groq_api_key: str = ""
     groq_chat_model: str = "openai/gpt-oss-20b"
 
+    secrets_encryption_key: str = ""
+    secrets_key_id: str = "v1"
+    secrets_previous_keys: str = ""
+    provider_config_cache_ttl_seconds: int = 45
+
     chat_completion_max_tokens: int = 2000
     chat_completion_temperature: float = 0.3
     chat_completion_timeout_seconds: int = 60

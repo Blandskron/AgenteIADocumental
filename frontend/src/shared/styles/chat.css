@@ -395,3 +395,230 @@
     padding: 10px 12px;
   }
 }
+
+/* Agent Orchestrator & Code Mode components (FRONT-003) */
+.agent-mode-selector {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--surface-subtle);
+}
+
+.agent-mode-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 11px;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--foreground-muted);
+  font-size: 0.8rem;
+  font-weight: 500;
+}
+
+.agent-mode-pill[aria-pressed="true"] {
+  background: var(--surface);
+  color: var(--foreground);
+  border-color: var(--border);
+  font-weight: 600;
+  box-shadow: var(--shadow-sm);
+}
+
+.agent-template-select {
+  margin-left: 4px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 0.78rem;
+}
+
+.agent-history-details {
+  margin: 0 16px 4px;
+  font-size: 0.8rem;
+}
+
+.agent-history-summary {
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--foreground-muted);
+}
+
+.agent-history-filters {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+  flex-wrap: wrap;
+}
+
+.agent-history-search {
+  flex: 1 1 160px;
+  padding: 5px 10px;
+  font-size: 0.78rem;
+}
+
+.agent-history-status-select {
+  padding: 5px 10px;
+  font-size: 0.78rem;
+}
+
+.agent-history-list {
+  list-style: none;
+  margin: 6px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.agent-history-item-btn {
+  width: 100%;
+  text-align: left;
+  padding: 6px 10px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--foreground);
+  font-size: 0.78rem;
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.agent-history-item-btn--active {
+  border-color: var(--accent);
+  background: var(--accent-subtle);
+}
+
+.agent-history-item-goal {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.agent-run-panel {
+  margin: 8px 16px;
+  padding: 14px 16px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
+  background: var(--glass-strong);
+  box-shadow: var(--shadow-sm);
+  display: flex;
+  flex-direction: column;
+  gap: 11px;
+}
+
+.agent-run-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.agent-run-title {
+  font-size: 0.9rem;
+}
+
+.agent-run-actions {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.agent-quota-badge {
+  font-size: 0.75rem;
+  color: var(--foreground-muted);
+  margin-right: 4px;
+}
+
+.agent-error-alert {
+  margin: 0;
+  padding: 8px 12px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--danger);
+  background: var(--danger-subtle);
+  color: var(--danger);
+  font-size: 0.85rem;
+}
+
+.agent-collapsible-summary {
+  cursor: pointer;
+  font-size: 0.83rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.agent-steps-list {
+  margin: 6px 0 0 18px;
+  padding: 0;
+  font-size: 0.8rem;
+}
+
+.agent-code-block-wrap {
+  margin-top: 6px;
+}
+
+.agent-code-pre {
+  margin: 0;
+  padding: 10px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--surface-subtle);
+  overflow-x: auto;
+  font-size: 0.78rem;
+}
+
+.agent-analysis-box {
+  padding: 10px 12px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--surface);
+  font-size: 0.8rem;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.agent-compact-list {
+  margin: 0;
+  padding-left: 18px;
+}
+
+.agent-approval-card {
+  padding: 12px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--warning);
+  background: color-mix(in srgb, var(--warning) 10%, var(--surface));
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.agent-approval-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.85rem;
+}
+
+.agent-approval-summary {
+  margin: 0;
+  font-size: 0.83rem;
+}
+
+.agent-approval-input {
+  padding: 6px 10px;
+  font-size: 0.82rem;
+}
+
+.agent-approval-actions {
+  display: flex;
+  gap: 8px;
+}

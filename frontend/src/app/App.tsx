@@ -3,6 +3,7 @@ import {
   isTenantAdmin,
 } from "@/entities/auth/model/auth.user";
 import { LoginPage } from "@/pages/LoginPage/LoginPage.tsx";
+import { ErrorBoundary } from "@/shared/components/ErrorBoundary.tsx";
 import { PageState } from "@/shared/components/PageState.tsx";
 import { lazy, Suspense, useEffect } from "react";
 import { useAuthContext } from "./providers/AuthProvider";
@@ -33,6 +34,21 @@ const ProfilePage = lazy(() =>
     default: module.ProfilePage,
   })),
 );
+const SettingsAIPage = lazy(() =>
+  import("@/pages/SettingsAIPage/SettingsAIPage.tsx").then((module) => ({
+    default: module.SettingsAIPage,
+  })),
+);
+const StudioPage = lazy(() =>
+  import("@/pages/StudioPage/StudioPage.tsx").then((module) => ({
+    default: module.StudioPage,
+  })),
+);
+const AuditLogsPage = lazy(() =>
+  import("@/pages/AuditLogsPage/AuditLogsPage.tsx").then((module) => ({
+    default: module.AuditLogsPage,
+  })),
+);
 
 export function App() {
   return (
@@ -52,12 +68,17 @@ function AppContent() {
     hasTenantPermission(currentUser, "use_google_drive") ||
     hasTenantPermission(currentUser, "use_sharepoint");
   const canAdmin = isTenantAdmin(currentUser);
+  const canManageAiSettings =
+    currentUser?.isSuperuser ||
+    hasTenantPermission(currentUser, "manage_ai_settings");
   const denied =
     (route === appRoutes.chat && !canUseChat) ||
     ((route === appRoutes.applications ||
       route === appRoutes.googleDriveApplication) &&
       !canUseIntegrations) ||
-    (route === appRoutes.admin && !canAdmin);
+    (route === appRoutes.admin && !canAdmin) ||
+    (route === appRoutes.auditLogs && !canAdmin) ||
+    (route === appRoutes.settingsAi && !canManageAiSettings);
 
   useEffect(() => {
     if (isAuthenticated && denied) {
@@ -77,6 +98,8 @@ function AppContent() {
 
   if (denied) return null;
 
+  let pageNode = <ChatPage onNavigate={navigate} />;
+
   if (
     route === appRoutes.documents ||
     route === appRoutes.documentAssignments ||
@@ -85,23 +108,23 @@ function AppContent() {
     route === appRoutes.documentFolders ||
     route === appRoutes.documentFavorites
   ) {
-    return <DocumentSearchPage activeView={route} onNavigate={navigate} />;
-  }
-
-  if (
+    pageNode = <DocumentSearchPage activeView={route} onNavigate={navigate} />;
+  } else if (
     route === appRoutes.applications ||
     route === appRoutes.googleDriveApplication
   ) {
-    return <ApplicationsPage activeView={route} onNavigate={navigate} />;
+    pageNode = <ApplicationsPage activeView={route} onNavigate={navigate} />;
+  } else if (route === appRoutes.profile) {
+    pageNode = <ProfilePage onNavigate={navigate} />;
+  } else if (route === appRoutes.admin) {
+    pageNode = <AdminPage onNavigate={navigate} />;
+  } else if (route === appRoutes.settingsAi) {
+    pageNode = <SettingsAIPage onNavigate={navigate} />;
+  } else if (route === appRoutes.studio) {
+    pageNode = <StudioPage onNavigate={navigate} />;
+  } else if (route === appRoutes.auditLogs) {
+    pageNode = <AuditLogsPage onNavigate={navigate} />;
   }
 
-  if (route === appRoutes.profile) {
-    return <ProfilePage onNavigate={navigate} />;
-  }
-
-  if (route === appRoutes.admin) {
-    return <AdminPage onNavigate={navigate} />;
-  }
-
-  return <ChatPage onNavigate={navigate} />;
+  return <ErrorBoundary resetKey={route}>{pageNode}</ErrorBoundary>;
 }

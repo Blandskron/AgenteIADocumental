@@ -102,21 +102,12 @@ Configura dos Rulesets de rama y uno de tags en **Settings → Rules → Ruleset
 
 ---
 
-## 5. Plan seguro de migración para PR #97
-
-1. Publicar la rama `develop` (ya creada desde `main` `055a85d`): `git push -u origin develop`.
-2. Integrar `feature/ci-cd-optimization` en `main` (y avanzar `develop` a `main`) actualizando los Required Status Checks según la sección 4.
-3. En GitHub, editar **PR #97** (`rag-core-evolution-audit-6ac6c`) y cambiar su rama base de `main` a `develop`.
-   - Como `develop` comparte ancestro con `main`, el diff de PR #97 permanece idéntico (solo `docs/` y `roadmap.md`).
-   - PR #97 ejecutará `ci-fast-gate` (validando `docs-links` en ~20–30 s) y podrá integrarse a `develop` sin quedar bloqueado por el escaneo de imágenes Docker.
-
----
-
-## 6. Comparación de tiempos (antes vs objetivo tras migración)
+## 5. Comparación de tiempos de CI
 
 | Escenario | Antes (medido) | Después (estimado con caché) | Mejora |
 | --- | ---: | ---: | ---: |
-| PR de documentación (`docs/`, `roadmap.md`) → `develop` | 12.8–15.7 min (~28 min Actions) | **~20–35 s** (~0.5 min Actions) | **~96%** |
+| PR de documentación (`docs/`, `*.md`) → `develop` | 12.8–15.7 min (~28 min Actions) | **~20–35 s** (~0.5 min Actions) | **~96%** |
+| PR de Knowledge Studio / eval (`backend/KnowledgeStudioServices/`, `scripts/eval/`) → `develop` | N/A | **~15–25 s** (`studio-eval-fast`) | Gate dedicado |
 | PR de 1–2 servicios backend → `develop` | 12.8–15.7 min (~28 min Actions) | **~1.5–2.5 min** (~2–4 min Actions) | **~84%** |
 | PR de frontend → `develop` | 12.8–15.7 min (~28 min Actions) | **~1.8–2.6 min** (~2.5 min Actions) | **~83%** |
 | PR de BD / Auth → `develop` | 12.8–15.7 min (~28 min Actions) | **~2.0–3.0 min** (~3–4 min Actions) | **~80%** |
@@ -125,7 +116,7 @@ Configura dos Rulesets de rama y uno de tags en **Settings → Rules → Ruleset
 
 ---
 
-## 7. Flujo diario para desarrolladores y agentes
+## 6. Flujo diario para desarrolladores y agentes
 
 1. Actualiza `develop` y crea una rama temporal:
    ```bash

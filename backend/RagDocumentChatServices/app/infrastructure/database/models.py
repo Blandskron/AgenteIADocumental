@@ -2,7 +2,7 @@ from datetime import datetime
 from typing import Any
 
 from sqlalchemy import DateTime, FetchedValue, ForeignKey, Integer, Text, UniqueConstraint, func
-from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy.dialects.postgresql import JSONB, TSVECTOR
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 from app.infrastructure.database.types import Vector
@@ -41,6 +41,7 @@ class DocumentEmbeddingModel(Base):
     document_id: Mapped[str] = mapped_column(Text, ForeignKey("documents.document_id", ondelete="CASCADE"), nullable=False)
     chunk_index: Mapped[int] = mapped_column(Integer, nullable=False)
     chunk_content: Mapped[str] = mapped_column(Text, nullable=False)
+    content_tsv: Mapped[Any] = mapped_column(TSVECTOR, server_default=FetchedValue())
     embedding: Mapped[list[float]] = mapped_column(Vector(384), nullable=False)
     embedding_model: Mapped[str] = mapped_column(Text, nullable=False, default="intfloat/multilingual-e5-small")
     metadata_: Mapped[dict[str, Any]] = mapped_column("metadata", JSONB, nullable=False, default=dict)
@@ -70,3 +71,26 @@ class ChatMessageModel(Base):
     content: Mapped[str] = mapped_column(Text, nullable=False)
     sources: Mapped[list[dict[str, Any]]] = mapped_column(JSONB, nullable=False, default=list)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class ConversationMessageModel(Base):
+    __tablename__ = "conversation_messages"
+
+    message_id: Mapped[str] = mapped_column(Text, primary_key=True, server_default=FetchedValue())
+    conversation_id: Mapped[str] = mapped_column(Text, nullable=False)
+    owner_user_id: Mapped[str] = mapped_column(Text, nullable=False)
+    role: Mapped[str] = mapped_column(Text, nullable=False)
+    content: Mapped[str] = mapped_column(Text, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class TenantIntegrationModel(Base):
+    __tablename__ = "tenant_integrations"
+
+    integration_id: Mapped[str] = mapped_column(Text, primary_key=True, server_default=FetchedValue())
+    tenant_id: Mapped[str] = mapped_column(Text, nullable=False)
+    provider: Mapped[str] = mapped_column(Text, nullable=False)
+    status: Mapped[str] = mapped_column(Text, nullable=False)
+    config: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False, default=dict)
+    secrets_encrypted: Mapped[str | None] = mapped_column(Text)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())

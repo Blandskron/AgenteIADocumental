@@ -54,6 +54,9 @@ for (const service of ["rag-document-embedding-service", "rag-document-chat-serv
     "import math; from app.infrastructure.ai.embedding_provider_local import LocalEmbeddingProvider; vector = LocalEmbeddingProvider().embed_text('documento sintético'); assert len(vector) == 384 and math.isclose(math.hypot(*vector), 1, abs_tol=1e-5)"], false);
 }
 await check("tenant preflight with active constraints", sql("documents_db", "tests/tenant_preflight.sql"));
+await check("tenant integrations permissions and isolation", sql("documents_db", "tests/tenant_integrations_permissions.sql"));
+await check("HNSW, FTS content_tsv and filename trigram indexes", sql("documents_db", "tests/hnsw_and_fts_indexes.sql"));
+await check("Knowledge Studio schema integrity and STALE trigger", sql("documents_db", "tests/studio_schema_integrity.sql"));
 for (const script of ["auth/verify_roles.sql", "conversation/verify_role.sql", "rag-chat/verify_role.sql", "embedding/verify_role.sql",
   "search/verify_role.sql", "access/verify_role.sql", "library/verify_role.sql", "transfer/verify_role.sql", "profile/verify_role.sql", "export/verify_role.sql", "drive/verify_role.sql"]) {
   await check(script, sql("documents_db", script));

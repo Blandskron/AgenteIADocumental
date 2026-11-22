@@ -10,6 +10,7 @@ class VectorRepository(Protocol):
         limit: int,
         min_score: float = 0.0,
         document_ids: list[str] | None = None,
+        query_text: str | None = None,
     ) -> list[SearchResult]:
         ...
 

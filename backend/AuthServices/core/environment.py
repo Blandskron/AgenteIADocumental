@@ -21,7 +21,25 @@ def load_environment(environ, base_dir):
     def entries(value):
         return [item.strip() for item in value.split(",") if item.strip()]
 
-    secret = required("DJANGO_SECRET_KEY", "django-insecure-blandskron-development-only")
+    def secret_from_file(env_file_var, default_path):
+        candidate = Path(environ.get(env_file_var, default_path))
+        try:
+            if candidate.is_file():
+                value = candidate.read_text(encoding="utf-8").strip()
+                if value:
+                    return value
+        except OSError:
+            return ""
+        return ""
+
+    raw_secret = (environ.get("DJANGO_SECRET_KEY") or "").strip()
+    if not raw_secret:
+        raw_secret = secret_from_file("DJANGO_SECRET_KEY_FILE", "/run/blandskron-secrets/django_secret_key")
+    if not raw_secret:
+        if production:
+            raise ImproperlyConfigured("DJANGO_SECRET_KEY is required in production.")
+        raw_secret = "django-insecure-blandskron-development-only"
+    secret = raw_secret
     hosts = entries(required("DJANGO_ALLOWED_HOSTS", "localhost,127.0.0.1,auth-service"))
     origins = entries(environ.get(
         "DJANGO_CORS_ALLOWED_ORIGINS", "" if production else "http://localhost:3000,http://127.0.0.1:3000"

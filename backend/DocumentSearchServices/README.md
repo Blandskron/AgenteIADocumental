@@ -1,20 +1,20 @@
 # DocumentSearchServices
 
-Expone búsqueda, detalle y selección de documentos visibles para la identidad vigente.
+Expone búsqueda léxica moderna (PostgreSQL FTS `ts_rank_cd` sobre `content_tsv` + índice trigram `pg_trgm` sobre `filename`), detalle y selección de documentos visibles para la identidad vigente.
 
 ## Recorrido
 
 ```mermaid
 flowchart LR
-    client["Navegador"] --> service["Autorización y filtros documentales"] --> storage["Consultas PostgreSQL de solo lectura"]
+    client["Navegador"] --> service["Autorización y filtros documentales"] --> storage["Consultas PostgreSQL FTS/trigram de solo lectura"]
 ```
 
 ## Arranque local
 
-Configura el entorno según el [README del proyecto](../../README.md#probar-en-local) y ejecuta desde la raíz.
+Ejecuta desde la raíz del proyecto (ver [instalación rápida](../../README.md#instalación-rápida-1-comando)):
 
-```powershell
-docker compose --env-file .env -f docker/docker-compose.yml up -d --build --wait document-search-service
+```bash
+docker compose up -d --build --wait document-search-service
 ```
 
 Puerto local **8004**.

@@ -1,0 +1,49 @@
+WEBVTT
+
+1
+00:00:00.000 --> 00:00:21.330
+Bienvenido al recorrido completo de Blandskron Documental. En el primer arranque, el sistema ofrece configuración inicial transaccional para crear la primera cuenta administradora sin editar archivos punto env, con autenticación J W T R S 256, diseño Floating Glass en modo claro y oscuro, y soporte opcional para Google O I D C.
+
+2
+00:00:21.330 --> 00:00:43.548
+En la biblioteca documental puedes subir archivos P D F, Word, texto, Markdown o imágenes con O C R. La ingesta calcula embeddings locales de 384 dimensiones en C P U con el modelo multilingual E 5 small, organiza tus archivos en carpetas y favoritos, y permite buscar al instante combinando texto completo y similitud por trigramas.
+
+3
+00:00:43.548 --> 00:01:01.758
+Desde la sección de aplicaciones puedes conectar Google Drive mediante OAuth P K C E con verificación S 256, o importar colecciones completas de notas Markdown y archivos Z I P de Obsidian o Logseq, con deduplicación automática por hash S H A 256 y protección contra bombas Z I P.
+
+4
+00:01:01.758 --> 00:01:22.128
+En el chat documental, el motor R A G híbrido fusiona la búsqueda vectorial H N S W en pgvector con búsqueda léxica mediante Reciprocal Rank Fusion. Cada respuesta se renderiza en Markdown seguro anti X S S, anclando cada afirmación a su fuente original numerada y permitiendo exportar la conversación verificada a P D F.
+
+5
+00:01:22.128 --> 00:01:45.882
+El encabezado del chat integra tres modos en un solo flujo: Chat directo, Agente inteligente y Code Mode. El orquestador ejecuta planes multi-paso con plantillas de comparación de contratos, procesa cálculos deterministas de fechas y montos dentro de un sandbox Deno sin acceso a red ni secretos, controla la cuota de tokens por empresa y solicita aprobación humana explícita antes de persistir cambios.
+
+6
+00:01:45.882 --> 00:02:06.684
+En Knowledge Studio seleccionas documentos procesados reales y aplicas plantillas estructuradas para generar resúmenes ejecutivos, informes técnicos, tablas de evidencia o tareas propuestas. El editor detecta ediciones manuales para advertir sobre citas desvinculadas y permite descargar tanto en Markdown como en C S V seguro contra inyección de fórmulas.
+
+7
+00:02:06.684 --> 00:02:27.606
+Al abrir la pestaña de artefactos o navegar mediante enlace directo desde el agente, puedes consultar las versiones guardadas en PostgreSQL, practicar retención documental cien por ciento offline en el navegador con tarjetas de repetición espaciada S M 2 sin consumir cuota de inteligencia artificial, y resolver cuestionarios verificados con retroalimentación y cita exacta.
+
+8
+00:02:27.606 --> 00:02:46.608
+En Configuración de Inteligencia Artificial cada empresa elige su proveedor activo en caliente sin reiniciar contenedores. Con Ollama local puedes operar sin claves comerciales ni envío de datos a terceros, descargando modelos autorizados para C P U como Qwen 2 punto 5 o Gemma 2 según tu memoria R A M disponible.
+
+9
+00:02:46.608 --> 00:03:06.306
+Si prefieres la velocidad en la nube con Groq, la clave A P I se cifra en el servidor mediante Fernet autenticado con prefijo secrets 1 y llave maestra fuera de la base de datos. Desde aquí puedes probar la conexión en vivo, ajustar límite de tokens y temperatura, o revocar la credencial sin afectar los embeddings locales.
+
+10
+00:03:06.306 --> 00:03:20.628
+Para la gobernanza operativa, el módulo de asignaciones permite distribuir documentos críticos con fecha límite, notas de revisión y requisito de firma interna, registrando el estado pendiente, aceptado o rechazado de cada responsable.
+
+11
+00:03:20.628 --> 00:03:38.718
+En el panel de administración gestionas múltiples empresas o tenants, áreas jerárquicas, aprovisionamiento de usuarios y grupos de seguridad con quince permisos granulares. Al cambiar de empresa activa, la interfaz remonta limpiamente el contexto para impedir cualquier mezcla de datos entre organizaciones.
+
+12
+00:03:38.718 --> 00:04:00.600
+Finalmente, el visor de auditoría de seguridad registra de forma inmutable cada cambio de proveedor de inteligencia artificial, cifrado de credenciales, aprobación de agentes y modificación de permisos, con filtrado reactivo y sin exponer jamás secretos ni tokens. Blandskron Documental está listo para ejecutarse en tu entorno con un solo comando de Docker Compose.

@@ -1,6 +1,6 @@
 # RagDocumentChatServices
 
-Recupera fragmentos autorizados y devuelve respuestas con fuentes a partir del contexto documental.
+Recuperación híbrida autorizada (`pgvector` HNSW + búsqueda léxica FTS fusionada con Reciprocal Rank Fusion), blindaje anti *prompt-injection* (`<document_context>`), respuestas con citas verificables `[Fuente N]`, streaming SSE opcional (`?stream=true`), historial unificado en `conversation_messages` y enrutamiento dinámico entre **Groq** (nube) y **Ollama local** sin reiniciar contenedores.
 
 ## Recorrido
 
@@ -8,17 +8,17 @@ Recupera fragmentos autorizados y devuelve respuestas con fuentes a partir del c
 flowchart LR
     web["Pregunta y documentos seleccionados"] --> chat["Chat RAG"]
     chat -->|"Identidad vigente"| auth["Auth"]
-    chat -->|"Embeddings E5 y filtro de acceso"| db[("PostgreSQL y pgvector")]
-    chat -->|"Contexto permitido"| groq["Groq"]
-    chat -->|"Respuesta y fuentes"| web
+    chat -->|"HNSW + FTS + RRF y filtro de acceso"| db[("PostgreSQL y pgvector")]
+    chat -->|"Proveedor activo (Groq u Ollama)"| llm["Groq / Ollama local"]
+    chat -->|"Respuesta con citas [Fuente N]"| web
 ```
 
 ## Arranque local
 
-Configura el entorno según el [README del proyecto](../../README.md#probar-en-local) y ejecuta desde la raíz.
+Ejecuta desde la raíz del proyecto (ver [instalación rápida](../../README.md#instalación-rápida-1-comando)):
 
-```powershell
-docker compose --env-file .env -f docker/docker-compose.yml up -d --build --wait rag-document-chat-service
+```bash
+docker compose up -d --build --wait rag-document-chat-service
 ```
 
 Puerto local **8002**.
@@ -27,5 +27,6 @@ Puerto local **8002**.
 
 - [Contrato HTTP y autorización](docs/REFERENCE.md#api-endpoints).
 - [Operación y configuración](docs/REFERENCE.md#running-the-service).
+- [Extensibilidad LLM y MCP](../../docs/ADR_EXTENSIBILITY_LLM_MCP.md).
 - [Instrucciones del componente](AGENTS.md) y [skill documental-rag](../../.agents/skills/documental-rag/SKILL.md).
 - [Mapa del backend](../README.md) y [verificación de entrega](../../docs/release/README.md).

@@ -14,10 +14,10 @@ flowchart LR
 
 ## Arranque local
 
-Configura el entorno según el [README del proyecto](../../README.md#probar-en-local) y ejecuta desde la raíz.
+Ejecuta desde la raíz del proyecto (ver [instalación rápida](../../README.md#instalación-rápida-1-comando)):
 
-```powershell
-docker compose --env-file .env -f docker/docker-compose.yml up -d --build --wait document-access-service
+```bash
+docker compose up -d --build --wait document-access-service
 ```
 
 Puerto local **8005**.

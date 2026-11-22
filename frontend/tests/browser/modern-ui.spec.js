@@ -138,6 +138,13 @@ async function prepare(page, { authenticated = true, theme = "light" } = {}) {
     if (path.endsWith("/messages")) return json([]);
     if (path.includes("/conversations/") && path.endsWith("/documents"))
       return json({ document_ids: [] });
+    if (path.endsWith("/setup-status/"))
+      return json({
+        needs_setup: false,
+        google_login_enabled: false,
+        google_client_id: null,
+        smtp_configured: false,
+      });
     if (path.endsWith("/tenants/"))
       return json([
         {

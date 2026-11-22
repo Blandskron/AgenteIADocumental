@@ -1,24 +1,24 @@
 # DocumentExportServices
 
-Genera y almacena el PDF de una instantánea de chat con historial y descarga privados.
+Genera y almacena PDFs con historial y descarga privados mediante un registro extensible de renderers (`chat_snapshot` para instantáneas de chat y `studio_artifact` para artefactos de Knowledge Studio).
 
 ## Recorrido
 
 ```mermaid
 flowchart LR
-    web["Instantánea del mensaje"] --> exportApi["API de exportación"]
+    web["Instantánea de chat o artefacto Studio"] --> exportApi["API de exportación"]
     exportApi -->|"Identidad y referencias"| db[("PostgreSQL")]
-    exportApi --> render["Generación del PDF"]
+    exportApi --> render["Registro de renderers PDF"]
     render -->|"Bytes y metadatos en una transacción"| db
     exportApi -->|"Descarga privada"| web
 ```
 
 ## Arranque local
 
-Configura el entorno según el [README del proyecto](../../README.md#probar-en-local) y ejecuta desde la raíz.
+Ejecuta desde la raíz del proyecto (ver [instalación rápida](../../README.md#instalación-rápida-1-comando)):
 
-```powershell
-docker compose --env-file .env -f docker/docker-compose.yml up -d --build --wait document-export-service
+```bash
+docker compose up -d --build --wait document-export-service
 ```
 
 Puerto local **8016**.

@@ -1,18 +1,21 @@
 # Operación local
 
-La instalación soportada usa Docker Compose y publica web, APIs y PostgreSQL en loopback. Ejecuta los comandos desde la raíz y usa `--env-file .env` para que los archivos incluidos por Compose reciban la configuración. La [verificación de entrega](release/README.md) usa un proyecto y credenciales sintéticas independientes.
+La instalación soportada usa Docker Compose desde la raíz (`docker compose up -d --build`) y publica web, APIs y PostgreSQL en loopback (`127.0.0.1`). No necesitas crear `.env` manualmente para arrancar: `secrets-init` genera secretos aleatorios fuertes en el volumen persistente `runtime_secrets` y respeta cualquier `.env` ya existente. La [verificación de entrega](release/README.md) usa un proyecto y credenciales sintéticas independientes.
 
 ## Configuración y diagnóstico
 
 | Variable o función | Operación |
 | --- | --- |
-| `POSTGRES_PASSWORD` | Configura la contraseña del operador PostgreSQL. Con un volumen existente conserva el valor vigente y usa el procedimiento de rotación si necesitas cambiarlo. |
-| `DJANGO_SECRET_KEY` | Genera un secreto aleatorio propio para Auth. |
-| `INITIAL_ADMIN_USERNAME`, `INITIAL_ADMIN_PASSWORD`, `INITIAL_ADMIN_EMAIL` | Define el administrador inicial con una contraseña válida para Django. El correo es opcional. Si ya existe un superusuario, se conservan su contraseña, estado y privilegios. Si el nombre corresponde a una cuenta normal y todavía falta un superusuario, el bootstrap falla. Retira las variables iniciales tras completar el alta. |
-| `GROQ_API_KEY` | Configura una clave de desarrollo para probar el chat con Groq. Usa documentos sintéticos porque la pregunta y el contexto recuperado se envían al proveedor. |
+| `POSTGRES_PASSWORD`, `DJANGO_SECRET_KEY`, `SECRETS_ENCRYPTION_KEY` | Opcionales en desarrollo local (generadas automáticamente en `runtime_secrets` si faltan). En instalaciones existentes con `.env`, se conservan y aplican sus valores vigentes. |
+| `ALLOW_WEB_SETUP`, `INITIAL_ADMIN_*` | Con `ALLOW_WEB_SETUP=true` (por defecto en Compose), si no defines `INITIAL_ADMIN_USERNAME`/`INITIAL_ADMIN_PASSWORD`, puedes crear la primera cuenta administradora desde `http://localhost:3000`. |
+| `GOOGLE_OIDC_CLIENT_ID`, `EMAIL_HOST` | Opcionales y deshabilitadas por defecto. `GOOGLE_OIDC_CLIENT_ID` habilita Google Login (OIDC); `EMAIL_HOST` habilita recuperación de contraseña por correo. |
+| `GROQ_API_KEY`, `OLLAMA_BASE_URL` | Puedes elegir **Groq** u **Ollama local** desde `/settings/ai` sin reiniciar servicios. `GROQ_API_KEY` actúa como fallback de entorno; `OLLAMA_BASE_URL` apunta por defecto a `http://ollama:11434` con el perfil `--profile local-llm`. |
 | `POSTGRES_HOST_PORT` | Si el puerto local 5432 está ocupado, usa por ejemplo `15432`. Los servicios mantienen 5432 dentro de Compose. |
 | `EMBEDDING_UID`, `EMBEDDING_GID`, `ACCESS_UID`, `ACCESS_GID` | En un directorio documental existente, configura el UID/GID para que ambos servicios puedan acceder con los permisos actuales. El inicializador asigna propietario en un directorio nuevo vacío y conserva los archivos y permisos existentes. |
 | `GOOGLE_DRIVE_ENABLED`, `DRIVE_DB_PASSWORD` | Drive arranca deshabilitado. Conserva disponibilidad e historial autorizado y devuelve 503 en operaciones con el proveedor. Para habilitar OAuth, consulta el contrato de Drive y aprovisiona su rol de base de datos. |
+| `STUDIO_ENABLED`, `STUDIO_DB_PASSWORD` | Knowledge Studio es opcional y arranca deshabilitado (`STUDIO_ENABLED=false`). Levántalo con el overlay `docker/compose/studio.yml` (`--profile studio`) y su rol mínimo `studio_runtime`. En la web se accede en `/studio`, la auditoría administrativa en `/admin/audit` y la configuración de IA en `/settings/ai`. |
+| `AGENTS_ENABLED`, `CODE_MODE_ENABLED`, `AGENT_DB_PASSWORD` | Orquestación agéntica (`--profile agents`, puerto `8019`, esquema `agents.*`) y sandbox Code Mode (`--profile code-mode`, red interna `code_sandbox_net` sin salida a internet). Deshabilitados por defecto sin impacto en el stack base. Consulta [ADR-006](ADR_AGENT_ORCHESTRATOR.md) y [ADR-007](ADR_CODE_MODE_SANDBOX.md). |
+| `OLLAMA_HOST_PORT` | Overlay opcional `docker/compose/ollama.yml` (`--profile local-llm`) para proveedores OpenAI-compatible locales en loopback. |
 | `POSTGRES_DATA_VOLUME` | Selecciona el volumen PostgreSQL tras una restauración. El valor predeterminado conserva el nombre asociado al proyecto de Compose. |
 
 Consulta la plantilla de entorno y los contratos para las contraseñas por rol, CORS, pools y montajes. [Plantilla de entorno](../.env.example) · [Mapa de servicios](architecture.md#mapa-de-servicios) · [OAuth de Google Drive](../backend/GoogleDriveImportServices/README.md)
@@ -93,4 +96,14 @@ Con el stack de desarrollo activo y una clave de Groq, la prueba de PowerShell 7
 ./scripts/smoke_documental.ps1 -Credential (Get-Credential)
 ```
 
-Para desarrollar sin Compose, consulta el README del servicio y configura el rol de base de datos y, cuando corresponda, `AUTH_JWT_PUBLIC_KEY_PATH` y `AUTH_IDENTITY_URL` con Auth activo. Para desarrollar solo la interfaz, ejecuta `npm ci` y `npm run dev` desde `frontend/`. [Mapa de servicios](architecture.md#mapa-de-servicios) · [Frontend](../frontend/README.md)
+Para desarrollar sin Compose, consulta el README del servicio y configura el rol de base de datos y, cuando corresponda, `AUTH_JWT_PUBLIC_KEY_PATH` y `AUTH_IDENTITY_URL` con Auth activo. Para desarrollar solo la interfaz, ejecuta `npm ci` y `npm run dev` desde `frontend/`. En Linux/macOS (o WSL/Git Bash), el [Makefile](../Makefile) de la raíz agrupa atajos equivalentes para los once servicios (`make help`, `make up`, `make compose-config`, `make run-<servicio>`, `make check-docs`, `make test-services`, `make eval-rag-matrix` y `make verify`). [Mapa de servicios](architecture.md#mapa-de-servicios) · [Frontend](../frontend/README.md)
+
+## Resiliencia, solución de problemas y desinstalación segura
+
+- **Caída temporal de PostgreSQL:** los servicios FastAPI exponen `/api/v1/health/db` y reconectan mediante `pool_pre_ping`; si un contenedor queda `unhealthy`, revisa `docker compose logs postgres` y reinicia con `docker compose up -d`.
+- **Caída de Groq o cuota agotada:** el chat devuelve un estado tipificado (`rate_limited`, `auth_error`, `provider_error`) sin bloquear la búsqueda ni la biblioteca. Puedes cambiar a **Ollama local** en `/settings/ai` sin reiniciar servicios.
+- **Ollama no accesible o memoria insuficiente:** verifica que levantaste el perfil `--profile local-llm` (`docker compose -f compose.yaml -f docker/compose/ollama.yml --profile local-llm ps`). Si un modelo de 7B excede la RAM disponible, selecciona un modelo más ligero del catálogo autorizado (`gemma2:2b` o `qwen2.5:3b`).
+- **Desinstalación sin pérdida accidental de datos:**
+  - `docker compose down` detiene y elimina contenedores conservando los volúmenes `postgres_data`, `runtime_secrets`, `auth_signing_keys`, `auth_verification_keys`, `ollama_models` y la carpeta `./documents`.
+  - Solo usa `docker compose down -v` si deseas borrar permanentemente la base de datos y los secretos locales.
+- **Medición de latencias en ejecución real:** con el stack activo, ejecuta `python3 scripts/eval/benchmark_local_budget.py` para registrar mediciones reales en `.release-reports/PERFORMANCE_BUDGET.json`.

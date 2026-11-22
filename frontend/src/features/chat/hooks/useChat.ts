@@ -33,6 +33,19 @@ function assistantErrorMessage(
   return `Lo siento, ahora no puedo ${action}.${reason} Revisa la configuracion del proveedor de IA y vuelve a intentarlo.`;
 }
 
+function providerStatusMessage(status?: string): string | null {
+  if (status === "not_configured") {
+    return "El proveedor de IA (Groq) no está configurado. Un administrador puede conectarlo desde Configuración IA sin reiniciar el sistema; la búsqueda y biblioteca siguen disponibles.";
+  }
+  if (status === "auth_error") {
+    return "La clave de Groq configurada fue rechazada por el proveedor. Revisa o reemplaza la credencial en Configuración IA.";
+  }
+  if (status === "rate_limited") {
+    return "Groq reportó límite de tasa temporal. Espera unos segundos y vuelve a intentarlo.";
+  }
+  return null;
+}
+
 export function useChat({
   chatClient,
   documentClient,
@@ -81,7 +94,10 @@ export function useChat({
       documentIds: selectedDocumentIds(extraDocuments),
     });
 
-    addMessage(createAssistantMessage(payload.answer, payload.sources || []));
+    const friendly = providerStatusMessage(payload.providerStatus);
+    addMessage(
+      createAssistantMessage(friendly || payload.answer, payload.sources || []),
+    );
   }
 
   async function uploadAndAsk(cleanQuestion: string) {

@@ -94,6 +94,42 @@ class TenantUserGroup(models.Model):
         unique_together = (("tenant", "user_id", "group"),)
 
 
+class TenantIntegration(models.Model):
+    integration_id = models.TextField(primary_key=True, default=make_uuid)
+    tenant = models.ForeignKey(Tenant, db_column="tenant_id", on_delete=models.DO_NOTHING)
+    provider = models.TextField()
+    status = models.TextField(default="DISABLED")
+    enabled_for_roles = models.JSONField(default=list)
+    config = models.JSONField(default=dict)
+    secrets_encrypted = models.TextField(blank=True, null=True)
+    updated_by_user_id = models.TextField(blank=True, null=True)
+    created_at = models.DateTimeField(default=timezone.now)
+    updated_at = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        managed = False
+        db_table = "tenant_integrations"
+        unique_together = (("tenant", "provider"),)
+
+
+class AuditLog(models.Model):
+    audit_id = models.TextField(primary_key=True, default=make_uuid)
+    tenant = models.ForeignKey(Tenant, db_column="tenant_id", blank=True, null=True, on_delete=models.DO_NOTHING)
+    actor_user_id = models.TextField(blank=True, null=True)
+    action = models.TextField()
+    resource_type = models.TextField()
+    resource_id = models.TextField(blank=True, null=True)
+    target_user_id = models.TextField(blank=True, null=True)
+    ip_address = models.TextField(blank=True, null=True)
+    user_agent = models.TextField(blank=True, null=True)
+    metadata = models.JSONField(default=dict)
+    created_at = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        managed = False
+        db_table = "audit_logs"
+
+
 class LoginAttemptBudget(models.Model):
     key = models.CharField(max_length=64, primary_key=True)
     window = models.BigIntegerField(db_index=True)

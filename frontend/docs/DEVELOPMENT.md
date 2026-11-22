@@ -1,21 +1,19 @@
 # Frontend documental
 
-React 19, Vite y TypeScript. Node 24 es la versión de desarrollo y CI. La API conserva sus contratos; ningún secreto de servidor debe llegar a las variables `VITE_*`.
+React 19, Vite y TypeScript estricto. Node 24 es la versión de desarrollo y CI. Ningún secreto de servidor debe llegar a las variables `VITE_*` (`VITE_AUTH_BASE_URL` … `VITE_AGENT_ORCHESTRATOR_BASE_URL`).
 
-## Decisiones de la auditoría (2026-11-10)
+## Arquitectura vigente
 
-La separación existente `app → pages → widgets/features → entities/shared` es útil y se conserva. Los controladores ya protegen operaciones asíncronas y cambios de cuenta/tenant; sustituirlos por un store global duplicaría estado y arriesgaría esas garantías. Context mantiene sesión y tema; cada funcionalidad conserva su estado local y sus controladores.
-
-Los principales déficits eran JavaScript sin comprobación estática, ausencia de linting, imports profundos, todas las páginas en el bundle inicial, una biblioteca de 1.113 líneas y estilos acumulados con colores independientes del tema. También había acciones anidadas, controles sin acción y navegación móvil insuficiente.
-
-La modernización introduce contratos TypeScript estrictos, alias `@/`, carga por página con recuperación de errores, separación de secciones y componentes accesibles. No requiere Redux, Zustand, Tailwind ni una biblioteca completa de UI: el tamaño y los flujos actuales no lo justifican. La inspiración Fluent/shadcn se expresa con superficies, radios, foco, tipografía y tokens semánticos propios, sin copiar sus implementaciones.
+La separación `app → pages → widgets/features → entities/shared` mantiene la sesión y el tema en Context mientras cada dominio conserva su estado local y controladores protegidos frente a cambios de cuenta o empresa (`useAgentExecution`, `library-controller`, `export-controller`, `drive-controller`, `transfers-controller`). No se usa Redux, Zustand ni frameworks externos de estilos.
 
 ## Convenciones
 
-- `app/`: configuración, proveedores y navegación; `pages/`: composición de pantallas.
+- `app/`: configuración, proveedores y navegación (`useAppRouter` valida las 15 rutas con títulos exhaustivos `Record<AppRoute, string>` y preserva query strings como `/studio?artifact=<id>`); `pages/`: composición de pantallas envueltas en `ErrorBoundary` con `resetKey={route}`.
 - `features/`: API, controladores, hooks y UI del dominio; `entities/`: modelos compartidos.
-- `shared/`: primitivas visuales, layout, HTTP, almacenamiento y tokens. No importa páginas ni funcionalidades.
+- `shared/`: primitivas visuales, layout, HTTP, almacenamiento y tokens. No importa páginas ni funcionalidades (blindado automáticamente en `eslint.config.js` con `@typescript-eslint/no-restricted-imports`).
 - Usa `@/` entre capas; una ruta relativa corta es válida dentro del mismo componente.
+- Todas las variables CSS deben provenir de `src/shared/styles/tokens.css`; `eslint.config.js` bloquea en tiempo de lint el uso de tokens fantasma (`--border-subtle`, `--surface-card`, `--text-muted`, `--surface-elevated`, `--surface-muted`, `--surface-primary`, `--accent-primary`).
+- Los adaptadores HTTP de listado aceptan `signal?: AbortSignal` para cancelar peticiones en vuelo al filtrar o desmontar vistas (`AuditLogsPage`, `SettingsAIPage`, `useAgentExecution`) y normalizan colecciones defensivamente con `Array.isArray`.
 - Conserva el aislamiento por sesión, tenant y generación de solicitud. Los permisos de UI son orientativos: la autorización efectiva pertenece al servidor.
 - Los mensajes y documentos se renderizan como texto; evita HTML sin sanitizar. Las URL de avatar y los downloads conservan su contrato privado.
 - No persistas contraseñas ni claves. El almacenamiento de tokens existente es un límite de la arquitectura actual: migrar a cookies HttpOnly requiere cambios coordinados del backend y queda fuera de este trabajo.
@@ -38,11 +36,13 @@ Las pruebas de navegador usan identidad y documentos sintéticos y contratos HTT
 
 Los comandos `dev` y `preview` escuchan en `127.0.0.1` de forma predeterminada, conforme al alcance local del proyecto. Playwright sirve `dist/` con `vite preview` en loopback: ejecuta `npm run build` antes de las pruebas de navegador. `npm run format` aplica el formato de código de `src/`.
 
-El job de frontend de CI usa la imagen oficial de Playwright con los navegadores preinstalados. Si cambia la versión de `@playwright/test` en el lockfile, actualiza la etiqueta y el digest de la imagen en el [workflow de validación](../../.github/workflows/validate.yml).
+El job de frontend de CI usa la imagen oficial de Playwright con los navegadores preinstalados. Si cambia la versión de `@playwright/test` en el lockfile, actualiza la etiqueta y el digest de la imagen en el [workflow de CI rápido](../../.github/workflows/ci-fast.yml).
 
 ## Design System
 
-`shared/styles/tokens.css` define superficies, texto, acento, estados, foco, radios, espacios y elevación para ambos temas. Los estilos se distribuyen en primitivas, navegación, chat, documentos, integraciones y diálogos. Perfil y administración mantienen sus hojas locales y consumen los mismos tokens.
+`shared/styles/tokens.css` define superficies, texto, acento, estados, foco, radios, espacios y elevación para ambos temas (`light` y `dark`). Los estilos se distribuyen en `primitives.css`, `navigation.css`, `chat.css` (incluyendo selectores y paneles agénticos `.agent-*`), `documents.css`, `integrations.css` (incluyendo tarjetas, tablas y alertas compartidas `.settings-ai-*` y `.ui-*` para Configuración IA, Knowledge Studio y Auditoría) y `dialogs.css`. Perfil y administración mantienen sus hojas locales y consumen los mismos tokens.
+
+Las suites de Playwright ejecutan `@axe-core/playwright` (`AxeBuilder`) tanto en tema claro como en tema oscuro sobre las vistas principales y operativas (`/login`, `/`, `/documents`, `/settings/ai`, `/studio`, `/admin/audit` y `AgentRunPanel`).
 
 El diseño Floating Glass usa el púrpura Blandskron `#4A148C` y el púrpura profundo `#2E0B59`. Los contenedores principales usan las superficies translúcidas, los bordes iluminados y la elevación de los tokens `--glass*`. Los controles de lectura y edición usan superficies de mayor opacidad. Las preferencias de menor transparencia, mayor contraste y colores forzados activan superficies sólidas. La interfaz respeta la preferencia de movimiento reducido.
 
@@ -60,4 +60,4 @@ Los clientes HTTP distinguen JSON y blobs por tipos; los adaptadores de cada end
 
 Las incorporaciones son herramientas de desarrollo: TypeScript/tipos, ESLint, Prettier y axe. `minimatch` está fijado por override a una versión corregida de la línea 11 para las herramientas de desarrollo, por [GHSA-g3hv-75wg-m249](https://github.com/advisories/GHSA-g3hv-75wg-m249); el lockfile y las comprobaciones se validan con esa resolución. No se añadió un framework de estilos, routing ni estado.
 
-El [informe de auditoría](../AUDIT.md) registra decisiones, comprobaciones y límites. Las referencias técnicas principales son [TypeScript strict](https://www.typescriptlang.org/tsconfig/strict), [React lazy](https://react.dev/reference/react/lazy) y [Disclosure de WAI-ARIA](https://www.w3.org/WAI/ARIA/apg/patterns/disclosure/).
+Las referencias técnicas principales son [TypeScript strict](https://www.typescriptlang.org/tsconfig/strict), [React lazy](https://react.dev/reference/react/lazy) y [Disclosure de WAI-ARIA](https://www.w3.org/WAI/ARIA/apg/patterns/disclosure/).

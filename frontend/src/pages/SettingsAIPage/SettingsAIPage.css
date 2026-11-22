@@ -1,0 +1,2 @@
+/* Shared .settings-ai-* classes are now globally loaded in src/shared/styles/integrations.css (FRONT-002)
+   so that lazy-loaded pages (SettingsAIPage, StudioPage, AuditLogsPage) always have tokenized styles. */

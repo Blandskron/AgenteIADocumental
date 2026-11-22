@@ -21,6 +21,7 @@ async function prepare(page, user, respond) {
     const path = new URL(route.request().url()).pathname;
     const json = (body, status = 200) => route.fulfill({ json: body, status });
     if (await respond(route, path, json)) return;
+    if (path.endsWith("/setup-status/")) return json({ needs_setup: false, google_login_enabled: false, google_client_id: null, smtp_configured: false });
     if (path.endsWith("/me/")) return json(user);
     if (path.endsWith("/logout/")) return json({});
     if (path.endsWith("/profile")) return json({ profile_id: null, user_id: String(user.id), version: 0, additional_info: {} });

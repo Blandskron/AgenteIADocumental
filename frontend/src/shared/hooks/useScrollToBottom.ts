@@ -1,4 +1,3 @@
-import type { Message } from "@/entities/conversation/model/types.ts";
 import { useEffect, useRef } from "react";
 
 export function useScrollToBottom({
@@ -8,7 +7,7 @@ export function useScrollToBottom({
   enabled,
 }: {
   conversationId: string;
-  message?: Message;
+  message?: unknown;
   busy: boolean;
   enabled: boolean;
 }) {
