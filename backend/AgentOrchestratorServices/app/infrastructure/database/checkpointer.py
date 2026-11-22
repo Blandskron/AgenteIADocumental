@@ -127,6 +127,50 @@ class InMemoryCheckpointer:
                 )
         return None
 
+    def list_metadata(
+        self,
+        *,
+        thread_id: str,
+        tenant_id: str,
+        owner_user_id: str,
+    ) -> list[dict[str, Any]]:
+        entries = self._store.get(thread_id) or []
+        return [
+            {
+                "thread_id": rec.thread_id,
+                "checkpoint_seq": rec.checkpoint_seq,
+                "node_name": rec.node_name,
+            }
+            for rec in entries
+            if rec.tenant_id == tenant_id and rec.owner_user_id == owner_user_id
+        ]
+
+    def prune_old_checkpoints(
+        self,
+        *,
+        thread_id: str,
+        tenant_id: str,
+        owner_user_id: str,
+        keep_last: int = 5,
+    ) -> int:
+        keep = max(1, int(keep_last))
+        entries = self._store.get(thread_id) or []
+        owned = [r for r in entries if r.tenant_id == tenant_id and r.owner_user_id == owner_user_id]
+        if len(owned) <= keep:
+            return 0
+        to_drop = {r.checkpoint_seq for r in owned[:-keep]}
+        before = len(entries)
+        self._store[thread_id] = [
+            r
+            for r in entries
+            if not (
+                r.tenant_id == tenant_id
+                and r.owner_user_id == owner_user_id
+                and r.checkpoint_seq in to_drop
+            )
+        ]
+        return before - len(self._store[thread_id])
+
 
 class PostgresAgentCheckpointer:
     """PostgreSQL checkpointer writing strictly serialized states into agents.agent_checkpoints."""
@@ -220,3 +264,70 @@ class PostgresAgentCheckpointer:
             node_name=str(row["node_name"]),
             state=dict(payload or {}),
         )
+
+    def list_metadata(
+        self,
+        *,
+        thread_id: str,
+        tenant_id: str,
+        owner_user_id: str,
+    ) -> list[dict[str, Any]]:
+        rows = self._session.execute(
+            text(
+                """
+                SELECT thread_id, checkpoint_seq, node_name, created_at
+                FROM agents.agent_checkpoints
+                WHERE thread_id = :thread_id
+                  AND tenant_id = :tenant_id
+                  AND owner_user_id = :owner_user_id
+                ORDER BY checkpoint_seq ASC
+                """
+            ),
+            {"thread_id": thread_id, "tenant_id": tenant_id, "owner_user_id": owner_user_id},
+        ).mappings().all()
+        return [
+            {
+                "thread_id": str(r["thread_id"]),
+                "checkpoint_seq": int(r["checkpoint_seq"]),
+                "node_name": str(r["node_name"]),
+                "created_at": str(r["created_at"]),
+            }
+            for r in rows
+        ]
+
+    def prune_old_checkpoints(
+        self,
+        *,
+        thread_id: str,
+        tenant_id: str,
+        owner_user_id: str,
+        keep_last: int = 5,
+    ) -> int:
+        keep = max(1, int(keep_last))
+        result = self._session.execute(
+            text(
+                """
+                DELETE FROM agents.agent_checkpoints
+                WHERE thread_id = :thread_id
+                  AND tenant_id = :tenant_id
+                  AND owner_user_id = :owner_user_id
+                  AND checkpoint_seq NOT IN (
+                      SELECT checkpoint_seq
+                      FROM agents.agent_checkpoints
+                      WHERE thread_id = :thread_id
+                        AND tenant_id = :tenant_id
+                        AND owner_user_id = :owner_user_id
+                      ORDER BY checkpoint_seq DESC
+                      LIMIT :keep_last
+                  )
+                """
+            ),
+            {
+                "thread_id": thread_id,
+                "tenant_id": tenant_id,
+                "owner_user_id": owner_user_id,
+                "keep_last": keep,
+            },
+        )
+        self._session.commit()
+        return int(result.rowcount or 0)

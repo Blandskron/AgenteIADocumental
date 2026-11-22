@@ -12,6 +12,10 @@ from app.application.graph.code_mode_node import (
 )
 from app.application.tools.registry import ToolRegistry
 from app.config.security import require_agent_user
+from app.infrastructure.access.access_client import (
+    DocumentAccessHttpClient,
+    register_document_access_tools,
+)
 from app.infrastructure.mcp.mcp_client import McpHttpClient, register_default_mcp_tools
 from app.infrastructure.search.search_client import (
     DocumentSearchHttpClient,
@@ -44,6 +48,8 @@ def build_default_registry() -> ToolRegistry:
     register_default_mcp_tools(registry, McpHttpClient(mcp_url))
     search_url = os.environ.get("DOCUMENT_SEARCH_BASE_URL", "http://document-search-service:8000")
     register_document_search_tools(registry, DocumentSearchHttpClient(search_url))
+    access_url = os.environ.get("DOCUMENT_ACCESS_BASE_URL", "http://document-access-service:8000")
+    register_document_access_tools(registry, DocumentAccessHttpClient(access_url))
     return registry
 
 

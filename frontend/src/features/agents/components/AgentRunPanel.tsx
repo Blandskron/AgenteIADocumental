@@ -1,16 +1,32 @@
-import { Check, Code2, Download, ShieldAlert, Square, X } from "lucide-react";
+import {
+  CalendarClock,
+  Check,
+  Code2,
+  Download,
+  FileText,
+  ShieldAlert,
+  Square,
+  X,
+} from "lucide-react";
 import { useState } from "react";
 
 import { SafeMarkdown } from "@/features/chat/ui/SafeMarkdown.tsx";
-import type { AgentQuotaSnapshot, AgentRun } from "../types.ts";
+import type {
+  AgentQuotaSnapshot,
+  AgentRun,
+  AgentRunAnalysis,
+} from "../types.ts";
 
 interface AgentRunPanelProps {
   run: AgentRun | null;
   quota?: AgentQuotaSnapshot | null;
+  analysis?: AgentRunAnalysis | null;
   busy: boolean;
   error: string | null;
   onCancel: (runId: string) => void;
   onExport?: (runId: string, format: "markdown" | "csv") => void;
+  onExportPdf?: (runId: string) => void;
+  onAnalyze?: (runId: string) => void;
   onDecision: (
     runId: string,
     approvalId: string,
@@ -23,10 +39,13 @@ interface AgentRunPanelProps {
 export function AgentRunPanel({
   run,
   quota,
+  analysis,
   busy,
   error,
   onCancel,
   onExport,
+  onExportPdf,
+  onAnalyze,
   onDecision,
   onDismiss,
 }: AgentRunPanelProps) {
@@ -113,6 +132,46 @@ export function AgentRunPanel({
                 <Download size={12} aria-hidden="true" />
                 CSV
               </button>
+              {onExportPdf && (
+                <button
+                  type="button"
+                  onClick={() => onExportPdf(run.run_id)}
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: "0.25rem",
+                    padding: "0.2rem 0.5rem",
+                    borderRadius: "8px",
+                    border: "1px solid currentColor",
+                    background: "transparent",
+                    cursor: "pointer",
+                    fontSize: "0.75rem",
+                  }}
+                >
+                  <FileText size={12} aria-hidden="true" />
+                  PDF
+                </button>
+              )}
+              {onAnalyze && (
+                <button
+                  type="button"
+                  onClick={() => onAnalyze(run.run_id)}
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: "0.25rem",
+                    padding: "0.2rem 0.5rem",
+                    borderRadius: "8px",
+                    border: "1px solid currentColor",
+                    background: "transparent",
+                    cursor: "pointer",
+                    fontSize: "0.75rem",
+                  }}
+                >
+                  <CalendarClock size={12} aria-hidden="true" />
+                  Fechas/Montos
+                </button>
+              )}
             </>
           )}
           {run &&
@@ -224,6 +283,47 @@ export function AgentRunPanel({
             content={run.result_markdown}
             sourceCount={run.sources.length}
           />
+        </div>
+      )}
+
+      {analysis && (
+        <div
+          role="region"
+          aria-label="Análisis determinista de fechas y montos"
+          style={{
+            padding: "0.65rem 0.8rem",
+            borderRadius: "10px",
+            border: "1px solid var(--border-subtle, rgba(127,127,127,0.3))",
+            fontSize: "0.8rem",
+            display: "flex",
+            flexDirection: "column",
+            gap: "0.4rem",
+          }}
+        >
+          <strong>
+            Análisis determinista · {analysis.expirations.total_dates} fechas ·{" "}
+            {analysis.facts.amounts.length} montos/porcentajes
+          </strong>
+          {analysis.expirations.alerts.length > 0 && (
+            <ul style={{ margin: 0, paddingLeft: "1.1rem" }}>
+              {analysis.expirations.alerts.slice(0, 6).map((alert, idx) => (
+                <li key={`${alert.document_id}-${alert.date}-${idx}`}>
+                  <strong>[{alert.urgency}]</strong> {alert.date} (
+                  {alert.days_remaining} días) — {alert.filename} [Fuente{" "}
+                  {alert.source_index}]
+                </li>
+              ))}
+            </ul>
+          )}
+          {analysis.facts.amounts.length > 0 && (
+            <div>
+              <strong>Montos detectados:</strong>{" "}
+              {analysis.facts.amounts
+                .slice(0, 8)
+                .map((a) => `${a.value} [Fuente ${a.source_index}]`)
+                .join(" · ")}
+            </div>
+          )}
         </div>
       )}
 

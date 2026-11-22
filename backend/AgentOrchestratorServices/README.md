@@ -17,10 +17,14 @@ Puerto local **8019**.
 ## Endpoints principales
 
 - `GET /api/v1/health`: estado del servicio y banderas `agents_enabled` / `code_mode_enabled`.
-- `GET /api/v1/agents/tools`: catálogo allowlisted de herramientas de solo lectura (requiere JWT RS256).
-- `POST /api/v1/agents/runs`: inicia una ejecución idempotente (`mode: agent | code_mode`, `idempotency_key`, cuotas diarias).
-- `GET /api/v1/agents/runs` y `GET /api/v1/agents/runs/{run_id}`: historial y detalle estrictamente aislados por `(tenant_id, user_id)`.
+- `GET /api/v1/agents/tools`, `/tools/search` y `/tools/{tool_name}`: catálogo allowlisted y descubrimiento progresivo estrictamente `read_only=True` (MCP + `DocumentSearchServices` + `DocumentAccessServices`, requiere JWT RS256 + verificación vigente en `AuthServices /api/users/me/`).
+- `GET /api/v1/agents/templates`: plantillas especializadas (`research_general`, `contract_comparison`, `dates_amounts_extraction`, `executive_report_studio`).
+- `GET /api/v1/agents/quota` y `GET /api/v1/agents/metrics`: cuota diaria y telemetría no sensible por tenant.
+- `POST /api/v1/agents/runs`: inicia una ejecución idempotente (`mode: agent | code_mode`, `template_id`, `idempotency_key`, rate-limit deslizante + cuotas diarias).
+- `GET /api/v1/agents/runs`, `GET /api/v1/agents/runs/{run_id}` y `GET /api/v1/agents/runs/{run_id}/checkpoints`: historial, detalle y metadatos de checkpoints estrictamente aislados por `(tenant_id, user_id)`.
 - `GET /api/v1/agents/runs/{run_id}/stream`: flujo SSE de pasos, aprobación y estado final.
+- `POST /api/v1/agents/runs/{run_id}/analyze`: análisis determinista de fechas, vencimientos, montos y comparativa de cláusulas sin coste extra de LLM.
+- `GET /api/v1/agents/runs/{run_id}/export?format=markdown|csv` y `POST /api/v1/agents/runs/{run_id}/export-pdf`: exportación directa Markdown/CSV seguro y handoff PDF hacia `DocumentExportServices`.
 - `POST /api/v1/agents/runs/{run_id}/resume`: aprobación o rechazo humano explícito (Human-in-the-Loop) con handoff a Knowledge Studio.
 - `POST /api/v1/agents/runs/{run_id}/cancel`: cancelación cooperativa verificada antes de cada nodo y herramienta.
 

@@ -1,4 +1,5 @@
 import { History } from "lucide-react";
+import { useState } from "react";
 
 import type { AgentRun } from "../types.ts";
 
@@ -13,9 +14,26 @@ export function AgentHistoryList({
   activeRunId,
   onSelectRun,
 }: AgentHistoryListProps) {
+  const [statusFilter, setStatusFilter] = useState<string>("ALL");
+  const [query, setQuery] = useState("");
+
   if (!runs.length) {
     return null;
   }
+
+  const normalizedQuery = query.trim().toLowerCase();
+  const filteredRuns = runs.filter((item) => {
+    if (statusFilter !== "ALL" && item.status !== statusFilter) {
+      return false;
+    }
+    if (
+      normalizedQuery &&
+      !(item.goal || item.run_id).toLowerCase().includes(normalizedQuery)
+    ) {
+      return false;
+    }
+    return true;
+  });
 
   return (
     <details
@@ -35,6 +53,45 @@ export function AgentHistoryList({
         <History size={14} aria-hidden="true" />
         Historial de ejecuciones del agente ({runs.length})
       </summary>
+      <div
+        style={{
+          display: "flex",
+          gap: "0.4rem",
+          marginTop: "0.4rem",
+          flexWrap: "wrap",
+        }}
+      >
+        <input
+          type="search"
+          aria-label="Filtrar historial del agente"
+          placeholder="Buscar objetivo..."
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          style={{
+            flex: "1 1 160px",
+            padding: "0.25rem 0.5rem",
+            borderRadius: "6px",
+            border: "1px solid var(--border-subtle, rgba(127,127,127,0.3))",
+            fontSize: "0.78rem",
+          }}
+        />
+        <select
+          aria-label="Filtrar por estado"
+          value={statusFilter}
+          onChange={(e) => setStatusFilter(e.target.value)}
+          style={{
+            padding: "0.25rem 0.45rem",
+            borderRadius: "6px",
+            border: "1px solid var(--border-subtle, rgba(127,127,127,0.3))",
+            fontSize: "0.78rem",
+          }}
+        >
+          <option value="ALL">Todos</option>
+          <option value="WAITING_APPROVAL">Pendiente aprobación</option>
+          <option value="SUCCEEDED">Completados</option>
+          <option value="CANCELLED">Cancelados</option>
+        </select>
+      </div>
       <ul
         style={{
           listStyle: "none",
@@ -45,7 +102,7 @@ export function AgentHistoryList({
           gap: "0.25rem",
         }}
       >
-        {runs.slice(0, 8).map((item) => (
+        {filteredRuns.slice(0, 8).map((item) => (
           <li key={item.run_id}>
             <button
               type="button"
@@ -75,7 +132,7 @@ export function AgentHistoryList({
                   whiteSpace: "nowrap",
                 }}
               >
-                {item.goal}
+                {item.goal || item.run_id}
               </span>
               <strong>{item.status}</strong>
             </button>

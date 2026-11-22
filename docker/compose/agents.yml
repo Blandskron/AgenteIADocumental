@@ -42,6 +42,7 @@ services:
       MCP_BASE_URL: http://knowledge-studio-service:8000/api/v1/mcp
       KNOWLEDGE_STUDIO_BASE_URL: http://knowledge-studio-service:8000
       DOCUMENT_SEARCH_BASE_URL: http://document-search-service:8000
+      DOCUMENT_ACCESS_BASE_URL: http://document-access-service:8000
       DOCUMENT_EXPORT_BASE_URL: http://document-export-service:8000
       LANGGRAPH_STRICT_MSGPACK: "true"
       AGENT_DAILY_TOKEN_QUOTA: ${AGENT_DAILY_TOKEN_QUOTA:-200000}

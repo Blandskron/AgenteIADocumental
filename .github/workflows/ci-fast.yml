@@ -365,7 +365,9 @@ jobs:
       - name: Instalar dependencias de agentes, validar lint y ejecutar pruebas de orquestación y sandbox
         run: |
           python -m pip install -r backend/AgentOrchestratorServices/requirements.txt pytest httpx pyyaml ruff
-          python -m ruff check --select F,E721,W backend/AgentOrchestratorServices/app backend/AgentOrchestratorServices/tests backend/CodeSandboxRunner/tests
+          python -m ruff check --select F,E721,W backend/AgentOrchestratorServices/app backend/AgentOrchestratorServices/tests backend/CodeSandboxRunner/tests scripts/ci/check_agents_contract.py scripts/eval/benchmark_agents_budget.py
+          python3 scripts/ci/check_agents_contract.py
+          python3 scripts/eval/benchmark_agents_budget.py
           PYTHONPATH=backend/AgentOrchestratorServices python -m pytest -q backend/AgentOrchestratorServices/tests
           python -m pytest -q backend/CodeSandboxRunner/tests
       - name: Validar overlays Docker Compose de agentes y Code Mode

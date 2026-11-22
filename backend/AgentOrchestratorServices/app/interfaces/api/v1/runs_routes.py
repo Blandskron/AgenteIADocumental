@@ -7,6 +7,8 @@ import os
 import uuid
 from typing import Any
 
+from app.application.analysis.contract_comparator import compare_contract_clauses
+from app.application.analysis.expiration_detector import detect_expirations
 from app.application.export_service import export_run_csv, export_run_markdown
 from app.application.graph.code_mode_node import (
     CodeModeDisabledError,
@@ -15,9 +17,17 @@ from app.application.graph.code_mode_node import (
 from app.application.graph.research_graph import ResearchAgentGraph
 from app.application.metrics_service import AgentMetricsCollector
 from app.application.quota_service import QuotaExceededError, TenantQuotaService
-from app.application.templates.agent_templates import list_agent_templates
+from app.application.rate_limiter import AgentRateLimiter, RateLimitExceededError
+from app.application.templates.agent_templates import (
+    extract_deterministic_facts,
+    list_agent_templates,
+)
 from app.application.tools.registry import ToolRegistry
 from app.config.security import require_agent_user
+from app.infrastructure.access.access_client import (
+    DocumentAccessHttpClient,
+    register_document_access_tools,
+)
 from app.infrastructure.database.audit_logger import AuditLogger
 from app.infrastructure.database.checkpointer import (
     InMemoryCheckpointer,
@@ -28,6 +38,7 @@ from app.infrastructure.database.runs_repository import (
     InMemoryRunsRepository,
     PostgresRunsRepository,
 )
+from app.infrastructure.export.pdf_export_client import AgentPdfExportClient
 from app.infrastructure.llm.model_factory import (
     LLMConfigurationError,
     LLMProviderError,
@@ -53,6 +64,7 @@ _fallback_checkpointer = InMemoryCheckpointer()
 _fallback_quota = TenantQuotaService()
 _fallback_audit = AuditLogger()
 _metrics_collector = AgentMetricsCollector()
+_rate_limiter = AgentRateLimiter()
 
 
 class StartAgentRunRequest(BaseModel):
@@ -127,6 +139,8 @@ def _build_registry() -> ToolRegistry:
     register_default_mcp_tools(registry, McpHttpClient(mcp_url))
     search_url = os.environ.get("DOCUMENT_SEARCH_BASE_URL", "http://document-search-service:8000")
     register_document_search_tools(registry, DocumentSearchHttpClient(search_url))
+    access_url = os.environ.get("DOCUMENT_ACCESS_BASE_URL", "http://document-access-service:8000")
+    register_document_access_tools(registry, DocumentAccessHttpClient(access_url))
     return registry
 
 
@@ -148,6 +162,17 @@ def create_agent_run(
     user: dict[str, Any] = Depends(require_agent_user),
 ) -> dict[str, Any]:
     _require_agents_enabled()
+    try:
+        _rate_limiter.check_and_record(
+            tenant_id=str(user["active_tenant_id"]),
+            user_id=str(user["user_id"]),
+        )
+    except RateLimitExceededError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail=str(exc),
+            headers={"Retry-After": str(exc.retry_after_seconds)},
+        ) from None
     if (payload.enable_code_mode or payload.mode == "code_mode") and not is_code_mode_enabled():
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
@@ -383,3 +408,73 @@ def export_agent_run(
             headers={"Content-Disposition": f'attachment; filename="{run_id}.md"'},
         )
     raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Formato no soportado (usa markdown o csv).")
+
+
+@router.post("/runs/{run_id}/analyze")
+def analyze_agent_run(
+    run_id: str,
+    user: dict[str, Any] = Depends(require_agent_user),
+) -> dict[str, Any]:
+    _require_agents_enabled()
+    repo, *_ = _get_runtime_components()
+    run = repo.get_run(
+        run_id,
+        tenant_id=str(user["active_tenant_id"]),
+        owner_user_id=str(user["user_id"]),
+    )
+    if run is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Ejecución de agente no encontrada.")
+    sources = run.get("sources") or []
+    return {
+        "run_id": run_id,
+        "facts": extract_deterministic_facts(sources),
+        "expirations": detect_expirations(sources),
+        "comparison": compare_contract_clauses(sources),
+    }
+
+
+@router.post("/runs/{run_id}/export-pdf")
+def export_agent_run_pdf(
+    run_id: str,
+    user: dict[str, Any] = Depends(require_agent_user),
+) -> dict[str, Any]:
+    _require_agents_enabled()
+    repo, _, _, audit, _ = _get_runtime_components()
+    run = repo.get_run(
+        run_id,
+        tenant_id=str(user["active_tenant_id"]),
+        owner_user_id=str(user["user_id"]),
+    )
+    if run is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Ejecución de agente no encontrada.")
+    export_url = os.environ.get("DOCUMENT_EXPORT_BASE_URL", "http://document-export-service:8000")
+    client = AgentPdfExportClient(export_url)
+    result = client.export_run_to_pdf(run=run, user_jwt=str(user.get("raw_token") or ""))
+    audit.record(
+        event_type="agent.run.exported_pdf",
+        tenant_id=str(user["active_tenant_id"]),
+        actor_user_id=str(user["user_id"]),
+        run_id=run_id,
+        metadata={"status": result.get("status")},
+    )
+    return result
+
+
+@router.get("/runs/{run_id}/checkpoints")
+def list_run_checkpoints(
+    run_id: str,
+    user: dict[str, Any] = Depends(require_agent_user),
+) -> dict[str, Any]:
+    _require_agents_enabled()
+    repo, checkpointer, *_ = _get_runtime_components()
+    tenant_id = str(user["active_tenant_id"])
+    user_id = str(user["user_id"])
+    run = repo.get_run(run_id, tenant_id=tenant_id, owner_user_id=user_id)
+    if run is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Ejecución de agente no encontrada.")
+    items = checkpointer.list_metadata(
+        thread_id=str(run["thread_id"]),
+        tenant_id=tenant_id,
+        owner_user_id=user_id,
+    )
+    return {"run_id": run_id, "thread_id": run["thread_id"], "checkpoints": items}

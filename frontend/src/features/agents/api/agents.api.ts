@@ -2,8 +2,10 @@ import type { MaybeClient } from "@/shared/api/types.ts";
 import { requireClient } from "@/shared/api/types.ts";
 import type {
   AgentCapabilities,
+  AgentPdfExportResult,
   AgentQuotaSnapshot,
   AgentRun,
+  AgentRunAnalysis,
   AgentTemplate,
   ResumeApprovalInput,
   StartAgentRunInput,
@@ -86,5 +88,19 @@ export function exportAgentRunContent(
   return requireClient(agentClient)<string>(
     `/api/v1/agents/runs/${encodeURIComponent(runId)}/export?format=${encodeURIComponent(format)}`,
     { method: "GET" },
+  );
+}
+
+export function analyzeAgentRun(agentClient: MaybeClient, runId: string) {
+  return requireClient(agentClient)<AgentRunAnalysis>(
+    `/api/v1/agents/runs/${encodeURIComponent(runId)}/analyze`,
+    { method: "POST" },
+  );
+}
+
+export function exportAgentRunPdf(agentClient: MaybeClient, runId: string) {
+  return requireClient(agentClient)<AgentPdfExportResult>(
+    `/api/v1/agents/runs/${encodeURIComponent(runId)}/export-pdf`,
+    { method: "POST" },
   );
 }

@@ -7,8 +7,10 @@ import { useEffect, useState } from "react";
 import { useAuthContext } from "@/app/providers/AuthProvider.tsx";
 import { appRoutes } from "@/app/router/routes.ts";
 import {
+  analyzeAgentRun,
   cancelAgentRun,
   exportAgentRunContent,
+  exportAgentRunPdf,
   getAgentHealth,
   getAgentQuota,
   listAgentRuns,
@@ -23,6 +25,7 @@ import type {
   AgentCapabilities,
   AgentQuotaSnapshot,
   AgentRun,
+  AgentRunAnalysis,
   AgentTemplate,
   ChatExecutionMode,
 } from "@/features/agents/types.ts";
@@ -64,6 +67,9 @@ export function ChatPage({ onNavigate }: PageProps) {
   const [agentQuota, setAgentQuota] = useState<AgentQuotaSnapshot | null>(null);
   const [executionMode, setExecutionMode] = useState<ChatExecutionMode>("chat");
   const [activeAgentRun, setActiveAgentRun] = useState<AgentRun | null>(null);
+  const [agentAnalysis, setAgentAnalysis] = useState<AgentRunAnalysis | null>(
+    null,
+  );
   const [agentBusy, setAgentBusy] = useState(false);
   const [agentError, setAgentError] = useState<string | null>(null);
 
@@ -306,6 +312,46 @@ export function ChatPage({ onNavigate }: PageProps) {
     }
   }
 
+  async function handleAgentAnalyze(runId: string) {
+    if (!agentClient) return;
+    setAgentBusy(true);
+    setAgentError(null);
+    try {
+      const result = await analyzeAgentRun(agentClient, runId);
+      setAgentAnalysis(result);
+    } catch (err) {
+      setAgentError(
+        err instanceof Error
+          ? err.message
+          : "No se pudo analizar fechas y montos.",
+      );
+    } finally {
+      setAgentBusy(false);
+    }
+  }
+
+  async function handleAgentExportPdf(runId: string) {
+    if (!agentClient) return;
+    setAgentBusy(true);
+    setAgentError(null);
+    try {
+      const result = await exportAgentRunPdf(agentClient, runId);
+      if (result.download_url) {
+        window.open(result.download_url, "_blank", "noopener,noreferrer");
+      } else if (result.fallback_markdown) {
+        await handleAgentExport(runId, "markdown");
+      }
+    } catch (err) {
+      setAgentError(
+        err instanceof Error
+          ? err.message
+          : "No se pudo generar el PDF del informe.",
+      );
+    } finally {
+      setAgentBusy(false);
+    }
+  }
+
   return (
     <AppShell
       sidebarOpen={sidebarOpen}
@@ -419,13 +465,17 @@ export function ChatPage({ onNavigate }: PageProps) {
         <AgentRunPanel
           run={activeAgentRun}
           quota={agentQuota}
+          analysis={agentAnalysis}
           busy={agentBusy}
           error={agentError}
           onCancel={handleAgentCancel}
           onExport={handleAgentExport}
+          onExportPdf={handleAgentExportPdf}
+          onAnalyze={handleAgentAnalyze}
           onDecision={handleAgentDecision}
           onDismiss={() => {
             setActiveAgentRun(null);
+            setAgentAnalysis(null);
             setAgentError(null);
           }}
         />

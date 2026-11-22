@@ -80,6 +80,52 @@ export interface AgentStreamEvent {
   data: unknown;
 }
 
+export interface AgentExpirationAlert {
+  date: string;
+  raw_date: string;
+  days_remaining: number;
+  urgency: "EXPIRED" | "URGENT_30D" | "UPCOMING_90D" | "FUTURE";
+  document_id: string;
+  chunk_index: number;
+  filename: string;
+  source_index: number;
+  quote: string;
+}
+
+export interface AgentRunAnalysis {
+  run_id: string;
+  facts: {
+    dates: Array<{ value: string; source_index: number; document_id: string }>;
+    amounts: Array<{
+      value: string;
+      source_index: number;
+      document_id: string;
+    }>;
+  };
+  expirations: {
+    reference_date: string;
+    total_dates: number;
+    summary: {
+      expired: number;
+      urgent_30d: number;
+      upcoming_90d: number;
+      future: number;
+    };
+    alerts: AgentExpirationAlert[];
+  };
+  comparison: {
+    documents_compared: number;
+    comparison_markdown: string;
+  };
+}
+
+export interface AgentPdfExportResult {
+  status: string;
+  export_id?: string;
+  download_url?: string | null;
+  fallback_markdown?: string;
+}
+
 export interface StartAgentRunInput {
   mode: "agent" | "code_mode";
   goal: string;

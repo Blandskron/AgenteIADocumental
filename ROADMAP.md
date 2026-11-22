@@ -1,7 +1,7 @@
 # ROADMAP — Evolución Agentic AI (LangChain, LangGraph y Code Mode)
 
 > **Naturaleza de este documento:** Investigación arquitectónica, diseño técnico y backlog ejecutable para incorporar capacidades agénticas **opcionales, seguras y desacopladas** en Blandskron Documental.  
-> **Estado actual:** Backlog `AG-001`..`AG-024` implementado de forma opcional detrás de `AGENTS_ENABLED=false` y `CODE_MODE_ENABLED=false`; el RAG tradicional, Docker Compose base y todos los servicios existentes permanecen intactos.
+> **Estado actual:** Backlog `AG-001`..`AG-034` implementado de forma opcional detrás de `AGENTS_ENABLED=false` y `CODE_MODE_ENABLED=false`; el RAG tradicional, Docker Compose base y todos los servicios existentes permanecen intactos.
 
 ---
 
@@ -465,6 +465,58 @@ Se recomienda **una experiencia unificada dentro de `ChatPage`** (selector de mo
   - **Estado:** `[x]` | **Prioridad:** P2 | **Complejidad:** S | **Dependencias:** `AG-014`
   - **Objetivo:** Medir latencias de compactación de checkpoints, verificación de citas, extracción determinista y validación de sandbox sin API keys externas, y exponer `make test-agents` / `make benchmark-agents`.
   - **Archivos/servicios:** `scripts/eval/benchmark_agents_budget.py`, `Makefile`.
+
+### Épica E7 — Capacidades documentales avanzadas, resiliencia operativa, exportación PDF y cobertura UI
+
+- **`AG-025` — Adaptador de solo lectura hacia `DocumentAccessServices` (`get_document_metadata`) en `ToolRegistry`**
+  - **Estado:** `[x]` | **Prioridad:** P1 | **Complejidad:** S | **Dependencias:** `AG-015`
+  - **Objetivo:** Permitir inspección de metadatos autorizados de documentos vía `DocumentAccessServices` propagando el JWT del usuario.
+  - **Archivos/servicios:** `backend/AgentOrchestratorServices/app/infrastructure/access/access_client.py`, `tests/test_access_tool_adapter.py`.
+
+- **`AG-026` — Motor determinista de comparación de contratos (`compare_contract_clauses`)**
+  - **Estado:** `[x]` | **Prioridad:** P1 | **Complejidad:** M | **Dependencias:** `AG-016`
+  - **Objetivo:** Agrupar evidencia verificada por documento, detectar cláusulas (penalización, vigencia, monto, rescisión, confidencialidad), señalar diferencias y generar tabla comparativa citada `[Fuente N]`.
+  - **Archivos/servicios:** `backend/AgentOrchestratorServices/app/application/analysis/contract_comparator.py`, `tests/test_contract_comparator.py`.
+
+- **`AG-027` — Detector determinista de vencimientos y alertas de calendario (`detect_expirations`)**
+  - **Estado:** `[x]` | **Prioridad:** P1 | **Complejidad:** S | **Dependencias:** `AG-016`
+  - **Objetivo:** Clasificar fechas extraídas en buckets de urgencia (`EXPIRED`, `URGENT_30D`, `UPCOMING_90D`, `FUTURE`) con anclaje a `document_id#chunk_index`.
+  - **Archivos/servicios:** `backend/AgentOrchestratorServices/app/application/analysis/expiration_detector.py`, `tests/test_expiration_detector.py`.
+
+- **`AG-028` — Endpoint de análisis determinista rápido (`POST /api/v1/agents/runs/{run_id}/analyze`)**
+  - **Estado:** `[x]` | **Prioridad:** P1 | **Complejidad:** S | **Dependencias:** `AG-026`, `AG-027`
+  - **Objetivo:** Ejecutar comparación de cláusulas, detección de vencimientos y extracción de hechos sobre fuentes verificadas con coste cero de LLM.
+  - **Archivos/servicios:** `backend/AgentOrchestratorServices/app/interfaces/api/v1/runs_routes.py`.
+
+- **`AG-029` — Handoff directo a `DocumentExportServices` para generar PDF de una ejecución (`POST /api/v1/agents/runs/{run_id}/export-pdf`)**
+  - **Estado:** `[x]` | **Prioridad:** P2 | **Complejidad:** S | **Dependencias:** `AG-020`
+  - **Objetivo:** Exportar informes agénticos a PDF con idempotencia propagando el JWT del usuario y degradación limpia a Markdown si el servicio de exportación está apagado.
+  - **Archivos/servicios:** `backend/AgentOrchestratorServices/app/infrastructure/export/pdf_export_client.py`, `tests/test_pdf_export_client.py`.
+
+- **`AG-030` — Rate limiter deslizante por `(tenant_id, user_id)` (`AgentRateLimiter`) con cabecera `Retry-After`**
+  - **Estado:** `[x]` | **Prioridad:** P1 | **Complejidad:** S | **Dependencias:** `AG-009`
+  - **Objetivo:** Mitigar ráfagas accidentales en `POST /api/v1/agents/runs` devolviendo HTTP `429` con `Retry-After`.
+  - **Archivos/servicios:** `backend/AgentOrchestratorServices/app/application/rate_limiter.py`, `tests/test_rate_limiter.py`.
+
+- **`AG-031` — Inspección de metadatos y retención/poda de checkpoints (`prune_old_checkpoints`, `GET /runs/{run_id}/checkpoints`)**
+  - **Estado:** `[x]` | **Prioridad:** P2 | **Complejidad:** S | **Dependencias:** `AG-008`
+  - **Objetivo:** Evitar crecimiento ilimitado de `agents.agent_checkpoints` y exponer metadatos seguros de progreso sin filtrar secretos.
+  - **Archivos/servicios:** `backend/AgentOrchestratorServices/app/infrastructure/database/checkpointer.py`, `tests/test_checkpoint_retention.py`.
+
+- **`AG-032` — Filtros en `AgentHistoryList`, panel de análisis determinista (fechas/montos) y botón PDF en Frontend**
+  - **Estado:** `[x]` | **Prioridad:** P2 | **Complejidad:** M | **Dependencias:** `AG-022`, `AG-028`, `AG-029`
+  - **Objetivo:** Permitir filtrar ejecuciones por estado/objetivo, lanzar análisis determinista de fechas/montos y exportar a PDF desde `AgentRunPanel`.
+  - **Archivos/servicios:** `frontend/src/features/agents/components/AgentHistoryList.tsx`, `AgentRunPanel.tsx`, `frontend/src/pages/ChatPage/ChatPage.tsx`.
+
+- **`AG-033` — Pruebas unitarias de renderizado y accesibilidad de componentes React de Agentes**
+  - **Estado:** `[x]` | **Prioridad:** P1 | **Complejidad:** S | **Dependencias:** `AG-032`
+  - **Objetivo:** Verificar en CI que `AgentModeSelector` no altera Modo 1 cuando `agents_enabled=false` y que `AgentRunPanel`/`AgentHistoryList` renderizan controles accesibles cuando están activos.
+  - **Archivos/servicios:** `frontend/tests/agents.components.test.js`.
+
+- **`AG-034` — Validador de contrato de seguridad en CI (`check_agents_contract.py`) y documentación completa de endpoints**
+  - **Estado:** `[x]` | **Prioridad:** P1 | **Complejidad:** S | **Dependencias:** `AG-025`..`AG-033`
+  - **Objetivo:** Blindar en `agents-fast` que `AGENTS_ENABLED=false`, `CODE_MODE_ENABLED=false`, `LANGGRAPH_STRICT_MSGPACK=true`, loopback-only y `code_sandbox_net` interno nunca regresen.
+  - **Archivos/servicios:** `scripts/ci/check_agents_contract.py`, `.github/workflows/ci-fast.yml`, `backend/AgentOrchestratorServices/README.md`.
 
 ---
 
