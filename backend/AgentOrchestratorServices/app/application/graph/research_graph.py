@@ -17,6 +17,10 @@ from app.application.graph.code_mode_node import (
     is_code_mode_enabled,
 )
 from app.application.quota_service import TenantQuotaService
+from app.application.security.prompt_guard import (
+    neutralize_document_snippet,
+    sanitize_user_goal,
+)
 from app.application.templates.agent_templates import get_agent_template
 from app.application.tools.registry import ToolRegistry, redact_secrets
 from app.infrastructure.database.audit_logger import AuditLogger
@@ -44,7 +48,7 @@ def wrap_document_context(evidence: list[dict[str, Any]]) -> str:
     for idx, item in enumerate(evidence, start=1):
         doc_id = item.get("document_id", "")
         chunk_idx = item.get("chunk_index", 0)
-        quote = redact_secrets(str(item.get("quote") or ""))[:600]
+        quote = neutralize_document_snippet(redact_secrets(str(item.get("quote") or "")))[:600]
         lines.append(f"[Fuente {idx}] ({doc_id}#{chunk_idx}): {quote}")
     lines.append("</document_context>")
     return "\n".join(lines)
@@ -180,12 +184,13 @@ class ResearchAgentGraph:
         self._quota.check_can_start(tenant_id, requested_max_tokens=bounded_tokens)
 
         effective_mode = "code_mode" if enable_code_mode or mode == "code_mode" else "agent"
+        safe_goal = sanitize_user_goal(goal)
         run = self._repo.create_run(
             tenant_id=tenant_id,
             owner_user_id=user_id,
             idempotency_key=idempotency_key,
             mode=effective_mode,
-            goal=goal,
+            goal=safe_goal,
             document_ids=list(document_ids or []),
             provider=self._model.config.provider,
         )

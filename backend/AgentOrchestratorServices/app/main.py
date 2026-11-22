@@ -10,6 +10,7 @@ from app.application.graph.code_mode_node import (
     describe_readonly_tool,
     discover_readonly_tools,
 )
+from app.application.health_service import run_deep_health_check
 from app.application.tools.registry import ToolRegistry
 from app.config.security import require_agent_user
 from app.infrastructure.access.access_client import (
@@ -77,6 +78,16 @@ def health() -> dict[str, Any]:
         "agents_enabled": is_agents_enabled(),
         "code_mode_enabled": is_code_mode_enabled(),
     }
+
+
+@app.get("/api/v1/health/deep")
+def deep_health(user: dict[str, Any] = Depends(require_agent_user)) -> dict[str, Any]:
+    report = run_deep_health_check(
+        agents_enabled=is_agents_enabled(),
+        code_mode_enabled=is_code_mode_enabled(),
+    )
+    report["checked_by_tenant"] = user["active_tenant_id"]
+    return report
 
 
 @app.get("/api/v1/agents/tools")

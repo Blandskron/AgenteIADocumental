@@ -117,6 +117,19 @@ export interface AgentRunAnalysis {
     documents_compared: number;
     comparison_markdown: string;
   };
+  risks?: {
+    risk_level: "LOW" | "MEDIUM" | "HIGH";
+    risk_score: number;
+    findings: Array<{ severity: string; code: string; message: string }>;
+  };
+}
+
+export interface AgentAuditEvent {
+  audit_id: string;
+  event_type: string;
+  actor_user_id: string;
+  metadata: Record<string, unknown>;
+  created_at: string;
 }
 
 export interface AgentPdfExportResult {

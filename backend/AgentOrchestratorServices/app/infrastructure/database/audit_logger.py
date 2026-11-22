@@ -82,3 +82,39 @@ class AuditLogger:
             except Exception:
                 self._session.rollback()
         return event
+
+    def list_for_run(self, *, run_id: str, tenant_id: str) -> list[dict[str, Any]]:
+        """Returns sanitized audit events for a specific run scoped strictly to tenant_id."""
+        if self._session is not None:
+            try:
+                rows = self._session.execute(
+                    text(
+                        """
+                        SELECT id, action, actor_user_id, metadata, created_at
+                        FROM public.audit_logs
+                        WHERE tenant_id = :tenant_id
+                          AND target_type = 'agent_run'
+                          AND target_id = :run_id
+                        ORDER BY created_at ASC
+                        LIMIT 100
+                        """
+                    ),
+                    {"tenant_id": tenant_id, "run_id": run_id},
+                ).mappings().all()
+                return [
+                    {
+                        "audit_id": str(r["id"]),
+                        "event_type": str(r["action"]),
+                        "actor_user_id": str(r["actor_user_id"]),
+                        "metadata": r["metadata"] if isinstance(r["metadata"], dict) else {},
+                        "created_at": str(r["created_at"]),
+                    }
+                    for r in rows
+                ]
+            except Exception:
+                pass
+        return [
+            dict(ev)
+            for ev in self.events
+            if ev["run_id"] == run_id and ev["tenant_id"] == tenant_id
+        ]

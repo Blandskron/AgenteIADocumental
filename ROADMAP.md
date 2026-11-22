@@ -1,7 +1,7 @@
 # ROADMAP — Evolución Agentic AI (LangChain, LangGraph y Code Mode)
 
 > **Naturaleza de este documento:** Investigación arquitectónica, diseño técnico y backlog ejecutable para incorporar capacidades agénticas **opcionales, seguras y desacopladas** en Blandskron Documental.  
-> **Estado actual:** Backlog `AG-001`..`AG-034` implementado de forma opcional detrás de `AGENTS_ENABLED=false` y `CODE_MODE_ENABLED=false`; el RAG tradicional, Docker Compose base y todos los servicios existentes permanecen intactos.
+> **Estado actual:** Backlog completo `AG-001`..`AG-044` (44/44 tareas completadas, **0 pendientes**) implementado de forma opcional detrás de `AGENTS_ENABLED=false` y `CODE_MODE_ENABLED=false`; el RAG tradicional, Docker Compose base y todos los servicios existentes permanecen intactos.
 
 ---
 
@@ -517,6 +517,58 @@ Se recomienda **una experiencia unificada dentro de `ChatPage`** (selector de mo
   - **Estado:** `[x]` | **Prioridad:** P1 | **Complejidad:** S | **Dependencias:** `AG-025`..`AG-033`
   - **Objetivo:** Blindar en `agents-fast` que `AGENTS_ENABLED=false`, `CODE_MODE_ENABLED=false`, `LANGGRAPH_STRICT_MSGPACK=true`, loopback-only y `code_sandbox_net` interno nunca regresen.
   - **Archivos/servicios:** `scripts/ci/check_agents_contract.py`, `.github/workflows/ci-fast.yml`, `backend/AgentOrchestratorServices/README.md`.
+
+### Épica E8 — Operaciones de producción, diagnóstico profundo, auditoría por ejecución y E2E Playwright
+
+- **`AG-035` — Healthcheck profundo de dependencias (`/api/v1/health/deep`) sin exposición de secretos**
+  - **Estado:** `[x]` | **Prioridad:** P1 | **Complejidad:** S | **Dependencias:** `AG-004`
+  - **Objetivo:** Comprobar conectividad con PostgreSQL, Knowledge Studio MCP y Code Sandbox Runner reportando estado `ok`/`degraded` sin exponer DSNs ni tokens.
+  - **Archivos/servicios:** `backend/AgentOrchestratorServices/app/application/health_service.py`, `app/main.py`, `tests/test_deep_health.py`.
+
+- **`AG-036` — Guardia anti-prompt-injection y neutralización de ruptura de delimitadores (`prompt_guard.py`)**
+  - **Estado:** `[x]` | **Prioridad:** P0 | **Complejidad:** S | **Dependencias:** `AG-007`
+  - **Objetivo:** Detectar y neutralizar etiquetas `</document_context>` y tokens especiales `<|im_start|>` dentro de fragmentos recuperados y objetivos de usuario.
+  - **Archivos/servicios:** `backend/AgentOrchestratorServices/app/application/security/prompt_guard.py`, `app/application/graph/research_graph.py`, `tests/test_prompt_guard.py`.
+
+- **`AG-037` — Re-ejecución controlada de ejecuciones fallidas o canceladas (`POST /api/v1/agents/runs/{run_id}/retry`)**
+  - **Estado:** `[x]` | **Prioridad:** P2 | **Complejidad:** S | **Dependencias:** `AG-009`
+  - **Objetivo:** Permitir reintentar ejecuciones `FAILED`/`CANCELLED` propias con nueva clave de idempotencia respetando cuotas y rate-limit.
+  - **Archivos/servicios:** `backend/AgentOrchestratorServices/app/interfaces/api/v1/runs_routes.py`.
+
+- **`AG-038` — Evaluador determinista de riesgos contractuales (`assess_document_risks`) integrado en `/analyze`**
+  - **Estado:** `[x]` | **Prioridad:** P1 | **Complejidad:** S | **Dependencias:** `AG-026`, `AG-027`
+  - **Objetivo:** Clasificar riesgo `LOW | MEDIUM | HIGH` por fechas vencidas/urgentes, penalizaciones `>= 5%` y cláusulas faltantes con referencias `[Fuente N]`.
+  - **Archivos/servicios:** `backend/AgentOrchestratorServices/app/application/analysis/risk_assessor.py`, `tests/test_risk_assessor.py`.
+
+- **`AG-039` — Consulta de traza de auditoría saneada por ejecución (`GET /api/v1/agents/runs/{run_id}/audit`)**
+  - **Estado:** `[x]` | **Prioridad:** P1 | **Complejidad:** S | **Dependencias:** `AG-009`
+  - **Objetivo:** Exponer al propietario los eventos `agent.*` de su ejecución aislados por `tenant_id` y sin secretos.
+  - **Archivos/servicios:** `backend/AgentOrchestratorServices/app/infrastructure/database/audit_logger.py`, `tests/test_run_audit_trail.py`.
+
+- **`AG-040` — Guard de concurrencia activa por tenant (`TenantConcurrencyGuard`)**
+  - **Estado:** `[x]` | **Prioridad:** P1 | **Complejidad:** S | **Dependencias:** `AG-030`
+  - **Objetivo:** Limitar ejecuciones simultáneas por tenant (`AGENT_MAX_CONCURRENT_RUNS_PER_TENANT`, default 3) evitando saturación de CPU/Ollama local y liberando en `try/finally`.
+  - **Archivos/servicios:** `backend/AgentOrchestratorServices/app/application/concurrency_guard.py`, `tests/test_concurrency_guard.py`.
+
+- **`AG-041` — Biblioteca curada de presets Code Mode validados (`GET /api/v1/agents/code-presets`)**
+  - **Estado:** `[x]` | **Prioridad:** P2 | **Complejidad:** S | **Dependencias:** `AG-011`
+  - **Objetivo:** Proveer snippets TS/JS deterministas (`group_by_document`, `sum_numeric_amounts`, `filter_iso_dates`) validados contra la política estática del sandbox.
+  - **Archivos/servicios:** `backend/AgentOrchestratorServices/app/application/graph/code_mode_presets.py`, `tests/test_code_mode_presets.py`.
+
+- **`AG-042` — Nivel de riesgo, botón "Reintentar" y visor de auditoría en `AgentRunPanel` (Frontend)**
+  - **Estado:** `[x]` | **Prioridad:** P2 | **Complejidad:** S | **Dependencias:** `AG-037`, `AG-038`, `AG-039`
+  - **Objetivo:** Mostrar nivel de riesgo `LOW/MEDIUM/HIGH`, hallazgos deterministas, botón Reintentar y eventos de auditoría colapsables en la interfaz de chat.
+  - **Archivos/servicios:** `frontend/src/features/agents/components/AgentRunPanel.tsx`, `frontend/src/pages/ChatPage/ChatPage.tsx`.
+
+- **`AG-043` — Suite E2E Playwright para flujos agénticos y regresión de Modo 1 (`frontend/tests/browser/agents.spec.js`)**
+  - **Estado:** `[x]` | **Prioridad:** P1 | **Complejidad:** S | **Dependencias:** `AG-033`, `AG-042`
+  - **Objetivo:** Validar en navegador que Modo 1 no muestra UI agéntica con `AGENTS_ENABLED=false` y que el selector unificado + flujo HITL funcionan con `AGENTS_ENABLED=true`.
+  - **Archivos/servicios:** `frontend/tests/browser/agents.spec.js`.
+
+- **`AG-044` — Orquestador de verificación integral (`scripts/ci/verify_agents_all.py`) y cierre de roadmap (44/44)**
+  - **Estado:** `[x]` | **Prioridad:** P1 | **Complejidad:** S | **Dependencias:** `AG-034`..`AG-043`
+  - **Objetivo:** Ejecutar en un solo comando `ruff`, contrato de seguridad, benchmark determinista, suites `pytest` y validación de enlaces Markdown.
+  - **Archivos/servicios:** `scripts/ci/verify_agents_all.py`, `ROADMAP.md`.
 
 ---
 

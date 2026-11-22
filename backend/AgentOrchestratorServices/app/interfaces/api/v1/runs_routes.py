@@ -9,11 +9,14 @@ from typing import Any
 
 from app.application.analysis.contract_comparator import compare_contract_clauses
 from app.application.analysis.expiration_detector import detect_expirations
+from app.application.analysis.risk_assessor import assess_document_risks
+from app.application.concurrency_guard import ConcurrencyLimitError, TenantConcurrencyGuard
 from app.application.export_service import export_run_csv, export_run_markdown
 from app.application.graph.code_mode_node import (
     CodeModeDisabledError,
     is_code_mode_enabled,
 )
+from app.application.graph.code_mode_presets import list_code_mode_presets
 from app.application.graph.research_graph import ResearchAgentGraph
 from app.application.metrics_service import AgentMetricsCollector
 from app.application.quota_service import QuotaExceededError, TenantQuotaService
@@ -65,6 +68,7 @@ _fallback_quota = TenantQuotaService()
 _fallback_audit = AuditLogger()
 _metrics_collector = AgentMetricsCollector()
 _rate_limiter = AgentRateLimiter()
+_concurrency_guard = TenantConcurrencyGuard()
 
 
 class StartAgentRunRequest(BaseModel):
@@ -181,30 +185,31 @@ def create_agent_run(
 
     repo, checkpointer, quota, audit, llm_resolver = _get_runtime_components()
     try:
-        llm_cfg = llm_resolver.resolve(str(user["active_tenant_id"]))
-        model_client = build_agent_model_client(llm_cfg)
-        graph = ResearchAgentGraph(
-            registry=_build_registry(),
-            model_client=model_client,
-            repo=repo,
-            checkpointer=checkpointer,
-            quota_service=quota,
-            audit_logger=audit,
-            sandbox_client=_build_sandbox(),
-            studio_client=_build_studio(),
-        )
-        run = graph.start_run(
-            user=user,
-            goal=payload.goal,
-            document_ids=payload.document_ids,
-            mode=payload.mode,
-            enable_code_mode=payload.enable_code_mode or payload.mode == "code_mode",
-            max_steps=payload.max_steps,
-            max_tokens=payload.max_tokens,
-            idempotency_key=payload.idempotency_key,
-            save_to_studio=payload.save_to_studio,
-            template_id=payload.template_id,
-        )
+        with _concurrency_guard.acquire(str(user["active_tenant_id"])):
+            llm_cfg = llm_resolver.resolve(str(user["active_tenant_id"]))
+            model_client = build_agent_model_client(llm_cfg)
+            graph = ResearchAgentGraph(
+                registry=_build_registry(),
+                model_client=model_client,
+                repo=repo,
+                checkpointer=checkpointer,
+                quota_service=quota,
+                audit_logger=audit,
+                sandbox_client=_build_sandbox(),
+                studio_client=_build_studio(),
+            )
+            run = graph.start_run(
+                user=user,
+                goal=payload.goal,
+                document_ids=payload.document_ids,
+                mode=payload.mode,
+                enable_code_mode=payload.enable_code_mode or payload.mode == "code_mode",
+                max_steps=payload.max_steps,
+                max_tokens=payload.max_tokens,
+                idempotency_key=payload.idempotency_key,
+                save_to_studio=payload.save_to_studio,
+                template_id=payload.template_id,
+            )
         _metrics_collector.record_run_outcome(
             tenant_id=str(user["active_tenant_id"]),
             status=str(run.get("status") or "UNKNOWN"),
@@ -214,6 +219,8 @@ def create_agent_run(
             code_mode_used=bool(run.get("code_executions")),
         )
         return run
+    except ConcurrencyLimitError as exc:
+        raise HTTPException(status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail=str(exc)) from None
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from None
     except CodeModeDisabledError as exc:
@@ -425,11 +432,16 @@ def analyze_agent_run(
     if run is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Ejecución de agente no encontrada.")
     sources = run.get("sources") or []
+    facts = extract_deterministic_facts(sources)
+    expirations = detect_expirations(sources)
+    comparison = compare_contract_clauses(sources)
+    risks = assess_document_risks(comparison=comparison, expirations=expirations)
     return {
         "run_id": run_id,
-        "facts": extract_deterministic_facts(sources),
-        "expirations": detect_expirations(sources),
-        "comparison": compare_contract_clauses(sources),
+        "facts": facts,
+        "expirations": expirations,
+        "comparison": comparison,
+        "risks": risks,
     }
 
 
@@ -478,3 +490,54 @@ def list_run_checkpoints(
         owner_user_id=user_id,
     )
     return {"run_id": run_id, "thread_id": run["thread_id"], "checkpoints": items}
+
+
+@router.get("/runs/{run_id}/audit")
+def list_run_audit_events(
+    run_id: str,
+    user: dict[str, Any] = Depends(require_agent_user),
+) -> dict[str, Any]:
+    _require_agents_enabled()
+    repo, _, _, audit, _ = _get_runtime_components()
+    tenant_id = str(user["active_tenant_id"])
+    user_id = str(user["user_id"])
+    run = repo.get_run(run_id, tenant_id=tenant_id, owner_user_id=user_id)
+    if run is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Ejecución de agente no encontrada.")
+    events = audit.list_for_run(run_id=run_id, tenant_id=tenant_id)
+    return {"run_id": run_id, "events": events}
+
+
+@router.post("/runs/{run_id}/retry", status_code=status.HTTP_201_CREATED)
+def retry_agent_run(
+    run_id: str,
+    user: dict[str, Any] = Depends(require_agent_user),
+) -> dict[str, Any]:
+    _require_agents_enabled()
+    repo, *_ = _get_runtime_components()
+    original = repo.get_run(
+        run_id,
+        tenant_id=str(user["active_tenant_id"]),
+        owner_user_id=str(user["user_id"]),
+    )
+    if original is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Ejecución de agente no encontrada.")
+    if original.get("status") not in {"FAILED", "CANCELLED"}:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Solo se pueden reintentar ejecuciones fallidas o canceladas.",
+        )
+    retry_payload = StartAgentRunRequest(
+        mode=str(original.get("mode") or "agent"),
+        goal=str(original.get("goal") or "Reintento"),
+        document_ids=list(original.get("document_ids") or []),
+        enable_code_mode=str(original.get("mode") or "agent") == "code_mode",
+        idempotency_key=f"retry-{run_id}-{uuid.uuid4().hex[:8]}",
+    )
+    return create_agent_run(retry_payload, user=user)
+
+
+@router.get("/code-presets")
+def get_code_mode_presets(user: dict[str, Any] = Depends(require_agent_user)) -> dict[str, Any]:
+    _require_agents_enabled()
+    return {"tenant_id": user["active_tenant_id"], "presets": list_code_mode_presets()}

@@ -4,6 +4,7 @@ import {
   Code2,
   Download,
   FileText,
+  RotateCcw,
   ShieldAlert,
   Square,
   X,
@@ -12,6 +13,7 @@ import { useState } from "react";
 
 import { SafeMarkdown } from "@/features/chat/ui/SafeMarkdown.tsx";
 import type {
+  AgentAuditEvent,
   AgentQuotaSnapshot,
   AgentRun,
   AgentRunAnalysis,
@@ -21,9 +23,11 @@ interface AgentRunPanelProps {
   run: AgentRun | null;
   quota?: AgentQuotaSnapshot | null;
   analysis?: AgentRunAnalysis | null;
+  auditEvents?: AgentAuditEvent[];
   busy: boolean;
   error: string | null;
   onCancel: (runId: string) => void;
+  onRetry?: (runId: string) => void;
   onExport?: (runId: string, format: "markdown" | "csv") => void;
   onExportPdf?: (runId: string) => void;
   onAnalyze?: (runId: string) => void;
@@ -40,9 +44,11 @@ export function AgentRunPanel({
   run,
   quota,
   analysis,
+  auditEvents = [],
   busy,
   error,
   onCancel,
+  onRetry,
   onExport,
   onExportPdf,
   onAnalyze,
@@ -198,6 +204,29 @@ export function AgentRunPanel({
                 Cancelar
               </button>
             )}
+          {run &&
+            (run.status === "CANCELLED" || run.status === "FAILED") &&
+            onRetry && (
+              <button
+                type="button"
+                onClick={() => onRetry(run.run_id)}
+                disabled={busy}
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "0.3rem",
+                  padding: "0.25rem 0.6rem",
+                  borderRadius: "8px",
+                  border: "1px solid currentColor",
+                  background: "transparent",
+                  cursor: "pointer",
+                  fontSize: "0.8rem",
+                }}
+              >
+                <RotateCcw size={12} aria-hidden="true" />
+                Reintentar
+              </button>
+            )}
           <button
             type="button"
             onClick={onDismiss}
@@ -303,7 +332,17 @@ export function AgentRunPanel({
           <strong>
             Análisis determinista · {analysis.expirations.total_dates} fechas ·{" "}
             {analysis.facts.amounts.length} montos/porcentajes
+            {analysis.risks ? ` · Riesgo: ${analysis.risks.risk_level}` : ""}
           </strong>
+          {analysis.risks && analysis.risks.findings.length > 0 && (
+            <ul style={{ margin: 0, paddingLeft: "1.1rem" }}>
+              {analysis.risks.findings.slice(0, 4).map((f, idx) => (
+                <li key={`${f.code}-${idx}`}>
+                  <strong>[{f.severity}]</strong> {f.message}
+                </li>
+              ))}
+            </ul>
+          )}
           {analysis.expirations.alerts.length > 0 && (
             <ul style={{ margin: 0, paddingLeft: "1.1rem" }}>
               {analysis.expirations.alerts.slice(0, 6).map((alert, idx) => (
@@ -325,6 +364,27 @@ export function AgentRunPanel({
             </div>
           )}
         </div>
+      )}
+
+      {auditEvents.length > 0 && (
+        <details>
+          <summary style={{ cursor: "pointer", fontSize: "0.8rem" }}>
+            Auditoría de ejecución ({auditEvents.length} eventos)
+          </summary>
+          <ul
+            style={{
+              margin: "0.35rem 0 0 1.1rem",
+              padding: 0,
+              fontSize: "0.78rem",
+            }}
+          >
+            {auditEvents.map((ev) => (
+              <li key={ev.audit_id}>
+                <code>{ev.event_type}</code> · {ev.created_at}
+              </li>
+            ))}
+          </ul>
+        </details>
       )}
 
       {run?.pending_approval && (

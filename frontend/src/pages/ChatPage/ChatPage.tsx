@@ -13,15 +13,18 @@ import {
   exportAgentRunPdf,
   getAgentHealth,
   getAgentQuota,
+  listAgentRunAudit,
   listAgentRuns,
   listAgentTemplates,
   resumeAgentApproval,
+  retryAgentRun,
   startAgentRun,
 } from "@/features/agents/api/agents.api.ts";
 import { AgentHistoryList } from "@/features/agents/components/AgentHistoryList.tsx";
 import { AgentModeSelector } from "@/features/agents/components/AgentModeSelector.tsx";
 import { AgentRunPanel } from "@/features/agents/components/AgentRunPanel.tsx";
 import type {
+  AgentAuditEvent,
   AgentCapabilities,
   AgentQuotaSnapshot,
   AgentRun,
@@ -69,6 +72,9 @@ export function ChatPage({ onNavigate }: PageProps) {
   const [activeAgentRun, setActiveAgentRun] = useState<AgentRun | null>(null);
   const [agentAnalysis, setAgentAnalysis] = useState<AgentRunAnalysis | null>(
     null,
+  );
+  const [agentAuditEvents, setAgentAuditEvents] = useState<AgentAuditEvent[]>(
+    [],
   );
   const [agentBusy, setAgentBusy] = useState(false);
   const [agentError, setAgentError] = useState<string | null>(null);
@@ -352,6 +358,32 @@ export function ChatPage({ onNavigate }: PageProps) {
     }
   }
 
+  async function handleAgentRetry(runId: string) {
+    if (!agentClient) return;
+    setAgentBusy(true);
+    setAgentError(null);
+    try {
+      const retried = await retryAgentRun(agentClient, runId);
+      setActiveAgentRun(retried);
+      setAgentAnalysis(null);
+      setAgentRuns((prev) => [
+        retried,
+        ...prev.filter((item) => item.run_id !== retried.run_id),
+      ]);
+      listAgentRunAudit(agentClient, retried.run_id)
+        .then((res) => setAgentAuditEvents(res.events || []))
+        .catch(() => {});
+    } catch (err) {
+      setAgentError(
+        err instanceof Error
+          ? err.message
+          : "No se pudo reintentar la ejecución.",
+      );
+    } finally {
+      setAgentBusy(false);
+    }
+  }
+
   return (
     <AppShell
       sidebarOpen={sidebarOpen}
@@ -466,9 +498,11 @@ export function ChatPage({ onNavigate }: PageProps) {
           run={activeAgentRun}
           quota={agentQuota}
           analysis={agentAnalysis}
+          auditEvents={agentAuditEvents}
           busy={agentBusy}
           error={agentError}
           onCancel={handleAgentCancel}
+          onRetry={handleAgentRetry}
           onExport={handleAgentExport}
           onExportPdf={handleAgentExportPdf}
           onAnalyze={handleAgentAnalyze}
@@ -476,6 +510,7 @@ export function ChatPage({ onNavigate }: PageProps) {
           onDismiss={() => {
             setActiveAgentRun(null);
             setAgentAnalysis(null);
+            setAgentAuditEvents([]);
             setAgentError(null);
           }}
         />
