@@ -34,13 +34,13 @@ def _is_async_ingest_enabled() -> bool:
     responses={409: {"description": "La empresa o el área cambió. Recargar sesión antes de reintentar."}},
 )
 def upload_document(
-    response: Response,
     file: UploadFile = File(...),
     metadata: str | None = Form(default=None),
     process: bool = Form(default=True),
     current_user: dict = Depends(require_upload_user),
     use_case: UploadDocument = Depends(get_upload_document),
     idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
+    response: Response = None,  # type: ignore[assignment]
 ) -> DocumentUploadResponse:
     document_metadata = {
         **parse_metadata(metadata),
@@ -57,7 +57,7 @@ def upload_document(
         process=effective_process,
         idempotency_key=clean_key,
     )
-    if async_mode and document.status.value == "PENDING":
+    if response is not None and async_mode and document.status.value == "PENDING":
         response.status_code = status.HTTP_202_ACCEPTED
     return DocumentUploadResponse(
         document_id=document.document_id,
