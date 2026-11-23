@@ -230,3 +230,6 @@ __marimo__/
 # Agent scratch/brain directories must never be committed.
 brain/
 **/brain/
+
+# Local PostgreSQL backups must never be committed.
+/backups/

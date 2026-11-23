@@ -61,8 +61,22 @@ export function renderInlineMarkdown(
   return nodes;
 }
 
+function parseTableCells(line: string): string[] {
+  const trimmed = line.trim().replace(/^\|/, "").replace(/\|$/, "");
+  return trimmed
+    .split(/(?<!\\)\|/)
+    .map((cell) => cell.replace(/\\\|/g, "|").trim());
+}
+
+function isTableSeparator(line: string): boolean {
+  const trimmed = line.trim();
+  if (!trimmed.includes("|")) return false;
+  const cells = parseTableCells(trimmed);
+  return cells.length >= 2 && cells.every((cell) => /^:?-{3,}:?$/.test(cell));
+}
+
 /**
- * Renders a safe subset of Markdown (headings, paragraphs, lists, fenced code, inline bold/italic/code,
+ * Renders a safe subset of Markdown (headings, paragraphs, tables, lists, fenced code, inline bold/italic/code,
  * and clickable [Fuente N] citations) using pure React elements — never innerHTML — eliminating XSS.
  */
 export function SafeMarkdown({
@@ -129,6 +143,48 @@ export function SafeMarkdown({
       continue;
     }
 
+    // Markdown table (header | separator | body rows)
+    if (
+      line.includes("|") &&
+      i + 1 < lines.length &&
+      isTableSeparator(lines[i + 1])
+    ) {
+      const headers = parseTableCells(line);
+      i += 2;
+      const rows: string[][] = [];
+      while (i < lines.length && lines[i].trim() && lines[i].includes("|")) {
+        rows.push(parseTableCells(lines[i]));
+        i += 1;
+      }
+      blocks.push(
+        <div key={`tbl-${blockKey++}`} className="ui-table-scroll">
+          <table className="ui-data-table md-table">
+            <thead>
+              <tr>
+                {headers.map((header, hIdx) => (
+                  <th key={`th-${hIdx}`}>
+                    {renderInlineMarkdown(header, inlineOpts)}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((row, rIdx) => (
+                <tr key={`tr-${rIdx}`}>
+                  {headers.map((_, cIdx) => (
+                    <td key={`td-${rIdx}-${cIdx}`}>
+                      {renderInlineMarkdown(row[cIdx] ?? "", inlineOpts)}
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>,
+      );
+      continue;
+    }
+
     // Unordered list
     if (/^\s*[-*]\s+/.test(line)) {
       const items: ReactNode[] = [];
@@ -176,6 +232,11 @@ export function SafeMarkdown({
       lines[i].trim() &&
       !lines[i].trim().startsWith("```") &&
       !/^(#{1,4})\s+/.test(lines[i].trim()) &&
+      !(
+        lines[i].includes("|") &&
+        i + 1 < lines.length &&
+        isTableSeparator(lines[i + 1])
+      ) &&
       !/^\s*[-*]\s+/.test(lines[i]) &&
       !/^\s*\d+\.\s+/.test(lines[i])
     ) {
