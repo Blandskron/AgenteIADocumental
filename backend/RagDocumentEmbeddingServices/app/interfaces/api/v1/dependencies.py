@@ -15,6 +15,7 @@ from app.infrastructure.database.repositories.vector_repository_pgvector import 
 from app.infrastructure.extractors.docx_extractor import DocxExtractor
 from app.infrastructure.extractors.image_ocr_extractor import ImageOcrExtractor
 from app.infrastructure.extractors.markdown_normalizer import MarkdownNormalizerExtractor
+from app.infrastructure.extractors.office_extractor import PptxExtractor, XlsxExtractor
 from app.infrastructure.extractors.pdf_extractor import PdfExtractor
 from app.infrastructure.extractors.plain_text_extractor import PlainTextExtractor
 from app.infrastructure.storage.document_path_resolver import LocalDocumentPathResolver
@@ -44,6 +45,8 @@ def build_ingest_existing_document(session: Session, settings: Settings) -> Inge
     extractors = [
         PdfExtractor(),
         DocxExtractor(),
+        XlsxExtractor(),
+        PptxExtractor(),
         MarkdownNormalizerExtractor(),
         PlainTextExtractor(),
         ImageOcrExtractor(),

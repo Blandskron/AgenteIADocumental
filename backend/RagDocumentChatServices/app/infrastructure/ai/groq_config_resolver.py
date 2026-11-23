@@ -213,6 +213,35 @@ class GroqConfigResolver:
                     allow_local=True,
                 )
 
+            if str(active_provider).strip().lower() == "openai_compatible":
+                compat_row = session.execute(
+                    select(
+                        TenantIntegrationModel.status,
+                        TenantIntegrationModel.config,
+                        TenantIntegrationModel.secrets_encrypted,
+                    ).where(
+                        TenantIntegrationModel.tenant_id == tenant_id,
+                        TenantIntegrationModel.provider == "openai_compatible",
+                    )
+                ).first()
+                if compat_row is not None and compat_row.status == "ENABLED":
+                    cfg = (compat_row.config if isinstance(compat_row.config, dict) else {}) or {}
+                    params = cfg.get("params") if isinstance(cfg.get("params"), dict) else {}
+                    keyring = _build_keyring(settings)
+                    api_key = (_decrypt_envelope(compat_row.secrets_encrypted, keyring) or "").strip()
+                    base_url = str(cfg.get("base_url") or "").strip()
+                    if base_url and api_key:
+                        return LLMProviderConfig(
+                            provider="openai_compatible",
+                            api_key=api_key,
+                            model=str(cfg.get("model") or settings.groq_chat_model),
+                            base_url=base_url,
+                            max_tokens=int(params.get("max_tokens", settings.chat_completion_max_tokens)),
+                            temperature=float(params.get("temperature", settings.chat_completion_temperature)),
+                            timeout_seconds=int(params.get("timeout_seconds", settings.chat_completion_timeout_seconds)),
+                            allow_local=bool(cfg.get("allow_local", False)),
+                        )
+
         effective_groq = self.resolve(session, settings, tenant_id)
         return LLMProviderConfig(
             provider="groq",

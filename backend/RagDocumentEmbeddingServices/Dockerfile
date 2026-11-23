@@ -1,7 +1,7 @@
 FROM python:3.12-slim@sha256:5e2bdb1b0d542d5039cffb8181c65930093949194a65c365dfb1b0fe13a4fa5b AS ocr-build
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    cmake ninja-build g++ pkg-config libleptonica-dev tesseract-ocr-eng \
+    cmake ninja-build g++ pkg-config libleptonica-dev tesseract-ocr-eng tesseract-ocr-spa \
     && rm -rf /var/lib/apt/lists/*
 ADD --checksum=sha256:a8dbf8b8c8ee427ff6ad1d99116502feaf59440af1adb893caf60a6576826cf4 \
     https://codeload.github.com/tesseract-ocr/tesseract/tar.gz/refs/tags/5.5.4 /tmp/tesseract.tar.gz
@@ -12,8 +12,10 @@ RUN mkdir /source && tar -xzf /tmp/tesseract.tar.gz -C /source --strip-component
     && cmake --build /build --parallel 4 && cmake --install /build \
     && mkdir -p /opt/tesseract/share/tessdata /opt/tesseract/share/licenses \
     && cp /usr/share/tesseract-ocr/5/tessdata/eng.traineddata /opt/tesseract/share/tessdata/ \
+    && cp /usr/share/tesseract-ocr/5/tessdata/spa.traineddata /opt/tesseract/share/tessdata/ \
     && cp /source/LICENSE /opt/tesseract/share/licenses/tesseract-LICENSE \
-    && cp /usr/share/doc/tesseract-ocr-eng/copyright /opt/tesseract/share/licenses/tessdata-eng-copyright
+    && cp /usr/share/doc/tesseract-ocr-eng/copyright /opt/tesseract/share/licenses/tessdata-eng-copyright \
+    && cp /usr/share/doc/tesseract-ocr-spa/copyright /opt/tesseract/share/licenses/tessdata-spa-copyright
 
 FROM python:3.12-slim@sha256:5e2bdb1b0d542d5039cffb8181c65930093949194a65c365dfb1b0fe13a4fa5b AS base
 

@@ -417,6 +417,27 @@ def _build_live_mcp_dispatcher(repo: StudioRepositoryPg) -> ReadOnlyMcpDispatche
         )
         return {"items": rows, "count": len(rows)}
 
+    def _search_documents_hybrid(args: dict[str, Any], user: dict[str, Any]) -> dict[str, Any]:
+        query = str(args.get("query") or "").strip()
+        limit = int(args.get("limit") or 8)
+        raw_doc_ids = args.get("document_ids")
+        doc_ids = [str(d) for d in raw_doc_ids] if isinstance(raw_doc_ids, list) else None
+        rows = repo.search_authorized_chunks_hybrid(
+            tenant_id=user["active_tenant_id"],
+            owner_user_id=user["user_id"],
+            query=query,
+            document_ids=doc_ids,
+            limit=limit,
+            is_superuser=bool(user.get("is_superuser")),
+        )
+        repo.record_mcp_audit_event(
+            action="mcp.search_documents_hybrid",
+            actor_user_id=user["user_id"],
+            tenant_id=user.get("active_tenant_id"),
+            metadata={"count": len(rows)},
+        )
+        return {"items": rows, "count": len(rows)}
+
     def _get_document_chunks(args: dict[str, Any], user: dict[str, Any]) -> dict[str, Any]:
         doc_id = str(args.get("document_id") or "").strip()
         limit = int(args.get("limit") or 10)
@@ -468,6 +489,7 @@ def _build_live_mcp_dispatcher(repo: StudioRepositoryPg) -> ReadOnlyMcpDispatche
     return ReadOnlyMcpDispatcher(
         {
             "search_documents": _search_documents,
+            "search_documents_hybrid": _search_documents_hybrid,
             "get_document_chunks": _get_document_chunks,
             "list_studio_artifacts": _list_studio_artifacts,
             "get_studio_artifact": _get_studio_artifact,

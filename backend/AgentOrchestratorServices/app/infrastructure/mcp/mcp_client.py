@@ -20,6 +20,19 @@ DEFAULT_MCP_TOOLS = (
         {"type": "object", "properties": {"query": {"type": "string"}, "limit": {"type": "integer"}}, "required": ["query"]},
     ),
     (
+        "search_documents_hybrid",
+        "Recupera fragmentos relevantes mediante búsqueda híbrida (FTS + coincidencia) respetando aislamiento del tenant.",
+        {
+            "type": "object",
+            "properties": {
+                "query": {"type": "string"},
+                "document_ids": {"type": "array", "items": {"type": "string"}},
+                "limit": {"type": "integer"},
+            },
+            "required": ["query"],
+        },
+    ),
+    (
         "get_document_chunks",
         "Obtiene fragmentos autorizados de un documento específico.",
         {"type": "object", "properties": {"document_id": {"type": "string"}, "limit": {"type": "integer"}}, "required": ["document_id"]},

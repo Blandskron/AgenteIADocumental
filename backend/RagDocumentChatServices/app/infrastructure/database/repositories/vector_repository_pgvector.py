@@ -1,3 +1,5 @@
+from dataclasses import replace
+
 from sqlalchemy import bindparam, func, literal, or_, select
 from sqlalchemy.orm import Session
 
@@ -31,7 +33,13 @@ def fuse_reciprocal_rank(
         items.setdefault(item.chunk_id, item)
 
     ordered_ids = sorted(rrf_scores, key=lambda cid: rrf_scores[cid], reverse=True)[:limit]
-    return [items[cid] for cid in ordered_ids]
+    return [
+        replace(
+            items[cid],
+            metadata={**(items[cid].metadata or {}), "rrf_score": round(rrf_scores[cid], 6)},
+        )
+        for cid in ordered_ids
+    ]
 
 
 class VectorRepositoryPgVector:

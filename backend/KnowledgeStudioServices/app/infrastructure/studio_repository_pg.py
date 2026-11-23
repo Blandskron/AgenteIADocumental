@@ -470,6 +470,64 @@ class StudioRepositoryPg:
         ).mappings().all()
         return [dict(r) for r in rows]
 
+    def search_authorized_chunks_hybrid(
+        self,
+        *,
+        tenant_id: str,
+        owner_user_id: str,
+        query: str,
+        document_ids: list[str] | None = None,
+        limit: int = 8,
+        is_superuser: bool = False,
+    ) -> list[dict[str, Any]]:
+        clean_query = (query or "").strip()
+        if not clean_query:
+            return []
+        doc_filter = "AND d.document_id = ANY(:document_ids)" if document_ids else ""
+        rows = self._session.execute(
+            text(
+                f"""
+                SELECT e.chunk_id,
+                       e.document_id,
+                       d.filename,
+                       e.chunk_index,
+                       e.chunk_content,
+                       COALESCE(
+                           CASE WHEN e.content_tsv IS NOT NULL
+                                THEN ts_rank_cd(e.content_tsv, websearch_to_tsquery('spanish', :q))
+                                ELSE 0.0
+                           END,
+                           0.0
+                       ) + CASE WHEN e.chunk_content ILIKE :pattern THEN 0.25 ELSE 0.0 END AS relevance_score
+                FROM public.document_embeddings e
+                JOIN public.documents d ON d.document_id = e.document_id
+                LEFT JOIN public.document_assignments a
+                  ON a.document_id = d.document_id
+                 AND a.status NOT IN ('CANCELLED', 'EXPIRED')
+                 AND (a.assigned_to_user_id = :owner_user_id OR a.assigned_by_user_id = :owner_user_id)
+                WHERE (:is_superuser = TRUE OR (d.tenant_id = :tenant_id AND (d.owner_user_id = :owner_user_id OR a.document_id IS NOT NULL)))
+                  {doc_filter}
+                  AND (
+                      (e.content_tsv IS NOT NULL AND e.content_tsv @@ websearch_to_tsquery('spanish', :q))
+                      OR e.chunk_content ILIKE :pattern
+                      OR d.filename ILIKE :pattern
+                  )
+                ORDER BY relevance_score DESC, e.chunk_index ASC
+                LIMIT :limit
+                """
+            ),
+            {
+                "tenant_id": tenant_id,
+                "owner_user_id": owner_user_id,
+                "is_superuser": is_superuser,
+                "q": clean_query,
+                "pattern": f"%{clean_query}%",
+                "document_ids": list(document_ids or []),
+                "limit": max(1, min(20, limit)),
+            },
+        ).mappings().all()
+        return [dict(r) for r in rows]
+
     def get_authorized_document_chunks(
         self,
         *,
