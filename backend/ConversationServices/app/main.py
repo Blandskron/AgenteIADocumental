@@ -1,4 +1,5 @@
 from contextlib import asynccontextmanager
+import os
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -25,6 +26,20 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title=settings.app_name, version="0.1.0", lifespan=lifespan)
+
+MAX_BODY_BYTES = max(16_384, int(os.environ.get("CONVERSATION_MAX_BODY_BYTES", str(1024 * 1024))))
+
+
+@app.middleware("http")
+async def enforce_body_size_limit(request: Request, call_next):
+    content_length = request.headers.get("content-length")
+    if content_length and content_length.isdigit() and int(content_length) > MAX_BODY_BYTES:
+        return JSONResponse(status_code=413, content={"detail": "El cuerpo de la solicitud excede el límite permitido."})
+    if request.method in {"POST", "PUT", "PATCH"}:
+        body = await request.body()
+        if len(body) > MAX_BODY_BYTES:
+            return JSONResponse(status_code=413, content={"detail": "El cuerpo de la solicitud excede el límite permitido."})
+    return await call_next(request)
 
 app.add_middleware(
     CORSMiddleware,

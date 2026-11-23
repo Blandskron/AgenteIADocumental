@@ -29,7 +29,8 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE
     agents.agent_runs,
     agents.agent_approvals,
     agents.agent_usage_daily,
-    agents.agent_checkpoints
+    agents.agent_checkpoints,
+    agents.agent_findings
 TO agent_runtime;
 
 -- Strict isolation: agent_runtime NEVER reads public.documents or public.document_embeddings directly.
