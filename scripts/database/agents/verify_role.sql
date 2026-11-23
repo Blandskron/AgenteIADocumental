@@ -19,6 +19,9 @@ BEGIN
     IF NOT has_table_privilege('agent_runtime', 'public.audit_logs', 'INSERT') THEN
         RAISE EXCEPTION 'agent_runtime must have INSERT on public.audit_logs';
     END IF;
+    IF NOT has_table_privilege('agent_runtime', 'public.audit_logs', 'SELECT') THEN
+        RAISE EXCEPTION 'agent_runtime must have SELECT on public.audit_logs';
+    END IF;
 END
 $$;
 

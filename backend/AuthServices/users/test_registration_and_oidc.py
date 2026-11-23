@@ -75,6 +75,11 @@ class RegistrationAndGoogleOidcTests(APITestCase):
         self.assertTrue(first.data["user"]["is_superuser"])
         self.assertEqual(first.data["user"]["active_role"], "TENANT_ADMIN")
         self.assertIn("access", first.data)
+        decoded_first = jwt.decode(first.data["access"], options={"verify_signature": False})
+        self.assertEqual(decoded_first["active_role"], "TENANT_ADMIN")
+        self.assertEqual(decoded_first["active_tenant_id"], first.data["user"]["active_tenant_id"])
+        self.assertIn("roles", decoded_first)
+        self.assertIn("tenant_memberships", decoded_first)
 
         status_after = self.client.get("/api/users/setup-status/")
         self.assertFalse(status_after.data["needs_setup"])

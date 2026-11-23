@@ -226,3 +226,7 @@ __marimo__/
 /reviewed-avatar-manifests/
 /frontend/test-results/
 /frontend/playwright-report/
+
+# Agent scratch/brain directories must never be committed.
+brain/
+**/brain/

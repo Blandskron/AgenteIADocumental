@@ -18,6 +18,9 @@ CREATE TABLE IF NOT EXISTS agents.agent_runs (
     current_step TEXT NOT NULL DEFAULT 'queued',
     steps JSONB NOT NULL DEFAULT '[]'::jsonb,
     sources JSONB NOT NULL DEFAULT '[]'::jsonb,
+    code_executions JSONB NOT NULL DEFAULT '[]'::jsonb,
+    pending_approval JSONB,
+    studio_handoff JSONB,
     result_markdown TEXT,
     error_code TEXT,
     error_message TEXT,
@@ -74,4 +77,10 @@ CREATE INDEX IF NOT EXISTS agent_approvals_run_idx
 
 CREATE INDEX IF NOT EXISTS agent_checkpoints_tenant_owner_idx
     ON agents.agent_checkpoints (tenant_id, owner_user_id, thread_id, checkpoint_seq DESC);
+
+-- Additive migration for existing installations (EVO-004)
+ALTER TABLE agents.agent_runs
+    ADD COLUMN IF NOT EXISTS code_executions JSONB NOT NULL DEFAULT '[]'::jsonb,
+    ADD COLUMN IF NOT EXISTS pending_approval JSONB,
+    ADD COLUMN IF NOT EXISTS studio_handoff JSONB;
 

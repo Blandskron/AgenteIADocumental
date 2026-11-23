@@ -210,7 +210,7 @@ class ResearchAgentGraph:
             "thread_id": thread_id,
             "tenant_id": tenant_id,
             "owner_user_id": user_id,
-            "goal": goal,
+            "goal": safe_goal,
             "document_ids": list(document_ids or []),
             "enable_code_mode": enable_code_mode,
             "save_to_studio": effective_save_to_studio,

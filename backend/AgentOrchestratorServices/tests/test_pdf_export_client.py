@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import uuid
 import pytest
 
 from app.infrastructure.export.pdf_export_client import AgentPdfExportClient
@@ -25,7 +26,8 @@ def test_pdf_export_client_propagates_jwt_and_falls_back_cleanly() -> None:
     assert created["status"] == "created"
     assert created["export_id"] == "exp_999"
     assert captured[0]["headers"]["Authorization"] == "Bearer synthetic.jwt.pdf"
-    assert captured[0]["headers"]["Idempotency-Key"] == "agent-pdf-run_pdf1"
+    assert captured[0]["url"].endswith("/api/v1/exports/chat-message/pdf")
+    assert uuid.UUID(captured[0]["headers"]["Idempotency-Key"]).version == 5
 
     offline_client = AgentPdfExportClient(
         "http://document-export-service:8000",

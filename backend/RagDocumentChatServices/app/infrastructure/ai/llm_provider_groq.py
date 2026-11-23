@@ -1,9 +1,28 @@
+import re
+
 from openai import APIError, APITimeoutError, AuthenticationError, OpenAI, RateLimitError
 
 from app.domain.chat import ChatMessage
 from app.domain.embeddings import SearchResult
 from app.shared.constants import MAX_IDENTIFIER_LENGTH
 from app.shared.errors import ExternalServiceError
+
+_XML_DELIMITER_RE = re.compile(
+    r"</?\s*(document_context|conversation_history|user_question)\s*>",
+    re.IGNORECASE,
+)
+_SPECIAL_TOKEN_RE = re.compile(
+    r"<\|(im_start|im_end|system|endoftext)\|>",
+    re.IGNORECASE,
+)
+
+
+def neutralize_prompt_delimiters(text: str) -> str:
+    """Neutralizes XML prompt-boundary tags and special LLM control tokens in untrusted text."""
+    cleaned = (text or "").replace("\x00", "")
+    cleaned = _XML_DELIMITER_RE.sub("[tag_neutralizado]", cleaned)
+    cleaned = _SPECIAL_TOKEN_RE.sub("[token_neutralizado]", cleaned)
+    return cleaned
 
 
 class GroqLLMProvider:
@@ -109,23 +128,27 @@ class GroqLLMProvider:
         history: list[ChatMessage] | None,
     ) -> str:
         history_text = self._format_history(history or [])
+        safe_question = neutralize_prompt_delimiters(question)
         return (
             f"<conversation_history>\n{history_text}\n</conversation_history>\n\n"
             f"<document_context>\n{context_text}\n</document_context>\n\n"
-            f"<user_question>\n{question}\n</user_question>"
+            f"<user_question>\n{safe_question}\n</user_question>"
         )
 
     def _format_history(self, history: list[ChatMessage]) -> str:
         if not history:
             return "No hay historial previo relevante."
-        return "\n".join(f"{message.role.value}: {message.content}" for message in history)
+        return "\n".join(
+            f"{message.role.value}: {neutralize_prompt_delimiters(message.content)}"
+            for message in history
+        )
 
     def _format_context(self, context: list[SearchResult]) -> str:
         if not context:
             return "No hay contexto documental relevante."
         return "\n\n".join(
-            f"[Fuente {index + 1}] archivo={(item.filename or 'documento')[:MAX_IDENTIFIER_LENGTH]} "
+            f"[Fuente {index + 1}] archivo={neutralize_prompt_delimiters((item.filename or 'documento')[:MAX_IDENTIFIER_LENGTH])} "
             f"document_id={item.document_id[:MAX_IDENTIFIER_LENGTH]} chunk={item.chunk_index} "
-            f"score={item.score:.4f}\n{item.content}"
+            f"score={item.score:.4f}\n{neutralize_prompt_delimiters(item.content)}"
             for index, item in enumerate(context)
         )
