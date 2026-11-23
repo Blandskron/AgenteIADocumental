@@ -59,23 +59,17 @@ def test_studio_worker_processes_pending_job_and_updates_quota() -> None:
         authorize_all_sources=lambda _t, _u, _docs: True,
         load_chunks=lambda _docs: {("doc-1", 0): "El contrato establece un plazo de 97 dias."},
         generate_json=lambda _req, _chunks, _errs: {
-            "schema_version": "1.0.0",
             "template_id": "summary.executive",
             "title": "Resumen ejecutivo",
-            "sections": [
+            "body_md": "El plazo es de 97 dias [1].",
+            "claims": [
                 {
-                    "id": "s1",
-                    "heading": "Plazo",
-                    "claims": [
+                    "statement": "El plazo es de 97 dias.",
+                    "citations": [
                         {
-                            "text": "El plazo es de 97 dias.",
-                            "citations": [
-                                {
-                                    "document_id": "doc-1",
-                                    "chunk_index": 0,
-                                    "quote": "plazo de 97 dias",
-                                }
-                            ],
+                            "document_id": "doc-1",
+                            "chunk_index": 0,
+                            "quote_text": "plazo de 97 dias",
                         }
                     ],
                 }

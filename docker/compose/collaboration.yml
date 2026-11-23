@@ -37,6 +37,9 @@ services:
       - "127.0.0.1:8008:8000"
     volumes:
       - auth_verification_keys:/app/auth_keys:ro
+    mem_limit: 384m
+    cpus: 1.0
+    pids_limit: 128
     healthcheck:
       test:
         [

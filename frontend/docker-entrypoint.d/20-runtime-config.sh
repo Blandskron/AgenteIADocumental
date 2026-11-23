@@ -26,6 +26,8 @@ document_export_base_url=$(js_string "${VITE_DOCUMENT_EXPORT_BASE_URL:-http://lo
 google_drive_import_base_url=$(js_string "${VITE_GOOGLE_DRIVE_IMPORT_BASE_URL:-http://localhost:8017}")
 conversation_base_url=$(js_string "${VITE_CONVERSATION_BASE_URL:-http://localhost:8008}")
 profile_base_url=$(js_string "${VITE_PROFILE_BASE_URL:-http://localhost:8015}")
+knowledge_studio_base_url=$(js_string "${VITE_KNOWLEDGE_STUDIO_BASE_URL:-http://localhost:8018}")
+agent_orchestrator_base_url=$(js_string "${VITE_AGENT_ORCHESTRATOR_BASE_URL:-http://localhost:8019}")
 
 cat > /tmp/runtime-config.js <<EOF
 window.__BLANDSKRON_CONFIG__ = {
@@ -42,6 +44,8 @@ window.__BLANDSKRON_CONFIG__ = {
   VITE_DOCUMENT_EXPORT_BASE_URL: "${document_export_base_url}",
   VITE_GOOGLE_DRIVE_IMPORT_BASE_URL: "${google_drive_import_base_url}",
   VITE_CONVERSATION_BASE_URL: "${conversation_base_url}",
-  VITE_PROFILE_BASE_URL: "${profile_base_url}"
+  VITE_PROFILE_BASE_URL: "${profile_base_url}",
+  VITE_KNOWLEDGE_STUDIO_BASE_URL: "${knowledge_studio_base_url}",
+  VITE_AGENT_ORCHESTRATOR_BASE_URL: "${agent_orchestrator_base_url}"
 };
 EOF

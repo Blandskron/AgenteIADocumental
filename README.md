@@ -106,7 +106,7 @@ No necesitas crear `.env` manualmente para empezar: `secrets-init` genera secret
 3. **Configura la IA en `/settings/ai`:**
    - **Alternativa A — Groq (nube):** selecciona *Groq (Nube)*, introduce tu API key (se guarda cifrada con `secrets1.`), valida la conexión y elige el modelo. Nota: los planes y límites de cuota dependen de las condiciones vigentes de Groq.
    - **Alternativa B — Ollama (local, sin API key):** levanta el perfil opcional de Ollama (ver abajo), selecciona *Ollama (Local)* en `/settings/ai`, descarga un modelo del catálogo CPU autorizado viendo su progreso y prueba la consulta.
-4. Sube un documento (`PDF`, `DOCX`, `TXT`, `Markdown` o imágenes con OCR) y haz una pregunta en **Chat** revisando las citas `[Fuente N]`.
+4. Sube un documento (`PDF`, `DOCX`, `XLSX`, `PPTX`, `TXT`, `Markdown`, `CSV` o imágenes/PDFs escaneados con OCR `spa+eng`) y haz una pregunta en **Chat** revisando las citas `[Fuente N]` con página/sección y navegación directa en el visor (o abre la paleta rápida con `Ctrl+K`).
 
 ## Modos de ejecución
 
@@ -134,6 +134,8 @@ No necesitas crear `.env` manualmente para empezar: `secrets-init` genera secret
 
 ## Respaldos, actualización y desinstalación segura
 
+- **Respaldo lógico PostgreSQL 16 (offline):** `make backup` (o `sh scripts/database/tools/backup_postgres16.sh` / `pwsh scripts/database/tools/backup_postgres16.ps1`), generando `roles.sql`, `documents.dump` y `SHA256SUMS.txt` compatibles con `scripts/database/tools/restore_postgres16.sh`.
+- **Atajos de arranque por perfil (`Makefile`):** `make up`, `make up-ollama`, `make up-studio`, `make up-agents`, `make up-full` y `make eval-rag`.
 - **Detener conservando datos (recomendado):** `docker compose down` (conserva PostgreSQL, documentos originales, modelos Ollama y secretos).
 - **Eliminar volúmenes (borrado irreversible):** `docker compose down -v` — realiza siempre un respaldo antes.
 - Consulta [docs/operations.md](docs/operations.md) para copias de seguridad, restauración, migración de PostgreSQL y solución de problemas.

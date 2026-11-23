@@ -114,6 +114,9 @@ services:
       - auth_signing_keys:/app/signing_keys
       - auth_verification_keys:/app/verification_keys
       - runtime_secrets:/run/blandskron-secrets:ro
+    mem_limit: 512m
+    cpus: 1.0
+    pids_limit: 128
     healthcheck:
       test:
         [

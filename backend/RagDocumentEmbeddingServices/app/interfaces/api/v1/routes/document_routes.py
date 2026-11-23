@@ -1,4 +1,6 @@
-from fastapi import APIRouter, Depends, File, Form, Header, UploadFile
+import os
+
+from fastapi import APIRouter, Depends, File, Form, Header, Response, UploadFile, status
 
 from app.application.documents.ports.document_reader import DocumentReader
 from app.application.documents.use_cases.import_markdown_batch import ImportMarkdownBatch
@@ -23,6 +25,10 @@ from app.interfaces.api.v1.schemas.document_schema import (
 router = APIRouter()
 
 
+def _is_async_ingest_enabled() -> bool:
+    return os.environ.get("ASYNC_INGEST_ENABLED", "false").strip().lower() in {"1", "true", "yes"}
+
+
 @router.post(
     "/upload", response_model=DocumentUploadResponse,
     responses={409: {"description": "La empresa o el área cambió. Recargar sesión antes de reintentar."}},
@@ -34,20 +40,25 @@ def upload_document(
     current_user: dict = Depends(require_upload_user),
     use_case: UploadDocument = Depends(get_upload_document),
     idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
+    response: Response = None,  # type: ignore[assignment]
 ) -> DocumentUploadResponse:
     document_metadata = {
         **parse_metadata(metadata),
         **build_document_access_metadata(current_user),
     }
     clean_key = idempotency_key if isinstance(idempotency_key, str) else None
+    async_mode = _is_async_ingest_enabled()
+    effective_process = False if async_mode else process
     document = use_case.execute(
         filename=file.filename or "document",
         mime_type=detect_mime_type(file),
         file=file.file,
         metadata=document_metadata,
-        process=process,
+        process=effective_process,
         idempotency_key=clean_key,
     )
+    if response is not None and async_mode and document.status.value == "PENDING":
+        response.status_code = status.HTTP_202_ACCEPTED
     return DocumentUploadResponse(
         document_id=document.document_id,
         filename=document.filename,

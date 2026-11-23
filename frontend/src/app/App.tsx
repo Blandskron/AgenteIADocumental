@@ -5,6 +5,7 @@ import {
 import { LoginPage } from "@/pages/LoginPage/LoginPage.tsx";
 import { ErrorBoundary } from "@/shared/components/ErrorBoundary.tsx";
 import { PageState } from "@/shared/components/PageState.tsx";
+import { CommandPalette } from "@/widgets/CommandPalette/CommandPalette.tsx";
 import { lazy, Suspense, useEffect } from "react";
 import { useAuthContext } from "./providers/AuthProvider";
 import { appRoutes } from "./router/routes";
@@ -126,5 +127,16 @@ function AppContent() {
     pageNode = <AuditLogsPage onNavigate={navigate} />;
   }
 
-  return <ErrorBoundary resetKey={route}>{pageNode}</ErrorBoundary>;
+  return (
+    <ErrorBoundary resetKey={route}>
+      {pageNode}
+      <CommandPalette
+        onNavigate={navigate}
+        canUseChat={Boolean(canUseChat)}
+        canUseIntegrations={Boolean(canUseIntegrations)}
+        canAdmin={Boolean(canAdmin)}
+        canManageAiSettings={Boolean(canManageAiSettings)}
+      />
+    </ErrorBoundary>
+  );
 }

@@ -95,7 +95,7 @@ def resume_human_approval(
         handoff_result = studio_client.save_approved_artifact(
             user_jwt=user_jwt,
             title=str(run.get("goal") or "Informe Agente")[:120],
-            template_id="executive_brief",
+            template_id="summary.executive",
             result_markdown=str(run.get("result_markdown") or ""),
             sources=sources,
             evidence=sources,

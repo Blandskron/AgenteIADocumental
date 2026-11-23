@@ -29,14 +29,15 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE
     agents.agent_runs,
     agents.agent_approvals,
     agents.agent_usage_daily,
-    agents.agent_checkpoints
+    agents.agent_checkpoints,
+    agents.agent_findings
 TO agent_runtime;
 
 -- Strict isolation: agent_runtime NEVER reads public.documents or public.document_embeddings directly.
--- It only reads tenant_integrations (to resolve active provider) and appends to public.audit_logs.
+-- It only reads tenant_integrations (to resolve active provider) and reads/appends agent events in public.audit_logs.
 GRANT SELECT (integration_id, tenant_id, provider, status, config, secrets_encrypted, updated_at)
     ON public.tenant_integrations TO agent_runtime;
-GRANT INSERT ON TABLE public.audit_logs TO agent_runtime;
+GRANT SELECT, INSERT ON TABLE public.audit_logs TO agent_runtime;
 
 COMMIT;
 

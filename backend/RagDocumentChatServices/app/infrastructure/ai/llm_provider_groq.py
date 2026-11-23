@@ -1,9 +1,29 @@
+from collections.abc import Iterator
+import re
+
 from openai import APIError, APITimeoutError, AuthenticationError, OpenAI, RateLimitError
 
 from app.domain.chat import ChatMessage
 from app.domain.embeddings import SearchResult
 from app.shared.constants import MAX_IDENTIFIER_LENGTH
 from app.shared.errors import ExternalServiceError
+
+_XML_DELIMITER_RE = re.compile(
+    r"</?\s*(document_context|conversation_history|user_question)\s*>",
+    re.IGNORECASE,
+)
+_SPECIAL_TOKEN_RE = re.compile(
+    r"<\|(im_start|im_end|system|endoftext)\|>",
+    re.IGNORECASE,
+)
+
+
+def neutralize_prompt_delimiters(text: str) -> str:
+    """Neutralizes XML prompt-boundary tags and special LLM control tokens in untrusted text."""
+    cleaned = (text or "").replace("\x00", "")
+    cleaned = _XML_DELIMITER_RE.sub("[tag_neutralizado]", cleaned)
+    cleaned = _SPECIAL_TOKEN_RE.sub("[token_neutralizado]", cleaned)
+    return cleaned
 
 
 class GroqLLMProvider:
@@ -80,6 +100,62 @@ class GroqLLMProvider:
                 provider_status="provider_error",
             ) from exc
 
+    def stream_answer_with_context(
+        self,
+        question: str,
+        context: list[SearchResult],
+        history: list[ChatMessage] | None = None,
+        mode: str = "qa",
+    ) -> Iterator[str]:
+        """Streams real token deltas from Groq/OpenAI-compatible/Ollama endpoints."""
+        if self._client is None:
+            raise ExternalServiceError(
+                "Configura GROQ_API_KEY para usar el chat documental.",
+                provider_status="not_configured",
+            )
+        context_text = self._format_context(context)
+        try:
+            stream = self._client.chat.completions.create(
+                model=self._model,
+                max_completion_tokens=self._max_tokens,
+                temperature=self._temperature,
+                stream=True,
+                messages=[
+                    {"role": "system", "content": self._system_prompt(mode)},
+                    {"role": "user", "content": self._user_prompt(question, context_text, history)},
+                ],
+            )
+            emitted = False
+            for chunk in stream:
+                choices = getattr(chunk, "choices", None)
+                delta = getattr(choices[0], "delta", None) if choices else None
+                content = getattr(delta, "content", None)
+                if isinstance(content, str) and content:
+                    emitted = True
+                    yield content
+            if not emitted:
+                raise ExternalServiceError("Groq devolvió una respuesta vacía.")
+        except APITimeoutError as exc:
+            raise ExternalServiceError(
+                "Groq no respondió dentro del tiempo configurado.",
+                provider_status="provider_error",
+            ) from exc
+        except AuthenticationError as exc:
+            raise ExternalServiceError(
+                "La clave de Groq configurada no es válida.",
+                provider_status="auth_error",
+            ) from exc
+        except RateLimitError as exc:
+            raise ExternalServiceError(
+                "No se pudo generar una respuesta con Groq por límite de tasa.",
+                provider_status="rate_limited",
+            ) from exc
+        except APIError as exc:
+            raise ExternalServiceError(
+                "No se pudo generar una respuesta con Groq.",
+                provider_status="provider_error",
+            ) from exc
+
     def _system_prompt(self, mode: str) -> str:
         base = (
             "Eres Blandskron Documental, un asistente virtual documental. Responde siempre en lenguaje natural, "
@@ -109,23 +185,39 @@ class GroqLLMProvider:
         history: list[ChatMessage] | None,
     ) -> str:
         history_text = self._format_history(history or [])
+        safe_question = neutralize_prompt_delimiters(question)
         return (
             f"<conversation_history>\n{history_text}\n</conversation_history>\n\n"
             f"<document_context>\n{context_text}\n</document_context>\n\n"
-            f"<user_question>\n{question}\n</user_question>"
+            f"<user_question>\n{safe_question}\n</user_question>"
         )
 
     def _format_history(self, history: list[ChatMessage]) -> str:
         if not history:
             return "No hay historial previo relevante."
-        return "\n".join(f"{message.role.value}: {message.content}" for message in history)
+        return "\n".join(
+            f"{message.role.value}: {neutralize_prompt_delimiters(message.content)}"
+            for message in history
+        )
 
     def _format_context(self, context: list[SearchResult]) -> str:
         if not context:
             return "No hay contexto documental relevante."
-        return "\n\n".join(
-            f"[Fuente {index + 1}] archivo={(item.filename or 'documento')[:MAX_IDENTIFIER_LENGTH]} "
-            f"document_id={item.document_id[:MAX_IDENTIFIER_LENGTH]} chunk={item.chunk_index} "
-            f"score={item.score:.4f}\n{item.content}"
-            for index, item in enumerate(context)
-        )
+        blocks: list[str] = []
+        for index, item in enumerate(context):
+            meta = item.metadata or {}
+            page = meta.get("page")
+            section = meta.get("section")
+            location_parts = [
+                f"archivo={neutralize_prompt_delimiters((item.filename or 'documento')[:MAX_IDENTIFIER_LENGTH])}",
+                f"document_id={item.document_id[:MAX_IDENTIFIER_LENGTH]}",
+                f"chunk={item.chunk_index}",
+            ]
+            if page is not None:
+                location_parts.append(f"pagina={page}")
+            if isinstance(section, str) and section.strip():
+                location_parts.append(f"seccion={neutralize_prompt_delimiters(section.strip()[:120])}")
+            location_parts.append(f"score={item.score:.4f}")
+            header = f"[Fuente {index + 1}] " + " ".join(location_parts)
+            blocks.append(f"{header}\n{neutralize_prompt_delimiters(item.content)}")
+        return "\n\n".join(blocks)

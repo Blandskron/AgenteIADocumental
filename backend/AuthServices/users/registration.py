@@ -14,11 +14,10 @@ from rest_framework import serializers, status
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from rest_framework_simplejwt.tokens import RefreshToken
 
 from .audit_logs import record_audit_log
 from .models import Tenant, TenantMembership
-from .serializers import serialize_user_profile
+from .serializers import MyTokenObtainPairSerializer, serialize_user_profile
 
 
 USERNAME_CLEAN_RE = re.compile(r"[^a-zA-Z0-9._-]+")
@@ -33,7 +32,7 @@ def is_google_oidc_enabled() -> bool:
 
 
 def _issue_tokens_for_user(user: User) -> dict:
-    refresh = RefreshToken.for_user(user)
+    refresh = MyTokenObtainPairSerializer.get_token(user)
     profile = serialize_user_profile(user)
     return {
         "access": str(refresh.access_token),

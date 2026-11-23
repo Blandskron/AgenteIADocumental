@@ -99,4 +99,16 @@ class HardeningSessionAndAuditTests(APITestCase):
         self.assertEqual(refresh_resp.status_code, 200)
         self.assertTrue(refresh_resp.data["authenticated"])
         self.assertTrue(refresh_resp.cookies[ACCESS_COOKIE_NAME]["httponly"])
+        self.assertTrue(AuditLog.objects.filter(action="auth.cookie_login", actor_user_id=str(self.admin_a.id)).exists())
+
+    def test_cookie_session_login_enforces_throttling(self):
+        from unittest.mock import patch
+
+        with patch("users.cookie_session.login_retry_after", return_value=45):
+            throttled = self.client.post(
+                "/api/users/session/login/",
+                {"username": "audit_admin_a", "password": "WrongPassword!"},
+                format="json",
+            )
+        self.assertEqual(throttled.status_code, 429)
 

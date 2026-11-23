@@ -26,6 +26,9 @@ services:
       - postgres_data:/var/lib/postgresql/data
       - runtime_secrets:/run/blandskron-secrets:ro
       - ../../scripts/database:/docker-entrypoint-initdb.d:ro
+    mem_limit: 1024m
+    cpus: 2.0
+    pids_limit: 256
     depends_on:
       secrets-init:
         condition: service_completed_successfully

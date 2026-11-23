@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 import re
 import urllib.request
 from typing import Any
@@ -79,6 +80,9 @@ class SandboxHttpClient:
         }
         url = f"{self._sandbox_url}/execute"
         headers = {"Content-Type": "application/json", "Accept": "application/json"}
+        internal_token = (os.environ.get("SANDBOX_INTERNAL_TOKEN") or "").strip()
+        if internal_token:
+            headers["X-Sandbox-Token"] = internal_token
         timeout_sec = (self._timeout_ms / 1000.0) + 2.0
 
         if self._transport is not None:

@@ -36,7 +36,13 @@ def test_tool_registry_enforces_allowlist_limit_cap_and_secret_redaction() -> No
     register_default_mcp_tools(registry, client)
 
     names = {t["name"] for t in registry.list_specs()}
-    assert names == {"search_documents", "get_document_chunks", "list_studio_artifacts", "get_studio_artifact"}
+    assert names == {
+        "search_documents",
+        "search_documents_hybrid",
+        "get_document_chunks",
+        "list_studio_artifacts",
+        "get_studio_artifact",
+    }
 
     user = {"user_id": "42", "active_tenant_id": "t1", "raw_token": "synthetic.jwt.token"}
     result = registry.invoke("search_documents", {"query": "plazo", "limit": 500}, user)

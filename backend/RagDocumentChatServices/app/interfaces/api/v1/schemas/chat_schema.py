@@ -21,6 +21,10 @@ class ChatSourceResponse(BaseModel):
     content: str
     score: float
     filename: str | None = None
+    chunk_index: int | None = None
+    page: int | None = None
+    section: str | None = None
+    rrf_score: float | None = None
 
 
 class ChatAskResponse(BaseModel):
