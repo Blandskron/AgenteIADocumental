@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none" role="img" aria-label="KronDocs Isotipo Monocromático Oscuro">
+  <path
+    d="M16 10C16 7.79086 17.7909 6 20 6H41.5L52 16.5V50C52 52.2091 50.2091 54 48 54H20C17.7909 54 16 52.2091 16 50V10Z"
+    stroke="#0B1020"
+    stroke-opacity="0.4"
+    stroke-width="2"
+  />
+  <path
+    d="M41.5 6V14.5C41.5 15.6046 42.3954 16.5 43.5 16.5H52"
+    stroke="#0B1020"
+    stroke-opacity="0.5"
+    stroke-width="2"
+    stroke-linecap="round"
+  />
+  <rect x="11" y="10" width="9" height="44" rx="4.5" fill="#0B1020" />
+  <path d="M23 32L43.5 13.5" stroke="#0B1020" stroke-width="6.5" stroke-linecap="round" />
+  <path d="M25.5 30.5L45.5 49.5" stroke="#0B1020" stroke-width="6.5" stroke-linecap="round" />
+  <circle cx="24" cy="31.5" r="4" fill="#F5F7FB" stroke="#0B1020" stroke-width="2.5" />
+  <circle cx="45" cy="13" r="4.5" fill="#0B1020" />
+  <circle cx="46" cy="50" r="4.5" fill="#0B1020" />
+</svg>

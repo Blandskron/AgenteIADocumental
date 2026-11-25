@@ -50,7 +50,7 @@ export function normalizeRoute(path: string): AppRoute {
 }
 
 export function getRouteDocumentTitle(route: AppRoute): string {
-  return `${routeTitles[route]} · Blandskron Documental`;
+  return `${routeTitles[route]} · KronDocs`;
 }
 
 export function useAppRouter() {

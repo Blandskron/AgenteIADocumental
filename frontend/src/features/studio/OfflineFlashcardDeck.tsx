@@ -37,8 +37,7 @@ export function applySm2Offline(
 const DEFAULT_CARDS: LocalFlashcard[] = [
   {
     id: "card-1",
-    front:
-      "¿Qué índice vectorial reemplaza a IVFFlat en Blandskron Documental?",
+    front: "¿Qué índice vectorial reemplaza a IVFFlat en KronDocs?",
     back: "HNSW (vector_cosine_ops) sobre pgvector para mejorar recall y latencia desde el primer documento.",
     repetitions: 0,
     intervalDays: 1,

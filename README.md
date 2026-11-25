@@ -1,8 +1,10 @@
-# Blandskron Documental
+# KronDocs — Document Intelligence
 
-> **Landing oficial (GitHub Pages):** [https://blandskron.github.io/AgenteIADocumental/](https://blandskron.github.io/AgenteIADocumental/) · **Código fuente de la landing:** [index.html](index.html)
+> **Turn Documents into Intelligence.** · *Open Source · By BLANDSKRON*  
+> **Landing oficial (GitHub Pages):** [https://blandskron.github.io/KronDocs/](https://blandskron.github.io/KronDocs/) · **Código fuente de la landing:** [index.html](index.html)  
+> **Guía de marca y Design System:** [BRAND_GUIDELINES.md](docs/BRAND_GUIDELINES.md) · [DESIGN_SYSTEM.md](docs/DESIGN_SYSTEM.md) · [ROADMAP.md](docs/ROADMAP.md)
 
-Aplicación de código abierto para la gestión y consulta documental, desarrollada por Blandskron. Permite cargar y organizar documentos, buscar por contenido (vectorial + texto completo) y hacer preguntas con respuestas que citan sus fuentes verificables. Desde la interfaz puedes revisar fragmentos recuperados, guardar conversaciones, exportar respuestas a PDF y elegir entre **Groq** (nube) u **Ollama local** sin editar código ni reiniciar contenedores.
+Plataforma de código abierto para inteligencia y gestión documental, desarrollada por **BLANDSKRON** (anteriormente denominada *AgenteIADocumental* / *Blandskron Documental*). Permite cargar y organizar documentos, buscar por contenido (vectorial + texto completo) y hacer preguntas con respuestas que citan sus fuentes verificables. Desde la interfaz puedes revisar fragmentos recuperados, activar el modo de lectura editorial (`Source Serif 4`), guardar conversaciones, exportar respuestas a PDF y elegir entre **Groq** (nube) u **Ollama local** sin editar código ni reiniciar contenedores.
 
 La web usa React y TypeScript. Django administra la identidad y once servicios de aplicación cubren el recorrido documental (más los módulos opcionales `KnowledgeStudioServices`, `AgentOrchestratorServices` y `CodeSandboxRunner`). La ingesta y el chat calculan embeddings en CPU (`intfloat/multilingual-e5-small`). PostgreSQL 16 con `pgvector` almacena los vectores y el control de acceso se aplica en el servidor antes de construir el contexto.
 
@@ -17,7 +19,7 @@ Recorrido narrado completo (`04:00 min`, `1280×800 HD`, audio AAC en español +
 
 - **Archivo de video (MP4 H.264 + AAC):** [docs/assets/video/blandskron-documental-demo.mp4](docs/assets/video/blandskron-documental-demo.mp4)
 - **Subtítulos sincronizados (WebVTT):** [docs/assets/video/blandskron-documental-demo.es.vtt](docs/assets/video/blandskron-documental-demo.es.vtt)
-- **Reproductor web en vivo (GitHub Pages):** [https://blandskron.github.io/AgenteIADocumental/#video-demo](https://blandskron.github.io/AgenteIADocumental/#video-demo)
+- **Reproductor web en vivo (GitHub Pages):** [https://blandskron.github.io/KronDocs/#video-demo](https://blandskron.github.io/KronDocs/#video-demo)
 
 <details>
 <summary><strong>Ver índice de los 12 capítulos narrados en el video (00:00 – 04:00)</strong></summary>
@@ -41,7 +43,7 @@ Recorrido narrado completo (`04:00 min`, `1280×800 HD`, audio AAC en español +
 
 ## Vista previa de la interfaz (Modo Claro y Modo Oscuro)
 
-> La galería interactiva completa con las **24 capturas en Modo Claro y Modo Oscuro** (12 flujos × 2 temas) está disponible en [index.html](index.html) ([https://blandskron.github.io/AgenteIADocumental/](https://blandskron.github.io/AgenteIADocumental/)).
+> La galería interactiva completa con las **24 capturas en Modo Claro y Modo Oscuro** (12 flujos × 2 temas) está disponible en [index.html](index.html) ([https://blandskron.github.io/KronDocs/](https://blandskron.github.io/KronDocs/)).
 
 | Chat documental RAG con citas (Modo Claro) | Agente IA + Code Mode en Sandbox y aprobación humana (Modo Oscuro) |
 | :---: | :---: |
@@ -65,6 +67,9 @@ Recorrido narrado completo (`04:00 min`, `1280×800 HD`, audio AAC en español +
 
 | Guía | Contenido |
 | --- | --- |
+| [Guía de marca](docs/BRAND_GUIDELINES.md) | Identidad KronDocs, isotipo, paleta WCAG 2.2 AA, tipografía y recursos SVG. |
+| [Design System](docs/DESIGN_SYSTEM.md) | Tokens, Floating Glassmorphism, primitivas React y checklist de accesibilidad. |
+| [Roadmap KronDocs](docs/ROADMAP.md) | Etapas, criterios de aceptación verificables y evidencia de entrega. |
 | [Arquitectura](docs/architecture.md) | Topología, límites de confianza, secuencia RAG/PDF y mapa de servicios. |
 | [Operación local](docs/operations.md) | Requisitos mínimos, modos de despliegue, respaldos, restauración, solución de problemas y desinstalación. |
 | [Verificación de entrega](docs/release/README.md) | Suite sintética, evidencias fechadas, auditoría de imágenes y alcance de CI. |
@@ -94,8 +99,8 @@ flowchart LR
 ### Linux / macOS / Windows (PowerShell o Git Bash)
 
 ```bash
-git clone https://github.com/Blandskron/AgenteIADocumental.git
-cd AgenteIADocumental
+git clone https://github.com/Blandskron/KronDocs.git
+cd KronDocs
 docker compose up -d --build
 ```
 
@@ -142,7 +147,7 @@ No necesitas crear `.env` manualmente para empezar: `secrets-init` genera secret
 
 ## Colaboración
 
-Usa las [issues del repositorio](https://github.com/Blandskron/AgenteIADocumental/issues) para reportar errores y proponer mejoras. Sigue las [pautas de contribución](CONTRIBUTING.md), las [instrucciones para colaboradores](AGENTS.md) y el [procedimiento de reporte privado de seguridad](SECURITY.md).
+Usa las [issues del repositorio](https://github.com/Blandskron/KronDocs/issues) para reportar errores y proponer mejoras. Sigue las [pautas de contribución](CONTRIBUTING.md), las [instrucciones para colaboradores](AGENTS.md) y el [procedimiento de reporte privado de seguridad](SECURITY.md).
 
 ## Licencia y atribuciones
 

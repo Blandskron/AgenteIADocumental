@@ -20,6 +20,7 @@ import {
   type VerifiedEvidenceRow,
 } from "@/features/studio/studioExport.ts";
 import { Button } from "@/shared/components/Button/Button.tsx";
+import { PageHeader } from "@/shared/components/PageHeader/PageHeader.tsx";
 import { useSidebarState } from "@/shared/hooks/useSidebarState.ts";
 import { AppShell } from "@/shared/layouts/AppShell.tsx";
 import { toError } from "@/shared/lib/errors.ts";
@@ -265,38 +266,37 @@ export function StudioPage({ onNavigate }: PageProps) {
         tabIndex={-1}
         className="settings-ai-page blandskron-screen"
       >
-        <header className="settings-ai-header">
-          <div>
-            <h1>Knowledge Studio</h1>
-            <p>
-              Selecciona documentos autorizados, genera artefactos con citas
-              verificables y guárdalos en <code>studio.artifacts</code>.
-            </p>
-          </div>
-          <div className="ui-toolbar-row">
-            <Button
-              type="button"
-              variant={activeTab === "generate" ? "primary" : "secondary"}
-              onClick={() => setActiveTab("generate")}
-            >
-              Generar
-            </Button>
-            <Button
-              type="button"
-              variant={activeTab === "artifacts" ? "primary" : "secondary"}
-              onClick={() => setActiveTab("artifacts")}
-            >
-              Mis artefactos ({artifacts.length})
-            </Button>
-            <Button
-              type="button"
-              variant="secondary"
-              onClick={() => void loadWorkspaceData()}
-            >
-              <RefreshCw size={14} aria-hidden="true" /> Actualizar
-            </Button>
-          </div>
-        </header>
+        <PageHeader
+          eyebrow="KronDocs · Knowledge Studio"
+          title="Knowledge Studio"
+          description="Selecciona documentos autorizados, genera artefactos con citas verificables y guárdalos en studio.artifacts."
+          icon={<Sparkles size={20} />}
+          actions={
+            <div className="ui-toolbar-row">
+              <Button
+                type="button"
+                variant={activeTab === "generate" ? "primary" : "secondary"}
+                onClick={() => setActiveTab("generate")}
+              >
+                Generar
+              </Button>
+              <Button
+                type="button"
+                variant={activeTab === "artifacts" ? "primary" : "secondary"}
+                onClick={() => setActiveTab("artifacts")}
+              >
+                Mis artefactos ({artifacts.length})
+              </Button>
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={() => void loadWorkspaceData()}
+              >
+                <RefreshCw size={14} aria-hidden="true" /> Actualizar
+              </Button>
+            </div>
+          }
+        />
 
         {studioStatusMsg && (
           <div className="settings-ai-alert" role="status">

@@ -1,14 +1,15 @@
 * {
   box-sizing: border-box;
 }
+
 body {
   margin: 0;
   min-width: 320px;
   height: 100dvh;
   overflow: hidden;
   background:
-    radial-gradient(ellipse at 80% 10%, var(--canvas-glow), transparent 52%),
-    radial-gradient(ellipse at 12% 92%, var(--canvas-edge), transparent 55%),
+    radial-gradient(ellipse at 82% 8%, var(--canvas-glow), transparent 50%),
+    radial-gradient(ellipse at 12% 92%, var(--canvas-edge), transparent 52%),
     repeating-linear-gradient(
       0deg,
       transparent 0 31px,
@@ -21,25 +22,37 @@ body {
     ),
     var(--background);
   color: var(--foreground);
+  font-family: var(--font-sans);
   font-size: 14px;
-  line-height: 1.5;
+  line-height: 1.55;
 }
+
 #root {
   height: 100%;
 }
+
 button,
 input,
 textarea,
 select {
   font: inherit;
 }
+
 button {
   cursor: pointer;
+  transition:
+    background-color var(--duration) var(--ease-standard),
+    border-color var(--duration) var(--ease-standard),
+    color var(--duration) var(--ease-standard),
+    box-shadow var(--duration) var(--ease-standard),
+    transform var(--duration-fast) var(--ease-standard);
 }
+
 button:disabled {
   cursor: not-allowed;
   opacity: 0.55;
 }
+
 button,
 a,
 input,
@@ -48,15 +61,18 @@ select,
 summary {
   -webkit-tap-highlight-color: transparent;
 }
+
 :where(button, a, input, textarea, select, summary):focus-visible {
   outline: 3px solid var(--focus);
-  outline-offset: 3px;
+  outline-offset: 2px;
 }
+
 input,
 textarea,
 select {
   accent-color: var(--accent);
 }
+
 :where(input:not([type="checkbox"]):not([type="radio"]), textarea, select) {
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
@@ -64,50 +80,77 @@ select {
   color: var(--foreground);
   padding: 10px 12px;
   max-width: 100%;
+  transition:
+    border-color var(--duration-fast) var(--ease-standard),
+    box-shadow var(--duration-fast) var(--ease-standard);
 }
+
 input::placeholder,
 textarea::placeholder {
   color: var(--foreground-subtle);
   opacity: 1;
 }
+
 a {
   color: var(--accent);
 }
+
+code,
+pre,
+kbd {
+  font-family: var(--font-mono);
+}
+
+kbd {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2px 6px;
+  font-size: 11px;
+  font-weight: 600;
+  border-radius: 6px;
+  border: 1px solid var(--border-strong);
+  background: var(--surface-subtle);
+  color: var(--foreground-muted);
+}
+
 svg {
   flex-shrink: 0;
 }
+
 img {
   max-width: 100%;
 }
+
 h1,
 h2,
 h3,
 h4 {
-  line-height: 1.25;
-  letter-spacing: -0.035em;
-  font-weight: 680;
+  font-family: var(--font-display);
+  line-height: 1.2;
+  letter-spacing: -0.025em;
+  font-weight: 650;
 }
+
 h1 {
-  font-size: clamp(1.7rem, 2.7vw, 2.6rem);
+  font-size: clamp(1.55rem, 2.5vw, 2.25rem);
 }
+
 p {
   overflow-wrap: anywhere;
 }
-button {
-  transition:
-    background var(--duration),
-    border-color var(--duration),
-    box-shadow var(--duration);
-}
+
 ::selection {
   color: var(--foreground);
   background: var(--accent-subtle);
 }
+
 @keyframes spin {
   to {
     transform: rotate(360deg);
   }
 }
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
@@ -118,6 +161,7 @@ button {
     scroll-behavior: auto !important;
   }
 }
+
 @media (forced-colors: active) {
   button,
   input,
