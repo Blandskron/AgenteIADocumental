@@ -4,7 +4,7 @@
 > **Descriptor:** Document Intelligence  
 > **Eslogan:** *Turn Documents into Intelligence.*  
 > **Firma:** *Open Source · By BLANDSKRON*  
-> **Repositorio oficial:** `https://github.com/Blandskron/AgenteIADocumental`
+> **Repositorio oficial:** `https://github.com/Blandskron/KronDocs` (antes `AgenteIADocumental`)
 
 ---
 
@@ -111,4 +111,4 @@ El isotipo de KronDocs fusiona una **K geométrica arquitectónica** con un **fo
 
 - **Directo, técnico y verificable:** Evitar promesas vagas. Indicar siempre qué ocurre y de dónde proviene la información (ej. *"Fuentes verificadas"*, *"Aprobación humana requerida"*).
 - **Español claro como idioma principal de interfaz** con términos técnicos universales reconocidos cuando aportan precisión (*Code Mode*, *Knowledge Studio*, *Open Source · By BLANDSKRON*).
-- **Compatibilidad nominal:** En guías de migración o despliegue heredado, referenciar explícitamente que KronDocs corresponde al repositorio `Blandskron/AgenteIADocumental` (antes *Blandskron Documental*).
+- **Compatibilidad nominal:** En guías de migración o despliegue heredado, referenciar explícitamente que `Blandskron/KronDocs` corresponde a la evolución oficial de `Blandskron/AgenteIADocumental` (*Blandskron Documental*).

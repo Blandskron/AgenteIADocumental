@@ -1,7 +1,7 @@
 # Roadmap de Transformación — KronDocs: Document Intelligence
 
 > **Marca oficial:** **KronDocs — Document Intelligence** (*Turn Documents into Intelligence* · *Open Source · By BLANDSKRON*)  
-> **Repositorio:** `Blandskron/AgenteIADocumental` (transición de marca desde AgenteIADocumental / Blandskron Documental preservando compatibilidad operativa).
+> **Repositorio:** `Blandskron/KronDocs` (transición desde `AgenteIADocumental` / *Blandskron Documental* preservando compatibilidad operativa).
 
 ---
 
