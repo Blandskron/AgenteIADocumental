@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 284 56" fill="none" role="img" aria-label="KronDocs — Document Intelligence">
+  <defs>
+    <linearGradient id="kld-stem" x1="8" y1="6" x2="46" y2="50" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#699BFF" />
+      <stop offset="55%" stop-color="#3B82F6" />
+      <stop offset="100%" stop-color="#A78BFA" />
+    </linearGradient>
+    <linearGradient id="kld-branch" x1="20" y1="28" x2="42" y2="10" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#699BFF" />
+      <stop offset="100%" stop-color="#38BDF8" />
+    </linearGradient>
+  </defs>
+  <g transform="translate(2 2) scale(0.8125)">
+    <path
+      d="M16 10C16 7.79086 17.7909 6 20 6H41.5L52 16.5V50C52 52.2091 50.2091 54 48 54H20C17.7909 54 16 52.2091 16 50V10Z"
+      fill="#3B82F6"
+      fill-opacity="0.16"
+      stroke="#699BFF"
+      stroke-opacity="0.5"
+      stroke-width="2"
+    />
+    <path d="M41.5 6V14.5C41.5 15.6046 42.3954 16.5 43.5 16.5H52" stroke="#699BFF" stroke-opacity="0.55" stroke-width="2" stroke-linecap="round" />
+    <rect x="11" y="10" width="9" height="44" rx="4.5" fill="url(#kld-stem)" />
+    <path d="M23 32L43.5 13.5" stroke="url(#kld-branch)" stroke-width="6.5" stroke-linecap="round" />
+    <path d="M25.5 30.5L45.5 49.5" stroke="url(#kld-stem)" stroke-width="6.5" stroke-linecap="round" />
+    <circle cx="24" cy="31.5" r="4.25" fill="#0B1020" stroke="#699BFF" stroke-width="2.5" />
+    <circle cx="45" cy="13" r="5" fill="#38BDF8" stroke="#0B1020" stroke-width="2" />
+    <circle cx="46" cy="50" r="5" fill="#A78BFA" stroke="#0B1020" stroke-width="2" />
+  </g>
+  <text x="62" y="29" fill="#F5F7FB" font-family="Sora, Inter, system-ui, sans-serif" font-size="22" font-weight="700" letter-spacing="-0.03em">
+    Kron<tspan fill="#699BFF">Docs</tspan>
+  </text>
+  <text x="63" y="44" fill="#B8C2D9" font-family="JetBrains Mono, ui-monospace, monospace" font-size="9.5" font-weight="600" letter-spacing="0.16em">
+    DOCUMENT INTELLIGENCE
+  </text>
+</svg>

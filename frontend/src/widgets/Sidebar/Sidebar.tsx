@@ -8,12 +8,12 @@ import {
   FileSearch,
   LogOut,
   MessageSquare,
-  Moon,
   PanelLeftClose,
   PanelLeftOpen,
   Plus,
+  Search,
   ShieldCheck,
-  Sun,
+  Sparkles,
   Trash2,
   UserRound,
   UsersRound,
@@ -44,6 +44,7 @@ import {
 import { usePrivateAvatar } from "@/features/profile/hooks/usePrivateAvatar.ts";
 import { Brand } from "@/shared/components/Brand/Brand.tsx";
 import { IconButton } from "@/shared/components/IconButton/IconButton.tsx";
+import { ThemeSwitcher } from "@/shared/components/ThemeSwitcher/ThemeSwitcher.tsx";
 
 export function Sidebar({
   activeConversation,
@@ -61,7 +62,7 @@ export function Sidebar({
 }: SidebarProps) {
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
   const profileMenuRef = useRef<HTMLDivElement>(null);
-  const { theme, toggleTheme } = useTheme();
+  const { theme, preference, setPreference, toggleTheme } = useTheme();
   function navigate(route: string) {
     onNavigate?.(route);
     if (window.matchMedia("(max-width: 760px)").matches) onClose();
@@ -98,7 +99,7 @@ export function Sidebar({
       : []),
     { route: appRoutes.documents, label: "Documentos", icon: FileSearch },
     ...(canUseChat
-      ? [{ route: appRoutes.studio, label: "Studio", icon: ShieldCheck }]
+      ? [{ route: appRoutes.studio, label: "Studio", icon: Sparkles }]
       : []),
     ...(canUseIntegrations
       ? [
@@ -159,7 +160,7 @@ export function Sidebar({
       className={`sidebar blandskron-sidebar ${collapsed ? "collapsed" : ""}`}
     >
       <div className="sidebar-top">
-        <Brand />
+        <Brand variant={collapsed ? "isotipo" : "compact"} />
         <IconButton
           onClick={collapsed ? onOpen : onClose}
           aria-label={collapsed ? "Abrir menu" : "Cerrar menu"}
@@ -171,6 +172,22 @@ export function Sidebar({
           )}
         </IconButton>
       </div>
+
+      <button
+        type="button"
+        className="sidebar-quick-search"
+        onClick={() =>
+          window.dispatchEvent(new CustomEvent("krondocs:open-command-palette"))
+        }
+        aria-label={
+          collapsed ? "Ir a vista o comando rápido (Ctrl+K)" : undefined
+        }
+        title="Ir a vista o comando rápido (Ctrl+K)"
+      >
+        <Search size={15} aria-hidden="true" />
+        <span>Ir a vista…</span>
+        <kbd aria-hidden="true">Ctrl+K</kbd>
+      </button>
 
       <nav className="sidebar-nav" aria-label="Navegación principal">
         {navItems.map((item) => (
@@ -232,17 +249,13 @@ export function Sidebar({
       </nav>
 
       <div className="sidebar-footer-container">
-        <button
-          className="sidebar-theme-toggle"
-          onClick={toggleTheme}
-          title={
-            theme === "dark" ? "Cambiar a modo claro" : "Cambiar a modo oscuro"
-          }
-          type="button"
-        >
-          {theme === "dark" ? <Sun size={16} /> : <Moon size={16} />}
-          <span>{theme === "dark" ? "Modo claro" : "Modo oscuro"}</span>
-        </button>
+        <ThemeSwitcher
+          preference={preference}
+          resolvedTheme={theme}
+          collapsed={collapsed}
+          onChange={setPreference}
+          onToggle={toggleTheme}
+        />
         <div
           className="sidebar-profile-menu-wrap"
           ref={profileMenuRef}
@@ -314,6 +327,9 @@ export function Sidebar({
               <span>{profile?.email || user?.email || "Sin correo"}</span>
             </div>
           </button>
+        </div>
+        <div className="sidebar-brand-attribution">
+          KronDocs · By BLANDSKRON
         </div>
       </div>
     </aside>

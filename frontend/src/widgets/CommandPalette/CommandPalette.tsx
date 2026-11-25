@@ -146,8 +146,20 @@ export function CommandPalette({
         setSelectedIndex(0);
       }
     };
+    const onOpenPalette = () => {
+      setOpen(true);
+      setQuery("");
+      setSelectedIndex(0);
+    };
     window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
+    window.addEventListener("krondocs:open-command-palette", onOpenPalette);
+    return () => {
+      window.removeEventListener("keydown", onKeyDown);
+      window.removeEventListener(
+        "krondocs:open-command-palette",
+        onOpenPalette,
+      );
+    };
   }, []);
 
   if (!open) return null;
@@ -219,6 +231,13 @@ export function CommandPalette({
             ))
           )}
         </ul>
+        <div className="command-palette-footer" aria-hidden="true">
+          <span>KronDocs · Navegación rápida</span>
+          <span>
+            <kbd>↑</kbd> <kbd>↓</kbd> mover · <kbd>Enter</kbd> abrir ·{" "}
+            <kbd>Esc</kbd> cerrar
+          </span>
+        </div>
       </ModalDialog>
     </div>
   );

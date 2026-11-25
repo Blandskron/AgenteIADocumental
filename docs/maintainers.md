@@ -6,7 +6,9 @@ Codex descubre las skills versionadas en .agents/skills. Los AGENTS.md locales e
 
 | Ámbito | Entrada | Skill |
 | --- | --- | --- |
-| Proyecto | [README](../README.md) | [documental-project](../.agents/skills/documental-project/SKILL.md) |
+| Documentación y arquitectura | [docs/maintainers.md](maintainers.md) | [ui-ux-pro-max](../.agents/skills/ui-ux-pro-max/SKILL.md) |
+| Marca y Design System | [BRAND_GUIDELINES](BRAND_GUIDELINES.md) · [DESIGN_SYSTEM](DESIGN_SYSTEM.md) | [ui-ux-pro-max](../.agents/skills/ui-ux-pro-max/SKILL.md) |
+| Roadmap KronDocs | [ROADMAP](ROADMAP.md) | [documental-project](../.agents/skills/documental-project/SKILL.md) |
 | Backend | [README](../backend/README.md) | [documental-backend](../.agents/skills/documental-backend/SKILL.md) |
 | Frontend | [README](../frontend/README.md) | [documental-frontend](../.agents/skills/documental-frontend/SKILL.md) |
 | Base de datos | [README](../scripts/database/README.md) | [documental-database](../.agents/skills/documental-database/SKILL.md) |

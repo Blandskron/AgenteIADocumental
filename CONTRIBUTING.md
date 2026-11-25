@@ -1,4 +1,4 @@
-# Contribuir a Blandskron Documental
+# Contribuir a KronDocs — Document Intelligence (antes Blandskron Documental)
 
 Puedes contribuir reportando errores, proponiendo mejoras o enviando cambios de código y documentación.
 

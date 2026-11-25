@@ -190,10 +190,14 @@ function ApplicationsList({
   return (
     <section className="applications-content">
       <div className="applications-heading">
+        <p className="kd-eyebrow">
+          <span className="kd-eyebrow-dot" aria-hidden="true" />
+          <span>KronDocs · Conectores</span>
+        </p>
         <h1>Aplicaciones</h1>
         <p>
           Conecta fuentes externas o importa colecciones Markdown/ZIP para traer
-          documentos a Blandskron Documental.
+          documentos a KronDocs.
         </p>
       </div>
 

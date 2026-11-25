@@ -1,8 +1,10 @@
-# Blandskron Documental
+# KronDocs — Document Intelligence
 
-> **Landing oficial (GitHub Pages):** [https://blandskron.github.io/AgenteIADocumental/](https://blandskron.github.io/AgenteIADocumental/) · **Código fuente de la landing:** [index.html](index.html)
+> **Turn Documents into Intelligence.** · *Open Source · By BLANDSKRON*  
+> **Landing oficial (GitHub Pages):** [https://blandskron.github.io/AgenteIADocumental/](https://blandskron.github.io/AgenteIADocumental/) · **Código fuente de la landing:** [index.html](index.html)  
+> **Guía de marca y Design System:** [BRAND_GUIDELINES.md](docs/BRAND_GUIDELINES.md) · [DESIGN_SYSTEM.md](docs/DESIGN_SYSTEM.md) · [ROADMAP.md](docs/ROADMAP.md)
 
-Aplicación de código abierto para la gestión y consulta documental, desarrollada por Blandskron. Permite cargar y organizar documentos, buscar por contenido (vectorial + texto completo) y hacer preguntas con respuestas que citan sus fuentes verificables. Desde la interfaz puedes revisar fragmentos recuperados, guardar conversaciones, exportar respuestas a PDF y elegir entre **Groq** (nube) u **Ollama local** sin editar código ni reiniciar contenedores.
+Plataforma de código abierto para inteligencia y gestión documental, desarrollada por **BLANDSKRON** (anteriormente denominada *AgenteIADocumental* / *Blandskron Documental*). Permite cargar y organizar documentos, buscar por contenido (vectorial + texto completo) y hacer preguntas con respuestas que citan sus fuentes verificables. Desde la interfaz puedes revisar fragmentos recuperados, activar el modo de lectura editorial (`Source Serif 4`), guardar conversaciones, exportar respuestas a PDF y elegir entre **Groq** (nube) u **Ollama local** sin editar código ni reiniciar contenedores.
 
 La web usa React y TypeScript. Django administra la identidad y once servicios de aplicación cubren el recorrido documental (más los módulos opcionales `KnowledgeStudioServices`, `AgentOrchestratorServices` y `CodeSandboxRunner`). La ingesta y el chat calculan embeddings en CPU (`intfloat/multilingual-e5-small`). PostgreSQL 16 con `pgvector` almacena los vectores y el control de acceso se aplica en el servidor antes de construir el contexto.
 
@@ -65,6 +67,9 @@ Recorrido narrado completo (`04:00 min`, `1280×800 HD`, audio AAC en español +
 
 | Guía | Contenido |
 | --- | --- |
+| [Guía de marca](docs/BRAND_GUIDELINES.md) | Identidad KronDocs, isotipo, paleta WCAG 2.2 AA, tipografía y recursos SVG. |
+| [Design System](docs/DESIGN_SYSTEM.md) | Tokens, Floating Glassmorphism, primitivas React y checklist de accesibilidad. |
+| [Roadmap KronDocs](docs/ROADMAP.md) | Etapas, criterios de aceptación verificables y evidencia de entrega. |
 | [Arquitectura](docs/architecture.md) | Topología, límites de confianza, secuencia RAG/PDF y mapa de servicios. |
 | [Operación local](docs/operations.md) | Requisitos mínimos, modos de despliegue, respaldos, restauración, solución de problemas y desinstalación. |
 | [Verificación de entrega](docs/release/README.md) | Suite sintética, evidencias fechadas, auditoría de imágenes y alcance de CI. |

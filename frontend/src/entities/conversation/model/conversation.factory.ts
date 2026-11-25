@@ -17,7 +17,7 @@ export function createConversation(
       {
         role: "assistant",
         content:
-          "Soy Blandskron Documental. Puedo consultar documentos existentes o analizar un archivo que adjuntes en este chat.",
+          "Soy KronDocs. Puedo consultar documentos existentes o analizar un archivo que adjuntes en este chat.",
       },
     ],
   };

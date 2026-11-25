@@ -124,7 +124,7 @@ export function GoogleDriveApplication({
             <dt>Uso</dt>
             <dd>
               Traer archivos externos para consultar, organizar y exportar en
-              Blandskron Documental
+              KronDocs
             </dd>
           </div>
         </dl>
@@ -193,7 +193,7 @@ export function GoogleDriveApplication({
               !fileIds.trim()
             }
           >
-            {isBusy ? "Importando..." : "Importar a Blandskron Documental"}
+            {isBusy ? "Importando..." : "Importar a KronDocs"}
           </button>
         </form>
       )}

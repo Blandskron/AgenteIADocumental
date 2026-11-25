@@ -6,6 +6,7 @@ import {
   type AuditLogEntry,
 } from "@/features/audit-logs/api/audit-logs.api.ts";
 import { Button } from "@/shared/components/Button/Button.tsx";
+import { PageHeader } from "@/shared/components/PageHeader/PageHeader.tsx";
 import { PageState } from "@/shared/components/PageState.tsx";
 import { useSidebarState } from "@/shared/hooks/useSidebarState.ts";
 import { AppShell } from "@/shared/layouts/AppShell.tsx";
@@ -105,7 +106,7 @@ export function AuditLogsPage({ onNavigate }: PageProps) {
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
-    link.download = `blandskron-auditoria-${new Date().toISOString().slice(0, 10)}.csv`;
+    link.download = `krondocs-auditoria-${new Date().toISOString().slice(0, 10)}.csv`;
     link.click();
     URL.revokeObjectURL(url);
   };
@@ -131,35 +132,34 @@ export function AuditLogsPage({ onNavigate }: PageProps) {
         tabIndex={-1}
         className="settings-ai-page blandskron-screen"
       >
-        <header className="settings-ai-header">
-          <div>
-            <h1>Auditoría de seguridad</h1>
-            <p>
-              Registro persistente de cambios administrativos (IA, permisos y
-              operaciones críticas) sin exposición de secretos.
-            </p>
-          </div>
-          <div className="ui-toolbar-row">
-            <Button
-              type="button"
-              variant="secondary"
-              onClick={handleExportCsv}
-              disabled={loading || items.length === 0}
-            >
-              <Download size={15} aria-hidden="true" />
-              Exportar CSV
-            </Button>
-            <Button
-              type="button"
-              variant="secondary"
-              onClick={() => void loadLogs()}
-              disabled={loading}
-            >
-              <RefreshCw size={15} aria-hidden="true" />
-              Actualizar ({total})
-            </Button>
-          </div>
-        </header>
+        <PageHeader
+          eyebrow="KronDocs · Gobernanza"
+          title="Auditoría de seguridad"
+          description="Registro persistente de cambios administrativos (IA, permisos y operaciones críticas) sin exposición de secretos."
+          icon={<ShieldAlert size={20} />}
+          actions={
+            <div className="ui-toolbar-row">
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={handleExportCsv}
+                disabled={loading || items.length === 0}
+              >
+                <Download size={15} aria-hidden="true" />
+                Exportar CSV
+              </Button>
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={() => void loadLogs()}
+                disabled={loading}
+              >
+                <RefreshCw size={15} aria-hidden="true" />
+                Actualizar ({total})
+              </Button>
+            </div>
+          }
+        />
 
         <div className="ui-toolbar-row">
           <label htmlFor="audit-action-filter">Filtrar acción:</label>

@@ -1,6 +1,14 @@
 import type { Message as ChatMessage } from "@/entities/conversation/model/types.ts";
+import { Badge } from "@/shared/components/Badge/Badge.tsx";
 import { brandSymbolUrl } from "@/shared/components/Brand/Brand.tsx";
-import { FileDown, Loader2, MessageSquare } from "lucide-react";
+import {
+  BookOpen,
+  FileDown,
+  Loader2,
+  MessageSquare,
+  ShieldCheck,
+  Sparkles,
+} from "lucide-react";
 import { useState } from "react";
 
 import { SafeMarkdown } from "./SafeMarkdown";
@@ -21,6 +29,8 @@ export function Message({
   const [activeSourceIndex, setActiveSourceIndex] = useState<number | null>(
     null,
   );
+  const [editorialReading, setEditorialReading] = useState(false);
+  const sourceCount = message.sources?.length || 0;
 
   return (
     <article className={`message ${message.role}`}>
@@ -32,32 +42,66 @@ export function Message({
         )}
       </div>
       <div className="bubble">
-        <div className="message-meta">
-          {isAssistant ? "Blandskron Documental" : "Tu"}
+        <div className="message-meta-row">
+          <div className="message-meta">{isAssistant ? "KronDocs" : "Tú"}</div>
+          {isAssistant && (
+            <Badge
+              variant="ai"
+              icon={<Sparkles size={11} aria-hidden="true" />}
+            >
+              IA Documental
+            </Badge>
+          )}
+          {isAssistant && sourceCount > 0 && (
+            <Badge
+              variant="verified"
+              icon={<ShieldCheck size={11} aria-hidden="true" />}
+            >
+              {sourceCount} {sourceCount === 1 ? "fuente" : "fuentes"}
+            </Badge>
+          )}
         </div>
-        <div className="message-text">
+        <div
+          className={`message-text ${isAssistant && editorialReading ? "reading-mode-serif" : ""}`.trim()}
+        >
           {isAssistant ? (
             <SafeMarkdown
               content={message.content}
-              sourceCount={message.sources?.length || 0}
+              sourceCount={sourceCount}
               onCitationClick={(index) => setActiveSourceIndex(index)}
             />
           ) : (
             message.content
           )}
         </div>
-        {isAssistant && onExportPdf && (
+        {isAssistant && (
           <div className="message-actions">
             <button
-              className="message-export-button"
+              className={`message-export-button ${editorialReading ? "is-active" : ""}`.trim()}
               type="button"
-              onClick={onExportPdf}
-              disabled={isExportingPdf || exportDisabled}
-              title="Exportar respuesta como PDF"
+              aria-pressed={editorialReading}
+              onClick={() => setEditorialReading((prev) => !prev)}
+              title="Alternar tipografía editorial de lectura extensa"
             >
-              {isExportingPdf ? <Loader2 size={15} /> : <FileDown size={15} />}
-              PDF
+              <BookOpen size={15} aria-hidden="true" />
+              Lectura
             </button>
+            {onExportPdf && (
+              <button
+                className="message-export-button"
+                type="button"
+                onClick={onExportPdf}
+                disabled={isExportingPdf || exportDisabled}
+                title="Exportar respuesta como PDF"
+              >
+                {isExportingPdf ? (
+                  <Loader2 size={15} aria-hidden="true" />
+                ) : (
+                  <FileDown size={15} aria-hidden="true" />
+                )}
+                PDF
+              </button>
+            )}
           </div>
         )}
         <SourceList

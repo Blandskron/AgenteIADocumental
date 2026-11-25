@@ -14,6 +14,7 @@ import {
 } from "@/features/settings-ai/api/settings-ai.api.ts";
 import { OllamaConfigPanel } from "@/features/settings-ai/ui/OllamaConfigPanel.tsx";
 import { Button } from "@/shared/components/Button/Button.tsx";
+import { PageHeader } from "@/shared/components/PageHeader/PageHeader.tsx";
 import { PageState } from "@/shared/components/PageState.tsx";
 import { useSidebarState } from "@/shared/hooks/useSidebarState.ts";
 import { AppShell } from "@/shared/layouts/AppShell.tsx";
@@ -237,63 +238,64 @@ export function SettingsAIPage({ onNavigate }: PageProps) {
         tabIndex={-1}
         className="settings-ai-page blandskron-screen"
       >
-        <header className="settings-ai-header">
-          <div>
-            <h1>Configuración de IA</h1>
-            <p>
-              Elige entre Groq en la nube u Ollama local sin editar archivos ni
-              reiniciar servicios.
-            </p>
-          </div>
-          <div className="ui-toolbar-row">
-            <Button
-              type="button"
-              variant={activeProvider === "groq" ? "primary" : "secondary"}
-              disabled={busy}
-              onClick={() => {
-                setBusy(true);
-                setError(null);
-                void setActiveAIProvider(authClient, "groq")
-                  .then((res) => {
-                    setActiveProvider(res.active_provider);
-                    setNotice("Proveedor activo cambiado a Groq.");
-                  })
-                  .catch((caught) => setError(toError(caught).message))
-                  .finally(() => setBusy(false));
-              }}
-            >
-              Groq (Nube)
-            </Button>
-            <Button
-              type="button"
-              variant={activeProvider === "ollama" ? "primary" : "secondary"}
-              disabled={busy}
-              onClick={() => {
-                setBusy(true);
-                setError(null);
-                void setActiveAIProvider(authClient, "ollama")
-                  .then((res) => {
-                    setActiveProvider(res.active_provider);
-                    setNotice(
-                      "Proveedor activo cambiado a Ollama local (sin envío a terceros).",
-                    );
-                  })
-                  .catch((caught) => setError(toError(caught).message))
-                  .finally(() => setBusy(false));
-              }}
-            >
-              Ollama (Local)
-            </Button>
-            {settings && activeProvider === "groq" && (
+        <PageHeader
+          eyebrow="KronDocs · Motor IA"
+          title="Configuración de IA"
+          description="Elige entre Groq en la nube u Ollama local sin editar archivos ni reiniciar servicios."
+          icon={<Cpu size={20} />}
+          badges={
+            settings && activeProvider === "groq" ? (
               <span
                 className={`settings-ai-badge status-${settings.status}`}
                 role="status"
               >
                 {STATUS_LABELS[settings.status] || settings.status}
               </span>
-            )}
-          </div>
-        </header>
+            ) : undefined
+          }
+          actions={
+            <div className="ui-toolbar-row">
+              <Button
+                type="button"
+                variant={activeProvider === "groq" ? "primary" : "secondary"}
+                disabled={busy}
+                onClick={() => {
+                  setBusy(true);
+                  setError(null);
+                  void setActiveAIProvider(authClient, "groq")
+                    .then((res) => {
+                      setActiveProvider(res.active_provider);
+                      setNotice("Proveedor activo cambiado a Groq.");
+                    })
+                    .catch((caught) => setError(toError(caught).message))
+                    .finally(() => setBusy(false));
+                }}
+              >
+                Groq (Nube)
+              </Button>
+              <Button
+                type="button"
+                variant={activeProvider === "ollama" ? "primary" : "secondary"}
+                disabled={busy}
+                onClick={() => {
+                  setBusy(true);
+                  setError(null);
+                  void setActiveAIProvider(authClient, "ollama")
+                    .then((res) => {
+                      setActiveProvider(res.active_provider);
+                      setNotice(
+                        "Proveedor activo cambiado a Ollama local (sin envío a terceros).",
+                      );
+                    })
+                    .catch((caught) => setError(toError(caught).message))
+                    .finally(() => setBusy(false));
+                }}
+              >
+                Ollama (Local)
+              </Button>
+            </div>
+          }
+        />
 
         {loading && <PageState title="Cargando configuración de IA…" loading />}
 

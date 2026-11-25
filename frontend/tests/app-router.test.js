@@ -16,7 +16,7 @@ test("all 15 declared appRoutes have a defined non-empty title without undefined
     assert.ok(routeTitles[route], `Missing route title for ${route}`);
     const fullTitle = getRouteDocumentTitle(route);
     assert.doesNotMatch(fullTitle, /undefined/i);
-    assert.match(fullTitle, /Blandskron Documental$/);
+    assert.match(fullTitle, /KronDocs$/);
   }
 });
 
