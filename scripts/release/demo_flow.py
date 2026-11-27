@@ -164,7 +164,18 @@ def run():
                 "title": "Demo sintética Blandskron",
                 "question": "¿Cuántos días dura el contrato?",
                 "answer": owner_answer["answer"],
-                "sources": owner_answer["sources"],
+                # Match the web adapter: search metadata stays in the chat response.
+                "sources": [
+                    {
+                        "document_id": source["document_id"],
+                        "chunk_id": source["chunk_id"],
+                        "filename": source.get("filename") or "",
+                        "content": source["content"],
+                        "score": source["score"],
+                        "page": source.get("page"),
+                    }
+                    for source in owner_answer["sources"]
+                ],
             },
         ).json()
         exports.append(exported["export_id"])
