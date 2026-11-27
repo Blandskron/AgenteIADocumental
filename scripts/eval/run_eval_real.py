@@ -9,6 +9,7 @@ Calcula métricas IR y RAG estándar:
 Modos de ejecución:
   1. Live HTTP contra RagDocumentChatServices (`--chat-url` + `--token`), ejercitando
      PostgreSQL 16 + pgvector HNSW + FTS + RRF + multilingual-e5-small + LLM reales.
+     Usa una instancia sintética con el corpus cargado y nombres de archivo únicos.
   2. Evaluación local sobre `tests/fixtures/eval_corpus/ground_truth.json` (sin servicios
      externos) para validar métricas y contrato de reporte en entornos aislados.
 
@@ -126,6 +127,25 @@ def _ask_live_chat(chat_url: str, token: str, question: str, timeout: float = 30
         return json.loads(resp.read().decode("utf-8"))
 
 
+def _corpus_by_filename(documents: list[str]) -> dict[str, str]:
+    by_filename: dict[str, str] = {}
+    for document in documents:
+        filename = Path(document).name
+        if by_filename.setdefault(filename, document) != document:
+            raise ValueError(f"Live evaluation requires unique corpus filenames: {filename}")
+    return by_filename | {document: document for document in documents}
+
+
+def _rank_live_documents(sources: list[dict[str, Any]], corpus_by_filename: dict[str, str]) -> list[str]:
+    ranked: dict[str, None] = {}
+    for source in sources:
+        filename = source.get("filename") or ""
+        document = corpus_by_filename.get(filename) or source.get("document_id") or filename
+        if document:
+            ranked.setdefault(document, None)
+    return list(ranked)
+
+
 _STOPWORDS = frozenset(
     {
         "que", "con", "por", "para", "del", "las", "los", "una", "uno", "cual", "cuál",
@@ -163,6 +183,7 @@ def run_evaluation(
     queries = gt.get("cases") or gt.get("queries") or []
 
     mode = "live_http" if (chat_url and token) else "local_corpus"
+    corpus_by_filename = _corpus_by_filename(all_docs) if mode == "live_http" else {}
     query_reports: list[dict[str, Any]] = []
 
     rec5_list: list[float] = []
@@ -183,7 +204,7 @@ def run_evaluation(
         if mode == "live_http":
             resp = _ask_live_chat(chat_url or "", token or "", q_text)
             sources = resp.get("sources") or []
-            retrieved = [str(s.get("filename") or s.get("document_id") or "") for s in sources]
+            retrieved = _rank_live_documents(sources, corpus_by_filename)
             ans_text = str(resp.get("answer") or "")
             cit_acc = citation_accuracy(ans_text, len(sources))
         else:
