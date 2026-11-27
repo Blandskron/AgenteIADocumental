@@ -96,7 +96,7 @@ Con el stack de desarrollo activo y una clave de Groq, la prueba de PowerShell 7
 ./scripts/smoke_documental.ps1 -Credential (Get-Credential)
 ```
 
-Para desarrollar sin Compose, consulta el README del servicio y configura el rol de base de datos y, cuando corresponda, `AUTH_JWT_PUBLIC_KEY_PATH` y `AUTH_IDENTITY_URL` con Auth activo. Para desarrollar solo la interfaz, ejecuta `npm ci` y `npm run dev` desde `frontend/`. En Linux/macOS (o WSL/Git Bash), el [Makefile](../Makefile) de la raíz agrupa atajos equivalentes para los once servicios (`make help`, `make up`, `make compose-config`, `make run-<servicio>`, `make check-docs`, `make test-services`, `make eval-rag-matrix` y `make verify`). [Mapa de servicios](architecture.md#mapa-de-servicios) · [Frontend](../frontend/README.md)
+Para desarrollar sin Compose, consulta el README del servicio y configura el rol de base de datos y, cuando corresponda, `AUTH_JWT_PUBLIC_KEY_PATH` y `AUTH_IDENTITY_URL` con Auth activo. Para desarrollar solo la interfaz, ejecuta `npm ci` y `npm run dev` desde `frontend/`. En Linux/macOS (o WSL/Git Bash), el [Makefile](../Makefile) incluye `make up`, `make check-compose` y `make eval-rag` para arrancar, validar la configuración y evaluar el corpus local. El modo HTTP del [evaluador RAG](../scripts/eval/run_eval_real.py) requiere una instancia sintética con el corpus cargado y nombres de archivo únicos. [Mapa de servicios](architecture.md#mapa-de-servicios) · [Frontend](../frontend/README.md)
 
 ## Resiliencia, solución de problemas y desinstalación segura
 

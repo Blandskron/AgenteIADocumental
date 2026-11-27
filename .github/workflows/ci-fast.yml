@@ -379,6 +379,7 @@ jobs:
           python -m pip install -r backend/KnowledgeStudioServices/requirements.txt pytest httpx
           python3 scripts/eval/run_eval_baseline.py
           python3 scripts/eval/run_studio_eval_gate.py
+          python -m pytest -q scripts/eval/test_run_eval_real.py
           PYTHONPATH=backend/KnowledgeStudioServices python -m pytest -q backend/KnowledgeStudioServices/tests
           PYTHONPATH=backend/AgentOrchestratorServices python -m pytest -q backend/AgentOrchestratorServices/tests
 

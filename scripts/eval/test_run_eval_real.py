@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import importlib.util
+import json
 from pathlib import Path
 import sys
 
@@ -31,3 +32,33 @@ def test_citation_accuracy_and_refusal_detection() -> None:
     assert _MOD.is_refusal_answer("No encontré evidencia suficiente en los documentos.", "ok") is True
     assert _MOD.is_refusal_answer("Cualquier texto", "insufficient_evidence") is True
     assert _MOD.is_refusal_answer("El plazo es de 30 días [Fuente 1].", "ok") is False
+
+
+def test_live_metrics_rank_unique_corpus_documents_but_keep_chunk_citations(tmp_path, monkeypatch) -> None:
+    expected = ["s1/acta.md", "s2/informe.md"]
+    (tmp_path / "ground_truth.json").write_text(
+        json.dumps({"sets": {"synthetic": expected}, "cases": [{"query": "Plazo", "expected_docs": expected}]}),
+        encoding="utf-8",
+    )
+    sources = [
+        {"document_id": "acta", "filename": "acta.md", "chunk_id": str(index)}
+        for index in range(5)
+    ]
+    sources.extend([
+        {"document_id": "otro", "filename": "fuera-del-corpus.md"},
+        {"document_id": "informe", "filename": "informe.md"},
+    ])
+
+    def ask_live(_url, _token, question):
+        if question == "Plazo":
+            return {"answer": "Plazo confirmado [Fuente 7].", "sources": sources}
+        return {"provider_status": "insufficient_evidence"}
+
+    monkeypatch.setattr(_MOD, "_ask_live_chat", ask_live)
+    report = _MOD.run_evaluation(corpus_dir=tmp_path, chat_url="http://127.0.0.1", token="synthetic")
+
+    assert report["mode"] == "live_http"
+    assert report["metrics"]["recall_at_5"] == 1.0
+    assert report["metrics"]["precision_at_5"] == 0.6667
+    assert 0 < report["metrics"]["ndcg_at_5"] < 1
+    assert report["metrics"]["citation_accuracy"] == 1.0
