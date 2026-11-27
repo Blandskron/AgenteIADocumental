@@ -44,6 +44,9 @@ services:
       - "127.0.0.1:8018:8000"
     volumes:
       - auth_verification_keys:/app/auth_keys:ro
+    mem_limit: 512m
+    cpus: 1.0
+    pids_limit: 128
     depends_on:
       studio-db-role:
         condition: service_completed_successfully

@@ -47,6 +47,17 @@ def test_groundedness_accepts_anchored_claims_and_rejects_hallucinated_quotes():
     assert bad.valid is False
     assert bad.score == 0.0
 
+    empty_claims_artifact = ArtifactContent(
+        template_id="summary.executive",
+        title="Resumen vacío",
+        body_md="Sin afirmaciones citadas.",
+        claims=[],
+    )
+    empty_report = validate_groundedness(empty_claims_artifact, CHUNKS)
+    assert empty_report.valid is False
+    assert empty_report.score == 0.0
+    assert any("factual claim" in err for err in empty_report.errors)
+
 
 def test_evidence_table_csv_neutralizes_formula_injection_and_keeps_provenance():
     artifact = ArtifactContent(

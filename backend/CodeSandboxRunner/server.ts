@@ -16,6 +16,24 @@ const DEFAULT_TIMEOUT_MS = Math.min(
 );
 const MAX_CODE_BYTES = 8192;
 const MAX_OUTPUT_BYTES = 65536;
+const SANDBOX_INTERNAL_TOKEN = (Deno.env.get("SANDBOX_INTERNAL_TOKEN") ?? "").trim();
+const MAX_CONCURRENT = Math.min(
+  16,
+  Math.max(1, Number(Deno.env.get("SANDBOX_MAX_CONCURRENT") ?? "4")),
+);
+let activeExecutions = 0;
+
+function timingSafeEqual(a: string, b: string): boolean {
+  const enc = new TextEncoder();
+  const ab = enc.encode(a);
+  const bb = enc.encode(b);
+  if (ab.length !== bb.length) return false;
+  let diff = 0;
+  for (let i = 0; i < ab.length; i += 1) {
+    diff |= ab[i] ^ bb[i];
+  }
+  return diff === 0;
+}
 
 const FORBIDDEN_PATTERNS: RegExp[] = [
   /\bDeno\.(env|readFile|writeFile|run|Command|open|listen|connect)\b/,
@@ -138,6 +156,15 @@ Deno.serve({ hostname: "0.0.0.0", port: PORT }, async (req: Request): Promise<Re
   if (req.method !== "POST" || url.pathname !== "/execute") {
     return jsonResponse({ ok: false, error: "Not found" }, 404);
   }
+  if (SANDBOX_INTERNAL_TOKEN) {
+    const provided = (req.headers.get("x-sandbox-token") ?? "").trim();
+    if (!provided || !timingSafeEqual(provided, SANDBOX_INTERNAL_TOKEN)) {
+      return jsonResponse({ ok: false, error: "Token interno de sandbox inválido." }, 401);
+    }
+  }
+  if (activeExecutions >= MAX_CONCURRENT) {
+    return jsonResponse({ ok: false, error: "Límite de concurrencia del sandbox alcanzado." }, 429);
+  }
 
   let payload: ExecutePayload;
   try {
@@ -161,6 +188,11 @@ Deno.serve({ hostname: "0.0.0.0", port: PORT }, async (req: Request): Promise<Re
     ? Math.min(10000, Math.max(500, requestedTimeout))
     : DEFAULT_TIMEOUT_MS;
 
-  const result = await runIsolatedScript(code, payload.data, timeoutMs);
-  return jsonResponse(result, result.ok ? 200 : 422);
+  activeExecutions += 1;
+  try {
+    const result = await runIsolatedScript(code, payload.data, timeoutMs);
+    return jsonResponse(result, result.ok ? 200 : 422);
+  } finally {
+    activeExecutions = Math.max(0, activeExecutions - 1);
+  }
 });

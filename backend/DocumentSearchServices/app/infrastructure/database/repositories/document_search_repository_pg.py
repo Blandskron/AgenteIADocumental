@@ -95,7 +95,9 @@ class DocumentSearchRepositoryPg:
         if mime_type:
             statement = statement.filter(DocumentModel.mime_type == mime_type)
         if source:
-            statement = statement.filter(DocumentModel.metadata_.op("->>")("source") == source)
+            statement = statement.filter(
+                func.coalesce(DocumentModel.metadata_.op("->>")("source"), "upload") == source
+            )
         if query:
             like_query = f"%{query}%"
             ts_query = func.websearch_to_tsquery("spanish", query)

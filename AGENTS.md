@@ -1,4 +1,4 @@
-# Cómo colaborar en Blandskron Documental
+# Cómo colaborar en KronDocs — Document Intelligence (antes Blandskron Documental)
 
 El [README](README.md) es la entrada humana. Los README presentan el mapa de cada ámbito. Los detalles viven en docs/ y las reglas locales en AGENTS.md. El [índice de mantenimiento](docs/maintainers.md) enlaza las skills por ámbito. Usa [documental-project](.agents/skills/documental-project/SKILL.md) para cambios transversales. La [verificación de entrega](docs/release/README.md) describe comprobaciones, alcance local y avisos residuales. Delimita cada cambio en una issue o en la descripción del PR.
 

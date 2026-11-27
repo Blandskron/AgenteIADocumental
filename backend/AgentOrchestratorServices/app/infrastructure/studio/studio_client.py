@@ -96,27 +96,44 @@ class StudioHandoffClient:
         if not doc_ids:
             raise ValueError("Cannot persist a Studio artifact without at least one verified document source.")
 
+        template_aliases = {
+            "executive_brief": "summary.executive",
+            "technical_report": "report.technical",
+            "risk_analysis": "report.risk_analysis",
+        }
+        resolved_template_id = template_aliases.get(template_id, template_id)
+        safe_title = (title.strip() or "Informe Agente")[:200]
+        if len(safe_title) < 2:
+            safe_title = "Informe Agente"
+
+        studio_claims = []
+        for c in claims:
+            quote = (c["quote"] or "Evidencia documental").strip()
+            if len(quote) < 3:
+                quote = "Evidencia documental"
+            studio_claims.append(
+                {
+                    "statement": quote[:1200],
+                    "citations": [
+                        {
+                            "document_id": c["document_id"],
+                            "chunk_index": c["chunk_index"],
+                            "quote_text": quote[:600],
+                        }
+                    ],
+                }
+            )
+
         payload = {
-            "template_id": template_id,
-            "title": title[:200],
+            "template_id": resolved_template_id,
+            "title": safe_title,
             "document_ids": doc_ids,
             "content": {
-                "summary": result_markdown[:4000],
-                "sections": [
-                    {
-                        "heading": title[:120],
-                        "body": result_markdown,
-                        "citations": [
-                            {
-                                "document_id": c["document_id"],
-                                "chunk_index": c["chunk_index"],
-                                "quote": c["quote"][:240],
-                            }
-                            for c in claims
-                        ],
-                    }
-                ],
-                "claims": claims,
+                "template_id": resolved_template_id,
+                "template_version": "1.0.0",
+                "title": safe_title,
+                "body_md": result_markdown[:32000],
+                "claims": studio_claims,
             },
         }
         url = f"{self._studio_base_url}/api/v1/studio/artifacts"

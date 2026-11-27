@@ -1,6 +1,6 @@
-# Frontend documental
+# Frontend KronDocs — Document Intelligence
 
-Interfaz React 19, TypeScript estricto y Vite para registro/acceso (incluyendo bootstrap inicial y Google OIDC opcional), biblioteca documental, chat unificado en 3 modos (`Chat`, `Agente` y `Code Mode` con citas verificables y `SafeMarkdown` anti-XSS), importación por lote Markdown/ZIP, configuración de IA (Groq u Ollama local en `/settings/ai`), Knowledge Studio (`/studio` con soporte de deep-linking `?artifact=<id>`), auditoría (`/admin/audit`), perfil y administración. Nginx sirve la compilación en Compose sobre loopback (`http://localhost:3000`) con caché inmutable para `/assets/` y cabeceras defensivas (`nosniff`, `DENY`).
+Interfaz React 19, TypeScript estricto y Vite de **KronDocs — Document Intelligence** (*Open Source · By BLANDSKRON*) para registro/acceso (incluyendo bootstrap inicial y Google OIDC opcional), biblioteca documental, chat unificado en 3 modos (`Chat`, `Agente` y `Code Mode` con citas verificables, modo de lectura editorial `Source Serif 4` y `SafeMarkdown` anti-XSS), importación por lote Markdown/ZIP, configuración de IA (Groq u Ollama local en `/settings/ai`), Knowledge Studio (`/studio` con soporte de deep-linking `?artifact=<id>`), auditoría (`/admin/audit`), perfil y administración. Nginx sirve la compilación en Compose sobre loopback (`http://localhost:3000`) con caché inmutable para `/assets/` y cabeceras defensivas (`nosniff`, `DENY`).
 
 ```mermaid
 flowchart LR

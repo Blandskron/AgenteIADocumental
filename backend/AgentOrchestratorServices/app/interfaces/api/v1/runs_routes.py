@@ -98,36 +98,71 @@ def _require_agents_enabled() -> None:
         )
 
 
+_db_engine: Any = None
+_db_engine_url: str | None = None
+_db_session_factory: Any = None
+
+
+def _get_session_factory(db_url: str):
+    global _db_engine, _db_engine_url, _db_session_factory
+    from sqlalchemy import create_engine
+    from sqlalchemy.orm import sessionmaker
+
+    if _db_engine is None or _db_engine_url != db_url:
+        if _db_engine is not None:
+            _db_engine.dispose()
+        _db_engine = create_engine(
+            db_url,
+            pool_pre_ping=True,
+            pool_size=int(os.environ.get("DB_POOL_MIN_SIZE", "2")),
+            max_overflow=int(os.environ.get("DB_POOL_MAX_SIZE", "8")),
+        )
+        _db_engine_url = db_url
+        _db_session_factory = sessionmaker(bind=_db_engine, autoflush=False, autocommit=False)
+    return _db_session_factory
+
+
+def dispose_db_engine() -> None:
+    global _db_engine, _db_engine_url, _db_session_factory
+    if _db_engine is not None:
+        _db_engine.dispose()
+    _db_engine = None
+    _db_engine_url = None
+    _db_session_factory = None
+
+
+def _build_pg_components(session: Any):
+    from sqlalchemy import text
+
+    def _load_integration(tenant_id: str, provider: str) -> dict[str, Any] | None:
+        row = session.execute(
+            text(
+                """
+                SELECT status, config, secrets_encrypted, updated_at
+                FROM public.tenant_integrations
+                WHERE tenant_id = :tenant_id AND provider = :provider
+                LIMIT 1
+                """
+            ),
+            {"tenant_id": tenant_id, "provider": provider},
+        ).mappings().first()
+        return dict(row) if row else None
+
+    return (
+        PostgresRunsRepository(session),
+        PostgresAgentCheckpointer(session),
+        TenantQuotaService(session=session),
+        AuditLogger(session=session),
+        TenantLLMConfigResolver(row_loader=_load_integration),
+    )
+
+
 def _get_runtime_components():
     db_url = (os.environ.get("DATABASE_URL") or "").strip()
     if db_url:
-        from sqlalchemy import create_engine, text
-        from sqlalchemy.orm import Session
-
-        engine = create_engine(db_url, pool_pre_ping=True)
-        session = Session(engine)
-
-        def _load_integration(tenant_id: str, provider: str) -> dict[str, Any] | None:
-            row = session.execute(
-                text(
-                    """
-                    SELECT status, config, secrets_encrypted, updated_at
-                    FROM public.tenant_integrations
-                    WHERE tenant_id = :tenant_id AND provider = :provider
-                    LIMIT 1
-                    """
-                ),
-                {"tenant_id": tenant_id, "provider": provider},
-            ).mappings().first()
-            return dict(row) if row else None
-
-        return (
-            PostgresRunsRepository(session),
-            PostgresAgentCheckpointer(session),
-            TenantQuotaService(session=session),
-            AuditLogger(session=session),
-            TenantLLMConfigResolver(row_loader=_load_integration),
-        )
+        factory = _get_session_factory(db_url)
+        session = factory()
+        return _build_pg_components(session)
     return (
         _fallback_repo,
         _fallback_checkpointer,

@@ -423,7 +423,7 @@ export function DocumentSearchPage({
         await rejectAssignment(
           documentAccessClient,
           assignment.assignmentId,
-          "Rechazado desde Blandskron Documental",
+          "Rechazado desde KronDocs",
         );
       if (action === "sign")
         await signAssignment(
@@ -554,6 +554,10 @@ export function DocumentSearchPage({
           {/* Cabecera de Página */}
           <div className="library-title-row">
             <div>
+              <p className="kd-eyebrow">
+                <span className="kd-eyebrow-dot" aria-hidden="true" />
+                <span>KronDocs · Biblioteca</span>
+              </p>
               <h1>Documentos</h1>
               <p>Gestiona y organiza todos tus archivos empresariales</p>
             </div>

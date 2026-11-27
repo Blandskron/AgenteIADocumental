@@ -70,4 +70,9 @@ export const env = {
     "VITE_AGENT_ORCHESTRATOR_BASE_URL",
     "http://localhost:8019",
   ),
+  authSessionMode:
+    readEnv("VITE_AUTH_SESSION_MODE", "bearer").trim().toLowerCase() ===
+    "cookie"
+      ? ("cookie" as const)
+      : ("bearer" as const),
 };

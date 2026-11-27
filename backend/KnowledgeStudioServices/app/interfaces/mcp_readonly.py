@@ -7,7 +7,13 @@ from dataclasses import dataclass
 from typing import Any
 
 READ_ONLY_MCP_TOOLS = frozenset(
-    {"search_documents", "get_document_chunks", "list_studio_artifacts", "get_studio_artifact"}
+    {
+        "search_documents",
+        "search_documents_hybrid",
+        "get_document_chunks",
+        "list_studio_artifacts",
+        "get_studio_artifact",
+    }
 )
 
 

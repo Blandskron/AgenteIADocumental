@@ -10,32 +10,44 @@
   const lightboxCaption = document.getElementById("lightbox-caption");
   const lightboxClose = document.getElementById("lightbox-close");
 
-  // Theme preference & Hero screenshot sync
+  const THEME_KEY = "krondocs.landing.theme";
+  const LEGACY_THEME_KEY = "blandskron.landing.theme";
   const heroImg = document.getElementById("hero-screenshot-img");
-  function syncHeroTheme(theme) {
-    if (!heroImg) return;
-    const targetSrc =
-      theme === "dark"
-        ? heroImg.getAttribute("data-dark-src")
-        : heroImg.getAttribute("data-light-src");
-    if (targetSrc) {
-      heroImg.src = targetSrc;
+
+  function syncThemeUI(theme) {
+    root.setAttribute("data-theme", theme);
+    if (themeBtn) {
+      themeBtn.textContent = theme === "dark" ? "Modo Claro" : "Modo Oscuro";
+      themeBtn.setAttribute(
+        "aria-label",
+        theme === "dark" ? "Cambiar a modo claro" : "Cambiar a modo oscuro",
+      );
+    }
+    if (heroImg) {
+      const targetSrc =
+        theme === "dark"
+          ? heroImg.getAttribute("data-dark-src")
+          : heroImg.getAttribute("data-light-src");
+      if (targetSrc) {
+        heroImg.src = targetSrc;
+      }
     }
   }
 
-  const savedTheme = localStorage.getItem("blandskron.landing.theme");
-  if (savedTheme === "dark" || savedTheme === "light") {
-    root.setAttribute("data-theme", savedTheme);
-    syncHeroTheme(savedTheme);
-  }
+  const savedTheme =
+    localStorage.getItem(THEME_KEY) || localStorage.getItem(LEGACY_THEME_KEY);
+  const initialTheme =
+    savedTheme === "light" || savedTheme === "dark" ? savedTheme : "dark";
+  syncThemeUI(initialTheme);
+
   themeBtn?.addEventListener("click", () => {
     const next = root.getAttribute("data-theme") === "dark" ? "light" : "dark";
-    root.setAttribute("data-theme", next);
-    localStorage.setItem("blandskron.landing.theme", next);
-    syncHeroTheme(next);
+    localStorage.setItem(THEME_KEY, next);
+    localStorage.setItem(LEGACY_THEME_KEY, next);
+    syncThemeUI(next);
   });
 
-  // Gallery theme filter (all / light / dark)
+  // Gallery theme filter (all / dark / light)
   const filterBtns = document.querySelectorAll("[data-gallery-filter]");
   const galleryCards = document.querySelectorAll("#product-gallery .gallery-card");
   filterBtns.forEach((btn) => {
@@ -105,4 +117,3 @@
     if (event.target === lightbox) lightbox.close();
   });
 })();
-

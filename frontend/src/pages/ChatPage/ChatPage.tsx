@@ -97,9 +97,10 @@ export function ChatPage({ onNavigate }: PageProps) {
     (!activeConversation?.messages?.length ||
       (activeConversation.messages.length === 1 &&
         activeConversation.messages[0]?.role === "assistant" &&
-        activeConversation.messages[0].content?.startsWith(
-          "Soy Blandskron Documental.",
-        )));
+        (activeConversation.messages[0].content?.startsWith("Soy KronDocs.") ||
+          activeConversation.messages[0].content?.startsWith(
+            "Soy Blandskron Documental.",
+          ))));
   const latestMessage = activeConversation?.messages?.at(-1);
   const messagesRef = useScrollToBottom({
     conversationId: activeConversation.id,
@@ -235,10 +236,7 @@ export function ChatPage({ onNavigate }: PageProps) {
             onTemplateChange={setSelectedTemplateId}
           />
           {activeConversation?.selectedDocuments?.length > 0 && (
-            <div
-              className="selected-documents-chip"
-              style={{ margin: 0, alignSelf: "flex-start" }}
-            >
+            <div className="selected-documents-chip">
               <span>
                 {activeConversation.selectedDocuments
                   .map((doc) => doc.filename)

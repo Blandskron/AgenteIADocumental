@@ -136,7 +136,29 @@ def validate_groundedness(
         if not task.citations:
             errors.append(f"Proposed task #{task_idx + 1} lacks source citation.")
 
-    score = (anchored_claims / total_claims) if total_claims > 0 else 1.0
+    if artifact.template_id == "evidence_table":
+        if not artifact.table_rows:
+            errors.append("Artifact of type evidence_table requires at least one evidence row.")
+            score = 0.0
+        elif total_claims > 0:
+            score = anchored_claims / total_claims
+        else:
+            score = 1.0 if not errors else 0.0
+    elif artifact.template_id == "proposed_tasks":
+        if not artifact.tasks:
+            errors.append("Artifact of type proposed_tasks requires at least one proposed task.")
+            score = 0.0
+        elif total_claims > 0:
+            score = anchored_claims / total_claims
+        else:
+            score = 1.0 if not errors else 0.0
+    else:
+        if total_claims == 0:
+            errors.append("Artifact requires at least one cited factual claim.")
+            score = 0.0
+        else:
+            score = anchored_claims / total_claims
+
     valid = (len(errors) == 0) and (score >= min_score)
     return GroundednessReport(
         valid=valid,

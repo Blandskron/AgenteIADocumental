@@ -47,7 +47,8 @@ export function ChatMessages({
     (messages.length === 0 ||
       (messages.length === 1 &&
         messages[0].role === "assistant" &&
-        messages[0].content?.startsWith("Soy Blandskron Documental.")));
+        (messages[0].content?.startsWith("Soy KronDocs.") ||
+          messages[0].content?.startsWith("Soy Blandskron Documental."))));
 
   return (
     <section
@@ -79,6 +80,10 @@ export function ChatMessages({
           <div className="chat-brand-symbol" aria-hidden="true">
             <img src={brandSymbolUrl} alt="" />
           </div>
+          <p className="kd-eyebrow">
+            <span className="kd-eyebrow-dot" aria-hidden="true" />
+            <span>KronDocs · Document Intelligence</span>
+          </p>
           <h1>Tus documentos, con respuestas claras</h1>
           <p className="starter-description">
             Consulta tu biblioteca o adjunta un archivo. Cada respuesta se apoya

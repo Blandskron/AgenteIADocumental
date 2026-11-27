@@ -12,6 +12,7 @@ import {
 import { useState } from "react";
 
 import { SafeMarkdown } from "@/features/chat/ui/SafeMarkdown.tsx";
+import { Badge, type BadgeVariant } from "@/shared/components/Badge/Badge.tsx";
 import { Button } from "@/shared/components/Button/Button.tsx";
 import type {
   AgentAuditEvent,
@@ -62,6 +63,17 @@ export function AgentRunPanel({
     return null;
   }
 
+  const statusVariant: BadgeVariant =
+    run?.status === "SUCCEEDED"
+      ? "success"
+      : run?.status === "WAITING_APPROVAL"
+        ? "warning"
+        : run?.status === "FAILED"
+          ? "danger"
+          : run?.status === "CANCELLED"
+            ? "pending"
+            : "info";
+
   return (
     <section
       className="agent-run-panel"
@@ -69,9 +81,11 @@ export function AgentRunPanel({
     >
       <div className="agent-run-header">
         <strong className="agent-run-title">
-          {busy && !run
-            ? "Ejecutando agente documental..."
-            : `Agente · ${run?.status ?? "ERROR"}${run?.provider ? ` (${run.provider})` : ""}`}
+          <span>
+            {busy && !run ? "Ejecutando agente documental..." : "Agente"}
+          </span>
+          {run && <Badge variant={statusVariant}>{run.status}</Badge>}
+          {run?.provider && <Badge variant="accent">{run.provider}</Badge>}
         </strong>
         <div className="agent-run-actions">
           {quota && (

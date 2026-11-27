@@ -35,6 +35,13 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
+      - name: Verificar higiene Git (sin rutas temporales brain/)
+        run: |
+          if [ -n "$(git ls-files brain '**/brain')" ]; then
+            echo "::error::Se detectaron artefactos temporales rastreados bajo brain/:"
+            git ls-files brain '**/brain'
+            exit 1
+          fi
       - name: Calcular ámbitos afectados
         id: scope
         env:
@@ -93,6 +100,8 @@ jobs:
           assert frontend["read_only"] is True and frontend["cap_drop"] == ["ALL"]
           assert "no-new-privileges:true" in frontend["security_opt"]
           assert all(name.startswith("VITE_") for name in frontend["environment"])
+          assert "VITE_KNOWLEDGE_STUDIO_BASE_URL" in frontend["environment"]
+          assert "VITE_AGENT_ORCHESTRATOR_BASE_URL" in frontend["environment"]
           assert frontend["ports"][0]["target"] == 8080
           assert frontend["ports"][0]["host_ip"] == "127.0.0.1"
           conversation_env = services["conversation-service"]["environment"]
@@ -233,6 +242,30 @@ jobs:
               if service.get("environment", {}).get("AUTH_JWT_PUBLIC_KEY_PATH") == "/app/auth_keys/public.pem":
                   assert mounts["auth_verification_keys"]["read_only"], name
           PY
+      - name: Comprobar perfiles opcionales (studio, agents, code-mode, local-llm)
+        run: |
+          OLLAMA_HOST_PORT=11435 docker compose --env-file "$VERIFICATION_ENV_FILE" \
+            -f compose.yaml \
+            -f docker/compose/studio.yml \
+            -f docker/compose/agents.yml \
+            -f docker/compose/code-mode.yml \
+            -f docker/compose/ollama.yml \
+            --profile studio --profile agents --profile code-mode --profile local-llm \
+            config --format json > /tmp/blandskron-compose-optional.json
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+
+          services = json.loads(Path("/tmp/blandskron-compose-optional.json").read_text())["services"]
+          agent = services["agent-orchestrator-service"]
+          assert agent["environment"]["AUTH_IDENTITY_URL"] == "http://auth-service:8001/api/users/me/"
+          ollama = services["ollama"]
+          assert str(ollama["ports"][0]["published"]) == "11435"
+          assert ollama["ports"][0]["host_ip"] == "127.0.0.1"
+          runtime_sh = Path("frontend/docker-entrypoint.d/20-runtime-config.sh").read_text()
+          assert "VITE_KNOWLEDGE_STUDIO_BASE_URL" in runtime_sh
+          assert "VITE_AGENT_ORCHESTRATOR_BASE_URL" in runtime_sh
+          PY
 
   auth-fast:
     name: Auth (Django y OpenAPI)
@@ -346,6 +379,7 @@ jobs:
           python -m pip install -r backend/KnowledgeStudioServices/requirements.txt pytest httpx
           python3 scripts/eval/run_eval_baseline.py
           python3 scripts/eval/run_studio_eval_gate.py
+          python -m pytest -q scripts/eval/test_run_eval_real.py
           PYTHONPATH=backend/KnowledgeStudioServices python -m pytest -q backend/KnowledgeStudioServices/tests
           PYTHONPATH=backend/AgentOrchestratorServices python -m pytest -q backend/AgentOrchestratorServices/tests
 

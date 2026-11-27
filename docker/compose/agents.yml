@@ -38,7 +38,7 @@ services:
       PGPASSWORD: ${AGENT_DB_PASSWORD:-blandskron-local-agent}
       AUTH_JWT_PUBLIC_KEY_PATH: /app/auth_keys/public.pem
       AUTH_JWT_ALGORITHM: RS256
-      AUTH_IDENTITY_URL: http://auth-service:8000/api/users/me/
+      AUTH_IDENTITY_URL: http://auth-service:8001/api/users/me/
       MCP_BASE_URL: http://knowledge-studio-service:8000/api/v1/mcp
       KNOWLEDGE_STUDIO_BASE_URL: http://knowledge-studio-service:8000
       DOCUMENT_SEARCH_BASE_URL: http://document-search-service:8000

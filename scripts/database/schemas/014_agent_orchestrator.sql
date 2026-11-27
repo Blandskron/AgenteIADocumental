@@ -18,6 +18,9 @@ CREATE TABLE IF NOT EXISTS agents.agent_runs (
     current_step TEXT NOT NULL DEFAULT 'queued',
     steps JSONB NOT NULL DEFAULT '[]'::jsonb,
     sources JSONB NOT NULL DEFAULT '[]'::jsonb,
+    code_executions JSONB NOT NULL DEFAULT '[]'::jsonb,
+    pending_approval JSONB,
+    studio_handoff JSONB,
     result_markdown TEXT,
     error_code TEXT,
     error_message TEXT,
@@ -74,4 +77,34 @@ CREATE INDEX IF NOT EXISTS agent_approvals_run_idx
 
 CREATE INDEX IF NOT EXISTS agent_checkpoints_tenant_owner_idx
     ON agents.agent_checkpoints (tenant_id, owner_user_id, thread_id, checkpoint_seq DESC);
+
+-- Additive migration for existing installations (EVO-004)
+ALTER TABLE agents.agent_runs
+    ADD COLUMN IF NOT EXISTS code_executions JSONB NOT NULL DEFAULT '[]'::jsonb,
+    ADD COLUMN IF NOT EXISTS pending_approval JSONB,
+    ADD COLUMN IF NOT EXISTS studio_handoff JSONB;
+
+-- Persisted proactive document intelligence findings with strict HITL lifecycle (EVO-015)
+CREATE TABLE IF NOT EXISTS agents.agent_findings (
+    finding_id TEXT PRIMARY KEY,
+    run_id TEXT REFERENCES agents.agent_runs(run_id) ON DELETE SET NULL,
+    tenant_id TEXT NOT NULL REFERENCES public.tenants(tenant_id) ON DELETE CASCADE,
+    owner_user_id TEXT NOT NULL,
+    document_id TEXT NOT NULL,
+    category TEXT NOT NULL CHECK (category IN ('expiration', 'obligation', 'risk', 'discrepancy')),
+    severity TEXT NOT NULL DEFAULT 'medium' CHECK (severity IN ('low', 'medium', 'high', 'critical')),
+    title TEXT NOT NULL,
+    summary TEXT NOT NULL DEFAULT '',
+    due_date TEXT,
+    provenance_quote TEXT NOT NULL,
+    provenance_chunk_index INTEGER NOT NULL DEFAULT 0,
+    status TEXT NOT NULL DEFAULT 'DETECTED' CHECK (status IN ('DETECTED', 'CONFIRMED', 'DISMISSED', 'ACTIONED')),
+    reviewed_by_user_id TEXT,
+    reviewed_at TIMESTAMPTZ,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS agent_findings_tenant_status_idx
+    ON agents.agent_findings (tenant_id, owner_user_id, status, created_at DESC);
 

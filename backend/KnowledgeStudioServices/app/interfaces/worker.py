@@ -97,6 +97,23 @@ class StudioWorker:
                 generate_json=self._generate_json,
             )
             actual_tokens = estimated_tokens if result.status == "SUCCEEDED" else 0
+            if (
+                result.status == "SUCCEEDED"
+                and result.artifact is not None
+                and callable(getattr(self._repository, "save_artifact", None))
+            ):
+                self._repository.save_artifact(  # type: ignore[attr-defined]
+                    tenant_id=tenant_id,
+                    owner_user_id=user_id,
+                    collection_id=collection_id,
+                    template_id=template_id,
+                    title=result.artifact.title,
+                    content=result.artifact.model_dump(),
+                    document_ids=[doc_id for doc_id, _ in sources],
+                    groundedness_score=result.groundedness.score if result.groundedness else 1.0,
+                    job_id=job_id,
+                    cache_fingerprint=result.cache_fingerprint,
+                )
             self._repository.mark_job_finished(
                 job_id,
                 status=result.status,

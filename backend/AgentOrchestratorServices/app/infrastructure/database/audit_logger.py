@@ -63,18 +63,18 @@ class AuditLogger:
                     text(
                         """
                         INSERT INTO public.audit_logs (
-                            id, tenant_id, actor_user_id, action, target_type, target_id, metadata, created_at
+                            audit_id, tenant_id, actor_user_id, action, resource_type, resource_id, metadata, created_at
                         ) VALUES (
-                            :id, :tenant_id, :actor_user_id, :action, 'agent_run', :target_id, CAST(:metadata AS jsonb), NOW()
+                            :audit_id, :tenant_id, :actor_user_id, :action, 'agent_run', :resource_id, CAST(:metadata AS jsonb), NOW()
                         )
                         """
                     ),
                     {
-                        "id": event["audit_id"],
+                        "audit_id": event["audit_id"],
                         "tenant_id": tenant_id,
                         "actor_user_id": actor_user_id,
                         "action": event_type,
-                        "target_id": run_id,
+                        "resource_id": run_id,
                         "metadata": json.dumps(safe_meta),
                     },
                 )
@@ -90,11 +90,11 @@ class AuditLogger:
                 rows = self._session.execute(
                     text(
                         """
-                        SELECT id, action, actor_user_id, metadata, created_at
+                        SELECT audit_id, action, actor_user_id, metadata, created_at
                         FROM public.audit_logs
                         WHERE tenant_id = :tenant_id
-                          AND target_type = 'agent_run'
-                          AND target_id = :run_id
+                          AND resource_type = 'agent_run'
+                          AND resource_id = :run_id
                         ORDER BY created_at ASC
                         LIMIT 100
                         """
@@ -103,7 +103,7 @@ class AuditLogger:
                 ).mappings().all()
                 return [
                     {
-                        "audit_id": str(r["id"]),
+                        "audit_id": str(r["audit_id"]),
                         "event_type": str(r["action"]),
                         "actor_user_id": str(r["actor_user_id"]),
                         "metadata": r["metadata"] if isinstance(r["metadata"], dict) else {},

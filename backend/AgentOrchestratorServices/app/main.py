@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 import json
 import os
 from typing import Any
@@ -22,7 +24,7 @@ from app.infrastructure.search.search_client import (
     DocumentSearchHttpClient,
     register_document_search_tools,
 )
-from app.interfaces.api.v1.runs_routes import router as runs_router
+from app.interfaces.api.v1.runs_routes import dispose_db_engine, router as runs_router
 from fastapi import Depends, FastAPI, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -54,7 +56,15 @@ def build_default_registry() -> ToolRegistry:
     return registry
 
 
-app = FastAPI(title="Blandskron Agent Orchestrator API", version="1.0.0")
+@asynccontextmanager
+async def _lifespan(_app: FastAPI) -> AsyncIterator[None]:
+    try:
+        yield
+    finally:
+        dispose_db_engine()
+
+
+app = FastAPI(title="Blandskron Agent Orchestrator API", version="1.0.0", lifespan=_lifespan)
 _cors_raw = os.environ.get("CORS_ORIGINS", '["http://localhost:3000","http://127.0.0.1:3000"]')
 try:
     _cors_origins = json.loads(_cors_raw) if isinstance(_cors_raw, str) else ["http://localhost:3000"]

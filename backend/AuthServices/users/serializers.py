@@ -199,7 +199,17 @@ class CurrentClaimsRefreshSerializer(TokenRefreshSerializer):
             raise InvalidToken("La sesión ya no es válida. Inicia sesión de nuevo.")
 
         access = MyTokenObtainPairSerializer.add_current_claims(AccessToken.for_user(user), user)
-        return {"access": str(access)}
+        data = {"access": str(access)}
+        if api_settings.ROTATE_REFRESH_TOKENS:
+            if api_settings.BLACKLIST_AFTER_ROTATION:
+                try:
+                    refresh.blacklist()
+                except AttributeError:
+                    pass
+            rotated = MyTokenObtainPairSerializer.get_token(user)
+            data["access"] = str(rotated.access_token)
+            data["refresh"] = str(rotated)
+        return data
 
 
 def validate_account_password(password, attrs, instance=None, *, field_name="password"):

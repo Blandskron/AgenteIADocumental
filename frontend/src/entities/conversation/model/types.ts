@@ -10,6 +10,11 @@ export interface Source {
   page?: number | null;
   pageNumber?: number;
   page_number?: number;
+  section?: string | null;
+  chunkIndex?: number | null;
+  chunk_index?: number | null;
+  rrfScore?: number | null;
+  rrf_score?: number | null;
   snippet?: string;
 }
 export interface Message {

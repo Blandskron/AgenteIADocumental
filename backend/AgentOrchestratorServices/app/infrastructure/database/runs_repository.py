@@ -238,6 +238,9 @@ class PostgresRunsRepository:
             "current_step",
             "steps",
             "sources",
+            "code_executions",
+            "pending_approval",
+            "studio_handoff",
             "result_markdown",
             "error_code",
             "error_message",
@@ -246,14 +249,18 @@ class PostgresRunsRepository:
             "usage_tokens",
             "cancel_requested",
         }
+        jsonb_fields = {"steps", "sources", "code_executions", "pending_approval", "studio_handoff"}
         assignments = ["updated_at = NOW()"]
         params: dict[str, Any] = {"run_id": run_id}
         for key, value in fields.items():
             if key not in allowed:
                 continue
-            if key in {"steps", "sources"}:
-                assignments.append(f"{key} = CAST(:{key} AS jsonb)")
-                params[key] = json.dumps(value)
+            if key in jsonb_fields:
+                if value is None:
+                    assignments.append(f"{key} = NULL")
+                else:
+                    assignments.append(f"{key} = CAST(:{key} AS jsonb)")
+                    params[key] = json.dumps(value)
             else:
                 assignments.append(f"{key} = :{key}")
                 params[key] = value
@@ -302,6 +309,7 @@ class PostgresRunsRepository:
                 SET cancel_requested = TRUE,
                     status = CASE WHEN status IN ('PENDING', 'RUNNING', 'WAITING_APPROVAL') THEN 'CANCELLED' ELSE status END,
                     current_step = CASE WHEN status IN ('PENDING', 'RUNNING', 'WAITING_APPROVAL') THEN 'cancelled' ELSE current_step END,
+                    pending_approval = CASE WHEN status IN ('PENDING', 'RUNNING', 'WAITING_APPROVAL') THEN NULL ELSE pending_approval END,
                     updated_at = NOW()
                 WHERE run_id = :run_id AND tenant_id = :tenant_id AND owner_user_id = :owner_user_id
                 """

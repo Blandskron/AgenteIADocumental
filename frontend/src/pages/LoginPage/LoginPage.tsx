@@ -76,7 +76,7 @@ export function LoginPage() {
     <main className="login-shell" id="main-content">
       <div className="login-window">
         <div className="login-identity">
-          <Brand className="login-brand" />
+          <Brand className="login-brand" showDescriptor />
           <div className="login-art" aria-hidden="true">
             <div className="login-art-layer login-art-layer--rear">
               <Layers3 size={30} />
@@ -89,14 +89,18 @@ export function LoginPage() {
             </div>
           </div>
           <div className="login-product">
-            <p>Espacio documental</p>
-            <p>Organiza tus archivos y consulta su contenido con fuentes.</p>
+            <p className="login-product-slogan">
+              Turn Documents into Intelligence.
+            </p>
+            <p className="login-product-sub">
+              Organiza conocimiento, consulta con RAG híbrido y verifica cada
+              respuesta con citas trazables.
+            </p>
+            <p className="login-signature">Open Source · By BLANDSKRON</p>
           </div>
         </div>
 
-        <div
-          style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}
-        >
+        <div className="login-form-column">
           {mode === "login" && (
             <LoginForm
               error={loginError}
@@ -216,15 +220,7 @@ export function LoginPage() {
             </form>
           )}
 
-          <div
-            style={{
-              display: "flex",
-              gap: "0.75rem",
-              justifyContent: "center",
-              flexWrap: "wrap",
-              fontSize: "0.85rem",
-            }}
-          >
+          <div className="login-mode-actions">
             {mode !== "login" && (
               <Button
                 type="button"
@@ -258,13 +254,7 @@ export function LoginPage() {
           </div>
 
           {setupStatus?.google_login_enabled && (
-            <p
-              style={{
-                textAlign: "center",
-                fontSize: "0.8rem",
-                opacity: 0.85,
-              }}
-            >
+            <p className="login-oidc-note">
               Inicio de sesión con Google OIDC habilitado (cliente configurado).
             </p>
           )}

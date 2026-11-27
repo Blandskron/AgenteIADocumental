@@ -26,6 +26,9 @@ export interface DocumentPreview {
   url: string;
   contentType: string;
   filename: string;
+  page?: number | null;
+  section?: string | null;
+  highlightText?: string | null;
 }
 export interface SearchFilters {
   query?: string;

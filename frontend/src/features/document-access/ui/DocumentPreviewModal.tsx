@@ -13,9 +13,12 @@ export function DocumentPreviewModal({
 }) {
   if (!preview) return null;
 
-  const canEmbed =
-    preview.contentType.includes("pdf") ||
-    preview.contentType.startsWith("image/");
+  const isPdf = preview.contentType.includes("pdf");
+  const canEmbed = isPdf || preview.contentType.startsWith("image/");
+  const embedSrc =
+    isPdf && preview.page && preview.page > 0
+      ? `${preview.url.split("#")[0]}#page=${preview.page}`
+      : preview.url;
 
   return (
     <div className="document-preview-backdrop" role="presentation">
@@ -26,7 +29,11 @@ export function DocumentPreviewModal({
       >
         <header className="document-preview-header">
           <div>
-            <p>Vista previa</p>
+            <p>
+              Vista previa
+              {preview.page ? ` · Página ${preview.page}` : ""}
+              {preview.section ? ` · ${preview.section}` : ""}
+            </p>
             <h3>{preview.filename}</h3>
           </div>
           <div className="document-preview-actions">
@@ -47,11 +54,20 @@ export function DocumentPreviewModal({
           </div>
         </header>
 
+        {preview.highlightText ? (
+          <aside
+            className="document-preview-citation"
+            aria-label="Fragmento citado"
+          >
+            <strong>Fragmento citado:</strong> {preview.highlightText}
+          </aside>
+        ) : null}
+
         {canEmbed ? (
           <iframe
             sandbox=""
             className="document-preview-frame"
-            src={preview.url}
+            src={embedSrc}
             title={preview.filename}
           />
         ) : (

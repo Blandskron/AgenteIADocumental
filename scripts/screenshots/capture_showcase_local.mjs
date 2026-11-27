@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Captures high-resolution (1280x800 @2x) real-UI screenshots of Blandskron Documental
+ * Captures high-resolution (1280x800 @2x) real-UI screenshots of KronDocs — Document Intelligence
  * in both Light Mode and Dark Mode against the built React frontend (`vite preview`)
  * using synthetic data (zero secrets/PII).
  * Outputs 24 optimized WebP assets (12 flows x 2 themes) into `docs/assets/screenshots/`.

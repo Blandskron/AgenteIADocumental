@@ -1,8 +1,8 @@
-# Contribuir a Blandskron Documental
+# Contribuir a KronDocs — Document Intelligence (antes Blandskron Documental)
 
 Puedes contribuir reportando errores, proponiendo mejoras o enviando cambios de código y documentación.
 
-1. Revisa las [issues](https://github.com/Blandskron/AgenteIADocumental/issues) y los [pull requests](https://github.com/Blandskron/AgenteIADocumental/pulls) abiertos. Describe el problema, los pasos para reproducirlo cuando corresponda y el alcance del cambio. Para informar una vulnerabilidad, sigue la [política de seguridad](SECURITY.md).
+1. Revisa las [issues](https://github.com/Blandskron/KronDocs/issues) y los [pull requests](https://github.com/Blandskron/KronDocs/pulls) abiertos. Describe el problema, los pasos para reproducirlo cuando corresponda y el alcance del cambio. Para informar una vulnerabilidad, sigue la [política de seguridad](SECURITY.md).
 2. Lee el [README](README.md), las [reglas del repositorio](AGENTS.md) y la documentación del componente. Trabaja en una rama independiente, usa documentos sintéticos y conserva la compatibilidad con instalaciones existentes. Mantén los secretos y los datos personales fuera de las contribuciones.
 3. Abre un pull request dirigido a `main`. Describe el comportamiento anterior, el cambio y cómo lo verificaste. Enlaza la issue si existe e incluye las limitaciones de las pruebas.
 
